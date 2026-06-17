@@ -6,6 +6,7 @@ package io.lievit.component;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,7 @@ import io.lievit.LievitFormObject;
 import io.lievit.wire.PayloadGuard;
 import io.lievit.wire.WireError;
 import io.lievit.wire.WireException;
+import io.lievit.wire.synth.SynthesizerRegistry;
 
 /**
  * Drives the stateless component lifecycle for one wire call (ADR-0001, wire-protocol.md phases
@@ -52,19 +54,35 @@ import io.lievit.wire.WireException;
  */
 public final class WireDispatcher {
 
+    /**
+     * Reserved key in the snapshot {@code wire} carrying the lifecycle memo (ADR-0022): the bag a
+     * listener writes on {@link LifecyclePhase#DEHYDRATE} and reads on {@link LifecyclePhase#HYDRATE}
+     * to pin cross-cutting state (locale, persistent-middleware metadata) across the stateless round
+     * trip. It is not a {@code @Wire} field, so the rehydrate/readWire field loops ignore it.
+     */
+    public static final String MEMO_KEY = "@memo";
+
     private final PayloadGuard payloadGuard;
     private final FieldValidator fieldValidator;
+    private final SynthesizerRegistry synthesizers;
+    private final LifecycleBus lifecycle;
 
-    /** Uses the protocol-default {@link PayloadGuard} and the no-op {@link FieldValidator}. */
+    /**
+     * Uses the protocol-default {@link PayloadGuard}, the no-op {@link FieldValidator}, the default
+     * {@link SynthesizerRegistry} (typed-state round-trip, ADR-0020), and an empty
+     * {@link LifecycleBus} (ADR-0022).
+     */
     public WireDispatcher() {
-        this(new PayloadGuard(), NoOpFieldValidator.INSTANCE);
+        this(new PayloadGuard(), NoOpFieldValidator.INSTANCE, new SynthesizerRegistry(),
+                new LifecycleBus());
     }
 
     /**
      * @param payloadGuard the structural-cap and deserialization-allowlist guard (ADR-0013)
      */
     public WireDispatcher(PayloadGuard payloadGuard) {
-        this(payloadGuard, NoOpFieldValidator.INSTANCE);
+        this(payloadGuard, NoOpFieldValidator.INSTANCE, new SynthesizerRegistry(),
+                new LifecycleBus());
     }
 
     /**
@@ -73,8 +91,39 @@ public final class WireDispatcher {
      *     implementation); use {@link NoOpFieldValidator#INSTANCE} to skip validation
      */
     public WireDispatcher(PayloadGuard payloadGuard, FieldValidator fieldValidator) {
+        this(payloadGuard, fieldValidator, new SynthesizerRegistry(), new LifecycleBus());
+    }
+
+    /**
+     * @param payloadGuard the structural-cap and deserialization-allowlist guard (ADR-0013)
+     * @param fieldValidator the field validator (use {@link NoOpFieldValidator#INSTANCE} to skip)
+     * @param synthesizers the typed-state synthesizer registry: dehydrates a non-primitive
+     *     {@code @Wire} value to a tuple and hydrates it back to the exact type (ADR-0020)
+     */
+    public WireDispatcher(
+            PayloadGuard payloadGuard,
+            FieldValidator fieldValidator,
+            SynthesizerRegistry synthesizers) {
+        this(payloadGuard, fieldValidator, synthesizers, new LifecycleBus());
+    }
+
+    /**
+     * @param payloadGuard the structural-cap and deserialization-allowlist guard (ADR-0013)
+     * @param fieldValidator the field validator (use {@link NoOpFieldValidator#INSTANCE} to skip)
+     * @param synthesizers the typed-state synthesizer registry (ADR-0020)
+     * @param lifecycle the lifecycle interceptor bus: features register listeners on the ordered
+     *     phases (hydrate, update, updated, call, render, dehydrate, destroy) instead of editing the
+     *     dispatcher (ADR-0022)
+     */
+    public WireDispatcher(
+            PayloadGuard payloadGuard,
+            FieldValidator fieldValidator,
+            SynthesizerRegistry synthesizers,
+            LifecycleBus lifecycle) {
         this.payloadGuard = payloadGuard;
         this.fieldValidator = fieldValidator;
+        this.synthesizers = synthesizers;
+        this.lifecycle = lifecycle;
     }
 
     /**
@@ -149,20 +198,33 @@ public final class WireDispatcher {
         LievitEffects.bind(effects);
         LievitChildren children = new LievitChildren();
         LievitChildren.bind(children);
+        LifecycleContext ctx = new LifecycleContext(metadata, instance, true);
         try {
             payloadGuard.checkSnapshotWire(props);
             seedProps(metadata, instance, props);
+
+            // Phase: MOUNT (props seeded, mount hook about to run).
+            List<Runnable> mountFinishes = lifecycle.trigger(LifecyclePhase.MOUNT, ctx);
             invokeHook(metadata.mount(), instance);
+            runFinishes(mountFinishes);
             // URL query parameters overwrite the URL-bound fields' mount-defaults, before render.
             UrlQueryBinder.seedFromQuery(metadata, instance, queryParams);
-            invokeHook(metadata.render(), instance);
+
+            // Phase: RENDER (skippable, the renderless seam; ADR-0022).
+            List<Runnable> renderFinishes = lifecycle.trigger(LifecyclePhase.RENDER, ctx);
+            if (!ctx.skipRender()) {
+                invokeHook(metadata.render(), instance);
+            }
+            runFinishes(renderFinishes);
             resolveAllComputed(metadata, instance, computedCache);
-            return new WireCall(
-                    readWire(metadata, instance),
-                    effects,
-                    computedCache.snapshot(),
-                    children.declared());
+
+            // Phase: DEHYDRATE (a listener seals the snapshot memo here).
+            Map<String, Object> wire = readWire(metadata, instance);
+            runFinishes(lifecycle.trigger(LifecyclePhase.DEHYDRATE, ctx));
+            mergeMemo(wire, ctx);
+            return new WireCall(wire, effects, computedCache.snapshot(), children.declared());
         } finally {
+            runFinishes(lifecycle.trigger(LifecyclePhase.DESTROY, ctx));
             ComputedCache.clear();
             LievitEffects.clear();
             LievitChildren.clear();
@@ -199,13 +261,23 @@ public final class WireDispatcher {
         LievitChildren children = new LievitChildren();
         LievitEffects.bind(effects);
         LievitChildren.bind(children);
+        LifecycleContext ctx = new LifecycleContext(metadata, instance, false);
         try {
             // Shape-bound the payload (counts, nesting) and prove every value is plain JSON data
             // before anything is bound to a field: the gadget / DoS defense (ADR-0013).
             payloadGuard.checkInbound(updates, calls);
             payloadGuard.checkSnapshotWire(snapshotWire);
+
+            // Phase: HYDRATE (state rehydrated from the verified snapshot; a listener reads the
+            // snapshot memo here, the locales pattern, ADR-0022).
+            seedMemo(snapshotWire, ctx);
             rehydrate(metadata, instance, snapshotWire);
-            applyUpdates(metadata, instance, updates);
+            runFinishes(lifecycle.trigger(LifecyclePhase.HYDRATE, ctx));
+
+            // Phase: UPDATE per field, then UPDATED after ALL updates are applied, so one finisher
+            // can override another field's update (ADR-0022 strict ordering).
+            applyUpdates(metadata, instance, updates, ctx);
+            runFinishes(lifecycle.trigger(LifecyclePhase.UPDATED, ctx));
 
             // Validate after updates are applied; if errors exist write them to the effects sink
             // and skip the actions for this call. The re-render still runs so the template can
@@ -214,23 +286,40 @@ public final class WireDispatcher {
             if (errors != null && !errors.isEmpty()) {
                 effects.setValidationErrors(errors);
             } else {
+                // Phase: CALL per action. A listener may requestEarlyReturn() to short-circuit the
+                // method dispatch (the magic-action seam); the @LievitAction allowlist still applies.
                 for (String call : calls) {
-                    effects.captureReturn(invokeAction(metadata, instance, call));
+                    ctx.resetEarlyReturn();
+                    ctx.callName(call);
+                    List<Runnable> finishes = lifecycle.trigger(LifecyclePhase.CALL, ctx);
+                    if (!ctx.earlyReturn()) {
+                        effects.captureReturn(invokeAction(metadata, instance, call));
+                    }
+                    runFinishes(finishes);
                 }
             }
-            // Re-render with the children sink bound, so a parent re-declares its children (with
-            // their current props) on every re-render; the web layer re-mounts them (ADR-0016).
-            invokeHook(metadata.render(), instance);
+
+            // Phase: RENDER (skippable). A listener may requestSkipRender() (the renderless seam);
+            // the render hook then does not run. Children are still re-declared on a render.
+            List<Runnable> renderFinishes = lifecycle.trigger(LifecyclePhase.RENDER, ctx);
+            if (!ctx.skipRender()) {
+                // Re-render with the children sink bound, so a parent re-declares its children
+                // (with their current props) on every re-render; the web layer re-mounts them.
+                invokeHook(metadata.render(), instance);
+            }
+            runFinishes(renderFinishes);
             resolveAllComputed(metadata, instance, computedCache);
             // After the new state settles, reflect any @LievitUrl fields into the url effect so the
             // client pushes/replaces the query string via the History API (ADR-0012, URL binding).
             effects.url(UrlQueryBinder.buildEffect(metadata, instance));
-            return new WireCall(
-                    readWire(metadata, instance),
-                    effects,
-                    computedCache.snapshot(),
-                    children.declared());
+
+            // Phase: DEHYDRATE (state read back; a listener seals the snapshot memo here).
+            Map<String, Object> wire = readWire(metadata, instance);
+            runFinishes(lifecycle.trigger(LifecyclePhase.DEHYDRATE, ctx));
+            mergeMemo(wire, ctx);
+            return new WireCall(wire, effects, computedCache.snapshot(), children.declared());
         } finally {
+            runFinishes(lifecycle.trigger(LifecyclePhase.DESTROY, ctx));
             ComputedCache.clear();
             LievitChildren.clear();
             LievitEffects.clear();
@@ -269,7 +358,9 @@ public final class WireDispatcher {
                 // into a fresh form object and write it onto the component.
                 rehydrateFormObject(formMeta, field, instance, entry.getValue());
             } else {
-                field.write(instance, entry.getValue());
+                // Reconstruct the exact type from a @w tuple (ADR-0020); a plain value passes
+                // through the registry unchanged for WireField.write's own numeric coercion.
+                field.write(instance, synthesizers.hydrate(entry.getValue()));
             }
         }
     }
@@ -322,9 +413,17 @@ public final class WireDispatcher {
      * naming anything else is <em>dropped</em>, never applied.
      */
     private void applyUpdates(
-            ComponentMetadata metadata, Object instance, Map<String, Object> updates) {
+            ComponentMetadata metadata,
+            Object instance,
+            Map<String, Object> updates,
+            LifecycleContext ctx) {
+        // Per-update UPDATE-phase finishers are collected and run after ALL updates are applied,
+        // so a finisher observes the fully-updated state (ADR-0022 updated-after-all ordering).
+        List<Runnable> updateFinishes = new ArrayList<>();
         for (Map.Entry<String, Object> entry : updates.entrySet()) {
             String key = entry.getKey();
+            ctx.update(key, entry.getValue());
+            updateFinishes.addAll(lifecycle.trigger(LifecyclePhase.UPDATE, ctx));
             int dot = key.indexOf('.');
             if (dot >= 0) {
                 // Dotted path: delegate to the form-object update logic.
@@ -333,6 +432,7 @@ public final class WireDispatcher {
                 applyTopLevelUpdate(metadata, instance, key, entry.getValue());
             }
         }
+        runFinishes(updateFinishes);
     }
 
     private void applyTopLevelUpdate(
@@ -347,7 +447,10 @@ public final class WireDispatcher {
                     WireError.LOCKED_PROPERTY,
                     "client update rejected for locked @Wire field");
         }
-        field.write(instance, value);
+        // Typed-update path (ADR-0020): a raw scalar written from a wire:model (an <input type=date>
+        // string, a <select> enum name) is coerced to the field's declared type before binding, so
+        // a LocalDate field rehydrates to LocalDate and an enum field to the enum, not a String.
+        field.write(instance, synthesizers.hydrateForUpdate(field.type(), value));
     }
 
     private void applyFormObjectUpdate(
@@ -466,7 +569,11 @@ public final class WireDispatcher {
                 // Dehydrate the form object to a nested map for the snapshot.
                 wire.put(field.name(), dehydrateFormObject(formMeta, field, instance));
             } else {
-                wire.put(field.name(), field.read(instance));
+                // Route the value through the synthesizer registry: a primitive / scalar / plain
+                // JSON container passes through unchanged (the Counter snapshot is byte-identical),
+                // a typed value (record / enum / date / VO) becomes a @w tuple that hydrates back to
+                // the exact type on the next call (ADR-0020, the kit-CRUD blocker).
+                wire.put(field.name(), synthesizers.dehydrate(field.read(instance)));
             }
         }
         return wire;
@@ -487,5 +594,35 @@ public final class WireDispatcher {
             }
         }
         return nested;
+    }
+
+    /** Runs each phase {@code finish} callback in order (ADR-0022). */
+    private static void runFinishes(List<Runnable> finishes) {
+        for (Runnable finish : finishes) {
+            finish.run();
+        }
+    }
+
+    /**
+     * Seeds the lifecycle context's memo from the snapshot's reserved {@code @memo} entry before the
+     * HYDRATE listeners run, so a listener (the locales pattern) reads what it stored last call.
+     */
+    @SuppressWarnings("unchecked")
+    private static void seedMemo(Map<String, Object> snapshotWire, LifecycleContext ctx) {
+        Object memo = snapshotWire.get(MEMO_KEY);
+        if (memo instanceof Map<?, ?> map) {
+            ctx.memo().putAll((Map<String, Object>) map);
+        }
+    }
+
+    /**
+     * Writes the lifecycle context's memo into the new wire under {@code @memo} so it survives into
+     * the next snapshot. Omitted when no listener wrote anything (the common case), keeping the
+     * Counter snapshot unchanged.
+     */
+    private static void mergeMemo(Map<String, Object> wire, LifecycleContext ctx) {
+        if (!ctx.memo().isEmpty()) {
+            wire.put(MEMO_KEY, new LinkedHashMap<>(ctx.memo()));
+        }
     }
 }
