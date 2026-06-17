@@ -8,8 +8,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-import jakarta.validation.Validator;
-
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -17,6 +15,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
 import com.iambilotta.lievit.LievitComponent;
@@ -109,19 +108,32 @@ public class LievitAutoConfiguration {
     }
 
     /**
-     * The Jakarta Bean Validation-backed field validator. Registered only when
-     * {@code jakarta.validation.Validator} is available (i.e. {@code spring-boot-starter-validation}
-     * / Hibernate Validator is on the classpath). An application may declare its own
-     * {@link FieldValidator} bean to override this.
+     * The Jakarta Bean Validation-backed {@link FieldValidator}, in a nested configuration so the
+     * outer class carries no {@code jakarta.validation.Validator} reference in any method signature.
      *
-     * @param validator the Jakarta Validator provided by Spring's {@code LocalValidatorFactoryBean}
-     * @return the Bean Validation-backed field validator
+     * <p>This matters: Spring introspects the whole enclosing configuration class (every declared
+     * method) while evaluating conditions on any one bean. If the outer class held a
+     * {@code lievitFieldValidator(Validator)} method, an application that does not put
+     * {@code jakarta.validation} on the classpath (a plain lievit app, e.g. {@code lievit-kit}) would
+     * fail to introspect the class at all (CNFE on the absent parameter type), and the entire lievit
+     * autoconfiguration would not load. Isolating the validator method behind
+     * {@code @ConditionalOnClass(Validator.class)} on a nested class means the nested class is only
+     * introspected when {@code jakarta.validation} is present; absent it, the dispatcher falls back
+     * to {@link NoOpFieldValidator} and validation is a no-op.
      */
-    @Bean
-    @ConditionalOnMissingBean(FieldValidator.class)
-    @ConditionalOnClass(Validator.class)
-    public FieldValidator lievitFieldValidator(Validator validator) {
-        return new BeanValidationFieldValidator(validator);
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(jakarta.validation.Validator.class)
+    public static class ValidationConfiguration {
+
+        /**
+         * @param validator the Jakarta Validator provided by Spring's {@code LocalValidatorFactoryBean}
+         * @return the Bean Validation-backed field validator (overridable by the application)
+         */
+        @Bean
+        @ConditionalOnMissingBean(FieldValidator.class)
+        public FieldValidator lievitFieldValidator(jakarta.validation.Validator validator) {
+            return new BeanValidationFieldValidator(validator);
+        }
     }
 
     /**

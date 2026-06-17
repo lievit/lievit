@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard - Lievit Demo</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        nav { display: flex; justify-content: space-between; align-items: center; }
+        [data-lievit-component] { border: 1px solid #ddd; padding: 16px; border-radius: 4px; }
+        input { padding: 8px; width: 260px; }
+        button { padding: 8px 16px; margin-left: 8px; cursor: pointer; }
+        ul { padding-left: 20px; }
+    </style>
+</head>
+<body>
+<nav>
+    <span>Welcome, <strong th:text="${username}"></strong></span>
+    <form method="post" th:action="@{/logout}" style="display:inline">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <button type="submit">Sign out</button>
+    </form>
+</nav>
+
+<h1>Dashboard</h1>
+
+<!--
+    The NoteListComponent is mounted server-side by DashboardController.
+    The Thymeleaf model carries the rendered HTML and the signed initial snapshot.
+    th:utext renders the raw HTML (the lievit component fragment).
+-->
+<div id="note-list-mount" th:utext="${noteListHtml}"></div>
+
+<!--
+    Minimal lievit wire driver: handles l:click and l:model for the note-list island.
+    In a production app this is the lievit-ui JavaScript package.
+-->
+<script th:inline="javascript">
+    (function () {
+        var snapshot = /*[[${noteListSnapshot}]]*/ '';
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[l\\:click]');
+            if (!btn) return;
+            var action = btn.getAttribute('l:click');
+            var root = btn.closest('[data-lievit-component]');
+            if (!root) return;
+            e.preventDefault();
+
+            // Collect l:model inputs within the component root.
+            var updates = {};
+            root.querySelectorAll('[l\\:model]').forEach(function (input) {
+                updates[input.getAttribute('l:model')] = input.value;
+            });
+
+            fetch('/lievit/golden-path/call', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _snapshot: snapshot, _updates: updates, _calls: [action] })
+            }).then(function (res) {
+                snapshot = res.headers.get('Lievit-Snapshot') || snapshot;
+                return res.text();
+            }).then(function (html) {
+                var mount = document.getElementById('note-list-mount');
+                if (mount) mount.innerHTML = html;
+            });
+        });
+    })();
+</script>
+</body>
+</html>
