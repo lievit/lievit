@@ -10,7 +10,7 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["cli/**/*.ts", "registry/**/*.ts"],
+      include: ["cli/**/*.ts", "registry/**/*.ts", "runtime/**/*.ts"],
       // the CLI disk-effect entrypoints are integration-tested via the golden add test,
       // not unit covered line-by-line; the planner and resolver they delegate to are.
       exclude: ["**/*.d.ts"],

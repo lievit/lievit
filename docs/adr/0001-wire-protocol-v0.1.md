@@ -25,6 +25,10 @@ client.
   component state).
 - **Payload**: `{ _token, _snapshot (jwt-hs256), _updates, _calls }`.
 - **Response**: `text/html` (the patched markup) plus header `Lievit-Snapshot` (the next snapshot).
+  (Amended by ADR-0012, 2026-06-17: a successful response additionally carries an optional
+  `Lievit-Effects` header — a compact JSON effects bag for redirect / dispatch / return values.
+  The body stays HTML and the snapshot header is untouched; the header is absent on a no-effects
+  call, so this is backward compatible.)
 - **Snapshot schema**: `{cid, cls, wire, iat, exp}`. It carries **state, never code**. `cls` is
   a fully-qualified class name resolved to a `@LievitComponent` at unwrap time; `wire` is the
   bound field state; `iat` / `exp` are issued-at / expiry.
@@ -124,3 +128,8 @@ endpoint path vs Livewire's single batched route, the HTML+header response vs an
 and a `children`-style client-may-mutate carve-out in the signed payload. These are real divergences
 worth a conscious decision, but they do not block the walking skeleton; they are tracked for a later
 ADR.
+
+The HTML+header-vs-`effects`-channel divergence is now decided by **ADR-0012**: lievit adds an
+optional `Lievit-Effects` response header (a compact JSON effects bag — redirect, dispatch, return
+values), keeping the HTML body and the `Lievit-Snapshot` header from this ADR. The per-component
+endpoint path and the `children` carve-out remain open.

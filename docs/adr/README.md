@@ -24,6 +24,7 @@ question and is pending a final call.
 - [ADR-0009](0009-lievit-ui-copy-in-registry.md): lievit-ui is a copy-in component registry, not a Maven artifact. **accepted**
 - [ADR-0010](0010-dev-test-harness.md): `Lievit.test()` — the developer-facing component test harness. **proposed**
 - [ADR-0011](0011-lievit-ui-v0.1-registry-decisions.md): lievit-ui v0.1 registry decisions (manifest, config, tokens, light-DOM). **accepted**
+- [ADR-0012](0012-effects-channel.md): The effects channel (HTML body + `Lievit-Effects` header). Amends ADR-0001's response shape. **accepted**
 
 ## How to add an ADR
 

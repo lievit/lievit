@@ -155,6 +155,7 @@ public class LievitAutoConfiguration {
      * @param templateAdapter the active adapter
      * @param failureLimiter the failure budget
      * @param componentIds the id generator
+     * @param json the mapper for the {@code Lievit-Effects} header bag (ADR-0012)
      * @return the wire-call orchestrator
      */
     @Bean
@@ -165,9 +166,10 @@ public class LievitAutoConfiguration {
             WireDispatcher dispatcher,
             TemplateAdapter templateAdapter,
             ChecksumFailureLimiter failureLimiter,
-            ComponentId componentIds) {
+            ComponentId componentIds,
+            tools.jackson.databind.ObjectMapper json) {
         return new LievitWireService(
-                codec, registry, dispatcher, templateAdapter, failureLimiter, componentIds);
+                codec, registry, dispatcher, templateAdapter, failureLimiter, componentIds, json);
     }
 
     /**

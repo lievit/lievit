@@ -8,7 +8,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 import com.iambilotta.lievit.component.ComponentMetadata;
+import com.iambilotta.lievit.component.WireCall;
 import com.iambilotta.lievit.component.WireDispatcher;
 import com.iambilotta.lievit.render.TemplateAdapter;
 import com.iambilotta.lievit.wire.ChecksumFailureLimiter;
@@ -17,6 +20,9 @@ import com.iambilotta.lievit.wire.Snapshot;
 import com.iambilotta.lievit.wire.SnapshotCodec;
 import com.iambilotta.lievit.wire.WireError;
 import com.iambilotta.lievit.wire.WireException;
+
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * The wire-call orchestrator: ties the codec, the registry, the dispatcher, the template adapter,
@@ -35,6 +41,7 @@ public final class LievitWireService {
     private final TemplateAdapter templateAdapter;
     private final ChecksumFailureLimiter failureLimiter;
     private final ComponentId componentIds;
+    private final ObjectMapper json;
 
     /**
      * @param codec the snapshot codec (sign / verify)
@@ -43,6 +50,7 @@ public final class LievitWireService {
      * @param templateAdapter the active template adapter (JTE primary)
      * @param failureLimiter the per-client checksum-failure budget
      * @param componentIds the component id generator (for the initial mount)
+     * @param json the mapper used to encode the {@code Lievit-Effects} header bag (ADR-0012)
      */
     public LievitWireService(
             SnapshotCodec codec,
@@ -50,13 +58,15 @@ public final class LievitWireService {
             WireDispatcher dispatcher,
             TemplateAdapter templateAdapter,
             ChecksumFailureLimiter failureLimiter,
-            ComponentId componentIds) {
+            ComponentId componentIds,
+            ObjectMapper json) {
         this.codec = codec;
         this.registry = registry;
         this.dispatcher = dispatcher;
         this.templateAdapter = templateAdapter;
         this.failureLimiter = failureLimiter;
         this.componentIds = componentIds;
+        this.json = json;
     }
 
     /**
@@ -76,7 +86,8 @@ public final class LievitWireService {
         Instant now = Instant.now();
         Snapshot snapshot =
                 Snapshot.fresh(componentIds.next(), className, wire, now, codec.ttl());
-        return new WireCallResult(html, codec.sign(snapshot));
+        // Mount runs no action, so it can produce no effects (ADR-0012): no Lievit-Effects header.
+        return WireCallResult.of(html, codec.sign(snapshot));
     }
 
     /**
@@ -110,12 +121,29 @@ public final class LievitWireService {
         ComponentMetadata metadata = registry.metadata(snapshot.cls());
         Object instance = registry.freshInstance(snapshot.cls());
 
-        Map<String, Object> wire =
-                dispatcher.call(metadata, instance, snapshot.wire(), updates, calls);
+        WireCall call = dispatcher.call(metadata, instance, snapshot.wire(), updates, calls);
+        Map<String, Object> wire = call.wire();
         String html = templateAdapter.render(metadata, instance, wire);
 
         Instant now = Instant.now();
         Snapshot next = Snapshot.fresh(snapshot.cid(), snapshot.cls(), wire, now, codec.ttl());
-        return new WireCallResult(html, codec.sign(next));
+        return new WireCallResult(html, codec.sign(next), encodeEffects(call));
+    }
+
+    /**
+     * Encodes the call's effects into the compact JSON {@code Lievit-Effects} header value, or
+     * returns {@code null} when there are none (the header is then omitted; ADR-0012). The bag is
+     * server-authored and never signed: nothing the client could tamper rides in it.
+     */
+    private @Nullable String encodeEffects(WireCall call) {
+        WireEffects effects = WireEffects.from(call.effects());
+        if (effects == null) {
+            return null;
+        }
+        try {
+            return json.writeValueAsString(effects);
+        } catch (JacksonException e) {
+            throw new IllegalStateException("could not encode the Lievit-Effects header", e);
+        }
     }
 }

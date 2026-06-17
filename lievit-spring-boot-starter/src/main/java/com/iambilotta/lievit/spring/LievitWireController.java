@@ -32,6 +32,7 @@ import com.iambilotta.lievit.wire.WireException;
 public final class LievitWireController {
 
     static final String SNAPSHOT_HEADER = "Lievit-Snapshot";
+    static final String EFFECTS_HEADER = "Lievit-Effects";
     static final String REASON_HEADER = "Lievit-Reason";
 
     private final LievitWireService service;
@@ -50,7 +51,8 @@ public final class LievitWireController {
      *     {@code cid} is authoritative)
      * @param body the {@code { _snapshot, _updates, _calls }} payload
      * @param request the servlet request (for the client IP rate-limit key)
-     * @return 200 {@code text/html} (the patched markup) + the {@code Lievit-Snapshot} header
+     * @return 200 {@code text/html} (the patched markup) + the {@code Lievit-Snapshot} header, and
+     *     the optional {@code Lievit-Effects} header when the action produced effects (ADR-0012)
      */
     @PostMapping(path = "/lievit/{componentId}/call", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> call(
@@ -66,6 +68,11 @@ public final class LievitWireController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.add(SNAPSHOT_HEADER, result.snapshot());
+        if (result.effects() != null) {
+            // The effects channel (ADR-0012): a compact JSON bag, present only when the action
+            // produced an effect. Absent header == no effects == ADR-0001's original response.
+            headers.add(EFFECTS_HEADER, result.effects());
+        }
         return ResponseEntity.ok().headers(headers).body(result.html());
     }
 
