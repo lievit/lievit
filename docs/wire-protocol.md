@@ -346,5 +346,9 @@ force the dependency on every consumer); the contract is the host application's 
   encode/decode/tamper/replay behavior of the snapshot.
 - ADR-0013 — payload hardening (settable/callable allowlist, deserialization allowlist, structural caps).
 - ADR-0014 — fail-closed, leak-free error rendering + the wire endpoint's security context.
+- ADR-0015 — nested components (keyed children, reactive props, modelable). Composition is
+  render-time and does not change this protocol: a child is an independent component with its own
+  snapshot, so the schema, signing, and lifecycle above are unchanged. Closes ADR-0001's open
+  `children` carve-out (a child is NOT a fragment of the parent's signed payload).
 - SECURITY.md — the HMAC chain as the security boundary, key handling, reporting.
 - README.md — the at-a-glance summary of this protocol.

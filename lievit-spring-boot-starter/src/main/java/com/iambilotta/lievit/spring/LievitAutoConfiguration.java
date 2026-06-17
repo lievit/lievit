@@ -185,9 +185,17 @@ public class LievitAutoConfiguration {
             TemplateAdapter templateAdapter,
             ChecksumFailureLimiter failureLimiter,
             ComponentId componentIds,
-            tools.jackson.databind.ObjectMapper json) {
+            tools.jackson.databind.ObjectMapper json,
+            LievitProperties properties) {
         return new LievitWireService(
-                codec, registry, dispatcher, templateAdapter, failureLimiter, componentIds, json);
+                codec,
+                registry,
+                dispatcher,
+                templateAdapter,
+                failureLimiter,
+                componentIds,
+                json,
+                properties.getMaxNestingDepth());
     }
 
     /**

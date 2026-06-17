@@ -27,6 +27,7 @@ question and is pending a final call.
 - [ADR-0012](0012-effects-channel.md): The effects channel (HTML body + `Lievit-Effects` header). Amends ADR-0001's response shape. **accepted**
 - [ADR-0013](0013-payload-hardening.md): Payload hardening — settable/callable allowlist, deserialization allowlist, structural caps. **accepted**
 - [ADR-0014](0014-fail-closed-error-rendering.md): Fail-closed, leak-free error rendering + the wire endpoint's security context. **accepted**
+- [ADR-0015](0015-nested-components.md): Nested components (keyed children, reactive props, modelable two-way bind). Closes ADR-0001's open `children` carve-out. **accepted**
 
 ## How to add an ADR
 

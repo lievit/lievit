@@ -43,6 +43,7 @@ public final class LievitWireService {
     private final ChecksumFailureLimiter failureLimiter;
     private final ComponentId componentIds;
     private final ObjectMapper json;
+    private final ChildRenderer childRenderer;
 
     /**
      * @param codec the snapshot codec (sign / verify)
@@ -52,6 +53,8 @@ public final class LievitWireService {
      * @param failureLimiter the per-client checksum-failure budget
      * @param componentIds the component id generator (for the initial mount)
      * @param json the mapper used to encode the {@code Lievit-Effects} header bag (ADR-0012)
+     * @param maxChildDepth the nested-component depth cap (ADR-0016, reuses the ADR-0013 nesting
+     *     cap): a render cycle deeper than this is a {@code PAYLOAD_TOO_COMPLEX}
      */
     public LievitWireService(
             SnapshotCodec codec,
@@ -60,7 +63,8 @@ public final class LievitWireService {
             TemplateAdapter templateAdapter,
             ChecksumFailureLimiter failureLimiter,
             ComponentId componentIds,
-            ObjectMapper json) {
+            ObjectMapper json,
+            int maxChildDepth) {
         this.codec = codec;
         this.registry = registry;
         this.dispatcher = dispatcher;
@@ -68,6 +72,9 @@ public final class LievitWireService {
         this.failureLimiter = failureLimiter;
         this.componentIds = componentIds;
         this.json = json;
+        this.childRenderer =
+                new ChildRenderer(
+                        registry, dispatcher, templateAdapter, codec, componentIds, maxChildDepth);
     }
 
     /**
@@ -81,11 +88,13 @@ public final class LievitWireService {
         ComponentMetadata metadata = registry.metadata(className);
         Object instance = registry.freshInstance(className);
 
-        WireCall wireCall = dispatcher.mount(metadata, instance);
-        Map<String, Object> wire = wireCall.wire();
+        WireCall mounted = dispatcher.mount(metadata, instance);
+        Map<String, Object> wire = mounted.wire();
         // Pass the wire state + any computed values to the template adapter as a merged model.
         // Computed values are NOT serialized into the snapshot (ADR-0015).
-        String html = templateAdapter.render(metadata, instance, mergeModel(wire, wireCall));
+        String html = templateAdapter.render(metadata, instance, mergeModel(wire, mounted));
+        // Mount and inline any child components the parent declared (ADR-0016); a leaf is unchanged.
+        html = childRenderer.substitute(html, mounted.children());
 
         Instant now = Instant.now();
         Snapshot snapshot =
@@ -130,6 +139,10 @@ public final class LievitWireService {
         // Pass the wire state + any computed values to the template adapter as a merged model.
         // Computed values are NOT serialized into the snapshot (ADR-0015).
         String html = templateAdapter.render(metadata, instance, mergeModel(wire, call));
+        // Re-mount and inline children on every re-render; the client morph keeps each child's DOM
+        // stable by its lievit:key, so a parent re-render does not thrash unchanged children
+        // (ADR-0016). A leaf re-render is unchanged.
+        html = childRenderer.substitute(html, call.children());
 
         Instant now = Instant.now();
         Snapshot next = Snapshot.fresh(snapshot.cid(), snapshot.cls(), wire, now, codec.ttl());

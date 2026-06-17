@@ -16,6 +16,7 @@ import com.iambilotta.lievit.LievitAction;
 import com.iambilotta.lievit.LievitComponent;
 import com.iambilotta.lievit.LievitMount;
 import com.iambilotta.lievit.LievitProperty;
+import com.iambilotta.lievit.LievitRender;
 import com.iambilotta.lievit.Wire;
 import com.iambilotta.lievit.wire.WireError;
 import com.iambilotta.lievit.wire.WireException;
@@ -76,9 +77,10 @@ class WireDispatcherTest {
     void mount_runs_the_mount_hook_and_reads_initial_state() {
         ComponentMetadata meta = ComponentMetadata.of(Counter.class);
 
-        WireCall result = dispatcher.mount(meta, new Counter());
+        WireCall mounted = dispatcher.mount(meta, new Counter());
 
-        assertThat(result.wire()).containsEntry("count", 0);
+        assertThat(mounted.wire()).containsEntry("count", 0);
+        assertThat(mounted.children()).isEmpty();
     }
 
     /**
@@ -285,6 +287,187 @@ class WireDispatcherTest {
                 .isInstanceOf(WireException.class)
                 .extracting(e -> ((WireException) e).error())
                 .isEqualTo(WireError.PAYLOAD_TOO_COMPLEX);
+    }
+
+    // --- nested components (ADR-0015) ------------------------------------------------------------
+
+    @LievitComponent(template = "row")
+    static class Row {
+        @Wire String label = "";
+
+        @LievitMount
+        void seed() {
+            // A prop seeded before mount is visible here; if none, label stays "".
+            if (this.label.isEmpty()) {
+                this.label = "default";
+            }
+        }
+    }
+
+    @LievitComponent(template = "row-input")
+    static class RowInput {
+        @Wire @LievitProperty(modelable = true) String value = "";
+
+        @LievitAction
+        void clear() {
+            this.value = "";
+        }
+    }
+
+    @LievitComponent(template = "parent")
+    static class Parent {
+        @Wire int rows;
+
+        @LievitMount
+        void seed() {
+            this.rows = 2;
+        }
+
+        @LievitRender
+        void render() {
+            LievitChildren children = LievitChildren.current();
+            for (int i = 0; i < rows; i++) {
+                children.child("row-" + i, Row.class, Map.of("label", "row " + i));
+            }
+        }
+    }
+
+    /**
+     * @spec.given a Parent that declares one Row child per row in its render
+     * @spec.when  the dispatcher mounts the parent
+     * @spec.then  the mounted result carries the declared children, each with its stable @key and the
+     *     props the parent passed down (the parent's snapshot carries only the parent's own state)
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void mount_collects_the_children_a_parent_declared() {
+        ComponentMetadata meta = ComponentMetadata.of(Parent.class);
+
+        WireCall mounted = dispatcher.mount(meta, new Parent());
+
+        assertThat(mounted.wire()).containsEntry("rows", 2).doesNotContainKey("label");
+        assertThat(mounted.children()).hasSize(2);
+        assertThat(mounted.children().get(0).key()).isEqualTo("row-0");
+        assertThat(mounted.children().get(0).className()).isEqualTo(Row.class.getName());
+        assertThat(mounted.children().get(0).props()).containsEntry("label", "row 0");
+        assertThat(mounted.children().get(1).key()).isEqualTo("row-1");
+    }
+
+    /**
+     * @spec.given a Row child mounted with a parent-supplied {@code label} prop
+     * @spec.when  the dispatcher mounts it with those props
+     * @spec.then  the prop is seeded onto the @Wire field before @LievitMount runs (the mount hook
+     *     sees it, so its default-only branch does not overwrite the prop)
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void mount_seeds_parent_props_before_the_mount_hook() {
+        ComponentMetadata meta = ComponentMetadata.of(Row.class);
+
+        WireCall mounted = dispatcher.mount(meta, new Row(), Map.of("label", "passed-down"));
+
+        assertThat(mounted.wire()).containsEntry("label", "passed-down");
+    }
+
+    /**
+     * @spec.given a Row mounted with no props
+     * @spec.when  the dispatcher mounts it
+     * @spec.then  the mount hook's default applies (no prop overrode it)
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void mount_with_no_props_lets_the_mount_hook_default_apply() {
+        ComponentMetadata meta = ComponentMetadata.of(Row.class);
+
+        WireCall mounted = dispatcher.mount(meta, new Row(), Map.of());
+
+        assertThat(mounted.wire()).containsEntry("label", "default");
+    }
+
+    /**
+     * @spec.given a prop targeting a name that is not a @Wire field on the child
+     * @spec.when  the child is mounted with that prop
+     * @spec.then  the prop is dropped (the settable allowlist applies to props too): the child's
+     *     state is unaffected, no stray field is written
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void mount_drops_a_prop_that_is_not_a_wire_field() {
+        ComponentMetadata meta = ComponentMetadata.of(Row.class);
+
+        WireCall mounted = dispatcher.mount(meta, new Row(), Map.of("notAField", "x"));
+
+        assertThat(mounted.wire()).doesNotContainKey("notAField");
+        assertThat(mounted.wire()).containsEntry("label", "default");
+    }
+
+    /**
+     * @spec.given a RowInput child whose value field is @LievitProperty(modelable)
+     * @spec.when  its metadata is reflected
+     * @spec.then  the modelable field is discovered (the parent two-way-bind target, ADR-0015)
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void metadata_discovers_the_modelable_field() {
+        ComponentMetadata meta = ComponentMetadata.of(RowInput.class);
+
+        assertThat(meta.modelableField()).isEqualTo("value");
+        assertThat(meta.wireFields().get("value").modelable()).isTrue();
+    }
+
+    @LievitComponent
+    static class BothLockedAndModelable {
+        @Wire @LievitProperty(modelable = true, locked = true) String v = "";
+    }
+
+    /**
+     * @spec.given a field declared both modelable and locked
+     * @spec.when  the metadata is reflected
+     * @spec.then  it is rejected: a server-owned (locked) field cannot be a parent two-way bind
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void metadata_rejects_a_field_that_is_both_modelable_and_locked() {
+        assertThatThrownBy(() -> ComponentMetadata.of(BothLockedAndModelable.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("server-owned field cannot be a parent two-way bind");
+    }
+
+    @LievitComponent
+    static class TwoModelable {
+        @Wire @LievitProperty(modelable = true) String a = "";
+        @Wire @LievitProperty(modelable = true) String b = "";
+    }
+
+    /**
+     * @spec.given a component declaring two modelable fields
+     * @spec.when  the metadata is reflected
+     * @spec.then  it is rejected: a component has at most one parent-bound value
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void metadata_rejects_more_than_one_modelable_field() {
+        assertThatThrownBy(() -> ComponentMetadata.of(TwoModelable.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("more than one @LievitProperty(modelable)");
+    }
+
+    /**
+     * @spec.given a Parent re-rendered on a wire call (rehydrated rows = 3)
+     * @spec.when  the dispatcher runs the call
+     * @spec.then  the re-render re-declares its children with their current props, so the children
+     *     list reflects the new state (key-stable across re-renders is the client morph's job)
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void call_redeclares_children_on_re_render() {
+        ComponentMetadata meta = ComponentMetadata.of(Parent.class);
+
+        WireCall result =
+                dispatcher.call(meta, new Parent(), Map.of("rows", 3), Map.of(), List.of());
+
+        assertThat(result.children()).hasSize(3);
+        assertThat(result.children().get(2).key()).isEqualTo("row-2");
     }
 
     /**

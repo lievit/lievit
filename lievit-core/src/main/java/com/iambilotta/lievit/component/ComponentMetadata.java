@@ -23,7 +23,7 @@ import com.iambilotta.lievit.Wire;
  * The reflected shape of a {@link LievitComponent} class: its {@code @Wire} fields (each with its
  * {@code @LievitProperty} flags), its {@code @LievitAction} methods, its optional
  * {@code @LievitMount} / {@code @LievitRender} lifecycle hooks, and its {@code @LievitComputed}
- * methods (ADR-0001, ADR-0002, ADR-0015).
+ * methods (ADR-0001, ADR-0002, ADR-0015, ADR-0016).
  *
  * <p>Pure Java reflection, zero Spring (ADR-0007). Built once per component class and reused; the
  * wire layer reads field state and invokes actions through it. Only fields and methods declared on
@@ -39,6 +39,7 @@ public final class ComponentMetadata {
     private final Map<String, Method> computed;
     private final @Nullable Method mount;
     private final @Nullable Method render;
+    private final @Nullable String modelableField;
 
     private ComponentMetadata(
             Class<?> type,
@@ -47,7 +48,8 @@ public final class ComponentMetadata {
             Map<String, Method> actions,
             Map<String, Method> computed,
             @Nullable Method mount,
-            @Nullable Method render) {
+            @Nullable Method render,
+            @Nullable String modelableField) {
         this.type = type;
         this.template = template;
         this.wireFields = wireFields;
@@ -55,6 +57,7 @@ public final class ComponentMetadata {
         this.computed = computed;
         this.mount = mount;
         this.render = render;
+        this.modelableField = modelableField;
     }
 
     /**
@@ -72,6 +75,7 @@ public final class ComponentMetadata {
         }
 
         Map<String, WireField> fields = new LinkedHashMap<>();
+        String modelable = null;
         for (Field field : type.getDeclaredFields()) {
             if (!field.isAnnotationPresent(Wire.class)) {
                 continue;
@@ -80,7 +84,31 @@ public final class ComponentMetadata {
             LievitProperty property = field.getAnnotation(LievitProperty.class);
             boolean serialize = property == null || property.serialize();
             boolean locked = property != null && property.locked();
-            fields.put(field.getName(), new WireField(field.getName(), field, serialize, locked));
+            boolean isModelable = property != null && property.modelable();
+            if (isModelable && locked) {
+                throw new IllegalArgumentException(
+                        type.getName()
+                                + "."
+                                + field.getName()
+                                + " is both @LievitProperty(modelable) and (locked): a"
+                                + " server-owned field cannot be a parent two-way bind (ADR-0016)");
+            }
+            if (isModelable) {
+                if (modelable != null) {
+                    throw new IllegalArgumentException(
+                            type.getName()
+                                    + " declares more than one @LievitProperty(modelable) field ("
+                                    + modelable
+                                    + ", "
+                                    + field.getName()
+                                    + "): a component has at most one parent-bound value"
+                                    + " (ADR-0016)");
+                }
+                modelable = field.getName();
+            }
+            fields.put(
+                    field.getName(),
+                    new WireField(field.getName(), field, serialize, locked, isModelable));
         }
 
         Map<String, Method> methods = new LinkedHashMap<>();
@@ -118,7 +146,7 @@ public final class ComponentMetadata {
 
         return new ComponentMetadata(
                 type, component.template(), Map.copyOf(fields), Map.copyOf(methods),
-                Map.copyOf(computedMethods), mountHook, renderHook);
+                Map.copyOf(computedMethods), mountHook, renderHook, modelable);
     }
 
     /**
@@ -178,5 +206,17 @@ public final class ComponentMetadata {
      */
     public @Nullable Method render() {
         return render;
+    }
+
+    /**
+     * The name of this component's modelable {@code @Wire} field, if it has one: the field that
+     * two-way-binds to a parent property when this component is mounted as a child (ADR-0016,
+     * Livewire {@code #[Modelable]} parity). A component declares at most one (enforced at reflect
+     * time).
+     *
+     * @return the modelable field name, or {@code null} if the component has no modelable field
+     */
+    public @Nullable String modelableField() {
+        return modelableField;
     }
 }
