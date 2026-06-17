@@ -36,7 +36,10 @@ public record WireEffects(
         @Nullable String redirect,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Event> dispatch,
         @Nullable Object returns,
-        @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable Map<String, List<String>> errors) {
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable Map<String, List<String>> errors,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> islands,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Js> js,
+        @Nullable String release) {
 
     /**
      * One queued browser event, the serialized {@link DispatchedEvent}.
@@ -46,6 +49,15 @@ public record WireEffects(
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Event(String name, @Nullable Map<String, Object> detail) {}
+
+    /**
+     * One serialized CSP-safe {@code $js} call (ADR-0024 #131): the registered handler name + args.
+     *
+     * @param name the handler name the client looks up in {@code runtime.js}
+     * @param args the call arguments (JSON-shaped)
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Js(String name, @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Object> args) {}
 
     /**
      * Projects the core effects sink into its wire form.
@@ -62,7 +74,15 @@ public record WireEffects(
                 effects.dispatched().stream()
                         .map(d -> new Event(d.name(), d.detail()))
                         .toList();
+        List<Js> jsCalls =
+                effects.jsCalls().stream().map(c -> new Js(c.name(), c.args())).toList();
         return new WireEffects(
-                effects.redirect(), events, effects.returnValue(), effects.validationErrors());
+                effects.redirect(),
+                events,
+                effects.returnValue(),
+                effects.validationErrors(),
+                effects.islands(),
+                jsCalls,
+                effects.release());
     }
 }

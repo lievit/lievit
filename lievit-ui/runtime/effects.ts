@@ -19,11 +19,25 @@ export interface DispatchedEvent {
   readonly detail?: Record<string, unknown>;
 }
 
+/** One `js` effect call: a named CSP-safe `$js` handler to invoke (ADR-0024, #131). */
+export interface JsEffectCall {
+  readonly name: string;
+  readonly args?: readonly unknown[];
+}
+
 /** The decoded effects bag (the `Lievit-Effects` header JSON). Every key is optional. */
 export interface Effects {
   readonly redirect?: string;
   readonly dispatch?: readonly DispatchedEvent[];
   readonly returns?: unknown;
+  /** Per-field validation errors (ADR-0012 real-time validation); the `$errors` backing data. */
+  readonly errors?: Record<string, readonly string[]>;
+  /** The island names a targeted call re-rendered (ADR-0024, #89): morph only these fragments. */
+  readonly islands?: readonly string[];
+  /** The server's active build release token (ADR-0024, #105): compare to the client's. */
+  readonly release?: string;
+  /** Named CSP-safe `$js` handlers to invoke (ADR-0024, #131). */
+  readonly js?: readonly JsEffectCall[];
 }
 
 /**
