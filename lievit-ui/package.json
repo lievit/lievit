@@ -1,5 +1,5 @@
 {
-  "name": "@iambilotta/lievit-ui",
+  "name": "@lievit/lievit-ui",
   "version": "0.1.0",
   "description": "lievit-ui: a copy-in component registry of owned-source Lit primitives and design tokens (shadcn model). Not a runtime dependency; the source the `lievit add` CLI copies from.",
   "license": "Apache-2.0",

@@ -1,4 +1,4 @@
-@import com.iambilotta.lievit.component.ComponentMetadata
+@import io.lievit.component.ComponentMetadata
 @import java.util.List
 @import java.util.Map
 @param String email

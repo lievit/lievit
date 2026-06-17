@@ -1,4 +1,4 @@
-@import com.iambilotta.lievit.component.ComponentMetadata
+@import io.lievit.component.ComponentMetadata
 @param String username
 @param String password
 @param String passwordConfirm

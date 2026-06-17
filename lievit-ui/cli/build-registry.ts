@@ -51,7 +51,7 @@ export function buildRegistry(registryRoot: string): Registry {
   return {
     $schema: "https://lievit.dev/registry-schema.json",
     name: "lievit-ui",
-    homepage: "https://github.com/iambilotta/lievit",
+    homepage: "https://github.com/lievit/lievit",
     items,
   };
 }

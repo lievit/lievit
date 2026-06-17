@@ -11,7 +11,7 @@ type: software
 version: "0.1.0"
 date-released: 2026-06-17
 license: Apache-2.0
-repository-code: "https://github.com/iambilotta/lievit"
+repository-code: "https://github.com/lievit/lievit"
 url: "https://iambilotta.com"
 keywords:
   - html-over-the-wire

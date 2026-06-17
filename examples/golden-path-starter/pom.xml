@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.iambilotta</groupId>
+        <groupId>io.lievit</groupId>
         <artifactId>lievit-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
@@ -32,7 +32,7 @@
     <dependencies>
         <!-- lievit: codec + registry + dispatcher + JTE adapter + wire endpoint (ADR-0008). -->
         <dependency>
-            <groupId>com.iambilotta</groupId>
+            <groupId>io.lievit</groupId>
             <artifactId>lievit-spring-boot-starter</artifactId>
         </dependency>
 
