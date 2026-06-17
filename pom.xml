@@ -47,6 +47,7 @@
     -->
     <modules>
         <module>lievit-core</module>
+        <module>lievit-dsl</module>
         <module>lievit-jte</module>
         <module>lievit-thymeleaf</module>
         <module>lievit-mustache</module>
@@ -96,6 +97,11 @@
             <dependency>
                 <groupId>com.iambilotta</groupId>
                 <artifactId>lievit-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-dsl</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

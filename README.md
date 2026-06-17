@@ -178,6 +178,15 @@ Single-file is not a trade on type-safety: it is "DSL instead of JTE", both are 
 Reactive single-file type-safe components are the hard differentiator: impossible in Volt / PHP
 (not compiled). See [`docs/adr/0003`](docs/adr/0003-single-file-multi-file-dual-mode.md).
 
+The DSL lives in the `lievit-dsl` module (`import static com.iambilotta.lievit.dsl.H.*;`): a sealed
+`Html` tree built by static factories (`div`, `span`, `button`, `text`, `el`), escape-by-construction
+(a `@Wire` value carrying markup renders inert; the one escape hatch is the explicit `raw(...)`), and
+wire-binding helpers (`.wireClick("increment")`, `.wireModel("name")`) that emit the `l:*` markers the
+client binds. A `DslTemplateAdapter` renders the `@LievitRender Html` tree through the same wire
+pipeline (mount, wire call, effects, morph) as a template component, behind the one `TemplateAdapter`
+SPI, so the dispatcher and codec are untouched. See
+[`docs/adr/0018`](docs/adr/0018-single-file-dsl.md).
+
 ## Single-file + multi-file
 
 Both modes ship from v0.1, both are type-safe:

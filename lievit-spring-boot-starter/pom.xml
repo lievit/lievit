@@ -24,6 +24,13 @@
             <groupId>com.iambilotta</groupId>
             <artifactId>lievit-jte</artifactId>
         </dependency>
+        <!-- Single-file DSL authoring shipped with the starter (ADR-0003, ADR-0018): a component
+             with no template renders its @LievitRender Html tree through the DSL adapter, routed
+             by DslOrEngineTemplateAdapter so DSL and template components coexist. -->
+        <dependency>
+            <groupId>com.iambilotta</groupId>
+            <artifactId>lievit-dsl</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.jspecify</groupId>
