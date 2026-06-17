@@ -1,0 +1,10 @@
+{
+  "name": "field",
+  "type": "registry:ui",
+  "description": "A label + control + error wrapper composition component; wires accessible label and error associations.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [{ "path": "components/field/field.ts", "type": "registry:ui", "target": "components/ui/field.ts" }],
+  "tokens": ["color", "space", "type"],
+  "docs": "Register <lv-field> by importing components/ui/field.ts from your entry point. Set the `for` prop to the input's id for label association."
+}

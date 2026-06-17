@@ -23,11 +23,28 @@ const TIER_1 = [
   "alert",
 ];
 
+const TIER_2 = [
+  "checkbox",
+  "select",
+  "switch",
+  "field",
+  "toast",
+  "tooltip",
+  "progress",
+];
+
 describe("built registry.json", () => {
   test("ships every tier-1 primitive the research flagged", () => {
     const names = new Set(built.items.map((i) => i.name));
     for (const t of TIER_1) {
       expect(names, `missing tier-1 component: ${t}`).toContain(t);
+    }
+  });
+
+  test("ships every tier-2 component", () => {
+    const names = new Set(built.items.map((i) => i.name));
+    for (const t of TIER_2) {
+      expect(names, `missing tier-2 component: ${t}`).toContain(t);
     }
   });
 

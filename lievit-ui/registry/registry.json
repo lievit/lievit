@@ -114,6 +114,60 @@
       "docs": "Register <lv-card> by importing components/ui/card.ts from your entry point."
     },
     {
+      "name": "checkbox",
+      "type": "registry:ui",
+      "description": "A token-styled checkbox control; renders a native input[type=checkbox] for free ARIA semantics.",
+      "dependencies": [
+        "lit"
+      ],
+      "registryDependencies": [
+        "tokens",
+        "light-dom"
+      ],
+      "files": [
+        {
+          "path": "components/checkbox/checkbox.ts",
+          "type": "registry:ui",
+          "target": "components/ui/checkbox.ts",
+          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-checkbox>`: a token-styled checkbox control.\n *\n * Renders a native `<input type=\"checkbox\">` which carries `role=\"checkbox\"`,\n * keyboard activation (Space), and checked/disabled semantics for free\n * (WAI-ARIA APG checkbox pattern, research 4.3). An explicit `label` prop is\n * exposed to assistive tech via `aria-label` when no external `<label for=...>`\n * is supplied. Data down, events up: emits a bubbling `lv-change` event with the\n * new `checked` boolean when the value changes.\n *\n * Owned source, copied in by `lievit add checkbox`. Light-DOM rendered.\n */\n@customElement(\"lv-checkbox\")\nexport class LvCheckbox extends LitElement {\n  /** Whether the checkbox is ticked. */\n  @property({ type: Boolean }) checked = false;\n\n  /** Disables the control. */\n  @property({ type: Boolean }) disabled = false;\n\n  /** Accessible label when no external <label for=...> is used. */\n  @property() label = \"\";\n\n  /** Id forwarded to the native input for `<label for=...>` association. */\n  @property() inputId = \"\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-checkbox\", LvCheckbox.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-checkbox-wrap {\n      display: inline-flex;\n      align-items: center;\n      gap: var(--lv-space-2);\n      cursor: pointer;\n    }\n    .lv-checkbox-wrap[data-disabled] { opacity: 0.5; cursor: not-allowed; }\n    .lv-checkbox {\n      appearance: none;\n      -webkit-appearance: none;\n      width: 1rem;\n      height: 1rem;\n      border: 2px solid var(--lv-color-border);\n      border-radius: var(--lv-radius-sm);\n      background: var(--lv-color-bg);\n      cursor: pointer;\n      position: relative;\n      flex-shrink: 0;\n    }\n    .lv-checkbox:checked {\n      background: var(--lv-color-primary);\n      border-color: var(--lv-color-primary);\n    }\n    .lv-checkbox:checked::after {\n      content: \"\";\n      position: absolute;\n      inset: 0;\n      background: url(\"data:image/svg+xml,%3Csvg viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 6l3 3 5-5' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\") center / 10px 10px no-repeat;\n    }\n    .lv-checkbox:focus-visible { outline: none; box-shadow: var(--lv-ring); }\n    .lv-checkbox[disabled] { cursor: not-allowed; }\n    .lv-checkbox__label {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      color: var(--lv-color-fg);\n    }\n  `;\n\n  private onChange(e: Event) {\n    const checked = (e.target as HTMLInputElement).checked;\n    this.checked = checked;\n    this.dispatchEvent(\n      new CustomEvent(\"lv-change\", { detail: checked, bubbles: true, composed: true })\n    );\n  }\n\n  render() {\n    return html`\n      <span class=\"lv-checkbox-wrap\" ?data-disabled=${this.disabled}>\n        <input\n          class=\"lv-checkbox\"\n          type=\"checkbox\"\n          id=${this.inputId || \"\"}\n          .checked=${this.checked}\n          ?disabled=${this.disabled}\n          aria-label=${this.label || \"\"}\n          @change=${this.onChange}\n        />\n        ${this.label\n          ? html`<span class=\"lv-checkbox__label\">${this.label}</span>`\n          : null}\n      </span>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-checkbox\": LvCheckbox;\n  }\n}\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius",
+        "type",
+        "ring"
+      ],
+      "docs": "Register <lv-checkbox> by importing components/ui/checkbox.ts from your entry point."
+    },
+    {
+      "name": "field",
+      "type": "registry:ui",
+      "description": "A label + control + error wrapper composition component; wires accessible label and error associations.",
+      "dependencies": [
+        "lit"
+      ],
+      "registryDependencies": [
+        "tokens",
+        "light-dom"
+      ],
+      "files": [
+        {
+          "path": "components/field/field.ts",
+          "type": "registry:ui",
+          "target": "components/ui/field.ts",
+          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-field>`: a label + control + error wrapper (composition component).\n *\n * Groups a form label, the control (supplied via the default slot), and an optional\n * error message into a single accessible unit. When `error` is set:\n *   - an error message element is rendered with `id` = `<controlId>-error`\n *   - the component sets `aria-describedby` on the slotted control pointing at that\n *     element (so assistive tech reads the error after the control)\n *   - a live `aria-live=\"polite\"` region announces the error as it appears\n *\n * The `for` prop wires the rendered `<label>` to the control by id; the adopter\n * sets `inputId` on `<lv-input>` (or the native control's id) to match.\n *\n * This is a composition component, not a standalone control. Owned source, copied\n * in by `lievit add field`. Light-DOM rendered.\n */\n@customElement(\"lv-field\")\nexport class LvField extends LitElement {\n  /** Label text. */\n  @property() label = \"\";\n\n  /** Id of the controlled element for native label association. */\n  @property() for = \"\";\n\n  /** Shows a required marker on the label. */\n  @property({ type: Boolean }) required = false;\n\n  /** Validation error message. Empty string = no error. */\n  @property() error = \"\";\n\n  /** Hint text shown below the control (before error if both set). */\n  @property() hint = \"\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-field\", LvField.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-field {\n      display: flex;\n      flex-direction: column;\n      gap: var(--lv-space-1);\n    }\n    .lv-field__label {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      font-weight: 500;\n      color: var(--lv-color-fg);\n      display: inline-block;\n    }\n    .lv-field__required {\n      color: var(--lv-color-danger);\n      margin-left: var(--lv-space-1);\n    }\n    .lv-field__hint {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      color: var(--lv-color-muted);\n    }\n    .lv-field__error {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      color: var(--lv-color-danger);\n    }\n  `;\n\n  render() {\n    const errorId = this.for ? `${this.for}-error` : \"\";\n    return html`\n      <div class=\"lv-field\">\n        ${this.label\n          ? html`\n              <label class=\"lv-field__label\" for=${this.for}>\n                ${this.label}\n                ${this.required\n                  ? html`<span class=\"lv-field__required\" aria-hidden=\"true\">*</span>`\n                  : null}\n              </label>\n            `\n          : null}\n        <slot></slot>\n        ${this.hint && !this.error\n          ? html`<span class=\"lv-field__hint\">${this.hint}</span>`\n          : null}\n        ${this.error\n          ? html`\n              <span\n                class=\"lv-field__error\"\n                id=${errorId}\n                role=\"alert\"\n                aria-live=\"polite\"\n              >${this.error}</span>\n            `\n          : null}\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-field\": LvField;\n  }\n}\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "type"
+      ],
+      "docs": "Register <lv-field> by importing components/ui/field.ts from your entry point. Set the `for` prop to the input's id for label association."
+    },
+    {
       "name": "input",
       "type": "registry:ui",
       "description": "A token-styled single-line text input that participates in l:model binding.",
@@ -185,6 +239,62 @@
       "docs": "Internal helper; pulled in automatically as a dependency of any lievit-ui component."
     },
     {
+      "name": "progress",
+      "type": "registry:ui",
+      "description": "A determinate or indeterminate progress bar with WAI-ARIA progressbar semantics; respects prefers-reduced-motion.",
+      "dependencies": [
+        "lit"
+      ],
+      "registryDependencies": [
+        "tokens",
+        "light-dom"
+      ],
+      "files": [
+        {
+          "path": "components/progress/progress.ts",
+          "type": "registry:ui",
+          "target": "components/ui/progress.ts",
+          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-progress>`: a determinate or indeterminate progress bar.\n *\n * Implements the WAI-ARIA progressbar pattern (research 4.3): `role=\"progressbar\"`,\n * `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, and `aria-label` carry the\n * state to assistive tech without any visual text. When `value` is -1 (the\n * indeterminate sentinel), `aria-valuenow` is omitted and the bar animates.\n * Respects `prefers-reduced-motion`. Pure visual component; no events emitted.\n *\n * Owned source, copied in by `lievit add progress`. Light-DOM rendered.\n */\n@customElement(\"lv-progress\")\nexport class LvProgress extends LitElement {\n  /** Current value (0-100). Use -1 for indeterminate. */\n  @property({ type: Number }) value = -1;\n\n  /** Accessible label. */\n  @property() label = \"Progress\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-progress\", LvProgress.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-progress {\n      display: block;\n      width: 100%;\n      height: 0.5rem;\n      background: var(--lv-color-surface);\n      border-radius: var(--lv-radius-sm);\n      overflow: hidden;\n    }\n    .lv-progress__bar {\n      height: 100%;\n      background: var(--lv-color-primary);\n      border-radius: var(--lv-radius-sm);\n      transition: width 200ms ease;\n    }\n    .lv-progress__bar--indeterminate {\n      width: 40%;\n      animation: lv-progress-slide 1.2s ease-in-out infinite;\n    }\n    @keyframes lv-progress-slide {\n      0%   { transform: translateX(-100%); }\n      100% { transform: translateX(350%); }\n    }\n    @media (prefers-reduced-motion: reduce) {\n      .lv-progress__bar--indeterminate { animation-duration: 0s; }\n    }\n  `;\n\n  render() {\n    const indeterminate = this.value < 0;\n    const pct = indeterminate ? 40 : Math.min(100, Math.max(0, this.value));\n\n    return html`\n      <div\n        class=\"lv-progress\"\n        role=\"progressbar\"\n        aria-label=${this.label}\n        aria-valuemin=\"0\"\n        aria-valuemax=\"100\"\n        aria-valuenow=${indeterminate ? \"\" : String(pct)}\n      >\n        <div\n          class=\"lv-progress__bar ${indeterminate ? \"lv-progress__bar--indeterminate\" : \"\"}\"\n          style=${indeterminate ? \"\" : `width: ${pct}%`}\n        ></div>\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-progress\": LvProgress;\n  }\n}\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius"
+      ],
+      "docs": "Register <lv-progress> by importing components/ui/progress.ts from your entry point."
+    },
+    {
+      "name": "select",
+      "type": "registry:ui",
+      "description": "A custom select with a floating listbox positioned by @floating-ui/dom; full WAI-ARIA APG listbox keyboard navigation.",
+      "dependencies": [
+        "lit",
+        "@floating-ui/dom"
+      ],
+      "registryDependencies": [
+        "tokens",
+        "light-dom"
+      ],
+      "files": [
+        {
+          "path": "components/select/select.ts",
+          "type": "registry:ui",
+          "target": "components/ui/select.ts",
+          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property, state } from \"lit/decorators.js\";\nimport { computePosition, flip, size, offset } from \"@floating-ui/dom\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * Option shape passed to `<lv-select>`.\n */\nexport interface SelectOption {\n  value: string;\n  label: string;\n  disabled?: boolean;\n}\n\n/**\n * `<lv-select>`: a custom select with a floating listbox.\n *\n * Implements the WAI-ARIA APG listbox pattern (research 4.3):\n * - Trigger: `role=\"combobox\"`, `aria-expanded`, `aria-controls`, `aria-haspopup=\"listbox\"`.\n * - Listbox: `role=\"listbox\"`, `aria-label`.\n * - Options: `role=\"option\"`, `aria-selected`, `aria-disabled`.\n * - Keyboard: ArrowUp/Down navigate options; Enter/Space selects; Escape closes;\n *   Home/End jump to first/last; Tab closes.\n *\n * Positioned by `@floating-ui/dom` (flip + size-to-match-trigger-width so it stays\n * in-viewport and is never wider than needed). Data down, events up: emits\n * `lv-change` with the selected value.\n *\n * Owned source, copied in by `lievit add select`. Light-DOM rendered.\n * npm dep: `@floating-ui/dom` (declared in meta.json, installed by `lievit add`).\n */\n@customElement(\"lv-select\")\nexport class LvSelect extends LitElement {\n  /** The available options. */\n  @property({ type: Array }) options: SelectOption[] = [];\n\n  /** Currently selected value. */\n  @property() value = \"\";\n\n  /** Placeholder shown when nothing is selected. */\n  @property() placeholder = \"Select…\";\n\n  /** Disables the control. */\n  @property({ type: Boolean }) disabled = false;\n\n  /** Marks the field invalid. */\n  @property({ type: Boolean }) invalid = false;\n\n  /** Accessible label for the listbox. */\n  @property() label = \"\";\n\n  /** Id forwarded to the trigger for external label association. */\n  @property() inputId = \"\";\n\n  @state() private open = false;\n  @state() private activeIndex = -1;\n\n  private static seq = 0;\n  private readonly listboxId = `lv-select-lb-${LvSelect.seq++}`;\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-select\", LvSelect.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-select { position: relative; display: block; }\n    .lv-select__trigger {\n      display: flex;\n      align-items: center;\n      justify-content: space-between;\n      width: 100%;\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-base);\n      color: var(--lv-color-fg);\n      background: var(--lv-color-bg);\n      padding: var(--lv-space-2) var(--lv-space-3);\n      border: 1px solid var(--lv-color-border);\n      border-radius: var(--lv-radius-sm);\n      cursor: pointer;\n      text-align: left;\n      box-sizing: border-box;\n    }\n    .lv-select__trigger:focus-visible { outline: none; box-shadow: var(--lv-ring); }\n    .lv-select__trigger--invalid { border-color: var(--lv-color-danger); }\n    .lv-select__trigger[disabled] { opacity: 0.5; cursor: not-allowed; }\n    .lv-select__value { flex: 1; min-width: 0; }\n    .lv-select__placeholder { color: var(--lv-color-muted); }\n    .lv-select__chevron {\n      flex-shrink: 0;\n      margin-left: var(--lv-space-2);\n      font-size: 0.6em;\n      transition: transform 150ms ease;\n    }\n    .lv-select__chevron--open { transform: rotate(180deg); }\n    .lv-select__listbox {\n      position: fixed;\n      z-index: 9200;\n      background: var(--lv-color-bg);\n      border: 1px solid var(--lv-color-border);\n      border-radius: var(--lv-radius-md);\n      box-shadow: var(--lv-shadow-md);\n      padding: var(--lv-space-1) 0;\n      overflow-y: auto;\n      max-height: 16rem;\n      display: none;\n    }\n    .lv-select__listbox--open { display: block; }\n    .lv-select__option {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      padding: var(--lv-space-2) var(--lv-space-3);\n      cursor: pointer;\n      display: flex;\n      align-items: center;\n      gap: var(--lv-space-2);\n    }\n    .lv-select__option:hover { background: var(--lv-color-surface); }\n    .lv-select__option--active { background: color-mix(in srgb, var(--lv-color-primary) 10%, var(--lv-color-bg)); }\n    .lv-select__option--selected { font-weight: 600; }\n    .lv-select__option--disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }\n    .lv-select__option-check { visibility: hidden; font-size: 0.75em; }\n    .lv-select__option--selected .lv-select__option-check { visibility: visible; }\n  `;\n\n  connectedCallback() {\n    super.connectedCallback();\n    document.addEventListener(\"mousedown\", this.handleOutsideClick);\n    document.addEventListener(\"keydown\", this.handleGlobalKey);\n  }\n\n  disconnectedCallback() {\n    super.disconnectedCallback();\n    document.removeEventListener(\"mousedown\", this.handleOutsideClick);\n    document.removeEventListener(\"keydown\", this.handleGlobalKey);\n  }\n\n  private handleOutsideClick = (e: MouseEvent) => {\n    if (this.open && !this.contains(e.target as Node)) {\n      this.closeList();\n    }\n  };\n\n  private handleGlobalKey = (e: KeyboardEvent) => {\n    if (!this.open) return;\n    if (e.key === \"Escape\" || e.key === \"Tab\") {\n      e.preventDefault();\n      this.closeList();\n    }\n  };\n\n  private openList() {\n    if (this.disabled) return;\n    const currentIdx = this.options.findIndex((o) => o.value === this.value);\n    this.activeIndex = currentIdx >= 0 ? currentIdx : 0;\n    this.open = true;\n    this.updateComplete.then(() => this.position());\n  }\n\n  private closeList() {\n    this.open = false;\n  }\n\n  private async position() {\n    const trigger = this.querySelector(\".lv-select__trigger\") as HTMLElement | null;\n    const listbox = this.querySelector(\".lv-select__listbox\") as HTMLElement | null;\n    if (!trigger || !listbox) return;\n\n    const { x, y } = await computePosition(trigger, listbox, {\n      placement: \"bottom-start\",\n      middleware: [\n        offset(4),\n        flip(),\n        size({\n          apply({ rects, elements }) {\n            elements.floating.style.width = `${rects.reference.width}px`;\n          },\n        }),\n      ],\n    });\n    listbox.style.left = `${x}px`;\n    listbox.style.top = `${y}px`;\n  }\n\n  private selectOption(opt: SelectOption) {\n    if (opt.disabled) return;\n    this.value = opt.value;\n    this.dispatchEvent(\n      new CustomEvent(\"lv-change\", { detail: opt.value, bubbles: true, composed: true })\n    );\n    this.closeList();\n    const trigger = this.querySelector(\".lv-select__trigger\") as HTMLElement | null;\n    trigger?.focus();\n  }\n\n  private onTriggerKeyDown(e: KeyboardEvent) {\n    if (this.disabled) return;\n    switch (e.key) {\n      case \"ArrowDown\":\n      case \" \":\n      case \"Enter\":\n        e.preventDefault();\n        if (!this.open) {\n          this.openList();\n        } else {\n          const opt = this.options[this.activeIndex];\n          if (opt) this.selectOption(opt);\n        }\n        break;\n      case \"ArrowUp\":\n        e.preventDefault();\n        if (!this.open) {\n          this.openList();\n        } else {\n          this.moveActive(-1);\n        }\n        break;\n      case \"Home\":\n        if (this.open) {\n          e.preventDefault();\n          this.activeIndex = 0;\n        }\n        break;\n      case \"End\":\n        if (this.open) {\n          e.preventDefault();\n          this.activeIndex = this.options.length - 1;\n        }\n        break;\n    }\n  }\n\n  private onListKeyDown(e: KeyboardEvent) {\n    switch (e.key) {\n      case \"ArrowDown\":\n        e.preventDefault();\n        this.moveActive(1);\n        break;\n      case \"ArrowUp\":\n        e.preventDefault();\n        this.moveActive(-1);\n        break;\n      case \"Enter\":\n      case \" \":\n        e.preventDefault();\n        if (this.activeIndex >= 0) this.selectOption(this.options[this.activeIndex]);\n        break;\n      case \"Home\":\n        e.preventDefault();\n        this.activeIndex = 0;\n        break;\n      case \"End\":\n        e.preventDefault();\n        this.activeIndex = this.options.length - 1;\n        break;\n    }\n  }\n\n  private moveActive(delta: number) {\n    const len = this.options.length;\n    if (len === 0) return;\n    let idx = this.activeIndex + delta;\n    // skip disabled\n    while (idx >= 0 && idx < len && this.options[idx].disabled) {\n      idx += delta;\n    }\n    if (idx >= 0 && idx < len) {\n      this.activeIndex = idx;\n    }\n  }\n\n  private selectedLabel(): string {\n    return this.options.find((o) => o.value === this.value)?.label ?? \"\";\n  }\n\n  render() {\n    const selected = this.selectedLabel();\n    return html`\n      <div class=\"lv-select\">\n        <button\n          class=\"lv-select__trigger ${this.invalid ? \"lv-select__trigger--invalid\" : \"\"}\"\n          id=${this.inputId || \"\"}\n          type=\"button\"\n          role=\"combobox\"\n          aria-expanded=${this.open ? \"true\" : \"false\"}\n          aria-controls=${this.listboxId}\n          aria-haspopup=\"listbox\"\n          aria-invalid=${this.invalid ? \"true\" : \"false\"}\n          aria-label=${this.label || \"\"}\n          ?disabled=${this.disabled}\n          @click=${() => (this.open ? this.closeList() : this.openList())}\n          @keydown=${this.onTriggerKeyDown}\n        >\n          <span class=\"lv-select__value\">\n            ${selected\n              ? html`${selected}`\n              : html`<span class=\"lv-select__placeholder\">${this.placeholder}</span>`}\n          </span>\n          <span class=\"lv-select__chevron ${this.open ? \"lv-select__chevron--open\" : \"\"}\">▼</span>\n        </button>\n\n        <ul\n          class=\"lv-select__listbox ${this.open ? \"lv-select__listbox--open\" : \"\"}\"\n          id=${this.listboxId}\n          role=\"listbox\"\n          aria-label=${this.label || this.placeholder}\n          @keydown=${this.onListKeyDown}\n          tabindex=\"-1\"\n        >\n          ${this.options.map((opt, i) => html`\n            <li\n              class=\"lv-select__option\n                ${opt.value === this.value ? \"lv-select__option--selected\" : \"\"}\n                ${i === this.activeIndex ? \"lv-select__option--active\" : \"\"}\n                ${opt.disabled ? \"lv-select__option--disabled\" : \"\"}\"\n              role=\"option\"\n              aria-selected=${opt.value === this.value ? \"true\" : \"false\"}\n              aria-disabled=${opt.disabled ? \"true\" : \"false\"}\n              @click=${() => this.selectOption(opt)}\n              @mouseenter=${() => { if (!opt.disabled) this.activeIndex = i; }}\n            >\n              <span class=\"lv-select__option-check\" aria-hidden=\"true\">✓</span>\n              ${opt.label}\n            </li>\n          `)}\n        </ul>\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-select\": LvSelect;\n  }\n}\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius",
+        "type",
+        "shadow",
+        "ring"
+      ],
+      "docs": "Register <lv-select> by importing components/ui/select.ts from your entry point. Pass `options` as an array of { value, label, disabled? }."
+    },
+    {
       "name": "separator",
       "type": "registry:ui",
       "description": "A thin divider with role=separator and orientation.",
@@ -233,6 +343,34 @@
       "docs": "Register <lv-spinner> by importing components/ui/spinner.ts from your entry point."
     },
     {
+      "name": "switch",
+      "type": "registry:ui",
+      "description": "A toggle switch implementing the WAI-ARIA APG switch pattern (role=switch, aria-checked).",
+      "dependencies": [
+        "lit"
+      ],
+      "registryDependencies": [
+        "tokens",
+        "light-dom"
+      ],
+      "files": [
+        {
+          "path": "components/switch/switch.ts",
+          "type": "registry:ui",
+          "target": "components/ui/switch.ts",
+          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-switch>`: a toggle switch control.\n *\n * Implements the WAI-ARIA APG switch pattern (role=\"switch\", research 4.3):\n * a button with `role=\"switch\"` and `aria-checked` carries keyboard activation\n * (Enter/Space) and announces state changes to screen readers. The track and thumb\n * are purely visual; the ARIA attributes on the button element carry semantics.\n * Data down, events up: emits a bubbling `lv-change` event with the new `checked`\n * boolean. Owned source, copied in by `lievit add switch`. Light-DOM rendered.\n */\n@customElement(\"lv-switch\")\nexport class LvSwitch extends LitElement {\n  /** Whether the switch is on. */\n  @property({ type: Boolean }) checked = false;\n\n  /** Disables the control. */\n  @property({ type: Boolean }) disabled = false;\n\n  /** Accessible label for the switch. */\n  @property() label = \"\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-switch\", LvSwitch.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-switch-wrap {\n      display: inline-flex;\n      align-items: center;\n      gap: var(--lv-space-2);\n    }\n    .lv-switch {\n      position: relative;\n      display: inline-flex;\n      align-items: center;\n      width: 2.5rem;\n      height: 1.375rem;\n      border-radius: 999px;\n      background: var(--lv-color-border);\n      border: none;\n      cursor: pointer;\n      padding: 0;\n      transition: background 150ms ease;\n    }\n    .lv-switch[aria-checked=\"true\"] { background: var(--lv-color-primary); }\n    .lv-switch:focus-visible { outline: none; box-shadow: var(--lv-ring); }\n    .lv-switch[disabled] { opacity: 0.5; cursor: not-allowed; }\n    .lv-switch__thumb {\n      position: absolute;\n      left: 0.1875rem;\n      width: 1rem;\n      height: 1rem;\n      border-radius: 50%;\n      background: var(--lv-color-bg);\n      transition: transform 150ms ease;\n      pointer-events: none;\n    }\n    .lv-switch[aria-checked=\"true\"] .lv-switch__thumb {\n      transform: translateX(1.125rem);\n    }\n    .lv-switch__label {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      color: var(--lv-color-fg);\n    }\n  `;\n\n  private onKeyDown(e: KeyboardEvent) {\n    if (e.key === \" \" || e.key === \"Enter\") {\n      e.preventDefault();\n      this.toggle();\n    }\n  }\n\n  private onClick() {\n    this.toggle();\n  }\n\n  private toggle() {\n    if (this.disabled) return;\n    this.checked = !this.checked;\n    this.dispatchEvent(\n      new CustomEvent(\"lv-change\", { detail: this.checked, bubbles: true, composed: true })\n    );\n  }\n\n  render() {\n    return html`\n      <span class=\"lv-switch-wrap\">\n        <button\n          class=\"lv-switch\"\n          role=\"switch\"\n          aria-checked=${this.checked ? \"true\" : \"false\"}\n          aria-label=${this.label || \"\"}\n          ?disabled=${this.disabled}\n          type=\"button\"\n          @click=${this.onClick}\n          @keydown=${this.onKeyDown}\n        >\n          <span class=\"lv-switch__thumb\"></span>\n        </button>\n        ${this.label\n          ? html`<span class=\"lv-switch__label\" aria-hidden=\"true\">${this.label}</span>`\n          : null}\n      </span>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-switch\": LvSwitch;\n  }\n}\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius",
+        "type",
+        "ring"
+      ],
+      "docs": "Register <lv-switch> by importing components/ui/switch.ts from your entry point."
+    },
+    {
       "name": "textarea",
       "type": "registry:ui",
       "description": "A token-styled multi-line text input that participates in l:model binding.",
@@ -261,6 +399,34 @@
       "docs": "Register <lv-textarea> by importing components/ui/textarea.ts from your entry point."
     },
     {
+      "name": "toast",
+      "type": "registry:ui",
+      "description": "A brief overlay notification with WAI-ARIA live-region semantics; auto-dismisses after a configurable duration.",
+      "dependencies": [
+        "lit"
+      ],
+      "registryDependencies": [
+        "tokens",
+        "light-dom"
+      ],
+      "files": [
+        {
+          "path": "components/toast/toast.ts",
+          "type": "registry:ui",
+          "target": "components/ui/toast.ts",
+          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-toast>`: a brief overlay notification.\n *\n * Implements the WAI-ARIA status / alert live-region pattern (research 4.3):\n * `info` and `success` use `role=\"status\"` (polite); `warning` and `danger` use\n * `role=\"alert\"` (assertive). The `open` property controls visibility; the\n * component auto-dismisses after `duration` ms (0 = no auto-dismiss). An optional\n * `dismiss` button emits a `lv-dismiss` event the parent can observe to set\n * `open=false`. Owned source, copied in by `lievit add toast`. Light-DOM rendered.\n */\n@customElement(\"lv-toast\")\nexport class LvToast extends LitElement {\n  /** Whether the toast is visible. */\n  @property({ type: Boolean }) open = false;\n\n  /** Severity, drives colour and the ARIA live role. */\n  @property() variant: \"info\" | \"success\" | \"warning\" | \"danger\" = \"info\";\n\n  /** Optional bold heading. */\n  @property() heading = \"\";\n\n  /**\n   * Auto-dismiss after this many milliseconds. 0 = stay until dismissed.\n   * Resets on every change to `open`.\n   */\n  @property({ type: Number }) duration = 4000;\n\n  /** Show a dismiss (×) button. */\n  @property({ type: Boolean }) dismissible = false;\n\n  private _timer: ReturnType<typeof setTimeout> | undefined;\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-toast\", LvToast.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-toast {\n      display: none;\n      position: fixed;\n      bottom: var(--lv-space-4);\n      right: var(--lv-space-4);\n      min-width: 16rem;\n      max-width: 24rem;\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      padding: var(--lv-space-3) var(--lv-space-4);\n      border-radius: var(--lv-radius-md);\n      border: 1px solid transparent;\n      box-shadow: var(--lv-shadow-md);\n      z-index: 9000;\n    }\n    .lv-toast--open { display: flex; align-items: flex-start; gap: var(--lv-space-3); }\n    .lv-toast__body { flex: 1; min-width: 0; }\n    .lv-toast__heading { font-weight: 600; margin-bottom: var(--lv-space-1); }\n    .lv-toast__dismiss {\n      background: transparent;\n      border: none;\n      cursor: pointer;\n      color: inherit;\n      padding: 0;\n      font-size: var(--lv-text-base);\n      line-height: 1;\n      opacity: 0.7;\n      flex-shrink: 0;\n    }\n    .lv-toast__dismiss:hover { opacity: 1; }\n    .lv-toast__dismiss:focus-visible { outline: none; box-shadow: var(--lv-ring); border-radius: var(--lv-radius-sm); }\n    .lv-toast--info {\n      background: color-mix(in srgb, var(--lv-color-info) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-info);\n      color: var(--lv-color-fg);\n    }\n    .lv-toast--success {\n      background: color-mix(in srgb, var(--lv-color-success) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-success);\n      color: var(--lv-color-fg);\n    }\n    .lv-toast--warning {\n      background: color-mix(in srgb, var(--lv-color-warning) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-warning);\n      color: var(--lv-color-fg);\n    }\n    .lv-toast--danger {\n      background: color-mix(in srgb, var(--lv-color-danger) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-danger);\n      color: var(--lv-color-fg);\n    }\n  `;\n\n  updated(changed: Map<string, unknown>) {\n    if (changed.has(\"open\")) {\n      clearTimeout(this._timer);\n      if (this.open && this.duration > 0) {\n        this._timer = setTimeout(() => this.dismiss(), this.duration);\n      }\n    }\n  }\n\n  disconnectedCallback() {\n    super.disconnectedCallback();\n    clearTimeout(this._timer);\n  }\n\n  private dismiss() {\n    this.open = false;\n    this.dispatchEvent(new CustomEvent(\"lv-dismiss\", { bubbles: true, composed: true }));\n  }\n\n  /** Assertive for urgent variants, polite otherwise. */\n  private ariaRole(): \"alert\" | \"status\" {\n    return this.variant === \"danger\" || this.variant === \"warning\" ? \"alert\" : \"status\";\n  }\n\n  render() {\n    return html`\n      <div\n        class=\"lv-toast lv-toast--${this.variant} ${this.open ? \"lv-toast--open\" : \"\"}\"\n        role=${this.ariaRole()}\n        aria-live=${this.ariaRole() === \"alert\" ? \"assertive\" : \"polite\"}\n        aria-atomic=\"true\"\n      >\n        <div class=\"lv-toast__body\">\n          ${this.heading\n            ? html`<div class=\"lv-toast__heading\">${this.heading}</div>`\n            : null}\n          <slot></slot>\n        </div>\n        ${this.dismissible\n          ? html`\n              <button\n                class=\"lv-toast__dismiss\"\n                type=\"button\"\n                aria-label=\"Dismiss notification\"\n                @click=${this.dismiss}\n              >×</button>\n            `\n          : null}\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-toast\": LvToast;\n  }\n}\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius",
+        "type",
+        "shadow"
+      ],
+      "docs": "Register <lv-toast> by importing components/ui/toast.ts from your entry point. Toggle the `open` boolean property to show/hide."
+    },
+    {
       "name": "tokens",
       "type": "registry:tokens",
       "description": "The lievit-ui design tokens as --lv-* CSS custom properties. Copied in on first use; the shared design vocabulary every component references.",
@@ -276,6 +442,35 @@
       ],
       "tokens": [],
       "docs": "Import styles/lievit-tokens.css once from your global stylesheet. Override any --lv-* value in :root to retheme."
+    },
+    {
+      "name": "tooltip",
+      "type": "registry:ui",
+      "description": "A floating contextual label positioned by @floating-ui/dom; WAI-ARIA tooltip pattern (role=tooltip, aria-describedby).",
+      "dependencies": [
+        "lit",
+        "@floating-ui/dom"
+      ],
+      "registryDependencies": [
+        "tokens",
+        "light-dom"
+      ],
+      "files": [
+        {
+          "path": "components/tooltip/tooltip.ts",
+          "type": "registry:ui",
+          "target": "components/ui/tooltip.ts",
+          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property, state } from \"lit/decorators.js\";\nimport { computePosition, flip, shift, offset } from \"@floating-ui/dom\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-tooltip>`: a floating contextual label.\n *\n * Follows the WAI-ARIA APG tooltip pattern (research 4.3):\n * - The trigger receives `aria-describedby` pointing at the tooltip content.\n * - The tooltip panel has `role=\"tooltip\"`.\n * - Opens on pointer-enter and focus; closes on pointer-leave, blur, and Escape.\n * - Positioned by `@floating-ui/dom` (flip + shift so it stays in-viewport).\n *\n * Usage: wrap any trigger in the default slot and set the `content` prop.\n *   `<lv-tooltip content=\"Save document\"><lv-button>Save</lv-button></lv-tooltip>`\n *\n * Owned source, copied in by `lievit add tooltip`. Light-DOM rendered.\n * npm dep: `@floating-ui/dom` (declared in meta.json, installed by `lievit add`).\n */\n@customElement(\"lv-tooltip\")\nexport class LvTooltip extends LitElement {\n  /** The tooltip text to display. */\n  @property() content = \"\";\n\n  /** Preferred placement (passed to Floating UI; flips automatically). */\n  @property() placement: \"top\" | \"bottom\" | \"left\" | \"right\" = \"top\";\n\n  @state() private visible = false;\n\n  private static seq = 0;\n  private readonly tipId = `lv-tooltip-${LvTooltip.seq++}`;\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-tooltip\", LvTooltip.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-tooltip-wrap {\n      display: inline-block;\n      position: relative;\n    }\n    .lv-tooltip-panel {\n      position: absolute;\n      z-index: 9100;\n      background: var(--lv-color-fg);\n      color: var(--lv-color-bg);\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      line-height: var(--lv-leading);\n      padding: var(--lv-space-1) var(--lv-space-2);\n      border-radius: var(--lv-radius-sm);\n      box-shadow: var(--lv-shadow-md);\n      white-space: nowrap;\n      pointer-events: none;\n      visibility: hidden;\n      opacity: 0;\n      transition: opacity 100ms ease;\n    }\n    .lv-tooltip-panel--visible {\n      visibility: visible;\n      opacity: 1;\n    }\n  `;\n\n  private async position() {\n    const trigger = this.querySelector(\".lv-tooltip-trigger\") as HTMLElement | null;\n    const panel = this.querySelector(\".lv-tooltip-panel\") as HTMLElement | null;\n    if (!trigger || !panel) return;\n\n    const { x, y } = await computePosition(trigger, panel, {\n      placement: this.placement,\n      middleware: [offset(6), flip(), shift({ padding: 4 })],\n    });\n    panel.style.left = `${x}px`;\n    panel.style.top = `${y}px`;\n  }\n\n  private show() {\n    this.visible = true;\n    this.updateComplete.then(() => this.position());\n  }\n\n  private hide() {\n    this.visible = false;\n  }\n\n  private onKeyDown(e: KeyboardEvent) {\n    if (e.key === \"Escape\") this.hide();\n  }\n\n  render() {\n    return html`\n      <span class=\"lv-tooltip-wrap\">\n        <span\n          class=\"lv-tooltip-trigger\"\n          aria-describedby=${this.content ? this.tipId : \"\"}\n          @mouseenter=${this.show}\n          @mouseleave=${this.hide}\n          @focusin=${this.show}\n          @focusout=${this.hide}\n          @keydown=${this.onKeyDown}\n        >\n          <slot></slot>\n        </span>\n        <span\n          class=\"lv-tooltip-panel ${this.visible ? \"lv-tooltip-panel--visible\" : \"\"}\"\n          id=${this.tipId}\n          role=\"tooltip\"\n        >${this.content}</span>\n      </span>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-tooltip\": LvTooltip;\n  }\n}\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius",
+        "type",
+        "shadow"
+      ],
+      "docs": "Register <lv-tooltip> by importing components/ui/tooltip.ts from your entry point. Wrap any trigger and set the `content` prop."
     }
   ]
 }
