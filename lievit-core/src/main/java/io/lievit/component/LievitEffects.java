@@ -114,6 +114,30 @@ public final class LievitEffects {
         dispatch(name, null);
     }
 
+    /**
+     * Queues an event targeted only at the dispatching component's own listeners (Livewire
+     * {@code dispatchSelf()}, ADR-0030). The client routes it to this component only.
+     *
+     * @param name the event name
+     * @param detail the payload (JSON-shaped), or {@code null} for a bare signal
+     */
+    public void dispatchSelf(String name, @Nullable Map<String, Object> detail) {
+        dispatched.add(new DispatchedEvent(name, detail, DispatchedEvent.Target.SELF, null));
+    }
+
+    /**
+     * Queues an event targeted only at components of a named type (Livewire {@code dispatchTo()},
+     * ADR-0030). The client routes it to every mounted component of that name.
+     *
+     * @param component the target component name
+     * @param name the event name
+     * @param detail the payload (JSON-shaped), or {@code null} for a bare signal
+     */
+    public void dispatchTo(String component, String name, @Nullable Map<String, Object> detail) {
+        dispatched.add(
+                new DispatchedEvent(name, detail, DispatchedEvent.Target.TO_COMPONENT, component));
+    }
+
     /** Captures an action's return value as the {@code returns} effect (set by the dispatcher). */
     void captureReturn(@Nullable Object value) {
         if (value != null) {

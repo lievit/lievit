@@ -859,6 +859,125 @@ public final class LievitTester<T> {
         return call("previousStep");
     }
 
+    // --- effects assertions (events, redirects; ADR-0030 / ADR-0031) -----------------------------
+
+    /**
+     * Asserts the last call queued a {@code dispatch} effect for the named event (Livewire
+     * {@code assertDispatched}). Order-independent; the detail is not checked.
+     *
+     * @param event the event name
+     * @return this tester
+     */
+    public LievitTester<T> assertDispatched(String event) {
+        requireNotRejected("assertDispatched(\"" + event + "\")");
+        if (!dispatchedNames().contains(event)) {
+            throw new AssertionError(
+                    "expected a dispatched event '" + event + "', but the last call dispatched "
+                            + dispatchedNames());
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last call did NOT dispatch the named event (Livewire {@code assertNotDispatched}).
+     *
+     * @param event the event name
+     * @return this tester
+     */
+    public LievitTester<T> assertNotDispatched(String event) {
+        requireNotRejected("assertNotDispatched(\"" + event + "\")");
+        if (dispatchedNames().contains(event)) {
+            throw new AssertionError("expected NO dispatched event '" + event + "', but one was queued");
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last call dispatched the event targeted at a component by name (the
+     * {@code dispatchTo} routing, Livewire {@code assertDispatchedTo}).
+     *
+     * @param component the target component name carried in the effect's {@code to} key
+     * @param event the event name
+     * @return this tester
+     */
+    public LievitTester<T> assertDispatchedTo(String component, String event) {
+        requireNotRejected("assertDispatchedTo(...)");
+        if (lastEffects != null) {
+            JsonNode dispatch = lastEffects.get("dispatch");
+            if (dispatch != null && dispatch.isArray()) {
+                for (JsonNode e : dispatch) {
+                    JsonNode name = e.get("name");
+                    JsonNode to = e.get("to");
+                    if (name != null && event.equals(name.asText())
+                            && to != null && component.equals(to.asText())) {
+                        return this;
+                    }
+                }
+            }
+        }
+        throw new AssertionError(
+                "expected event '" + event + "' dispatched to component '" + component + "'");
+    }
+
+    /**
+     * Asserts the last call queued a {@code redirect} effect to the given location (Livewire
+     * {@code assertRedirect}).
+     *
+     * @param location the expected redirect URL/path
+     * @return this tester
+     */
+    public LievitTester<T> assertRedirect(String location) {
+        requireNotRejected("assertRedirect(\"" + location + "\")");
+        String actual = redirectLocation();
+        if (actual == null) {
+            throw new AssertionError("expected a redirect to '" + location + "', but none was queued");
+        }
+        if (!location.equals(actual)) {
+            throw new AssertionError(
+                    "expected a redirect to '" + location + "', but it was '" + actual + "'");
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last call queued no {@code redirect} effect (Livewire {@code assertNoRedirect}).
+     *
+     * @return this tester
+     */
+    public LievitTester<T> assertNoRedirect() {
+        requireNotRejected("assertNoRedirect()");
+        String actual = redirectLocation();
+        if (actual != null) {
+            throw new AssertionError("expected NO redirect, but one was queued to '" + actual + "'");
+        }
+        return this;
+    }
+
+    private List<String> dispatchedNames() {
+        List<String> names = new ArrayList<>();
+        if (lastEffects == null) {
+            return names;
+        }
+        JsonNode dispatch = lastEffects.get("dispatch");
+        if (dispatch != null && dispatch.isArray()) {
+            for (JsonNode e : dispatch) {
+                JsonNode name = e.get("name");
+                if (name != null) {
+                    names.add(name.asText());
+                }
+            }
+        }
+        return names;
+    }
+
+    private @Nullable String redirectLocation() {
+        if (lastEffects == null) {
+            return null;
+        }
+        JsonNode redirect = lastEffects.get("redirect");
+        return redirect == null || redirect.isNull() ? null : redirect.asText();
+    }
+
     // --- internals -------------------------------------------------------------------------------
 
     /** @return whether the rendered HTML binds the given field name (a {@code l:model} binding) */

@@ -134,6 +134,27 @@ public final class LievitWireService {
             Map<String, Object> updates,
             List<String> calls,
             String client) {
+        return call(signedSnapshot, updates, calls, List.of(), client);
+    }
+
+    /**
+     * Runs one wire call that also carries inbound events the client routed to this component's
+     * {@code @LievitOn} listeners (ADR-0030, the receiving half of {@code dispatch}).
+     *
+     * @param signedSnapshot the {@code _snapshot} the client carried back
+     * @param updates the client {@code _updates}
+     * @param calls the client {@code _calls}
+     * @param inboundEvents the client {@code _events} routed to this component's listeners
+     * @param client the client key for the failure limiter (the IP)
+     * @return the new HTML plus the next signed snapshot and the effects header
+     * @throws WireException one of the terminal {@link WireError} states (see wire-protocol §4)
+     */
+    public WireCallResult call(
+            String signedSnapshot,
+            Map<String, Object> updates,
+            List<String> calls,
+            List<io.lievit.component.InboundEvent> inboundEvents,
+            String client) {
         Snapshot snapshot;
         try {
             snapshot = codec.verify(signedSnapshot, Instant.now());
@@ -149,17 +170,26 @@ public final class LievitWireService {
         ComponentMetadata metadata = registry.metadata(snapshot.cls());
         Object instance = registry.freshInstance(snapshot.cls());
 
-        WireCall call = dispatcher.call(metadata, instance, snapshot.wire(), updates, calls);
+        WireCall call =
+                dispatcher.call(metadata, instance, snapshot.wire(), updates, calls, inboundEvents);
         Map<String, Object> wire = call.wire();
-        // Build the render model: wire state + per-call computed values (ADR-0015), then inject the
-        // validation errors as `_errors` when the validator produced any. None of this is serialized
-        // into the snapshot.
-        Map<String, Object> model = withErrors(mergeModel(wire, call), call.effects());
-        String html = templateAdapter.render(metadata, instance, model);
-        // Re-mount and inline children on every re-render; the client morph keeps each child's DOM
-        // stable by its lievit:key, so a parent re-render does not thrash unchanged children
-        // (ADR-0016). A leaf re-render is unchanged.
-        html = childRenderer.substitute(html, call.children());
+        String html;
+        if (call.renderSkipped()) {
+            // Renderless action (@LievitRenderless) or a redirect (render_on_redirect=false): send no
+            // HTML patch so the client leaves the DOM untouched (ADR-0030, ADR-0031). The snapshot
+            // and any effects (the redirect/dispatch) still ride their headers.
+            html = "";
+        } else {
+            // Build the render model: wire state + per-call computed values (ADR-0015), then inject
+            // the validation errors as `_errors` when the validator produced any. None of this is
+            // serialized into the snapshot.
+            Map<String, Object> model = withErrors(mergeModel(wire, call), call.effects());
+            html = templateAdapter.render(metadata, instance, model);
+            // Re-mount and inline children on every re-render; the client morph keeps each child's
+            // DOM stable by its lievit:key, so a parent re-render does not thrash unchanged children
+            // (ADR-0016). A leaf re-render is unchanged.
+            html = childRenderer.substitute(html, call.children());
+        }
 
         Instant now = Instant.now();
         // The snapshot carries the @Wire state only (not errors: they are transient per-call,
