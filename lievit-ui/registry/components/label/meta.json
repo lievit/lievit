@@ -1,0 +1,10 @@
+{
+  "name": "label",
+  "type": "registry:ui",
+  "description": "A token-styled form label with native for/id association and optional required marker.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [{ "path": "components/label/label.ts", "type": "registry:ui", "target": "components/ui/label.ts" }],
+  "tokens": ["color", "space", "type"],
+  "docs": "Register <lv-label> by importing components/ui/label.ts from your entry point."
+}

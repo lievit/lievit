@@ -1,0 +1,10 @@
+{
+  "name": "tokens",
+  "type": "registry:tokens",
+  "description": "The lievit-ui design tokens as --lv-* CSS custom properties. Copied in on first use; the shared design vocabulary every component references.",
+  "dependencies": [],
+  "registryDependencies": [],
+  "files": [{ "path": "tokens/lievit-tokens.css", "type": "registry:tokens", "target": "styles/lievit-tokens.css" }],
+  "tokens": [],
+  "docs": "Import styles/lievit-tokens.css once from your global stylesheet. Override any --lv-* value in :root to retheme."
+}

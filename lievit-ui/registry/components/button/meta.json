@@ -1,0 +1,10 @@
+{
+  "name": "button",
+  "type": "registry:ui",
+  "description": "A token-styled button primitive that drives a wire action via l:click.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [{ "path": "components/button/button.ts", "type": "registry:ui", "target": "components/ui/button.ts" }],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register <lv-button> by importing components/ui/button.ts from your entry point."
+}

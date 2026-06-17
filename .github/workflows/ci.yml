@@ -66,6 +66,34 @@ jobs:
             echo "Skipping native compile. lievit targets GraalVM native day one once the build lands."
           fi
 
+  lievit-ui:
+    name: lievit-ui registry (typecheck + test + drift)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lievit-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: lievit-ui/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Registry drift gate
+        run: npm run check:registry
+
+      - name: Test
+        run: npm test
+
   tracegate:
     name: tracegate drift-gate (stub)
     runs-on: ubuntu-latest

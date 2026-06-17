@@ -1,0 +1,10 @@
+{
+  "name": "textarea",
+  "type": "registry:ui",
+  "description": "A token-styled multi-line text input that participates in l:model binding.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [{ "path": "components/textarea/textarea.ts", "type": "registry:ui", "target": "components/ui/textarea.ts" }],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register <lv-textarea> by importing components/ui/textarea.ts from your entry point."
+}

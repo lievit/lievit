@@ -1,0 +1,5 @@
+# lievit-ui (Node toolchain for the copy-in registry)
+node_modules/
+coverage/
+*.tsbuildinfo
+.vitest/

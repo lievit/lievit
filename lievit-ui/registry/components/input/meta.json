@@ -1,0 +1,10 @@
+{
+  "name": "input",
+  "type": "registry:ui",
+  "description": "A token-styled single-line text input that participates in l:model binding.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [{ "path": "components/input/input.ts", "type": "registry:ui", "target": "components/ui/input.ts" }],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register <lv-input> by importing components/ui/input.ts from your entry point."
+}

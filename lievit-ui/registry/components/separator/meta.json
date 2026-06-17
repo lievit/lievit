@@ -1,0 +1,10 @@
+{
+  "name": "separator",
+  "type": "registry:ui",
+  "description": "A thin divider with role=separator and orientation.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [{ "path": "components/separator/separator.ts", "type": "registry:ui", "target": "components/ui/separator.ts" }],
+  "tokens": ["color"],
+  "docs": "Register <lv-separator> by importing components/ui/separator.ts from your entry point."
+}
