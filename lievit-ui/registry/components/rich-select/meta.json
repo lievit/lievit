@@ -1,0 +1,16 @@
+{
+  "name": "rich-select",
+  "type": "registry:ui",
+  "description": "A searchable single/multi select with floating listbox, inline search filter, tag pills for multi-selection, and full WAI-ARIA APG combobox/listbox keyboard navigation; positioned by @floating-ui/dom.",
+  "dependencies": ["lit", "@floating-ui/dom"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/rich-select/rich-select.ts",
+      "type": "registry:ui",
+      "target": "components/ui/rich-select.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-rich-select> by importing components/ui/rich-select.ts from your entry point. Pass `options` as { value, label, description?, disabled? }[]. Set `multiple` for multi-select. `value` is a string (single) or string[] (multi). Listen for `lv-change`."
+}

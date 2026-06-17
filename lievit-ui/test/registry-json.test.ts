@@ -33,6 +33,14 @@ const TIER_2 = [
   "progress",
 ];
 
+const TIER_3 = [
+  "dropdown-menu",
+  "date-picker",
+  "data-table",
+  "file-upload",
+  "rich-select",
+];
+
 describe("built registry.json", () => {
   test("ships every tier-1 primitive the research flagged", () => {
     const names = new Set(built.items.map((i) => i.name));
@@ -45,6 +53,13 @@ describe("built registry.json", () => {
     const names = new Set(built.items.map((i) => i.name));
     for (const t of TIER_2) {
       expect(names, `missing tier-2 component: ${t}`).toContain(t);
+    }
+  });
+
+  test("ships every tier-3 component", () => {
+    const names = new Set(built.items.map((i) => i.name));
+    for (const t of TIER_3) {
+      expect(names, `missing tier-3 component: ${t}`).toContain(t);
     }
   });
 

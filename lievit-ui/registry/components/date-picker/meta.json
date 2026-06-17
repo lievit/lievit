@@ -1,0 +1,16 @@
+{
+  "name": "date-picker",
+  "type": "registry:ui",
+  "description": "An accessible calendar date-input with a floating month-grid dialog (WAI-ARIA APG date-picker pattern); keyboard-navigable grid, positioned by @floating-ui/dom.",
+  "dependencies": ["lit", "@floating-ui/dom"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/date-picker/date-picker.ts",
+      "type": "registry:ui",
+      "target": "components/ui/date-picker.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-date-picker> by importing components/ui/date-picker.ts from your entry point. Bind `value` to an ISO date string (YYYY-MM-DD). Listen for `lv-change` to receive the selected date string."
+}

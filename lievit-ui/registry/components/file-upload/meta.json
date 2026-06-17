@@ -1,0 +1,16 @@
+{
+  "name": "file-upload",
+  "type": "registry:ui",
+  "description": "A drag-and-drop file upload zone (UI only, wire to backend yourself); keyboard-accessible drop zone (role=button), file list with remove buttons, aria-live file count announcements.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/file-upload/file-upload.ts",
+      "type": "registry:ui",
+      "target": "components/ui/file-upload.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register <lv-file-upload> by importing components/ui/file-upload.ts from your entry point. Set `accept` and `multiple` as on a native input. Listen for `lv-files-change` to receive the UploadFile[] array and submit to your backend separately."
+}
