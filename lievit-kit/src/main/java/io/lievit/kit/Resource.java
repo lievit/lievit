@@ -4,7 +4,11 @@
  */
 package io.lievit.kit;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 
@@ -178,5 +182,67 @@ public abstract class Resource<T> {
             item.badge(badge, navigationBadgeColor());
         }
         return Optional.of(item);
+    }
+
+    // ── Global search (the Filament HasGlobalSearch seam, issue #323) ────────────────────────────
+
+    /**
+     * Whether this resource participates in global search. A resource opts in by overriding this to
+     * {@code true} and declaring {@link #globallySearchableAttributes()}.
+     *
+     * @return {@code true} to make this resource globally searchable (default {@code false})
+     */
+    public boolean isGloballySearchable() {
+        return !globallySearchableAttributes().isEmpty();
+    }
+
+    /**
+     * The attribute extractors a global-search query matches against (each maps a row to a
+     * searchable string). Override to opt a resource into global search.
+     *
+     * @return the searchable attribute extractors (empty = not searchable)
+     */
+    public List<Function<? super T, String>> globallySearchableAttributes() {
+        return List.of();
+    }
+
+    /**
+     * Builds the global-search title for a matched row. Defaults to the row's {@code toString}.
+     *
+     * @param row the matched row
+     * @return the result title
+     */
+    public String globalSearchResultTitle(T row) {
+        return String.valueOf(row);
+    }
+
+    /**
+     * Runs a global-search query against this resource: pages through the repository and returns a
+     * result for every row whose searchable attributes contain the (case-insensitive) query. The url
+     * of each result is the row's edit route under the panel path.
+     *
+     * @param query the search query
+     * @param panelPath the panel route prefix
+     * @return the matching results (empty if the resource is not searchable or nothing matches)
+     */
+    public List<GlobalSearchResult> globalSearch(String query, String panelPath) {
+        List<Function<? super T, String>> attributes = globallySearchableAttributes();
+        if (attributes.isEmpty() || query == null || query.isBlank()) {
+            return List.of();
+        }
+        String needle = query.toLowerCase(Locale.ROOT);
+        Table<T> table = table();
+        List<GlobalSearchResult> results = new ArrayList<>();
+        for (T row : repository.findAll()) {
+            boolean matches =
+                    attributes.stream()
+                            .map(a -> a.apply(row))
+                            .anyMatch(v -> v != null && v.toLowerCase(Locale.ROOT).contains(needle));
+            if (matches) {
+                String url = "/" + panelPath + "/" + slug() + "/" + table.idOf(row) + "/edit";
+                results.add(GlobalSearchResult.of(globalSearchResultTitle(row), url));
+            }
+        }
+        return results;
     }
 }
