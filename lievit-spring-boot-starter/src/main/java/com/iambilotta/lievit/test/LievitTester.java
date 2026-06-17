@@ -15,10 +15,13 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iambilotta.lievit.component.ComponentMetadata;
 import com.iambilotta.lievit.component.WireDispatcher;
@@ -70,6 +73,9 @@ public final class LievitTester<T> {
     private String snapshot;
     private String html = "";
     private boolean forgeNextSnapshot;
+
+    // Validation errors from the last successful call's Lievit-Effects header, or null if none.
+    private @Nullable Map<String, List<String>> lastErrors;
 
     private boolean rejected;
     private int rejectionStatus;
@@ -197,6 +203,7 @@ public final class LievitTester<T> {
             if (fresh != null) {
                 this.snapshot = fresh;
             }
+            this.lastErrors = parseErrors(result.getResponse().getHeader("Lievit-Effects"));
             this.callHistory.addAll(calls);
             this.pendingUpdates.clear();
         } else {
@@ -401,6 +408,81 @@ public final class LievitTester<T> {
         return this;
     }
 
+    // --- validation-error assertions -------------------------------------------------------------
+
+    /**
+     * Asserts the last successful call returned at least one validation error for {@code field}
+     * containing {@code messageFragment} (exact match not required). Use with {@code l:model.live}
+     * / {@code l:model.blur} scenarios where the user types and the server responds with per-field
+     * errors before a full submit.
+     *
+     * @param field the {@code @Wire} field name (the key in the {@code errors} effect)
+     * @param messageFragment a substring expected in at least one of the field's error messages
+     * @return this tester
+     */
+    public LievitTester<T> assertHasError(String field, String messageFragment) {
+        requireNotRejected("assertHasError(\"" + field + "\", …)");
+        if (lastErrors == null || !lastErrors.containsKey(field)) {
+            throw new AssertionError(
+                    "expected validation error for field \""
+                            + field
+                            + "\" but the last call returned no errors for it"
+                            + afterCalls()
+                            + " — actual errors: "
+                            + render(lastErrors));
+        }
+        boolean found =
+                lastErrors.get(field).stream()
+                        .anyMatch(m -> m != null && m.contains(messageFragment));
+        if (!found) {
+            throw new AssertionError(
+                    "expected validation error for field \""
+                            + field
+                            + "\" containing \""
+                            + messageFragment
+                            + "\" but messages were: "
+                            + lastErrors.get(field)
+                            + afterCalls());
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last successful call returned no validation errors at all (all fields passed).
+     *
+     * @return this tester
+     */
+    public LievitTester<T> assertNoErrors() {
+        requireNotRejected("assertNoErrors()");
+        if (lastErrors != null && !lastErrors.isEmpty()) {
+            throw new AssertionError(
+                    "expected no validation errors but the last call returned: "
+                            + render(lastErrors)
+                            + afterCalls());
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last successful call returned no validation error for the given {@code field}
+     * specifically (other fields may still have errors).
+     *
+     * @param field the {@code @Wire} field name expected to have no errors
+     * @return this tester
+     */
+    public LievitTester<T> assertNoErrors(String field) {
+        requireNotRejected("assertNoErrors(\"" + field + "\")");
+        if (lastErrors != null && lastErrors.containsKey(field)) {
+            throw new AssertionError(
+                    "expected no validation error for field \""
+                            + field
+                            + "\" but the last call returned: "
+                            + lastErrors.get(field)
+                            + afterCalls());
+        }
+        return this;
+    }
+
     // --- internals -------------------------------------------------------------------------------
 
     private Map<String, Object> wireState() {
@@ -482,6 +564,28 @@ public final class LievitTester<T> {
                             + " ("
                             + rejectionStatus
                             + "). Use assertRejected(...) for a call you expect to fail.");
+        }
+    }
+
+    /** Parses the {@code errors} key from the {@code Lievit-Effects} JSON header, or null. */
+    @SuppressWarnings("unchecked")
+    private @Nullable Map<String, List<String>> parseErrors(@Nullable String effectsHeader) {
+        if (effectsHeader == null || effectsHeader.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode root = json.readTree(effectsHeader);
+            JsonNode errorsNode = root.get("errors");
+            if (errorsNode == null || errorsNode.isNull()) {
+                return null;
+            }
+            return json.convertValue(
+                    errorsNode, new TypeReference<Map<String, List<String>>>() {});
+        } catch (Exception e) {
+            // Parsing failure in a test helper: surface as an assertion error so the test fails
+            // with a clear message rather than a silent null.
+            throw new AssertionError(
+                    "could not parse Lievit-Effects header: " + effectsHeader, e);
         }
     }
 

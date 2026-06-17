@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.iambilotta</groupId>
+        <artifactId>lievit-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>golden-path-starter</artifactId>
+    <name>lievit (golden-path starter example)</name>
+    <description>
+        Golden-path runnable example: register, login, dashboard, and a notes CRUD component.
+        Demonstrates lievit component lifecycle (RegisterComponent + NoteListComponent),
+        Spring Security form login with BCrypt, CSRF, and H2 in-memory persistence.
+        JTE for lievit component templates; Spring MVC controllers for page navigation.
+    </description>
+
+    <!--
+        Not published to Central: this is a runnable example, not a library artifact.
+        Skip install/deploy so the CI reactor does not try to push it.
+    -->
+    <properties>
+        <maven.install.skip>true</maven.install.skip>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
+    <dependencies>
+        <!-- lievit: codec + registry + dispatcher + JTE adapter + wire endpoint (ADR-0008). -->
+        <dependency>
+            <groupId>com.iambilotta</groupId>
+            <artifactId>lievit-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Spring Boot web (MVC controllers for login/register/dashboard pages). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Security: form login, BCrypt, CSRF. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Thymeleaf: the MVC page templates (login, register host, dashboard). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <!-- Thymeleaf Security extras: sec:authorize / th:with="${#authentication...}" in templates. -->
+        <dependency>
+            <groupId>org.thymeleaf.extras</groupId>
+            <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+        </dependency>
+
+        <!-- JDBC: user persistence + component queries. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- H2: in-memory datasource for the demo (no external DB required). -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- JTE engine: lievit-spring-boot-starter wires it automatically; declared here so
+             the IDE sees the source and the lievit-ui runtime path is explicit. -->
+        <dependency>
+            <groupId>gg.jte</groupId>
+            <artifactId>jte</artifactId>
+        </dependency>
+
+        <!-- Tests. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Produce an executable fat-jar so `java -jar` just works. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

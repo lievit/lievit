@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create Account - Lievit Demo</title>
+    <!--
+        The registration form is a lievit component served from /lievit/{id}/call.
+        The DashboardController mounts it server-side; this page hosts the island.
+        For the register page we mount the component via a simple inline script that calls
+        the lievit wire service mount endpoint directly on page load.
+        This is the simplest mounting pattern: no SSR, client-initiated mount.
+    -->
+    <style>
+        body { font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }
+        label { display: block; margin: 12px 0 4px; }
+        input { width: 100%; box-sizing: border-box; padding: 8px; }
+        button { margin-top: 16px; padding: 8px 16px; }
+    </style>
+</head>
+<body>
+<h1>Create Account</h1>
+
+<!--
+    Mount container: the lievit RegisterComponent is injected here via the server-side mount
+    call issued from the inline script below. The component renders itself (JTE template
+    auth/register.jte) and carries its signed snapshot for subsequent wire calls.
+-->
+<div id="register-mount" th:utext="${registerHtml}"></div>
+
+<p><a th:href="@{/login}">Already have an account? Sign in</a></p>
+
+<!--
+    Minimal lievit wire driver: listens for l:click on the mounted component and issues the
+    POST /lievit/{id}/call request, then morphs the component HTML in place with the response.
+    In a production app this logic is handled by the lievit-ui JavaScript package.
+-->
+<script th:inline="javascript">
+    (function () {
+        var snapshot = /*[[${registerSnapshot}]]*/ '';
+
+        function findComponentId(el) {
+            var root = el.closest('[data-lievit-component]');
+            return root ? root.getAttribute('data-lievit-component') : null;
+        }
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[l\\:click]');
+            if (!btn) return;
+            var action = btn.getAttribute('l:click');
+            var compClass = btn.closest('[data-lievit-component]')
+                             ? btn.closest('[data-lievit-component]').getAttribute('data-lievit-component')
+                             : null;
+            if (!compClass) return;
+            e.preventDefault();
+
+            // Collect l:model inputs within the component root.
+            var root = btn.closest('[data-lievit-component]');
+            var updates = {};
+            root.querySelectorAll('[l\\:model]').forEach(function (input) {
+                updates[input.getAttribute('l:model')] = input.value;
+            });
+
+            fetch('/lievit/golden-path/call', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _snapshot: snapshot, _updates: updates, _calls: [action] })
+            }).then(function (res) {
+                snapshot = res.headers.get('Lievit-Snapshot') || snapshot;
+                return res.text();
+            }).then(function (html) {
+                var mount = document.getElementById('register-mount');
+                if (mount) mount.innerHTML = html;
+            });
+        });
+    })();
+</script>
+</body>
+</html>

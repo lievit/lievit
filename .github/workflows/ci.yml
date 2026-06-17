@@ -46,25 +46,29 @@ jobs:
 
   native:
     runs-on: ubuntu-latest
-    name: native build (stub)
+    name: native (AOT metadata + reachability gate)
+    # lievit's modules are LIBRARIES with no main class, so there is no image to `native:compile`
+    # in this reactor (that happens in an adopter app, which inherits the full pipeline from
+    # spring-boot-starter-parent). The meaningful gate here is: the `native` profile + the AOT
+    # contributors compile, and the reachability metadata is complete — proven by the native
+    # *NfrTest hint-completeness tests (RuntimeHintsPredicates) without paying a full image build.
+    # See ADR-0006 + docs/native-image.md. When an example app module lands, extend this to run
+    # `./mvnw -Pnative -pl <app> native:compile` and start/smoke the image.
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up GraalVM (stub until pom.xml exists)
-        if: ${{ hashFiles('pom.xml') != '' }}
+      - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
           java-version: '25'
           distribution: 'graalvm'
+          cache: maven
 
-      - name: GraalVM native build (stub until pom.xml exists)
+      - name: AOT processing + native reachability tests
         run: |
-          if [ -f pom.xml ]; then
-            ./mvnw -B -ntp -Pnative native:compile
-          else
-            echo "::notice::No pom.xml yet — GraalVM native gate is a stub (see docs/adr/0006)."
-            echo "Skipping native compile. lievit targets GraalVM native day one once the build lands."
-          fi
+          ./mvnw -B -ntp -V -Pnative \
+            -pl lievit-core,lievit-jte,lievit-spring-boot-starter -am \
+            test -Dtest='com.iambilotta.lievit.spring.native_.*' -Dsurefire.failIfNoSpecifiedTests=false
 
   lievit-ui:
     name: lievit-ui registry (typecheck + test + drift)

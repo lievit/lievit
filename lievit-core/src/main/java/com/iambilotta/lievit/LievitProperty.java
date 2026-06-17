@@ -49,4 +49,24 @@ public @interface LievitProperty {
      * @return whether client updates to this field are rejected
      */
     boolean locked() default false;
+
+    /**
+     * Whether this {@link Wire} field two-way-binds to a property on the <em>parent</em> component
+     * when this component is mounted as a child (ADR-0016, nested components; Livewire {@code
+     * #[Modelable]} parity).
+     *
+     * <p>A modelable child field is the receiving end of a parent's two-way bind: the parent passes
+     * its value down as a prop (so the child renders it), and when the child mutates the field the
+     * change is dispatched back up so the parent's bound property updates. It is the lievit
+     * equivalent of Livewire's {@code wire:model} on a child plus {@code #[Modelable]}, expressed
+     * here without an eighth annotation (ADR-0002's seven-annotation cap).
+     *
+     * <p>At most one {@code modelable} field per component is meaningful (the single bound value, as
+     * with {@code wire:model} on a custom input); declaring more than one is a configuration error
+     * the metadata surfaces. A field cannot be both {@code modelable} and {@code locked}: a
+     * server-owned field is not a two-way bind.
+     *
+     * @return whether this field is the child's modelable (parent-bound) value
+     */
+    boolean modelable() default false;
 }
