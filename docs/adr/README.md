@@ -25,6 +25,8 @@ question and is pending a final call.
 - [ADR-0010](0010-dev-test-harness.md): `Lievit.test()` — the developer-facing component test harness. **proposed**
 - [ADR-0011](0011-lievit-ui-v0.1-registry-decisions.md): lievit-ui v0.1 registry decisions (manifest, config, tokens, light-DOM). **accepted**
 - [ADR-0012](0012-effects-channel.md): The effects channel (HTML body + `Lievit-Effects` header). Amends ADR-0001's response shape. **accepted**
+- [ADR-0013](0013-payload-hardening.md): Payload hardening — settable/callable allowlist, deserialization allowlist, structural caps. **accepted**
+- [ADR-0014](0014-fail-closed-error-rendering.md): Fail-closed, leak-free error rendering + the wire endpoint's security context. **accepted**
 
 ## How to add an ADR
 

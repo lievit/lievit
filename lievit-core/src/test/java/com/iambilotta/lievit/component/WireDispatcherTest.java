@@ -49,9 +49,20 @@ class WireDispatcherTest {
         @Wire @LievitProperty(locked = true) String cartId = "server-owned";
         @Wire int quantity;
 
+        // A non-@Wire field: never client-settable (the settable allowlist is @Wire only).
+        @SuppressWarnings("unused")
+        String role = "user";
+
         @LievitAction
         void addOne() {
             this.quantity++;
+        }
+
+        // A plain (non-@LievitAction) method: never client-callable (the callable allowlist is
+        // @LievitAction only).
+        @SuppressWarnings("unused")
+        void grantAdmin() {
+            this.role = "admin";
         }
     }
 
@@ -179,6 +190,101 @@ class WireDispatcherTest {
                 .isInstanceOf(WireException.class)
                 .extracting(e -> ((WireException) e).error())
                 .isEqualTo(WireError.UNKNOWN_COMPONENT);
+    }
+
+    /**
+     * @spec.given a Cart and a client update targeting {@code role}, a non-@Wire field
+     * @spec.when  the dispatcher applies the updates
+     * @spec.then  the update is dropped, never bound: only @Wire fields are settable, so a first
+     *     POST cannot write a property the component never exposed to the wire (the settable
+     *     allowlist, ADR-0013). The call succeeds; role stays "user".
+     * @spec.adr   ADR-0013
+     */
+    @Test
+    void call_drops_an_update_to_a_non_wire_field() {
+        ComponentMetadata meta = ComponentMetadata.of(Cart.class);
+        Cart cart = new Cart();
+
+        WireCall result =
+                dispatcher.call(
+                        meta,
+                        cart,
+                        Map.of("cartId", "server-owned", "quantity", 0),
+                        Map.of("role", "admin"),
+                        List.of());
+
+        assertThat(cart.role).isEqualTo("user");
+        assertThat(result.wire()).doesNotContainKey("role");
+    }
+
+    /**
+     * @spec.given a Cart and a call naming {@code grantAdmin}, a non-@LievitAction method
+     * @spec.when  the dispatcher runs the call
+     * @spec.then  it is rejected UNKNOWN_COMPONENT (410): only @LievitAction methods are callable,
+     *     so a plain method (or a lifecycle hook) is never reachable from the wire (the callable
+     *     allowlist, ADR-0013). The method does not run; role stays "user".
+     * @spec.adr   ADR-0013
+     */
+    @Test
+    void call_rejects_a_call_to_a_non_action_method() {
+        ComponentMetadata meta = ComponentMetadata.of(Cart.class);
+        Cart cart = new Cart();
+
+        assertThatThrownBy(
+                        () ->
+                                dispatcher.call(
+                                        meta,
+                                        cart,
+                                        Map.of("cartId", "server-owned", "quantity", 0),
+                                        Map.of(),
+                                        List.of("grantAdmin")))
+                .isInstanceOf(WireException.class)
+                .extracting(e -> ((WireException) e).error())
+                .isEqualTo(WireError.UNKNOWN_COMPONENT);
+        assertThat(cart.role).isEqualTo("user");
+    }
+
+    /**
+     * @spec.given a Counter and a client update value that is an opaque (non-JSON) Java object
+     * @spec.when  the dispatcher runs the call
+     * @spec.then  the PayloadGuard rejects it FORBIDDEN_DESERIALIZATION (422) before any value is
+     *     bound: the snapshot is state-never-code, the JVM gadget surface is closed (ADR-0013)
+     * @spec.adr   ADR-0013
+     */
+    @Test
+    void call_rejects_a_forbidden_deserialization_value() {
+        ComponentMetadata meta = ComponentMetadata.of(Counter.class);
+        java.util.Map<String, Object> updates = new java.util.HashMap<>();
+        updates.put("count", new Object());
+
+        assertThatThrownBy(
+                        () ->
+                                dispatcher.call(
+                                        meta, new Counter(), Map.of("count", 0), updates, List.of()))
+                .isInstanceOf(WireException.class)
+                .extracting(e -> ((WireException) e).error())
+                .isEqualTo(WireError.FORBIDDEN_DESERIALIZATION);
+    }
+
+    /**
+     * @spec.given a Counter and more _calls than the protocol cap (default 50)
+     * @spec.when  the dispatcher runs the call
+     * @spec.then  the PayloadGuard rejects it PAYLOAD_TOO_COMPLEX (413): a DoS guard on call count
+     *     fires before any action runs (ADR-0013)
+     * @spec.adr   ADR-0013
+     */
+    @Test
+    void call_rejects_too_many_calls() {
+        ComponentMetadata meta = ComponentMetadata.of(Counter.class);
+        java.util.List<String> calls = java.util.Collections.nCopies(51, "increment");
+
+        assertThatThrownBy(
+                        () ->
+                                dispatcher.call(
+                                        meta, new Counter(), Map.of("count", 0), Map.of(), calls))
+                .isInstanceOf(WireException.class)
+                .extracting(e -> ((WireException) e).error())
+                .isEqualTo(WireError.PAYLOAD_TOO_COMPLEX);
     }
 
     /**

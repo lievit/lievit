@@ -46,8 +46,34 @@ public enum WireError {
     /** The request payload exceeded 64 kb. Maps to {@code 413}. */
     PAYLOAD_TOO_LARGE(413, "too-large"),
 
+    /**
+     * The payload's structure exceeded a protocol cap: too many {@code _updates}, too many
+     * {@code _calls}, or an update-path / value nested deeper than the limit (ADR-0013). Maps to
+     * {@code 413}: like an oversized payload, this is a DoS guard, refused before any action runs.
+     * The {@code _snapshot} size and the 64 kb byte cap are bounded elsewhere; this bounds the
+     * shape, so an algorithmic-complexity attack cannot ride inside a small payload.
+     */
+    PAYLOAD_TOO_COMPLEX(413, "too-complex"),
+
+    /**
+     * A {@code @Wire} field value carried a type the snapshot may not deserialize: anything beyond
+     * the JSON scalar / list / map allowlist (a polymorphic {@code @class} hint, an opaque object).
+     * Maps to {@code 422}: the snapshot is "state, never code" (ADR-0001), and the JVM gadget
+     * surface is worse than PHP's (ADR-0013), so an unknown shape is refused at unwrap time before
+     * any value is bound to a field.
+     */
+    FORBIDDEN_DESERIALIZATION(422, "forbidden-deserialization"),
+
     /** An action exceeded the 5 s timeout. Maps to {@code 504}. */
-    ACTION_TIMEOUT(504, "timeout");
+    ACTION_TIMEOUT(504, "timeout"),
+
+    /**
+     * An action (or a lifecycle hook) threw at runtime, or any other internal failure occurred while
+     * serving the call. Maps to {@code 500}: the response is fail-closed and leak-free (ADR-0014),
+     * carrying only this reason; the stack trace, the FQN, and the snapshot are logged server-side,
+     * never echoed to the client (Livewire {@code CorruptComponentPayloadException} parity).
+     */
+    INTERNAL_ERROR(500, "internal-error");
 
     private final int status;
     private final String reason;

@@ -186,10 +186,27 @@ Every wire call lands in exactly one terminal state. The client reacts to each d
 | `409` | Snapshot expired (past `exp`) | `snapshot-expired` | Re-mount: discard the stale snapshot, request a fresh component render. |
 | `410` | `cls` FQN no longer resolves to a `@LievitComponent` (renamed / removed across a deploy) | (gone) | Re-mount: the component the snapshot names is gone; reload the host page. |
 | `413` | Request payload exceeds 64 kb | (too large) | Surface an error; the component state outgrew the wire (move state server-side, v0.2 store). |
+| `413` | Payload structure exceeds a cap: too many `_updates`, too many `_calls`, or over-deep nesting (ADR-0013) | `too-complex` | Surface an error; the payload shape is pathological (a bug or a DoS attempt). Do not retry. |
+| `422` | A `@Wire` value is not plain JSON data (a polymorphic / opaque object reached the wire) (ADR-0013) | `forbidden-deserialization` | A bug or a gadget-injection attempt; the snapshot is state-never-code. Do not retry. |
+| `500` | An action threw, or any other internal failure occurred (ADR-0014) | `internal-error` | Generic failure; the detail is in the server log, never the response. Surface a generic error. |
 | `504` | An action exceeded the 5 s timeout | (timeout) | Surface a timeout; the action did not complete. |
 | `403` | CSRF token invalid/missing | (Spring Security) | Standard CSRF failure; the session is stale. |
 | `403` | Client `_updates` targeted a locked `@Wire` field | `locked-property` | A bug or a tamper attempt; the field is server-owned. Surface an error; do not retry. |
 | `429` | Too many checksum failures from this client (10 / 600 s) | `too-many-failures` | The client is being rate-limited after repeated forged/tampered snapshots; back off. |
+
+**Fail-closed, leak-free (ADR-0014).** Every error response above carries an **empty body**: the
+`Lievit-Reason` header is the whole contract. No response ever echoes the exception message, a stack
+trace, an internal class name (FQN), or any snapshot / token / payload content. A `WireException`
+maps to its terminal status with the reason header; any other throwable is logged server-side with
+its full detail and answered with the generic `500` + `internal-error`. The client learns *that* it
+failed and the coarse reason, never the internals.
+
+**The settable / callable allowlist (ADR-0013).** Only a `@Wire` field is client-settable and only a
+`@LievitAction` method is client-callable — on the first POST and every later one. The annotation IS
+the authorization allowlist. An `_updates` entry for a non-`@Wire` name is dropped (the write never
+happens); a `_calls` entry naming a lifecycle hook (`@LievitMount` / `@LievitRender`), a getter, or
+any non-action method is a `410 Gone`. The signature bounds tampering between requests; the allowlist
+bounds what a well-formed request may do.
 
 `409` and `410` are both "the snapshot no longer matches the server", but they are distinct
 causes: `409` is *time* (the snapshot aged out), `410` is *identity* (the class moved). Keeping
@@ -284,6 +301,10 @@ These are protocol-level limits, enforced server-side and surfaced through the e
 | Limit | Value (v0.1) | Enforced by | What happens at the edge |
 |---|---|---|---|
 | **Request payload** | 64 kb | server (pre-deserialization) | `413 Payload Too Large` |
+| **Max `_updates`** | 100 | `PayloadGuard` (ADR-0013), `lievit.max-updates` | `413` + `Lievit-Reason: too-complex` |
+| **Max `_calls`** | 50 | `PayloadGuard` (ADR-0013), `lievit.max-calls`; Livewire parity | `413` + `Lievit-Reason: too-complex` |
+| **Max nesting depth** | 10 | `PayloadGuard` (ADR-0013), `lievit.max-nesting-depth`; Livewire parity | `413` + `Lievit-Reason: too-complex` |
+| **Deserialization allowlist** | JSON scalar / list / map only | `PayloadGuard` (ADR-0013) | `422` + `Lievit-Reason: forbidden-deserialization` |
 | **Snapshot size** | 16 kb | server (at sign time and at unwrap) | a component whose `wire` state exceeds this must move state server-side; the v0.2 server-side snapshot store is the path |
 | **Idle TTL** | 1 h | `exp` = `iat` + TTL | past `exp` -> `409 snapshot-expired` -> client re-mounts |
 | **Action timeout** | 5 s | server (bounds each `_calls` invocation) | `504 Gateway Timeout` |
@@ -296,11 +317,34 @@ Deferred to v0.2 (recorded here so v0.1 leaves room for them): a **server-side s
 (opt-in, not the default), and **UUID v7** component IDs (time-ordered). None of these change the
 v0.1 contract above; they extend it.
 
+## 7. The wire endpoint inherits the page's security context (ADR-0014)
+
+The `POST /lievit/{id}/call` endpoint is a state-changing request that must run at the same trust
+level as the page that rendered the component. lievit does not bundle Spring Security (it would
+force the dependency on every consumer); the contract is the host application's responsibility:
+
+- **Filter-chain coverage.** The endpoint must be covered by the same Spring Security filter chain
+  that protects the host page. Spring Security matches chains by URL pattern across *all* requests,
+  so `/lievit/**` is covered by default as long as the chain's matcher includes it. An action must
+  never run less-authenticated than the page. (This is where lievit is structurally simpler than
+  Livewire, whose AJAX route bypasses the page's per-route middleware and must re-apply it.)
+- **CSRF.** The `_token` rides in the payload (§1, ADR-0001). With Spring Security present, its
+  standard CSRF filter validates the token and rejects a missing/invalid one with `403`, upstream of
+  the controller. Keep CSRF protection enabled for the endpoint; lievit adds nothing of its own here.
+- **No body-mutating filter before HMAC verify.** A servlet filter that trims, lowercases, or
+  empties-to-null the request body would corrupt the signed snapshot and turn every call into a
+  forgery. No such filter may run ahead of the wire endpoint.
+- **Scanner posture.** An unknown component is `410 Gone` and an unmatched path is the container's
+  `404`; lievit keeps the 404/410 posture (not `403`) so the endpoint does not confirm a component's
+  existence to a probe.
+
 ## Cross-references
 
 - ADR-0001 — the decision and its alternatives (why stateless HTTP + signed snapshot).
 - ADR-0002 — the seven-annotation API surface the lifecycle hooks belong to.
 - ADR-0007 — quality gates, including the golden roundtrip triples that pin
   encode/decode/tamper/replay behavior of the snapshot.
+- ADR-0013 — payload hardening (settable/callable allowlist, deserialization allowlist, structural caps).
+- ADR-0014 — fail-closed, leak-free error rendering + the wire endpoint's security context.
 - SECURITY.md — the HMAC chain as the security boundary, key handling, reporting.
 - README.md — the at-a-glance summary of this protocol.

@@ -200,8 +200,12 @@ The full normative spec is [`docs/adr/0001`](docs/adr/0001-wire-protocol-v0.1.md
 - **DOM patching**: Idiomorph (no DIY diff, no innerHTML, no virtual DOM).
 - **Client modifiers**: `l:model.live / .lazy / .blur / .debounce.500ms` (debounce 500 ms is
   the default, opt out with `.eager`), events `l:click / submit / keydown.enter`.
-- **Errors**: `410 Gone` (unknown FQN), `409 Conflict` + `Lievit-Reason: snapshot-expired`,
-  `413` (payload > 64 kb), `504` (action timeout 5 s).
+- **Errors** (fail-closed, empty body, only the `Lievit-Reason` header; ADR-0014): `410 Gone`
+  (unknown FQN or non-`@LievitAction` call), `409` + `snapshot-expired`, `413` + `too-large`
+  (> 64 kb) / `too-complex` (too many updates/calls or over-deep nesting; ADR-0013), `422` +
+  `forbidden-deserialization` (non-JSON `@Wire` value; ADR-0013), `403` + `locked-property`,
+  `429` + `too-many-failures`, `500` + `internal-error` (generic; detail server-side-logged),
+  `504` (action timeout 5 s).
 - **Limits**: payload 64 kb, snapshot 16 kb, idle TTL 1 h, action timeout 5 s, signing key
   >= 32 bytes base64url with a 24 h previous-key grace window.
 
