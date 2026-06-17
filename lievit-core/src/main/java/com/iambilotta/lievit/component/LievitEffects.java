@@ -33,6 +33,7 @@ public final class LievitEffects {
     private @Nullable String redirect;
     private final List<DispatchedEvent> dispatched = new ArrayList<>();
     private @Nullable Object returnValue;
+    private @Nullable UrlEffect url;
 
     LievitEffects() {}
 
@@ -102,6 +103,19 @@ public final class LievitEffects {
     }
 
     /**
+     * Sets the {@code url} effect: the query string to reflect into the browser address bar (the
+     * {@code @LievitUrl} feature, ADR-0012). Set by the dispatcher after a call when the component
+     * has URL-bound fields; not part of the component author's API (a component declares
+     * {@code @LievitUrl} on a field, it does not call this).
+     *
+     * @param urlEffect the query string + history mode the client must push/replace, or {@code null}
+     *     to clear (no URL effect)
+     */
+    void url(@Nullable UrlEffect urlEffect) {
+        this.url = urlEffect;
+    }
+
+    /**
      * @return the queued redirect location, or {@code null} if no redirect was requested
      */
     public @Nullable String redirect() {
@@ -123,9 +137,16 @@ public final class LievitEffects {
     }
 
     /**
+     * @return the {@code url} effect (the query string to reflect), or {@code null} if none
+     */
+    public @Nullable UrlEffect url() {
+        return url;
+    }
+
+    /**
      * @return true if no effect was produced (so the {@code Lievit-Effects} header is omitted)
      */
     public boolean isEmpty() {
-        return redirect == null && dispatched.isEmpty() && returnValue == null;
+        return redirect == null && dispatched.isEmpty() && returnValue == null && url == null;
     }
 }

@@ -16,6 +16,7 @@ import com.iambilotta.lievit.LievitComponent;
 import com.iambilotta.lievit.LievitMount;
 import com.iambilotta.lievit.LievitProperty;
 import com.iambilotta.lievit.LievitRender;
+import com.iambilotta.lievit.LievitUrl;
 import com.iambilotta.lievit.Wire;
 
 /**
@@ -75,7 +76,10 @@ public final class ComponentMetadata {
             LievitProperty property = field.getAnnotation(LievitProperty.class);
             boolean serialize = property == null || property.serialize();
             boolean locked = property != null && property.locked();
-            fields.put(field.getName(), new WireField(field.getName(), field, serialize, locked));
+            UrlBinding url = urlBindingOf(field);
+            fields.put(
+                    field.getName(),
+                    new WireField(field.getName(), field, serialize, locked, url));
         }
 
         Map<String, Method> methods = new LinkedHashMap<>();
@@ -99,6 +103,47 @@ public final class ComponentMetadata {
         return new ComponentMetadata(
                 type, component.template(), Map.copyOf(fields), Map.copyOf(methods), mountHook,
                 renderHook);
+    }
+
+    /**
+     * Resolves a field's {@code @LievitUrl} binding, if any. The query-parameter key is the {@code
+     * as} / {@code key} alias when set, otherwise the field name; declaring both aliases at once is a
+     * configuration error caught here, not at runtime.
+     */
+    private static @Nullable UrlBinding urlBindingOf(Field field) {
+        LievitUrl url = field.getAnnotation(LievitUrl.class);
+        if (url == null) {
+            return null;
+        }
+        String as = url.as().strip();
+        String key = url.key().strip();
+        if (!as.isEmpty() && !key.isEmpty() && !as.equals(key)) {
+            throw new IllegalArgumentException(
+                    "@LievitUrl on field '"
+                            + field.getName()
+                            + "' sets both as=\""
+                            + as
+                            + "\" and key=\""
+                            + key
+                            + "\"; set at most one");
+        }
+        String alias = !as.isEmpty() ? as : key;
+        String resolved = alias.isEmpty() ? field.getName() : alias;
+        return new UrlBinding(resolved, url.keepEmpty(), url.history());
+    }
+
+    /**
+     * @return the {@code @Wire} fields that also carry a {@code @LievitUrl} binding, in declaration
+     *     order; empty if the component reflects no field into the URL
+     */
+    public Map<String, WireField> urlBoundFields() {
+        Map<String, WireField> bound = new LinkedHashMap<>();
+        for (WireField field : wireFields.values()) {
+            if (field.isUrlBound()) {
+                bound.put(field.name(), field);
+            }
+        }
+        return bound;
     }
 
     /**

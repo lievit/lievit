@@ -59,15 +59,34 @@ public final class WireDispatcher {
     }
 
     /**
-     * Mounts a fresh component: runs its {@code @LievitMount} hook (if any), then reads the initial
-     * {@code @Wire} state for the first snapshot.
+     * Mounts a fresh component with no URL query state: runs its {@code @LievitMount} hook (if any),
+     * then reads the initial {@code @Wire} state for the first snapshot.
      *
      * @param metadata the component metadata
      * @param instance a fresh component instance
      * @return the serialized initial {@code @Wire} state ({@code serialize = true} fields only)
      */
     public Map<String, Object> mount(ComponentMetadata metadata, Object instance) {
+        return mount(metadata, instance, Map.of());
+    }
+
+    /**
+     * Mounts a fresh component, seeding its {@code @LievitUrl} fields from the host page's query
+     * parameters. Order (wire-protocol.md phase 1): the {@code @LievitMount} hook runs first (it sets
+     * the mount-defaults), then the matching query parameters overwrite the URL-bound fields, then
+     * the component renders. So a URL with {@code ?search=foo} pre-fills the bound field before the
+     * first render, while a parameter absent from the URL leaves the mount-default in place
+     * (the {@code @LievitUrl} feature, ADR-0001 / ADR-0012).
+     *
+     * @param metadata the component metadata
+     * @param instance a fresh component instance
+     * @param queryParams the host request's query parameters (first value per key), never null
+     * @return the serialized initial {@code @Wire} state ({@code serialize = true} fields only)
+     */
+    public Map<String, Object> mount(
+            ComponentMetadata metadata, Object instance, Map<String, String> queryParams) {
         invokeHook(metadata.mount(), instance);
+        UrlQueryBinder.seedFromQuery(metadata, instance, queryParams);
         invokeHook(metadata.render(), instance);
         return readWire(metadata, instance);
     }
@@ -105,6 +124,9 @@ public final class WireDispatcher {
                 effects.captureReturn(invokeAction(metadata, instance, call));
             }
             invokeHook(metadata.render(), instance);
+            // After the new state settles, reflect any @LievitUrl fields into the url effect so the
+            // client pushes/replaces the query string via the History API (ADR-0012, URL binding).
+            effects.url(UrlQueryBinder.buildEffect(metadata, instance));
             return new WireCall(readWire(metadata, instance), effects);
         } finally {
             LievitEffects.clear();

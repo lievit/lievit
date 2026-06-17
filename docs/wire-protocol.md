@@ -280,10 +280,49 @@ Lievit-Effects: {"redirect":"/done","dispatch":[{"name":"saved","detail":{"id":7
 | `redirect` | `string` | the action requested navigation | navigate (`location.assign`) instead of morphing |
 | `dispatch` | array of `{name, detail?}` | events the action queued | re-emit each as a DOM `CustomEvent` on `window` (the cross-component bus) |
 | `returns` | any JSON | the action's return value | available to the caller / test API; no DOM effect by itself |
+| `url` | `{query, history}` | the `@LievitUrl` fields' new query string | update the address bar via the History API (see below); no navigation |
 
 Reserved for later (named so the channel leaves room, not implemented in v0.1 of the channel):
 `stream` (SSE/chunked), `js` (server-requested eval, security-sensitive, deferred), `download`
 (base64 ride-along). Each is a new key in the bag, never a new response shape.
+
+### The `url` effect (`@LievitUrl` query-string binding)
+
+A `@Wire` field annotated `@LievitUrl` is reflected into the browser's query string. The server
+emits the `url` effect after every wire call that touches a component with such a field; the client
+writes it to the address bar with the History API, without navigating.
+
+```
+Lievit-Effects: {"url":{"query":"search=spring&tab=details","history":"PUSH"}}
+```
+
+| Key | Type | Meaning |
+|---|---|---|
+| `query` | `string` | the **query string only** (the part after `?`, no leading `?`), already URL-encoded per `key=value` pair. An **empty string** means "no query parameters" (clear them all). |
+| `history` | `"PUSH"` \| `"REPLACE"` | `PUSH` adds a back-stack entry (`history.pushState`), `REPLACE` rewrites the current one (`history.replaceState`). |
+
+**Exactly what the client must do** (CSP-safe, in the client-glue bundle, never inline script):
+
+```js
+const { query, history: mode } = effects.url;          // from the parsed Lievit-Effects bag
+const next = window.location.pathname + (query ? "?" + query : "");
+if (mode === "REPLACE") {
+  window.history.replaceState({}, "", next);
+} else {
+  window.history.pushState({}, "", next);              // PUSH is the default
+}
+```
+
+- The client merges `query` onto the **current `location.pathname`** and never onto a host or
+  scheme. The server emits *only* the query string, so the effect can never be a navigation target
+  or an open redirect (it updates the URL, it does not follow it). Do **not** pass `query` to
+  `location.assign` / `location.href`.
+- `query` is already encoded server-side; the client uses it verbatim (no double-encoding).
+- The back button restores the prior state because `PUSH` left a history entry; on `popstate` the
+  glue re-mounts / re-syncs the component from the restored query string (the symmetric read side of
+  the `mount`-from-query step in phase 1).
+- The `url` effect rides the same `200`-only, server-authored, never-signed channel as the other
+  effects (§5b security note); an error response carries no effects.
 
 **Security**: the effects bag is **server-authored and never signed** — nothing the client could
 tamper rides in it, so it is outside the HMAC boundary (which still covers only the snapshot). The
