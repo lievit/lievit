@@ -5,6 +5,7 @@
 package com.iambilotta.lievit.spring;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -80,8 +81,11 @@ public final class LievitWireService {
         ComponentMetadata metadata = registry.metadata(className);
         Object instance = registry.freshInstance(className);
 
-        Map<String, Object> wire = dispatcher.mount(metadata, instance);
-        String html = templateAdapter.render(metadata, instance, wire);
+        WireCall wireCall = dispatcher.mount(metadata, instance);
+        Map<String, Object> wire = wireCall.wire();
+        // Pass the wire state + any computed values to the template adapter as a merged model.
+        // Computed values are NOT serialized into the snapshot (ADR-0015).
+        String html = templateAdapter.render(metadata, instance, mergeModel(wire, wireCall));
 
         Instant now = Instant.now();
         Snapshot snapshot =
@@ -123,11 +127,24 @@ public final class LievitWireService {
 
         WireCall call = dispatcher.call(metadata, instance, snapshot.wire(), updates, calls);
         Map<String, Object> wire = call.wire();
-        String html = templateAdapter.render(metadata, instance, wire);
+        // Pass the wire state + any computed values to the template adapter as a merged model.
+        // Computed values are NOT serialized into the snapshot (ADR-0015).
+        String html = templateAdapter.render(metadata, instance, mergeModel(wire, call));
 
         Instant now = Instant.now();
         Snapshot next = Snapshot.fresh(snapshot.cid(), snapshot.cls(), wire, now, codec.ttl());
         return new WireCallResult(html, codec.sign(next), encodeEffects(call));
+    }
+
+    /**
+     * Merges the snapshot-bound {@code @Wire} state with the per-call computed values into one flat
+     * model map for the template adapter. Wire fields take precedence in insertion order; computed
+     * values follow. The returned map is used ONLY for rendering, not for signing (ADR-0015).
+     */
+    private static Map<String, Object> mergeModel(Map<String, Object> wire, WireCall call) {
+        Map<String, Object> model = new LinkedHashMap<>(wire);
+        model.putAll(call.computed());
+        return model;
     }
 
     /**

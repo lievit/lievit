@@ -84,10 +84,10 @@ A developer only ever thinks about five things:
 | **Mount** | The lifecycle hook that runs after construction, before the first render. |
 | **Render** | The render step (template + checksum + signed snapshot). |
 
-## The public API (seven annotations)
+## The public API (eight annotations)
 
-The public surface is hard-capped at seven annotations (anti-overkill, see
-[`docs/adr/0002`](docs/adr/0002-seven-annotation-api-surface.md)):
+The public surface is eight annotations (ADR-0002, cap superseded by ADR-0015 for
+`@LievitComputed`; see [`docs/adr/0015`](docs/adr/0015-computed-properties.md)):
 
 | Annotation | Purpose |
 |---|---|
@@ -98,6 +98,7 @@ The public surface is hard-capped at seven annotations (anti-overkill, see
 | `@LievitMount` | Lifecycle hook: after construction, before render. |
 | `@LievitRender` | Custom pre-render hook. |
 | `@LievitProperty` | Optional: extended metadata on a `@Wire` field (validation, transform, serialize). |
+| `@LievitComputed` | Marks a no-arg method as a per-request computed property (memoized once per wire call, not serialized into the snapshot). |
 
 ## Hello component (API-first sketch)
 
