@@ -1,0 +1,232 @@
+# lievit
+
+> **HTML over the wire for Spring. Type-safe. Native. EU-grade.** lievit is the opinionated,
+> named full-stack way to build interactive Spring apps, the Livewire / Hotwire / LiveView
+> category for Java. Write a reactive component as a typed Java class, render it server-side,
+> and lievit keeps the browser in sync over a stateless, HMAC-signed wire. No JSON API, no
+> client state store, no parallel frontend codebase. Apache 2.0, no SaaS.
+
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
+[![Spring Boot](https://img.shields.io/badge/spring--boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
+
+> **Status: pre-public foundation.** The conventions, the docs, and the design decisions are
+> being laid down. The build (Maven, modules, runtime code) is **not wired yet**, by intent.
+> The code samples below are the **API-first contract** the implementation will be built to,
+> spec-first, not yet runnable. Project home and canonical reference:
+> [iambilotta.com](https://iambilotta.com).
+
+```
+For:     Spring developers building interactive, business / internal / CRUD-heavy apps
+         who want rich interactivity without an SPA, without JSON contracts, and
+         without a parallel frontend codebase. Especially the htmx-curious Spring dev
+         hand-rolling htmx + Thymeleaf, and the ex-Laravel / Rails migrant who misses
+         the Livewire / Hotwire developer experience on the JVM.
+Does:    HTML over the wire, Spring-native: a reactive component is a typed Java class;
+         lievit syncs the DOM over a stateless, HMAC-signed wire call.
+Stack:   Java 25 + Spring Boot 4 + JTE (primary) + htmx 2 + Lit 3. GraalVM-native day one.
+Cost:    Apache 2.0, no SaaS, no paywall, no data egress.
+Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a component
+         library, not a kit. You bring Spring; lievit makes it interactive.
+```
+
+[**The category**](#the-category) ·
+[**The three strata**](#the-three-strata) ·
+[**The seven-annotation API**](#the-public-api-seven-annotations) ·
+[**Hello component**](#hello-component-api-first-sketch) ·
+[**Single-file vs multi-file**](#single-file--multi-file) ·
+[**Wire protocol**](#wire-protocol-v01) ·
+[**ADRs**](docs/adr/) ·
+[**Docs plan**](docs/PLAN.md)
+
+---
+
+## The category
+
+lievit is **not** a library, **not** a framework alternative to Spring, and **not** a kit.
+
+- A library or kit is too small to be a way of building: it is a disposable artifact, nothing
+  to identify with.
+- A framework alternative (its own DI, routing, runtime) would be a poor copy of Quarkus or
+  Micronaut and would violate the one principle that holds: lievit lives **inside** Spring.
+- The thing that becomes a way of building is a **named full-stack layer on top of the existing
+  framework**. Livewire is that for Laravel; Hotwire is that for Rails. lievit is that for Spring.
+
+The Spring core is Broadcom's; lievit sits on top of Spring Boot and never replaces it. The
+unique mechanism (term-as-IP): **HTML over the wire, type-safe by construction, on a stateless
+signed wire**, see [iambilotta.com](https://iambilotta.com).
+
+## The three strata
+
+1. **The interactivity runtime (the core).** HTML over the wire, Spring-native, stateless,
+   type-safe, GraalVM-native. This is the piece the IDE does not cover and that Spring lacks.
+2. **The golden-path kit (the cohesion).** An opinionated reference app: Spring Security done
+   well + a Modulith structure + lievit wired + sane defaults. The analogue of Laravel's
+   Breeze / Jetstream. It is *content* (an excellent app), not tooling. Instantiated with
+   `lievit new` (or a template repo): you want the golden path to be exact and deterministic.
+3. **The `lievit` CLI (thin).** A thin kit installer (`lievit new`), a dev loop (`lievit dev`),
+   GraalVM-native build / test ergonomics (`lievit native:build`, `lievit native:test`), and
+   `lievit doctor`. The heavy `make:*` scaffold generator is deferred / AI-replaced: the IDE
+   already owns scaffolding on the JVM.
+
+The name **is** the command. `lievit new`, `lievit dev`: one identity for the runtime, the kit,
+and the CLI.
+
+## The five user-facing concepts
+
+A developer only ever thinks about five things:
+
+| Concept | What it is |
+|---|---|
+| **Component** | A server-side reactive unit: a typed Java class. |
+| **Wire** | A field bound bidirectionally between the class and the template. |
+| **Action** | A method on the component, callable from the template (`l:click`, `l:submit`). |
+| **Mount** | The lifecycle hook that runs after construction, before the first render. |
+| **Render** | The render step (template + checksum + signed snapshot). |
+
+## The public API (seven annotations)
+
+The public surface is hard-capped at seven annotations (anti-overkill, see
+[`docs/adr/0002`](docs/adr/0002-seven-annotation-api-surface.md)):
+
+| Annotation | Purpose |
+|---|---|
+| `@EnableLievit` | Turns on the starter autoconfiguration, on a `@Configuration` class. |
+| `@LievitComponent` | Marks a Java class as a server-side component (implicitly a Spring `@Component`). |
+| `@Wire` | Binds a field bidirectionally between class and template, compile-time type-checked. |
+| `@LievitAction` | Marks a method callable from the template. |
+| `@LievitMount` | Lifecycle hook: after construction, before render. |
+| `@LievitRender` | Custom pre-render hook. |
+| `@LievitProperty` | Optional: extended metadata on a `@Wire` field (validation, transform, serialize). |
+
+## Hello component (API-first sketch)
+
+> Spec-first. This is the contract the implementation will be built to; it does not run yet.
+
+A counter, multi-file mode (typed Java class + a JTE template):
+
+```java
+// src/main/java/com/example/CounterComponent.java
+@LievitComponent
+public class CounterComponent {
+
+    @Wire
+    int count;
+
+    @LievitAction
+    public void increment() {
+        count++;
+    }
+
+    @LievitAction
+    public void decrement() {
+        count--;
+    }
+}
+```
+
+```html
+<!-- src/main/jte/counter.jte -->
+@param int count
+<div>
+    <button l:click="decrement">-</button>
+    <span>${count}</span>
+    <button l:click="increment">+</button>
+</div>
+```
+
+```java
+// turn the starter on, once, on any @Configuration
+@SpringBootApplication
+@EnableLievit
+public class DemoApplication { }
+```
+
+That is the whole loop. A click on a button calls the action over the wire, the server
+re-renders the component, and lievit patches only the changed DOM. No controller, no JSON, no
+client-side state.
+
+### Single-file mode (type-safe by construction)
+
+The same component, single-file, using the typed HTML DSL (no separate template, the Java
+compiler checks the markup):
+
+```java
+@LievitComponent
+public class Counter {
+
+    @Wire int count;
+
+    @LievitAction public void increment() { count++; }
+    @LievitAction public void decrement() { count--; }
+
+    @LievitRender
+    Html render() {
+        return div(
+            button(text("-")).attr("l:click", "decrement"),
+            span(text(count)),
+            button(text("+")).attr("l:click", "increment")
+        );
+    }
+}
+```
+
+Single-file is not a trade on type-safety: it is "DSL instead of JTE", both are type-safe.
+Reactive single-file type-safe components are the hard differentiator: impossible in Volt / PHP
+(not compiled). See [`docs/adr/0003`](docs/adr/0003-single-file-multi-file-dual-mode.md).
+
+## Single-file + multi-file
+
+Both modes ship from v0.1, both are type-safe:
+
+- **Single-file**: a `.java` class with the template inline via a typed HTML DSL. The Java
+  compiler verifies the markup. One file, colocation.
+- **Multi-file**: a `.java` class plus a separate **JTE** template, type-safe via annotation
+  processing, friendlier for HTML-heavy / designer-authored markup.
+
+JTE is the canonical primary template engine; Thymeleaf, Mustache, FreeMarker, and raw are
+first-class adapters behind one engine-agnostic abstraction. See
+[`docs/adr/0004`](docs/adr/0004-template-adapter-strategy.md).
+
+## Wire protocol v0.1
+
+The full normative spec is [`docs/adr/0001`](docs/adr/0001-wire-protocol-v0.1.md). In brief:
+
+- **Endpoint**: `POST /lievit/{componentId}/call`, stateless.
+- **Payload**: `{ _token, _snapshot (jwt-hs256), _updates, _calls }`.
+- **Response**: `text/html` + header `Lievit-Snapshot`.
+- **Snapshot**: `{cid, cls, wire, iat, exp}`, HMAC-SHA-256 signed (HS256, `kid` header for
+  rotation). Carries **state, never code**; the class is an FQN resolved at unwrap time.
+- **DOM patching**: Idiomorph (no DIY diff, no innerHTML, no virtual DOM).
+- **Client modifiers**: `l:model.live / .lazy / .blur / .debounce.500ms` (debounce 500 ms is
+  the default, opt out with `.eager`), events `l:click / submit / keydown.enter`.
+- **Errors**: `410 Gone` (unknown FQN), `409 Conflict` + `Lievit-Reason: snapshot-expired`,
+  `413` (payload > 64 kb), `504` (action timeout 5 s).
+- **Limits**: payload 64 kb, snapshot 16 kb, idle TTL 1 h, action timeout 5 s, signing key
+  >= 32 bytes base64url with a 24 h previous-key grace window.
+
+## Custom elements
+
+lievit ships brand-visible custom elements: `<lievit-loading>`, `<lievit-error>`,
+`<lievit-stream>` (the `<lievit-*>` prefix, Lit-based).
+
+## Theming
+
+Zero CSS by default, never imposed. An opt-in theme package (`lievit-theme-italian-grade`) is
+available for those who want a polished default look.
+
+## Positioning
+
+lievit is the stateless inverse of Vaadin Flow: scale-out and scale-to-zero instead of a
+stateful server, fine HTML control, Apache-licensed with no Pro paywall, a 60-80 kb client
+bundle, type-safe, GraalVM-native. The honest boundary (inherited from htmx): 95% of business /
+internal / CRUD-interactive apps, not heavy client-state apps. Full competitor analysis and the
+unique mechanism live at [iambilotta.com](https://iambilotta.com).
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE). Copyright 2026 Francesco Bilotta.
+
+## Project home
+
+Canonical reference, the manifesto, and the screencasts: [iambilotta.com](https://iambilotta.com).
