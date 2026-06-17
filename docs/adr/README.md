@@ -21,6 +21,8 @@ question and is pending a final call.
 - [ADR-0006](0006-graalvm-native-day-one.md): GraalVM native day one, zero runtime reflection. **accepted**
 - [ADR-0007](0007-quality-gates.md): No-compromise quality gates. **accepted**
 - [ADR-0008](0008-module-packaging.md): Module packaging (one starter, modular internals). **proposed (DECISION PENDING)**
+- [ADR-0009](0009-lievit-ui-copy-in-registry.md): lievit-ui is a copy-in component registry, not a Maven artifact. **accepted**
+- [ADR-0010](0010-dev-test-harness.md): `Lievit.test()` — the developer-facing component test harness. **proposed**
 
 ## How to add an ADR
 
