@@ -36,10 +36,13 @@
         </dependency>
 
         <!--
-            Jakarta Bean Validation API (compile-time): lievit-core exposes FieldValidator and
-            BeanValidationFieldValidator which reference jakarta.validation types. The API jar is
-            optional so it is not forced on apps that do not use validation; the starter adds it
-            transitively through spring-boot-starter-validation.
+            Jakarta Bean Validation API (compile-time, optional): lievit-core exposes both the
+            FieldValidator / BeanValidationFieldValidator (real-time validation) and
+            LievitFormObject.validate() (form objects, ADR-0017), which reference jakarta.validation
+            types. The API jar is optional so it is not forced on apps that do not use validation
+            (LievitFormObject.validate() degrades to "no violations" when absent); Spring Boot apps
+            that depend on lievit-spring-boot-starter pull it transitively via
+            spring-boot-starter-validation.
         -->
         <dependency>
             <groupId>jakarta.validation</groupId>
@@ -48,6 +51,22 @@
         </dependency>
 
         <!-- Tests. -->
+        <!--
+            Hibernate Validator (reference impl) and its EL runtime requirement (tomcat-embed-el)
+            for form-object validation tests. In a Spring Boot app both are present via
+            spring-boot-starter-validation and spring-boot-starter-web; in lievit-core tests
+            (a pure-Java module without a web container) we must supply them explicitly.
+        -->
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-el</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
