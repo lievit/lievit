@@ -4,15 +4,15 @@
  */
 package io.lievit.kit.hello;
 
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
 
 import io.lievit.kit.RecordRepository;
-
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
 
 /**
  * Minimal Spring Boot app for the hello-admin end-to-end CRUD test. Wires the adopter-supplied data

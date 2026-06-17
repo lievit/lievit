@@ -162,6 +162,32 @@ public final class Panel {
         return Optional.ofNullable(plugins.get(id));
     }
 
+    /**
+     * @param id the plugin id
+     * @return {@code true} if a plugin with that id has been applied to this panel
+     */
+    public boolean hasPlugin(String id) {
+        return plugins.containsKey(Objects.requireNonNull(id, "id"));
+    }
+
+    /**
+     * Looks up an applied plugin by id, failing loudly when it is not registered (the cross-plugin
+     * wiring path: a plugin's {@link Plugin#boot(Panel)} reads an earlier-registered plugin and must
+     * not get a silent {@code null}).
+     *
+     * @param id the plugin id
+     * @return the applied plugin
+     * @throws IllegalArgumentException if no plugin with that id is registered for this panel
+     */
+    public Plugin requirePlugin(String id) {
+        Plugin plugin = plugins.get(Objects.requireNonNull(id, "id"));
+        if (plugin == null) {
+            throw new IllegalArgumentException(
+                    "plugin \"" + id + "\" is not registered for panel \"" + this.id + "\"");
+        }
+        return plugin;
+    }
+
     // ── Routing / registry (issue #319) ─────────────────────────────────────────────────────────
 
     /**
