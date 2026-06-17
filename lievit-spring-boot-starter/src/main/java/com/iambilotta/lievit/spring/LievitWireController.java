@@ -6,6 +6,8 @@ package com.iambilotta.lievit.spring;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,9 +29,20 @@ import com.iambilotta.lievit.wire.WireException;
  * WireException} from the service is translated to its exact status + {@code Lievit-Reason} header
  * by {@link #handleWireError}, realizing the error-code state machine. CSRF is enforced upstream by
  * Spring Security's standard filter (the {@code _token}), so it is not handled here.
+ *
+ * <p><strong>Fail-closed, leak-free (ADR-0014).</strong> No error response carries the exception
+ * message, a stack trace, an internal class name, or any snapshot / token / payload content. A
+ * {@link WireException} maps to its terminal status with an empty body and only the
+ * {@code Lievit-Reason} header; any other throwable (an action that threw, a binding failure) is
+ * caught by {@link #handleUnexpected}, logged server-side with its full detail, and answered with a
+ * generic {@code 500} + {@code Lievit-Reason: internal-error} and an empty body. The client learns
+ * <em>that</em> it failed and the coarse reason, never the internals (Livewire
+ * {@code CorruptComponentPayloadException} parity: generic in prod, detail only in the server log).
  */
 @RestController
 public final class LievitWireController {
+
+    private static final Logger log = LoggerFactory.getLogger(LievitWireController.class);
 
     static final String SNAPSHOT_HEADER = "Lievit-Snapshot";
     static final String EFFECTS_HEADER = "Lievit-Effects";
@@ -88,6 +101,30 @@ public final class LievitWireController {
     @ExceptionHandler(WireException.class)
     public ResponseEntity<String> handleWireError(WireException e, NativeWebRequest webRequest) {
         WireError error = e.error();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(REASON_HEADER, error.reason());
+        // Empty body: the Lievit-Reason header is the whole contract. The exception message
+        // (e.getMessage()) is never written to the response (fail-closed, ADR-0014).
+        return ResponseEntity.status(error.status()).headers(headers).build();
+    }
+
+    /**
+     * Catch-all for any throwable that is not a {@link WireException}: an action that threw, a
+     * deserialization failure, an unexpected runtime error. Answers a generic {@code 500} +
+     * {@code Lievit-Reason: internal-error} with an <strong>empty body</strong>; the full detail
+     * (message, stack trace, FQN) is logged server-side only, never echoed to the client. This is
+     * the fail-closed, leak-free posture of ADR-0014: without it, Spring's default error view would
+     * surface the internal class names and message to the browser.
+     *
+     * @param e the unexpected throwable
+     * @param webRequest the request (unused beyond signature symmetry)
+     * @return a generic {@code 500} with no body
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleUnexpected(Exception e, NativeWebRequest webRequest) {
+        WireError error = WireError.INTERNAL_ERROR;
+        // Server-side only: the detail lives in the log, never in the response.
+        log.error("wire call failed with an unexpected error", e);
         HttpHeaders headers = new HttpHeaders();
         headers.add(REASON_HEADER, error.reason());
         return ResponseEntity.status(error.status()).headers(headers).build();

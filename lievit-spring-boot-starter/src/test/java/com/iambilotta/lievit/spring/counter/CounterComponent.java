@@ -36,4 +36,14 @@ public class CounterComponent {
     void increment() {
         this.count++;
     }
+
+    /**
+     * An action that throws, to exercise the fail-closed error path (ADR-0014): the message names a
+     * fake internal class so the leak-free assertion can prove it never reaches the client.
+     */
+    @LievitAction
+    void boom() {
+        throw new IllegalStateException(
+                "internal failure in com.iambilotta.secret.GadgetChain at row 42");
+    }
 }

@@ -22,6 +22,7 @@ import com.iambilotta.lievit.jte.JteTemplateAdapter;
 import com.iambilotta.lievit.render.TemplateAdapter;
 import com.iambilotta.lievit.wire.ChecksumFailureLimiter;
 import com.iambilotta.lievit.wire.ComponentId;
+import com.iambilotta.lievit.wire.PayloadGuard;
 import com.iambilotta.lievit.wire.SigningKeys;
 import com.iambilotta.lievit.wire.SnapshotCodec;
 
@@ -76,12 +77,29 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * The structural-cap and deserialization-allowlist guard (ADR-0013), built from the configured
+     * caps (defaults: 100 updates, 50 calls, depth 10).
+     *
+     * @param properties the bound {@code lievit.*} configuration
+     * @return the payload guard
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PayloadGuard lievitPayloadGuard(LievitProperties properties) {
+        return new PayloadGuard(
+                properties.getMaxUpdates(),
+                properties.getMaxCalls(),
+                properties.getMaxNestingDepth());
+    }
+
+    /**
+     * @param payloadGuard the structural-cap / deserialization-allowlist guard (ADR-0013)
      * @return the stateless lifecycle engine
      */
     @Bean
     @ConditionalOnMissingBean
-    public WireDispatcher lievitWireDispatcher() {
-        return new WireDispatcher();
+    public WireDispatcher lievitWireDispatcher(PayloadGuard payloadGuard) {
+        return new WireDispatcher(payloadGuard);
     }
 
     /**

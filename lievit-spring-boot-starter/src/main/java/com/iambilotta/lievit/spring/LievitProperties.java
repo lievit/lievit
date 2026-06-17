@@ -35,6 +35,15 @@ public class LievitProperties {
     /** The snapshot idle time-to-live (default 1 h, wire-protocol §6). */
     private Duration ttl = Duration.ofHours(1);
 
+    /** Max {@code _updates} entries per wire call (DoS cap, ADR-0013). */
+    private int maxUpdates = 100;
+
+    /** Max {@code _calls} entries per wire call (Livewire parity 50, ADR-0013). */
+    private int maxCalls = 50;
+
+    /** Max update-value nesting depth (Livewire parity 10, ADR-0013). */
+    private int maxNestingDepth = 10;
+
     public @Nullable String getSigningKey() {
         return signingKey;
     }
@@ -73,5 +82,29 @@ public class LievitProperties {
 
     public void setTtl(Duration ttl) {
         this.ttl = ttl;
+    }
+
+    public int getMaxUpdates() {
+        return maxUpdates;
+    }
+
+    public void setMaxUpdates(int maxUpdates) {
+        this.maxUpdates = maxUpdates;
+    }
+
+    public int getMaxCalls() {
+        return maxCalls;
+    }
+
+    public void setMaxCalls(int maxCalls) {
+        this.maxCalls = maxCalls;
+    }
+
+    public int getMaxNestingDepth() {
+        return maxNestingDepth;
+    }
+
+    public void setMaxNestingDepth(int maxNestingDepth) {
+        this.maxNestingDepth = maxNestingDepth;
     }
 }

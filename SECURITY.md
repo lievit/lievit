@@ -37,13 +37,19 @@ Critical:
 - Bypassing the HMAC signature check on `POST /lievit/{componentId}/call`.
 - Replaying an expired snapshot (`exp` in the past) and having it accepted.
 - Resolving an arbitrary FQN from a snapshot to instantiate a class that is not a `@LievitComponent`.
+- Setting a non-`@Wire` field or calling a non-`@LievitAction` method from the wire (the
+  settable/callable allowlist, ADR-0013), or deserializing a non-JSON / gadget object into a
+  `@Wire` field (the deserialization allowlist, ADR-0013).
 
 High:
 - Leaking `_token`, `_snapshot`, the wire payload, cookies, or auth material into telemetry
   (the privacy rule forbids it: spans and metrics carry shape and timing only).
-- Defeating the payload-size limit (64 kb) or the action timeout (5 s) so a single call can
-  exhaust server resources.
-- CSRF on the wire endpoint (the custom wire header + Spring Security CSRF is the chokepoint).
+- Leaking a stack trace, an internal class name, or the exception message into a wire error
+  response (the fail-closed, leak-free rule, ADR-0014: detail is server-side-logged only).
+- Defeating the payload-size limit (64 kb), the structural caps (max updates / calls / nesting,
+  ADR-0013), or the action timeout (5 s) so a single call can exhaust server resources.
+- CSRF on the wire endpoint (the custom wire header + Spring Security CSRF is the chokepoint), or
+  the endpoint running less-authenticated than the page it rendered (ADR-0014 security context).
 
 Medium / Low:
 - DOM-patching glitches that lose or duplicate content without a state integrity impact.

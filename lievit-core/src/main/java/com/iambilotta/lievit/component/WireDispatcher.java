@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
+import com.iambilotta.lievit.wire.PayloadGuard;
 import com.iambilotta.lievit.wire.WireError;
 import com.iambilotta.lievit.wire.WireException;
 
@@ -25,12 +26,37 @@ import com.iambilotta.lievit.wire.WireException;
  * state, apply the client {@code _updates}, invoke the {@code _calls} actions in order, read back
  * the new state).
  *
- * <p>The load-bearing security rule lives in {@link #applyUpdates}: a {@code @Wire} field marked
- * {@code @LievitProperty(locked = true)} rejects any inbound update with a {@link
- * WireError#LOCKED_PROPERTY}. The snapshot signature stops tampering between requests; the lock
- * stops the first request from writing a server-owned field (ADR-0001 amendment).
+ * <p>The load-bearing security rules live in {@link #applyUpdates} and {@link #invokeAction}:
+ *
+ * <ul>
+ *   <li>only a {@code @Wire} field is client-settable (an update for any other name is dropped, not
+ *       applied) and only a {@code @LievitAction} method is client-callable (a call naming anything
+ *       else is a {@link WireError#UNKNOWN_COMPONENT}). The annotation <em>is</em> the
+ *       authorization allowlist (ADR-0013): lifecycle hooks, getters, and arbitrary methods are
+ *       never reachable from the wire, on the first POST or any later one.
+ *   <li>a {@code @Wire} field marked {@code @LievitProperty(locked = true)} rejects any inbound
+ *       update with a {@link WireError#LOCKED_PROPERTY}. The snapshot signature stops tampering
+ *       between requests; the lock stops the first request from writing a server-owned field
+ *       (ADR-0001 amendment).
+ *   <li>the {@link PayloadGuard} bounds the payload's shape (max updates / calls / nesting) and
+ *       enforces the deserialization allowlist before any value is bound (ADR-0013).
+ * </ul>
  */
 public final class WireDispatcher {
+
+    private final PayloadGuard payloadGuard;
+
+    /** Uses the protocol-default {@link PayloadGuard} (wire-protocol.md §6). */
+    public WireDispatcher() {
+        this(new PayloadGuard());
+    }
+
+    /**
+     * @param payloadGuard the structural-cap and deserialization-allowlist guard (ADR-0013)
+     */
+    public WireDispatcher(PayloadGuard payloadGuard) {
+        this.payloadGuard = payloadGuard;
+    }
 
     /**
      * Mounts a fresh component: runs its {@code @LievitMount} hook (if any), then reads the initial
@@ -56,7 +82,9 @@ public final class WireDispatcher {
      * @param calls the action names to invoke, in order ({@code _calls})
      * @return the new {@code @Wire} state plus any {@link LievitEffects} the actions produced
      * @throws WireException {@link WireError#LOCKED_PROPERTY} if an update targets a locked field;
-     *     {@link WireError#UNKNOWN_COMPONENT} if a call names no {@code @LievitAction}
+     *     {@link WireError#UNKNOWN_COMPONENT} if a call names no {@code @LievitAction}; {@link
+     *     WireError#PAYLOAD_TOO_COMPLEX} if a structural cap is exceeded; {@link
+     *     WireError#FORBIDDEN_DESERIALIZATION} if a value is not plain JSON data (ADR-0013)
      */
     public WireCall call(
             ComponentMetadata metadata,
@@ -67,6 +95,10 @@ public final class WireDispatcher {
         LievitEffects effects = new LievitEffects();
         LievitEffects.bind(effects);
         try {
+            // Shape-bound the payload (counts, nesting) and prove every value is plain JSON data
+            // before anything is bound to a field: the gadget / DoS defense (ADR-0013).
+            payloadGuard.checkInbound(updates, calls);
+            payloadGuard.checkSnapshotWire(snapshotWire);
             rehydrate(metadata, instance, snapshotWire);
             applyUpdates(metadata, instance, updates);
             for (String call : calls) {
@@ -91,15 +123,20 @@ public final class WireDispatcher {
     }
 
     /**
-     * Applies client field updates, rejecting any that target a locked field. An update for an
-     * unknown (non-{@code @Wire}) name is ignored, not an error: the snapshot signature already
-     * bounds what a non-malicious client sends, and a stray key is treated as noise.
+     * Applies client field updates, rejecting any that target a locked field. Only a {@code @Wire}
+     * field is settable: this is the authorization allowlist (ADR-0013). An update naming anything
+     * else (a non-{@code @Wire} field, a setter, a private field) is <em>dropped</em>, never
+     * applied, so a first POST cannot write a property the component never exposed to the wire. The
+     * drop is silent rather than a hard error because the signed snapshot already bounds the
+     * non-malicious surface and a stray key is treated as noise; the security property is that the
+     * write does not happen, which {@code WireDispatcherTest} pins.
      */
     private void applyUpdates(
             ComponentMetadata metadata, Object instance, Map<String, Object> updates) {
         for (Map.Entry<String, Object> entry : updates.entrySet()) {
             WireField field = metadata.wireFields().get(entry.getKey());
             if (field == null) {
+                // Not a @Wire field: outside the settable allowlist. Drop it.
                 continue;
             }
             if (field.locked()) {
@@ -112,10 +149,12 @@ public final class WireDispatcher {
     }
 
     private @Nullable Object invokeAction(ComponentMetadata metadata, Object instance, String name) {
+        // Only a @LievitAction is callable: the annotation IS the authorization allowlist
+        // (ADR-0013). A call naming a lifecycle hook (@LievitMount/@LievitRender), a getter, or any
+        // other method resolves to no action and is refused; the first POST cannot reach a method
+        // the component never exposed to the wire.
         Method action = metadata.action(name);
         if (action == null) {
-            // An unknown action means the client named a method the component does not expose,
-            // typically a stale build; the component the snapshot names no longer has that action.
             throw new WireException(
                     WireError.UNKNOWN_COMPONENT, "no @LievitAction matches the requested call");
         }
