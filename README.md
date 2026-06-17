@@ -197,7 +197,8 @@ The full normative spec is [`docs/adr/0001`](docs/adr/0001-wire-protocol-v0.1.md
 - **Response**: `text/html` + header `Lievit-Snapshot`.
 - **Snapshot**: `{cid, cls, wire, iat, exp}`, HMAC-SHA-256 signed (HS256, `kid` header for
   rotation). Carries **state, never code**; the class is an FQN resolved at unwrap time.
-- **DOM patching**: Idiomorph (no DIY diff, no innerHTML, no virtual DOM).
+- **DOM patching**: a bespoke identity-preserving morph (no DIY diff, no innerHTML, no virtual DOM;
+  ADR-0015 amends ADR-0001's Idiomorph choice to keep the client bundle dependency-free).
 - **Client modifiers**: `l:model.live / .lazy / .blur / .debounce.500ms` (debounce 500 ms is
   the default, opt out with `.eager`), events `l:click / submit / keydown.enter`.
 - **Errors** (fail-closed, empty body, only the `Lievit-Reason` header; ADR-0014): `410 Gone`
