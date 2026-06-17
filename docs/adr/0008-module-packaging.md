@@ -1,6 +1,6 @@
 # ADR-0008: Module packaging (one starter, modular internals)
 
-- **Status:** proposed (DECISION PENDING Francesco)
+- **Status:** accepted
 - **Date:** 2026-06-17
 - **Deciders:** Francesco Bilotta
 
@@ -24,8 +24,23 @@ cost.
 
 ## Decision
 
-**PENDING.** Not locked. Both positions are recorded above. The coordinator's recommendation,
-offered to reconcile them, is below; Francesco makes the call.
+**Resolved by Francesco, 2026-06-17.** Position A, in a monorepo:
+
+- **One repository (monorepo) `lievit/lievit`**, holding **seven Maven artifacts**:
+  `com.iambilotta:lievit-core` · `-jte` · `-thymeleaf` · `-mustache` · `-freemarker` · `-raw` ·
+  `-spring-boot-starter`. `lievit-core` IS a published coordinate (sub-question 1: published, not
+  hidden). All five template adapters are separate artifacts from v0.1 (sub-question 2: split).
+  `lievit-spring-boot-starter` is the single primary dependency most adopters add.
+- **The Filament-style admin is OUT of scope for v0.1 and will be a SEPARATE REPOSITORY** (its own
+  release cadence), not a module of this monorepo and not bundled into the runtime (sub-question 3:
+  reserved as a future separate repo, the Livewire/Filament playbook).
+- **`lievit-ui` is NOT one of the seven artifacts.** It is a **copy-in component registry** (Lit
+  component source + design tokens you own), distributed via the CLI (`lievit add <component>`,
+  shadcn model), living at the monorepo root as `lievit-ui/` (a `registry/` of owned source, not a
+  `src/main/java` Maven module). The design tokens MAY later ship as a small published artifact; the
+  components stay copy-in. Detailed in a dedicated ADR (lievit-ui).
+
+The reconciliation rationale that informed the call is kept below for the record.
 
 ## Coordinator's recommendation (to reconcile A and B)
 
