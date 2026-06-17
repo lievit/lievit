@@ -1,0 +1,16 @@
+{
+  "name": "breadcrumb",
+  "type": "registry:ui",
+  "description": "An accessible breadcrumb navigation trail; nav landmark, ordered list, aria-current='page' on the current item, separator aria-hidden (WAI-ARIA breadcrumb pattern).",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/breadcrumb/breadcrumb.ts",
+      "type": "registry:ui",
+      "target": "components/ui/breadcrumb.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register <lv-breadcrumb> by importing components/ui/breadcrumb.ts from your entry point. Pass `items` as an array of { label, href? } from root to current. The last item is marked aria-current='page'. Set `separator` to change the divider glyph (default '/')."
+}
