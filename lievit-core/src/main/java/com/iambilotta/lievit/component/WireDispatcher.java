@@ -59,17 +59,49 @@ public final class WireDispatcher {
     }
 
     /**
-     * Mounts a fresh component: runs its {@code @LievitMount} hook (if any), then reads the initial
-     * {@code @Wire} state for the first snapshot.
+     * Mounts a fresh component with no props: the top-level page mount.
      *
      * @param metadata the component metadata
      * @param instance a fresh component instance
-     * @return the serialized initial {@code @Wire} state ({@code serialize = true} fields only)
+     * @return the initial {@code @Wire} state plus any children the render declared (ADR-0015)
      */
-    public Map<String, Object> mount(ComponentMetadata metadata, Object instance) {
-        invokeHook(metadata.mount(), instance);
-        invokeHook(metadata.render(), instance);
-        return readWire(metadata, instance);
+    public WireCall mount(ComponentMetadata metadata, Object instance) {
+        return mount(metadata, instance, Map.of());
+    }
+
+    /**
+     * Mounts a fresh component, seeding parent-supplied props first: runs prop seeding, then the
+     * {@code @LievitMount} hook (if any), then the render (binding the {@link LievitChildren} sink so
+     * the render may declare its own children), then reads the initial {@code @Wire} state for the
+     * first snapshot.
+     *
+     * <p>Props are seeded <em>before</em> mount so the mount hook sees them (it can derive state from
+     * a prop), matching the props-then-mount order a parent expects (ADR-0015, Livewire mount-prop
+     * parity). Props go through the same settable allowlist as a client update: only a {@code @Wire}
+     * field is seeded, and the {@link PayloadGuard} proves every prop value is plain JSON data before
+     * it is bound (a parent passing an opaque object down is the same gadget surface a client update
+     * is). A prop targeting a locked field is honored (the parent is server-side, not the client):
+     * locked stops the <em>client</em>, not the owning parent.
+     *
+     * @param metadata the component metadata
+     * @param instance a fresh component instance
+     * @param props the parent-supplied props to seed onto {@code @Wire} fields ({@code @key}-keyed
+     *     children pass these down); JSON-shaped, may be empty
+     * @return the initial {@code @Wire} state plus any children the render declared (ADR-0015)
+     */
+    public WireCall mount(ComponentMetadata metadata, Object instance, Map<String, Object> props) {
+        LievitChildren children = new LievitChildren();
+        LievitChildren.bind(children);
+        try {
+            payloadGuard.checkSnapshotWire(props);
+            seedProps(metadata, instance, props);
+            invokeHook(metadata.mount(), instance);
+            invokeHook(metadata.render(), instance);
+            return new WireCall(
+                    readWire(metadata, instance), new LievitEffects(), children.declared());
+        } finally {
+            LievitChildren.clear();
+        }
     }
 
     /**
@@ -93,7 +125,9 @@ public final class WireDispatcher {
             Map<String, Object> updates,
             List<String> calls) {
         LievitEffects effects = new LievitEffects();
+        LievitChildren children = new LievitChildren();
         LievitEffects.bind(effects);
+        LievitChildren.bind(children);
         try {
             // Shape-bound the payload (counts, nesting) and prove every value is plain JSON data
             // before anything is bound to a field: the gadget / DoS defense (ADR-0013).
@@ -104,9 +138,12 @@ public final class WireDispatcher {
             for (String call : calls) {
                 effects.captureReturn(invokeAction(metadata, instance, call));
             }
+            // Re-render with the children sink bound, so a parent re-declares its children (with
+            // their current props) on every re-render; the web layer re-mounts them (ADR-0015).
             invokeHook(metadata.render(), instance);
-            return new WireCall(readWire(metadata, instance), effects);
+            return new WireCall(readWire(metadata, instance), effects, children.declared());
         } finally {
+            LievitChildren.clear();
             LievitEffects.clear();
         }
     }
@@ -143,6 +180,25 @@ public final class WireDispatcher {
                 throw new WireException(
                         WireError.LOCKED_PROPERTY,
                         "client update rejected for locked @Wire field");
+            }
+            field.write(instance, entry.getValue());
+        }
+    }
+
+    /**
+     * Seeds parent-supplied props onto a child's {@code @Wire} fields at mount (ADR-0015). Like
+     * {@link #applyUpdates} it honors the settable allowlist (only a {@code @Wire} field is seeded;
+     * a prop naming anything else is dropped), but unlike a client update a prop targeting a
+     * <em>locked</em> field is honored: the parent is server-side, and locked stops the client, not
+     * the owning parent. {@link PayloadGuard#checkSnapshotWire} has already proven the props are
+     * plain JSON data before this runs.
+     */
+    private void seedProps(ComponentMetadata metadata, Object instance, Map<String, Object> props) {
+        for (Map.Entry<String, Object> entry : props.entrySet()) {
+            WireField field = metadata.wireFields().get(entry.getKey());
+            if (field == null) {
+                // Not a @Wire field: outside the settable allowlist. Drop it (same rule as updates).
+                continue;
             }
             field.write(instance, entry.getValue());
         }

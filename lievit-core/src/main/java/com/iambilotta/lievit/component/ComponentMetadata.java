@@ -36,6 +36,7 @@ public final class ComponentMetadata {
     private final Map<String, Method> actions;
     private final @Nullable Method mount;
     private final @Nullable Method render;
+    private final @Nullable String modelableField;
 
     private ComponentMetadata(
             Class<?> type,
@@ -43,13 +44,15 @@ public final class ComponentMetadata {
             Map<String, WireField> wireFields,
             Map<String, Method> actions,
             @Nullable Method mount,
-            @Nullable Method render) {
+            @Nullable Method render,
+            @Nullable String modelableField) {
         this.type = type;
         this.template = template;
         this.wireFields = wireFields;
         this.actions = actions;
         this.mount = mount;
         this.render = render;
+        this.modelableField = modelableField;
     }
 
     /**
@@ -67,6 +70,7 @@ public final class ComponentMetadata {
         }
 
         Map<String, WireField> fields = new LinkedHashMap<>();
+        String modelable = null;
         for (Field field : type.getDeclaredFields()) {
             if (!field.isAnnotationPresent(Wire.class)) {
                 continue;
@@ -75,7 +79,31 @@ public final class ComponentMetadata {
             LievitProperty property = field.getAnnotation(LievitProperty.class);
             boolean serialize = property == null || property.serialize();
             boolean locked = property != null && property.locked();
-            fields.put(field.getName(), new WireField(field.getName(), field, serialize, locked));
+            boolean isModelable = property != null && property.modelable();
+            if (isModelable && locked) {
+                throw new IllegalArgumentException(
+                        type.getName()
+                                + "."
+                                + field.getName()
+                                + " is both @LievitProperty(modelable) and (locked): a"
+                                + " server-owned field cannot be a parent two-way bind (ADR-0015)");
+            }
+            if (isModelable) {
+                if (modelable != null) {
+                    throw new IllegalArgumentException(
+                            type.getName()
+                                    + " declares more than one @LievitProperty(modelable) field ("
+                                    + modelable
+                                    + ", "
+                                    + field.getName()
+                                    + "): a component has at most one parent-bound value"
+                                    + " (ADR-0015)");
+                }
+                modelable = field.getName();
+            }
+            fields.put(
+                    field.getName(),
+                    new WireField(field.getName(), field, serialize, locked, isModelable));
         }
 
         Map<String, Method> methods = new LinkedHashMap<>();
@@ -98,7 +126,7 @@ public final class ComponentMetadata {
 
         return new ComponentMetadata(
                 type, component.template(), Map.copyOf(fields), Map.copyOf(methods), mountHook,
-                renderHook);
+                renderHook, modelable);
     }
 
     /**
@@ -151,5 +179,17 @@ public final class ComponentMetadata {
      */
     public @Nullable Method render() {
         return render;
+    }
+
+    /**
+     * The name of this component's modelable {@code @Wire} field, if it has one: the field that
+     * two-way-binds to a parent property when this component is mounted as a child (ADR-0015,
+     * Livewire {@code #[Modelable]} parity). A component declares at most one (enforced at reflect
+     * time).
+     *
+     * @return the modelable field name, or {@code null} if the component has no modelable field
+     */
+    public @Nullable String modelableField() {
+        return modelableField;
     }
 }

@@ -147,6 +147,72 @@ class SnapshotCodecTest {
         assertThat(s.exp()).isEqualTo(s.iat().plus(Duration.ofHours(1)));
     }
 
+    /**
+     * @spec.given two independent component snapshots, a parent and a child, each with its own cid /
+     *     cls / wire state (the child mounted under the parent; ADR-0015 nested components)
+     * @spec.when  each is signed and verified independently
+     * @spec.then  both roundtrip to their own state and stay distinct: a child carries its own
+     *     snapshot, never a fragment of the parent's, so the statelessness invariant holds per
+     *     component
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void signs_independent_parent_and_child_snapshots() {
+        SnapshotCodec codec = codecWith(KEY_A);
+        Instant iat = Instant.parse("2026-06-17T10:00:00Z");
+
+        Snapshot parent =
+                Snapshot.fresh(
+                        "0PARENT9V8C7B6N5M4Q3P2R1S0T",
+                        "com.example.ListComponent",
+                        Map.of("rows", 2),
+                        iat,
+                        Duration.ofHours(1));
+        Snapshot child =
+                Snapshot.fresh(
+                        "0CHILD89V8C7B6N5M4Q3P2R1S0T",
+                        "com.example.RowComponent",
+                        Map.of("label", "row 0"),
+                        iat,
+                        Duration.ofHours(1));
+
+        Snapshot decodedParent =
+                codec.verify(codec.sign(parent), Instant.parse("2026-06-17T10:30:00Z"));
+        Snapshot decodedChild =
+                codec.verify(codec.sign(child), Instant.parse("2026-06-17T10:30:00Z"));
+
+        assertThat(decodedParent.cls()).isEqualTo("com.example.ListComponent");
+        assertThat(decodedParent.wire()).containsEntry("rows", 2).doesNotContainKey("label");
+        assertThat(decodedChild.cls()).isEqualTo("com.example.RowComponent");
+        assertThat(decodedChild.wire()).containsEntry("label", "row 0");
+        assertThat(decodedChild.cid()).isNotEqualTo(decodedParent.cid());
+    }
+
+    /**
+     * @spec.given a snapshot whose wire state nests a prop map a parent passed down (ADR-0015)
+     * @spec.when  it is signed and verified
+     * @spec.then  the nested structure roundtrips intact (the wire is JSON-shaped, props included)
+     * @spec.adr   ADR-0015
+     */
+    @Test
+    void roundtrips_a_snapshot_with_nested_prop_state() {
+        SnapshotCodec codec = codecWith(KEY_A);
+        Snapshot s =
+                Snapshot.fresh(
+                        "0NESTED99V8C7B6N5M4Q3P2R1S0T",
+                        "com.example.RowComponent",
+                        Map.of("item", Map.of("id", 7, "name", "parma")),
+                        Instant.parse("2026-06-17T10:00:00Z"),
+                        Duration.ofHours(1));
+
+        Snapshot decoded = codec.verify(codec.sign(s), Instant.parse("2026-06-17T10:30:00Z"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> item = (Map<String, Object>) decoded.wire().get("item");
+        assertThat(item).containsEntry("name", "parma");
+        assertThat(((Number) item.get("id")).intValue()).isEqualTo(7);
+    }
+
     private static String flipOnePayloadChar(String jwt) {
         String[] parts = jwt.split("\\.");
         char[] payload = parts[1].toCharArray();
