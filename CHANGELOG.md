@@ -36,6 +36,34 @@ All notable changes to this project are documented here. Format follows
   pattern). The default bus is empty (behavior-neutral). `WireDispatcher`, `SynthesizerRegistry`, and
   `LifecycleBus` are auto-configured beans, overridable by the application.
 
+- **Livewire v4 client convergence** (ADR-0024), all additive on the ADR-0019 client seams (no
+  dispatcher/codec/bundle-core rewrite):
+  - **Client interceptors** (#93): a participating `InterceptorChain` alongside the observing
+    `LifecycleBus`, with the pinned phase order
+    `onInit → onSend → onSuccess → onSync → onEffect → onMorph → onFinish → onRender` plus
+    `onCancel` / `onError` / `onRedirect`. An interceptor can `cancel()` a call, mutate outgoing
+    headers/updates, and block a server redirect; global / per-action / per-component scopes.
+  - **Surgical snapshot merge** (#87): `mergeNewSnapshot(base, server, intent)` keeps an in-flight
+    client edit to a path the server did not change (same-path server change wins), with
+    reverse-indexed array removals, dot-paths, key-order preservation, and large/sparse numeric keys
+    kept as keyed objects. The runtime keeps an ephemeral wire mirror seeded from the snapshot.
+  - **Islands** (#89): HTML-comment fragment markers + `parseIslands` / `morphIslands` (replace /
+    append / prepend, deduped) and an `l:island` directive that re-renders only the named region; an
+    additive `islands` effect key.
+  - **v4 directives** registered through one `registerV4Directives`: `l:bind.<attr>` (#75),
+    `l:text` (#77), `l:dirty` + `$dirty` (#85), `l:error` / `l:errors` + `$errors` (#101),
+    `l:ref` (#109), `l:sort` (#111), `l:click.async` (#97), and disable-during-request (#125).
+  - **Request bundling** (#95): a per-component commit queue (a click burst collapses to ordered
+    round-trips), `.async` opts out to race.
+  - **Release tokens + bfcache** (#105): a `release` effect key + `data-lievit-release`, and a
+    `pageshow`-from-bfcache reload, both CSP-safe.
+  - **CSP-safe `$js`** (#131): a `JsRegistry` (`runtime.js.register(name, fn)`) + a `js` effect key
+    the server triggers by name — lievit's no-inline-script replacement for Livewire's `$js`; an
+    unknown name is a logged no-op, never an `eval`.
+  - Server side: additive `island(name)` / `js(name, args...)` / `release(token)` on `LievitEffects`,
+    serialized as new `Lievit-Effects` keys (`islands` / `js` / `release`), header omitted when empty
+    (byte-for-byte ADR-0001/0012 backward compatible); native hints for the new `WireEffects.Js`.
+
 - `Lievit.test()`: the developer-facing component test harness (ADR-0010), shipped as a feature in
   `lievit-spring-boot-starter` (`io.lievit.test`). A fluent tester that mounts and drives
   a `@LievitComponent` through the real wire pipeline (codec → registry → dispatcher → template →
