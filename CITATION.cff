@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you reference lievit in a paper, blog post, or talk, please cite it like so."
+title: "lievit: the named full-stack way for interactive Spring apps"
+abstract: >
+  lievit is HTML over the wire for Spring (the Livewire / Hotwire / LiveView category, for
+  Java). It is a Spring Boot starter that lives inside Spring: a server-rendered, type-safe,
+  stateless, GraalVM-native interactivity runtime, a golden-path reference kit, and a thin CLI.
+  The public API is seven annotations. The wire protocol is stateless HTTP with an HMAC-signed
+  state snapshot. Apache 2.0, no SaaS, EU-grade.
+type: software
+version: "0.1.0"
+date-released: 2026-06-17
+license: Apache-2.0
+repository-code: "https://github.com/iambilotta/lievit"
+url: "https://iambilotta.com"
+keywords:
+  - html-over-the-wire
+  - spring-boot
+  - java
+  - htmx
+  - lit
+  - livewire-for-spring
+  - graalvm-native
+  - type-safe
+authors:
+  - given-names: Francesco
+    family-names: Bilotta
+    email: francesco@iambilotta.com
+    website: "https://iambilotta.com"

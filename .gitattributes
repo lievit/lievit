@@ -1,0 +1,25 @@
+# Ensure consistent line endings across platforms. The wire-protocol golden
+# fixtures (request / response.html / response.snapshot.jwt) are byte-checked in
+# tests; enforcing LF on source as well avoids diff churn between Windows
+# contributors and the CI runner.
+* text=auto eol=lf
+
+# Source: LF.
+*.java       text eol=lf
+*.xml        text eol=lf
+*.yaml       text eol=lf
+*.yml        text eol=lf
+*.json       text eol=lf
+*.md         text eol=lf
+*.toml       text eol=lf
+*.ts         text eol=lf
+*.js         text eol=lf
+*.css        text eol=lf
+*.jte        text eol=lf
+
+# Binary artifacts that Git should not try to diff or normalize.
+*.jar     binary
+*.pdf     binary
+*.png     binary
+*.gif     binary
+*.woff2   binary
