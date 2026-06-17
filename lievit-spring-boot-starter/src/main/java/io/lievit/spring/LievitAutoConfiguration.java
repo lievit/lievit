@@ -22,6 +22,7 @@ import io.lievit.LievitComponent;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
 import io.lievit.component.NoOpFieldValidator;
+import io.lievit.compiler.DeterministicKeys;
 import io.lievit.component.WireDispatcher;
 import io.lievit.dsl.DslOrEngineTemplateAdapter;
 import io.lievit.dsl.DslTemplateAdapter;
@@ -148,7 +149,10 @@ public class LievitAutoConfiguration {
             PayloadGuard payloadGuard, ObjectProvider<FieldValidator> fieldValidator) {
         FieldValidator validator =
                 fieldValidator.getIfAvailable(() -> NoOpFieldValidator.INSTANCE);
-        return new WireDispatcher(payloadGuard, validator);
+        // Wire the v4 compiler's deterministic-key generator (lw-<crc32(template)>-<counter>,
+        // ADR-0023) into the dispatcher: a child declared without an explicit @key gets a key stable
+        // for its template position across re-renders (the morph anchor for keyed lists/tables).
+        return new WireDispatcher(payloadGuard, validator, DeterministicKeys.GENERATOR);
     }
 
     /**

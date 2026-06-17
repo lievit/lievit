@@ -54,6 +54,7 @@ public final class WireDispatcher {
 
     private final PayloadGuard payloadGuard;
     private final FieldValidator fieldValidator;
+    private final java.util.function.BiFunction<String, Integer, String> keyGenerator;
 
     /** Uses the protocol-default {@link PayloadGuard} and the no-op {@link FieldValidator}. */
     public WireDispatcher() {
@@ -73,8 +74,37 @@ public final class WireDispatcher {
      *     implementation); use {@link NoOpFieldValidator#INSTANCE} to skip validation
      */
     public WireDispatcher(PayloadGuard payloadGuard, FieldValidator fieldValidator) {
+        this(payloadGuard, fieldValidator, DeterministicKeyScope.POSITIONAL);
+    }
+
+    /**
+     * @param payloadGuard the structural-cap and deserialization-allowlist guard (ADR-0013)
+     * @param fieldValidator the field validator (or {@link NoOpFieldValidator#INSTANCE})
+     * @param keyGenerator the deterministic {@code @key} generator for keyless children (ADR-0023):
+     *     {@code (templateId, counter) -> key}. The starter passes {@code lievit-compiler}'s crc32
+     *     generator ({@code lw-<crc32>-<counter>}); the core default is positional, so a keyless
+     *     child still gets a stable key without the compiler module on the classpath. The dispatcher
+     *     binds a {@link DeterministicKeyScope} with this generator around every mount / re-render
+     *     and enters the component's template namespace, so a child declared without an explicit key
+     *     gets a key stable for its template position across re-renders (the morph anchor).
+     */
+    public WireDispatcher(
+            PayloadGuard payloadGuard,
+            FieldValidator fieldValidator,
+            java.util.function.BiFunction<String, Integer, String> keyGenerator) {
         this.payloadGuard = payloadGuard;
         this.fieldValidator = fieldValidator;
+        this.keyGenerator = keyGenerator;
+    }
+
+    /**
+     * The key-namespace identity for a component's keyless children (ADR-0023): the declared template
+     * path for a multi-file component (so components sharing a template share a namespace, the
+     * Livewire behavior), else the component FQN for a single-file render. Mirrors
+     * {@code CompiledComponent.templateId} in the compiler module without depending on it.
+     */
+    private static String templateId(ComponentMetadata metadata) {
+        return metadata.template().isEmpty() ? metadata.className() : metadata.template();
     }
 
     /**
@@ -149,6 +179,9 @@ public final class WireDispatcher {
         LievitEffects.bind(effects);
         LievitChildren children = new LievitChildren();
         LievitChildren.bind(children);
+        DeterministicKeyScope keyScope = new DeterministicKeyScope(keyGenerator);
+        keyScope.enter(templateId(metadata));
+        DeterministicKeyScope.bind(keyScope);
         try {
             payloadGuard.checkSnapshotWire(props);
             seedProps(metadata, instance, props);
@@ -166,6 +199,7 @@ public final class WireDispatcher {
             ComputedCache.clear();
             LievitEffects.clear();
             LievitChildren.clear();
+            DeterministicKeyScope.clear();
         }
     }
 
@@ -199,6 +233,9 @@ public final class WireDispatcher {
         LievitChildren children = new LievitChildren();
         LievitEffects.bind(effects);
         LievitChildren.bind(children);
+        DeterministicKeyScope keyScope = new DeterministicKeyScope(keyGenerator);
+        keyScope.enter(templateId(metadata));
+        DeterministicKeyScope.bind(keyScope);
         try {
             // Shape-bound the payload (counts, nesting) and prove every value is plain JSON data
             // before anything is bound to a field: the gadget / DoS defense (ADR-0013).
@@ -234,6 +271,7 @@ public final class WireDispatcher {
             ComputedCache.clear();
             LievitChildren.clear();
             LievitEffects.clear();
+            DeterministicKeyScope.clear();
         }
     }
 

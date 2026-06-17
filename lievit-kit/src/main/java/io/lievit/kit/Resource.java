@@ -4,7 +4,13 @@
  */
 package io.lievit.kit;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Function;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The unit of work of the admin layer: one resource per domain entity, exposing a table view (the
@@ -88,5 +94,155 @@ public abstract class Resource<T> {
      */
     public Optional<ResourcePages> pages() {
         return Optional.empty();
+    }
+
+    // ── Navigation derivation (the Filament HasNavigation seam) ──────────────────────────────────
+
+    /**
+     * Whether this resource contributes an entry to the panel navigation. Override to return
+     * {@code false} for a resource reachable only by direct link (Filament's
+     * {@code shouldRegisterNavigation}).
+     *
+     * @return {@code true} to register a navigation item (the default)
+     */
+    public boolean shouldRegisterNavigation() {
+        return true;
+    }
+
+    /**
+     * The navigation group label this resource's item belongs under, or {@code null} for a
+     * top-level item.
+     *
+     * @return the group label, or {@code null}
+     */
+    public @Nullable String navigationGroup() {
+        return null;
+    }
+
+    /**
+     * The navigation icon for this resource's item, or {@code null} for none. Defaults to the
+     * semantic {@code nav.resource} alias so the registry can theme it.
+     *
+     * @return the icon, or {@code null}
+     */
+    public @Nullable Icon navigationIcon() {
+        return Icon.of("nav.resource");
+    }
+
+    /**
+     * The sort key of this resource's navigation item (ascending). Defaults to last.
+     *
+     * @return the sort key
+     */
+    public int navigationSort() {
+        return Integer.MAX_VALUE;
+    }
+
+    /**
+     * The navigation badge text (for example a pending count), or {@code null} for none.
+     *
+     * @return the badge, or {@code null}
+     */
+    public @Nullable String navigationBadge() {
+        return null;
+    }
+
+    /**
+     * The navigation badge color (used only when {@link #navigationBadge()} is set).
+     *
+     * @return the badge color
+     */
+    public Color navigationBadgeColor() {
+        return Color.PRIMARY;
+    }
+
+    /**
+     * Derives this resource's {@link NavigationItem}, applying the overridable group / icon / sort /
+     * badge slots above. The item's url is the resource's list route under the given panel path.
+     *
+     * @param panelPath the panel's route prefix (for example {@code "admin"})
+     * @return the derived navigation item, or empty if {@link #shouldRegisterNavigation()} is false
+     */
+    public Optional<NavigationItem> navigationItem(String panelPath) {
+        if (!shouldRegisterNavigation()) {
+            return Optional.empty();
+        }
+        String url = "/" + panelPath + "/" + slug();
+        NavigationItem item = NavigationItem.make(label(), url).sort(navigationSort());
+        Icon icon = navigationIcon();
+        if (icon != null) {
+            item.icon(icon);
+        }
+        String group = navigationGroup();
+        if (group != null) {
+            item.group(group);
+        }
+        String badge = navigationBadge();
+        if (badge != null) {
+            item.badge(badge, navigationBadgeColor());
+        }
+        return Optional.of(item);
+    }
+
+    // ── Global search (the Filament HasGlobalSearch seam, issue #323) ────────────────────────────
+
+    /**
+     * Whether this resource participates in global search. A resource opts in by overriding this to
+     * {@code true} and declaring {@link #globallySearchableAttributes()}.
+     *
+     * @return {@code true} to make this resource globally searchable (default {@code false})
+     */
+    public boolean isGloballySearchable() {
+        return !globallySearchableAttributes().isEmpty();
+    }
+
+    /**
+     * The attribute extractors a global-search query matches against (each maps a row to a
+     * searchable string). Override to opt a resource into global search.
+     *
+     * @return the searchable attribute extractors (empty = not searchable)
+     */
+    public List<Function<? super T, String>> globallySearchableAttributes() {
+        return List.of();
+    }
+
+    /**
+     * Builds the global-search title for a matched row. Defaults to the row's {@code toString}.
+     *
+     * @param row the matched row
+     * @return the result title
+     */
+    public String globalSearchResultTitle(T row) {
+        return String.valueOf(row);
+    }
+
+    /**
+     * Runs a global-search query against this resource: pages through the repository and returns a
+     * result for every row whose searchable attributes contain the (case-insensitive) query. The url
+     * of each result is the row's edit route under the panel path.
+     *
+     * @param query the search query
+     * @param panelPath the panel route prefix
+     * @return the matching results (empty if the resource is not searchable or nothing matches)
+     */
+    public List<GlobalSearchResult> globalSearch(String query, String panelPath) {
+        List<Function<? super T, String>> attributes = globallySearchableAttributes();
+        if (attributes.isEmpty() || query == null || query.isBlank()) {
+            return List.of();
+        }
+        String needle = query.toLowerCase(Locale.ROOT);
+        Table<T> table = table();
+        List<GlobalSearchResult> results = new ArrayList<>();
+        for (T row : repository.findAll()) {
+            boolean matches =
+                    attributes.stream()
+                            .map(a -> a.apply(row))
+                            .anyMatch(v -> v != null && v.toLowerCase(Locale.ROOT).contains(needle));
+            if (matches) {
+                String url = "/" + panelPath + "/" + slug() + "/" + table.idOf(row) + "/edit";
+                results.add(GlobalSearchResult.of(globalSearchResultTitle(row), url));
+            }
+        }
+        return results;
     }
 }

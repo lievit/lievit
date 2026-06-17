@@ -31,6 +31,13 @@
             <groupId>io.lievit</groupId>
             <artifactId>lievit-dsl</artifactId>
         </dependency>
+        <!-- The v4 compiler layer (ADR-0023): deterministic wire:key generation, the
+             <lievit:...> tag compiler, and the single-file compilation cache. The starter wires
+             the crc32 key generator into the dispatcher so keyless children get stable keys. -->
+        <dependency>
+            <groupId>io.lievit</groupId>
+            <artifactId>lievit-compiler</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.jspecify</groupId>
