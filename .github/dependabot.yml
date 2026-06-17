@@ -1,8 +1,6 @@
 version: 2
 updates:
-  # NOTE: the maven ecosystem activates once a pom.xml exists (the build is
-  # deferred, see docs/adr/0008). The block is kept so it is on the day the
-  # modules land. github-actions is active now.
+  # The Maven reactor is live (11 modules); this block tracks the build's dependencies.
   - package-ecosystem: maven
     directory: "/"
     schedule:

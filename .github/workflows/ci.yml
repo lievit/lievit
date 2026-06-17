@@ -1,10 +1,8 @@
 name: ci
 
-# STUB — to be filled when the Maven build lands (see docs/PLAN.md and docs/adr/0008).
-# Mirrors the sister repos' shape (build/test matrix + a native job + a tracegate
-# drift-gate) but is intentionally inert while there is no `pom.xml`: every job
-# short-circuits with a clear message instead of failing an empty build. Replace the
-# guarded steps with the real Maven invocations once the modules exist.
+# The lievit Maven reactor is live (11 modules, builds green). This workflow runs the real
+# gates: a full `./mvnw -B verify` (unit + integration + ArchUnit boundaries + JaCoCo report)
+# and a cheap native reachability check (no full image build). See docs/PLAN.md and docs/adr/0008.
 
 on:
   push:
@@ -21,12 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Java 25 is the lievit target; the matrix shape is kept for parity with
-        # the sister repos and to add LTS rows when the build lands.
+        # Java 25 is the lievit release target; the matrix shape stays so LTS rows can be added.
         java: [ '25' ]
     name: build (java ${{ matrix.java }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v5
@@ -35,27 +32,21 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: maven
 
-      - name: Build, test (stub until pom.xml exists)
-        run: |
-          if [ -f pom.xml ]; then
-            ./mvnw -B -ntp -V verify
-          else
-            echo "::notice::No pom.xml yet — lievit is in the pre-build foundation phase."
-            echo "Skipping the Maven build. This job is a stub; see docs/PLAN.md and docs/adr/0008."
-          fi
+      - name: Build, test, verify
+        run: ./mvnw -B -ntp -V verify
 
   native:
     runs-on: ubuntu-latest
     name: native (AOT metadata + reachability gate)
     # lievit's modules are LIBRARIES with no main class, so there is no image to `native:compile`
     # in this reactor (that happens in an adopter app, which inherits the full pipeline from
-    # spring-boot-starter-parent). The meaningful gate here is: the `native` profile + the AOT
-    # contributors compile, and the reachability metadata is complete — proven by the native
+    # spring-boot-starter-parent). The meaningful, cheap gate here is: the `native` profile + the
+    # AOT contributors compile, and the reachability metadata is complete, proven by the native
     # *NfrTest hint-completeness tests (RuntimeHintsPredicates) without paying a full image build.
-    # See ADR-0006 + docs/native-image.md. When an example app module lands, extend this to run
+    # See ADR-0006 + docs/native-image.md. When an example app module opts in, extend this to run
     # `./mvnw -Pnative -pl <app> native:compile` and start/smoke the image.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
@@ -77,7 +68,7 @@ jobs:
       run:
         working-directory: lievit-ui
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -98,18 +89,8 @@ jobs:
       - name: Test
         run: npm test
 
-  tracegate:
-    name: tracegate drift-gate (stub)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Living-requirements drift-gate (stub until tests exist)
-        run: |
-          if [ -f tracegate.toml ]; then
-            pip install "git+https://github.com/iambilotta/tracegate@${TRACEGATE_REF:-HEAD}"
-            tracegate . --check
-          else
-            echo "::notice::No tracegate.toml yet — the living-requirements gate is a stub."
-            echo "It activates with the Maven build; see docs/PLAN.md."
-          fi
+# NOTE: there is no tracegate job. The living-requirements drift-gate (tracegate) is not wired
+# for lievit yet: there is no tracegate.toml and no generated `_generated/` catalog in this repo.
+# A placeholder job that always short-circuits would lie about a gate that does not run, so it is
+# omitted on purpose. When the living-docs setup lands (docs/PLAN.md), add a real tracegate job
+# pinned to a commit, gated on a committed tracegate.toml.

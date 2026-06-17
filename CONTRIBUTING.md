@@ -5,9 +5,10 @@ movement-shaped: it is the named full-stack way for interactive Spring apps, not
 framework. The public API is hard-capped at seven annotations on purpose. Keep that in mind when
 you propose changes.
 
-> **Status: pre-public foundation pass.** The build (Maven) is not wired yet (deferred until the
-> conventions and docs settle). This document describes the discipline the repo will run under;
-> the commands that mention Maven / tracegate are the target, switched on when the build lands.
+> **Status: pre-1.0, build live.** The Maven reactor builds green across all 11 modules; run
+> `./mvnw -B verify` to build and test it. This document describes the discipline the repo runs
+> under. The Maven commands below are real today; the tracegate living-requirements gate is the
+> one piece still on the roadmap (no `tracegate.toml` yet, see `docs/PLAN.md`).
 
 ## What is in scope
 

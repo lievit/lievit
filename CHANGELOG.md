@@ -48,13 +48,19 @@ All notable changes to this project are documented here. Format follows
   + `Resource.pages()` bind a resource to its four pages. A worked CRUD example (`ListingResource`
   + three page components + JTE templates) drives the whole spine List→Create→Edit→Delete through
   the real runtime and effects channel (`HelloAdminIT`).
+- Release readiness: `jitpack.yml` so the Java 25 reactor builds on JitPack and is consumable as
+  `com.github.lievit.lievit:<module>`; the README gained a JitPack install snippet (Maven + Gradle).
+  Single source of version truth via the Maven CI-friendly `${revision}` property + the
+  flatten-maven-plugin (a version bump is now a one-line edit, not 12). CI un-stubbed: the `build`
+  job runs the real `./mvnw -B verify`, the `native` job runs the real AOT reachability gate, and
+  the placeholder `tracegate` job was removed (it gated nothing).
 - Repository foundation: organisation, conventions, and the doc set derived from the locked
   design decisions in the project entity. README-driven skeleton (category, three strata, the
-  seven-annotation public API, wire protocol v0.1, quickstart sketch). Foundational ADRs under
-  `docs/adr/`. Living-docs plan under `docs/PLAN.md`. CI workflow stub (build / test / native
-  matrix) marked as a stub until the Maven build lands.
-- The build (Maven, modules, `pom.xml`) is intentionally **not** wired yet: this is the
-  conventions-and-docs foundation pass.
+  seven-annotation public API, wire protocol v0.1, quickstart). Foundational ADRs under
+  `docs/adr/`. Living-docs plan under `docs/PLAN.md`.
+- The Maven build is wired and green across all 11 modules (the wire runtime, the single-file DSL,
+  five template adapters, the Spring Boot starter, the admin kit, the CLI) plus a runnable
+  golden-path example.
 
 ## [0.1.0] - unreleased
 
