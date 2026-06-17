@@ -35,6 +35,7 @@ question and is pending a final call.
 - [ADR-0020](0020-typed-state-synthesizers.md): Typed-state round-trip — a synthesizer registry + `Wireable` SPI (a non-primitive `@Wire` value dehydrates to a `{d,s,t}` tuple and hydrates to the exact type). **accepted**
 - [ADR-0021](0021-class-instantiation-guard.md): Class-instantiation guard for the synthesizer hydrate path (default-deny by gadget-prone root, under the ADR-0013 allowlist). **accepted**
 - [ADR-0022](0022-request-lifecycle-bus.md): Request lifecycle — ordered phases + a `trigger()` interceptor bus (updated-after-all, early-return, render-skippable, dehydrate memo). **accepted**
+- [ADR-0023](0023-v4-compiler-and-deterministic-keys.md): The v4 compiler layer (single-file compilation, `<lievit:...>` tag compilation, deterministic keys). **accepted**
 
 ## How to add an ADR
 

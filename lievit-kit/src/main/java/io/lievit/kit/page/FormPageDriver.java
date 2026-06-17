@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.jspecify.annotations.Nullable;
+
 import io.lievit.component.LievitEffects;
 import io.lievit.kit.AdminAction;
 import io.lievit.kit.AdminActionContext;
@@ -21,8 +23,6 @@ import io.lievit.kit.EditAction;
 import io.lievit.kit.FieldError;
 import io.lievit.kit.Form;
 import io.lievit.kit.Resource;
-
-import org.jspecify.annotations.Nullable;
 
 /**
  * The reusable logic of the full-page <strong>Create</strong> and <strong>Edit</strong> pages (the

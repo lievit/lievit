@@ -23,6 +23,7 @@ import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
 import io.lievit.component.LifecycleBus;
 import io.lievit.component.NoOpFieldValidator;
+import io.lievit.compiler.DeterministicKeys;
 import io.lievit.component.WireDispatcher;
 import io.lievit.wire.synth.SynthesizerRegistry;
 import io.lievit.dsl.DslOrEngineTemplateAdapter;
@@ -172,7 +173,8 @@ public class LievitAutoConfiguration {
      *     {@link NoOpFieldValidator} when no validator bean is available
      * @param synthesizers the typed-state synthesizer registry (ADR-0020)
      * @param lifecycle the lifecycle interceptor bus (ADR-0022)
-     * @return the stateless lifecycle engine
+     * @return the stateless lifecycle engine, wired with the deterministic {@code @key} generator
+     *     (ADR-0023) for keyless children
      */
     @Bean
     @ConditionalOnMissingBean
@@ -183,7 +185,13 @@ public class LievitAutoConfiguration {
             LifecycleBus lifecycle) {
         FieldValidator validator =
                 fieldValidator.getIfAvailable(() -> NoOpFieldValidator.INSTANCE);
-        return new WireDispatcher(payloadGuard, validator, synthesizers, lifecycle);
+        // Union of all dispatcher collaborators: the typed-state synthesizer registry (ADR-0020) and
+        // the lifecycle interceptor bus (ADR-0022), plus the v4 compiler's deterministic-key generator
+        // (lw-<crc32(template)>-<counter>, ADR-0023). The key generator gives a child declared without
+        // an explicit @key a key stable for its template position across re-renders (the morph anchor
+        // for keyed lists/tables).
+        return new WireDispatcher(
+                payloadGuard, validator, synthesizers, lifecycle, DeterministicKeys.GENERATOR);
     }
 
     /**

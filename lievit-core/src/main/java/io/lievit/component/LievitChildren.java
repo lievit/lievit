@@ -39,6 +39,10 @@ public final class LievitChildren {
     // placeholders are substituted; keyed so a duplicate key is caught.
     private final Map<String, ChildComponent> byKey = new LinkedHashMap<>();
 
+    // Positional fallback counter for keyless children when no DeterministicKeyScope is bound (a
+    // unit test driving the sink directly): keeps lievit-core buildable without the compiler.
+    private int positionalCounter = 0;
+
     LievitChildren() {}
 
     /**
@@ -111,6 +115,58 @@ public final class LievitChildren {
      */
     public String child(String key, Class<?> componentClass) {
         return child(key, componentClass.getName(), Map.of());
+    }
+
+    /**
+     * Declares a <strong>keyless</strong> child: the sink generates a stable {@code @key} for this
+     * template position (ADR-0023, completing ADR-0016's key contract for the keyless case). When a
+     * {@link DeterministicKeyScope} is bound for the current render it supplies the key
+     * ({@code lw-<crc32(template)>-<counter>} in production, Livewire {@code DeterministicBladeKeys}
+     * parity), so a child in a loop has a morph identity stable across re-renders and distinct
+     * between siblings; with no scope bound the sink falls back to a positional key
+     * ({@code lievit-child-<n>}), which keeps {@code lievit-core} buildable without the compiler.
+     *
+     * <p>This is what makes {@code <lievit:row :item="..."/>} (or {@code children.child(Row.class)})
+     * inside a list safe: the generated key is the morph anchor, so a re-render reuses the right DOM
+     * node instead of bleeding one row's state into another.
+     *
+     * @param componentClass the child {@code @LievitComponent} class
+     * @param props the props to seed onto the child's {@code @Wire} fields before its mount runs
+     * @return the placeholder token to render in the parent's markup
+     */
+    public String child(Class<?> componentClass, @Nullable Map<String, Object> props) {
+        return child(nextDeterministicKey(), componentClass.getName(), props);
+    }
+
+    /**
+     * Declares a keyless child with no props (the deterministic-key path; see
+     * {@link #child(Class, Map)}).
+     *
+     * @param componentClass the child {@code @LievitComponent} class
+     * @return the placeholder token to render in the parent's markup
+     */
+    public String child(Class<?> componentClass) {
+        return child(componentClass, Map.of());
+    }
+
+    /**
+     * Declares a keyless child by class name (the form the tag compiler / template adapter uses; see
+     * {@link #child(Class, Map)} for the keyed-vs-keyless rule).
+     *
+     * @param className the child {@code @LievitComponent} class name
+     * @param props the props to seed onto the child (may be {@code null} or empty)
+     * @return the placeholder token to render in the parent's markup
+     */
+    public String childKeyless(String className, @Nullable Map<String, Object> props) {
+        return child(nextDeterministicKey(), className, props);
+    }
+
+    private String nextDeterministicKey() {
+        DeterministicKeyScope scope = DeterministicKeyScope.current();
+        if (scope != null) {
+            return scope.nextKey();
+        }
+        return "lievit-child-" + positionalCounter++;
     }
 
     /**
