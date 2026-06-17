@@ -1,2 +1,2 @@
 org.springframework.beans.factory.aot.BeanFactoryInitializationAotProcessor=\
-com.iambilotta.lievit.spring.native_.LievitComponentsAotProcessor
+io.lievit.spring.native_.LievitComponentsAotProcessor

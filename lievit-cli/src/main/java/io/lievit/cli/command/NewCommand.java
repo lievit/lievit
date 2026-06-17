@@ -117,7 +117,7 @@ public class NewCommand implements Callable<Integer> {
 
                 <dependencies>
                     <dependency>
-                        <groupId>com.iambilotta</groupId>
+                        <groupId>io.lievit</groupId>
                         <artifactId>lievit-spring-boot-starter</artifactId>
                         <version>0.1.0-SNAPSHOT</version>
                     </dependency>
@@ -150,7 +150,7 @@ public class NewCommand implements Callable<Integer> {
         return """
             package %s;
 
-            import com.iambilotta.lievit.EnableLievit;
+            import io.lievit.EnableLievit;
             import org.springframework.boot.SpringApplication;
             import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -169,9 +169,9 @@ public class NewCommand implements Callable<Integer> {
         return """
             package %s;
 
-            import com.iambilotta.lievit.LievitAction;
-            import com.iambilotta.lievit.LievitComponent;
-            import com.iambilotta.lievit.Wire;
+            import io.lievit.LievitAction;
+            import io.lievit.LievitComponent;
+            import io.lievit.Wire;
 
             /**
              * Sample lievit component.

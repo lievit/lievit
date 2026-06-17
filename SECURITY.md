@@ -9,7 +9,7 @@ server-side component state.
 ## Reporting a vulnerability
 
 **Do not open a public GitHub issue for a security report.** Use a
-[private security advisory](https://github.com/iambilotta/lievit/security/advisories/new),
+[private security advisory](https://github.com/lievit/lievit/security/advisories/new),
 or email:
 
 - `francesco@iambilotta.com`

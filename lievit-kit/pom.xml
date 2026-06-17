@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.iambilotta</groupId>
+        <groupId>io.lievit</groupId>
         <artifactId>lievit-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
@@ -17,12 +17,12 @@
     <dependencies>
         <!-- The SPI: TemplateAdapter, ComponentMetadata, the seven annotations. -->
         <dependency>
-            <groupId>com.iambilotta</groupId>
+            <groupId>io.lievit</groupId>
             <artifactId>lievit-core</artifactId>
         </dependency>
         <!-- The wire runtime: the admin mounts AdminResource components through it (ADR-0008). -->
         <dependency>
-            <groupId>com.iambilotta</groupId>
+            <groupId>io.lievit</groupId>
             <artifactId>lievit-spring-boot-starter</artifactId>
         </dependency>
 

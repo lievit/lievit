@@ -178,7 +178,7 @@ Single-file is not a trade on type-safety: it is "DSL instead of JTE", both are 
 Reactive single-file type-safe components are the hard differentiator: impossible in Volt / PHP
 (not compiled). See [`docs/adr/0003`](docs/adr/0003-single-file-multi-file-dual-mode.md).
 
-The DSL lives in the `lievit-dsl` module (`import static com.iambilotta.lievit.dsl.H.*;`): a sealed
+The DSL lives in the `lievit-dsl` module (`import static io.lievit.dsl.H.*;`): a sealed
 `Html` tree built by static factories (`div`, `span`, `button`, `text`, `el`), escape-by-construction
 (a `@Wire` value carrying markup renders inert; the one escape hatch is the explicit `raw(...)`), and
 wire-binding helpers (`.wireClick("increment")`, `.wireModel("name")`) that emit the `l:*` markers the
@@ -310,7 +310,7 @@ the browser*. Because lievit's wire is server-driven and typed, a fast in-proces
 over `MockMvc`) and reads typed state back. No browser, no JSON-map boilerplate, no snapshot juggling.
 
 ```java
-import static com.iambilotta.lievit.test.Lievit.test;
+import static io.lievit.test.Lievit.test;
 
 @LievitTest                                  // one meta-annotation: slice + dev key + MockMvc
 class CounterComponentTest {

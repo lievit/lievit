@@ -9,7 +9,7 @@ All notable changes to this project are documented here. Format follows
 ### Added
 
 - `Lievit.test()`: the developer-facing component test harness (ADR-0010), shipped as a feature in
-  `lievit-spring-boot-starter` (`com.iambilotta.lievit.test`). A fluent tester that mounts and drives
+  `lievit-spring-boot-starter` (`io.lievit.test`). A fluent tester that mounts and drives
   a `@LievitComponent` through the real wire pipeline (codec → registry → dispatcher → template →
   the `POST /lievit/{id}/call` HTTP edge over `MockMvc`), headless, carrying the signed snapshot
   internally. Surface: `mount()`, `model(field, value)`, `call(action)`, `assertWire(path, value)`

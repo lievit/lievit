@@ -4,10 +4,10 @@
 
 | You want to | Go to |
 |---|---|
-| Report a bug or unexpected behaviour | [Issues](https://github.com/iambilotta/lievit/issues/new/choose) |
-| Suggest a feature, a template adapter, a component | [Issues](https://github.com/iambilotta/lievit/issues/new/choose) |
-| Ask whether lievit is the right fit for your app | [Discussions](https://github.com/iambilotta/lievit/discussions) |
-| Report a vulnerability | [Private security advisory](https://github.com/iambilotta/lievit/security/advisories/new). Do NOT open a public issue. See [SECURITY.md](SECURITY.md). |
+| Report a bug or unexpected behaviour | [Issues](https://github.com/lievit/lievit/issues/new/choose) |
+| Suggest a feature, a template adapter, a component | [Issues](https://github.com/lievit/lievit/issues/new/choose) |
+| Ask whether lievit is the right fit for your app | [Discussions](https://github.com/lievit/lievit/discussions) |
+| Report a vulnerability | [Private security advisory](https://github.com/lievit/lievit/security/advisories/new). Do NOT open a public issue. See [SECURITY.md](SECURITY.md). |
 | Commercial support, integration help, custom adapters | francesco@iambilotta.com |
 
 ## Response times
@@ -23,7 +23,7 @@ This is an open-source project maintained by one engineer in Europe. SLAs are be
 ## Before opening an issue
 
 - Verify the bug reproduces against the latest tag (or `main` SHA while pre-release).
-- Check [existing issues](https://github.com/iambilotta/lievit/issues?q=) for duplicates.
+- Check [existing issues](https://github.com/lievit/lievit/issues?q=) for duplicates.
 - Read the [README](README.md) and the [ADRs](docs/adr/): some answers live there.
 - Strip secrets from your reproducer (never paste a real `LIEVIT_SIGNING_KEY`).
 

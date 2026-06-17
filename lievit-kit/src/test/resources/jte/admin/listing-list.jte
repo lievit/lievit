@@ -1,6 +1,6 @@
-@import com.iambilotta.lievit.component.ComponentMetadata
-@import com.iambilotta.lievit.kit.AdminListView
-@import com.iambilotta.lievit.kit.hello.ListingListComponent
+@import io.lievit.component.ComponentMetadata
+@import io.lievit.kit.AdminListView
+@import io.lievit.kit.hello.ListingListComponent
 @param ListingListComponent _instance
 @param String createUrl
 @param int page

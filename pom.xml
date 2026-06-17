@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.iambilotta</groupId>
+    <groupId>io.lievit</groupId>
     <artifactId>lievit-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -100,47 +100,47 @@
 
             <!-- lievit reactor coordinates -->
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-dsl</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-jte</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-thymeleaf</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-mustache</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-freemarker</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-raw</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-spring-boot-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.iambilotta</groupId>
+                <groupId>io.lievit</groupId>
                 <artifactId>lievit-kit</artifactId>
                 <version>${project.version}</version>
             </dependency>

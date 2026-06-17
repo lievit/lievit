@@ -1,7 +1,7 @@
 {
   "$schema": "https://lievit.dev/registry-schema.json",
   "name": "lievit-ui",
-  "homepage": "https://github.com/iambilotta/lievit",
+  "homepage": "https://github.com/lievit/lievit",
   "items": [
     {
       "name": "accordion",

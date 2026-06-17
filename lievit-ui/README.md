@@ -60,7 +60,7 @@ runtime/
 ### Wiring it up
 
 ```ts
-import { startLievit } from "@iambilotta/lievit-ui/runtime";
+import { startLievit } from "@lievit/lievit-ui/runtime";
 
 // Reads each component's initial snapshot from data-lievit-snapshot on its root
 // (alongside data-lievit-id and data-lievit-component), binds every l:* directive,

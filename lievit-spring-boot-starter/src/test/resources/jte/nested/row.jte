@@ -1,4 +1,4 @@
-@import com.iambilotta.lievit.component.ComponentMetadata
+@import io.lievit.component.ComponentMetadata
 @param String label
 @param ComponentMetadata _component
 <div data-lievit-component="${_component.className()}" data-row-label="${label}">${label}</div>
