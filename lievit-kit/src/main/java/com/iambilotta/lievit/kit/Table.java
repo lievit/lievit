@@ -50,6 +50,21 @@ public final class Table<T> extends Schema<T, Table<T>> {
     }
 
     /**
+     * Adds a pre-built typed column (e.g. {@link TextColumn}, {@link BadgeColumn}).
+     *
+     * <p>Use this overload when the column carries type-specific configuration (sortable,
+     * colour mapping, icon names, date format) that the bare {@code column(label, extractor)}
+     * convenience cannot express.
+     *
+     * @param col the pre-built column, must not be null
+     * @return this builder
+     */
+    public Table<T> column(Column<T> col) {
+        columns.add(Objects.requireNonNull(col, "col"));
+        return this;
+    }
+
+    /**
      * Declares how a row maps to its string id (used in the row's edit/view route).
      *
      * @param idFunction extracts the id from a row

@@ -10,7 +10,7 @@ import java.util.Objects;
  * One field of an {@link Form}: a bound name plus a display label (the filament-internals.md
  * {@code TextInput} carried over at its v0.1 minimum; the rich field types are a later slice).
  */
-public final class Field {
+public class Field {
 
     private final String name;
     private final String label;

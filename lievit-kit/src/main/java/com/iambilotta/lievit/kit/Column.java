@@ -15,18 +15,29 @@ import org.jspecify.annotations.Nullable;
  *
  * @param <T> the row type
  */
-public final class Column<T> {
+public class Column<T> {
 
     private final String label;
     private final Function<? super T, ?> value;
+    private boolean sortable;
 
     /**
      * @param label the column header
      * @param value extracts the cell value from a row
      */
     Column(String label, Function<? super T, ?> value) {
+        this(label, value, false);
+    }
+
+    /**
+     * @param label    the column header
+     * @param value    extracts the cell value from a row
+     * @param sortable whether this column can be sorted in the table view
+     */
+    Column(String label, Function<? super T, ?> value, boolean sortable) {
         this.label = Objects.requireNonNull(label, "label");
         this.value = Objects.requireNonNull(value, "value");
+        this.sortable = sortable;
     }
 
     /**
@@ -34,6 +45,22 @@ public final class Column<T> {
      */
     public String label() {
         return label;
+    }
+
+    /**
+     * @return {@code true} if this column can be sorted in the table view
+     */
+    public boolean sortable() {
+        return sortable;
+    }
+
+    /**
+     * Sets the sortable flag. Package-private: called by typed-column fluent methods.
+     *
+     * @param sortable whether this column can be sorted
+     */
+    void setSortable(boolean sortable) {
+        this.sortable = sortable;
     }
 
     /**
