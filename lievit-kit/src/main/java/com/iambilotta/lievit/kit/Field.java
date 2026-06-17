@@ -7,10 +7,10 @@ package com.iambilotta.lievit.kit;
 import java.util.Objects;
 
 /**
- * One field of an {@link AdminForm}: a bound name plus a display label (the filament-internals.md
+ * One field of an {@link Form}: a bound name plus a display label (the filament-internals.md
  * {@code TextInput} carried over at its v0.1 minimum; the rich field types are a later slice).
  */
-public final class AdminField {
+public final class Field {
 
     private final String name;
     private final String label;
@@ -19,7 +19,7 @@ public final class AdminField {
      * @param name the bound field name (matches the model attribute / {@code @Wire} field)
      * @param label the display label
      */
-    AdminField(String name, String label) {
+    Field(String name, String label) {
         this.name = Objects.requireNonNull(name, "name");
         this.label = Objects.requireNonNull(label, "label");
     }

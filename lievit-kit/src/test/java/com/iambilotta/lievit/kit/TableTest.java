@@ -11,11 +11,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Specifies the {@link AdminTable} builder: it accumulates ordered columns from a fluent DSL, each a
+ * Specifies the {@link Table} builder: it accumulates ordered columns from a fluent DSL, each a
  * label plus a value extractor over the row type, and derives a row id through the declared id
  * function (ADR-0008; the filament-internals.md "Table builder" carried over with a shared parent).
  */
-class AdminTableTest {
+class TableTest {
 
     record Listing(long ref, String city) {}
 
@@ -27,12 +27,12 @@ class AdminTableTest {
      */
     @Test
     void keeps_columns_in_declaration_order() {
-        AdminTable<Listing> table =
-                AdminTable.<Listing>create()
+        Table<Listing> table =
+                Table.<Listing>create()
                         .column("Ref", l -> l.ref())
                         .column("City", Listing::city);
 
-        assertThat(table.columns()).extracting(AdminColumn::label).containsExactly("Ref", "City");
+        assertThat(table.columns()).extracting(Column::label).containsExactly("Ref", "City");
     }
 
     /**
@@ -43,9 +43,9 @@ class AdminTableTest {
      */
     @Test
     void a_column_extracts_its_cell_value_from_a_row() {
-        AdminTable<Listing> table = AdminTable.<Listing>create().column("City", Listing::city);
+        Table<Listing> table = Table.<Listing>create().column("City", Listing::city);
 
-        AdminColumn<Listing> city = table.columns().get(0);
+        Column<Listing> city = table.columns().get(0);
 
         assertThat(city.cell(new Listing(7, "Parma"))).isEqualTo("Parma");
     }
@@ -58,24 +58,24 @@ class AdminTableTest {
      */
     @Test
     void derives_a_row_id_through_the_declared_id_function() {
-        AdminTable<Listing> table =
-                AdminTable.<Listing>create().id(l -> String.valueOf(l.ref())).column("City", Listing::city);
+        Table<Listing> table =
+                Table.<Listing>create().id(l -> String.valueOf(l.ref())).column("City", Listing::city);
 
         assertThat(table.idOf(new Listing(42, "Reggio"))).isEqualTo("42");
     }
 
     /**
-     * @spec.given a table builder sharing the AdminSchema parent
+     * @spec.given a table builder sharing the Schema parent
      * @spec.when  a heading is set
      * @spec.then  the schema parent carries it (the v0.1 shared hierarchy, no later unification)
      * @spec.adr   ADR-0008
      */
     @Test
     void carries_a_heading_through_the_shared_schema_parent() {
-        AdminTable<Listing> table = AdminTable.<Listing>create().heading("Listings");
+        Table<Listing> table = Table.<Listing>create().heading("Listings");
 
         assertThat(table.heading()).isEqualTo("Listings");
-        assertThat(table).isInstanceOf(AdminSchema.class);
+        assertThat(table).isInstanceOf(Schema.class);
     }
 
     /**
@@ -86,7 +86,7 @@ class AdminTableTest {
      */
     @Test
     void falls_back_to_toString_when_no_id_function_is_declared() {
-        AdminTable<String> table = AdminTable.create();
+        Table<String> table = Table.create();
 
         assertThat(table.idOf("row-1")).isEqualTo("row-1");
     }
@@ -99,8 +99,8 @@ class AdminTableTest {
      */
     @Test
     void exposes_columns_as_an_unmodifiable_list() {
-        AdminTable<Listing> table = AdminTable.<Listing>create().column("City", Listing::city);
-        List<AdminColumn<Listing>> columns = table.columns();
+        Table<Listing> table = Table.<Listing>create().column("City", Listing::city);
+        List<Column<Listing>> columns = table.columns();
 
         assertThat(columns).hasSize(1);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> columns.add(null))

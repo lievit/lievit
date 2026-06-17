@@ -14,7 +14,7 @@ import com.iambilotta.lievit.Wire;
 /**
  * The hello-admin list component: a {@code @LievitComponent} that renders the {@link ListingResource}
  * list view through the real lievit runtime and the JTE adapter. It is the single end-to-end
- * tracer-bullet the kit skeleton exists to prove: an {@link com.iambilotta.lievit.kit.AdminResource}
+ * tracer-bullet the kit skeleton exists to prove: an {@link com.iambilotta.lievit.kit.Resource}
  * -&gt; its data port -&gt; an {@link AdminListView} -&gt; HTML, mounted over the wire service.
  *
  * <p>The three {@code @Wire} fields are locked: they are derived server-side from the resource in

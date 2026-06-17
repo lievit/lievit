@@ -16,9 +16,9 @@ import com.iambilotta.lievit.spring.WireCallResult;
 
 /**
  * The hello-admin end-to-end tracer-bullet (ADR-0008): a single {@link
- * com.iambilotta.lievit.kit.AdminResource} listing rows is mounted through the real lievit runtime
+ * com.iambilotta.lievit.kit.Resource} listing rows is mounted through the real lievit runtime
  * (codec + registry + dispatcher + JTE adapter) and renders an HTML table whose rows came through
- * the persistence-agnostic {@link com.iambilotta.lievit.kit.AdminRecordRepository} port.
+ * the persistence-agnostic {@link com.iambilotta.lievit.kit.RecordRepository} port.
  *
  * <p>This is the minimal "hello-admin" the skeleton exists to prove: a Resource -&gt; its data port
  * -&gt; an HTML list, rendered via lievit-jte on the lievit runtime, proving the wiring end-to-end.

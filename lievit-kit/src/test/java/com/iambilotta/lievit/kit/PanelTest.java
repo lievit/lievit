@@ -12,13 +12,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * Specifies the {@link AdminPanel} builder DSL: a named surface that accumulates resources, render
+ * Specifies the {@link Panel} builder DSL: a named surface that accumulates resources, render
  * hooks, and plugins, and runs the plugin {@code register}/{@code boot} lifecycle (ADR-0008; the
  * filament-internals.md Panel builder mapped to a Spring configuration DSL, kept under ten concerns).
  */
-class AdminPanelTest {
+class PanelTest {
 
-    static final class StringRepo implements AdminRecordRepository<String> {
+    static final class StringRepo implements RecordRepository<String> {
         @Override
         public List<String> findAll() {
             return List.of("a", "b");
@@ -30,7 +30,7 @@ class AdminPanelTest {
         }
     }
 
-    static final class StringsResource extends AdminResource<String> {
+    static final class StringsResource extends Resource<String> {
         StringsResource() {
             super(new StringRepo());
         }
@@ -46,8 +46,8 @@ class AdminPanelTest {
         }
 
         @Override
-        public AdminTable<String> table() {
-            return AdminTable.<String>create().column("Value", s -> s);
+        public Table<String> table() {
+            return Table.<String>create().column("Value", s -> s);
         }
     }
 
@@ -59,8 +59,8 @@ class AdminPanelTest {
      */
     @Test
     void registers_a_resource_under_a_named_panel() {
-        AdminResource<String> resource = new StringsResource();
-        AdminPanel panel = AdminPanel.create("admin").resource(resource);
+        Resource<String> resource = new StringsResource();
+        Panel panel = Panel.create("admin").resource(resource);
 
         assertThat(panel.id()).isEqualTo("admin");
         assertThat(panel.resources()).containsExactly(resource);
@@ -74,11 +74,11 @@ class AdminPanelTest {
      */
     @Test
     void registers_a_render_hook_at_a_named_point() {
-        AdminPanel panel =
-                AdminPanel.create("admin")
-                        .renderHook(AdminRenderHook.CONTENT_BEFORE, () -> "<div>banner</div>");
+        Panel panel =
+                Panel.create("admin")
+                        .renderHook(RenderHook.CONTENT_BEFORE, () -> "<div>banner</div>");
 
-        assertThat(panel.renderHooks(AdminRenderHook.CONTENT_BEFORE))
+        assertThat(panel.renderHooks(RenderHook.CONTENT_BEFORE))
                 .extracting(java.util.function.Supplier::get)
                 .containsExactly("<div>banner</div>");
     }
@@ -91,9 +91,9 @@ class AdminPanelTest {
      */
     @Test
     void returns_no_hooks_for_an_unused_point() {
-        AdminPanel panel = AdminPanel.create("admin");
+        Panel panel = Panel.create("admin");
 
-        assertThat(panel.renderHooks(AdminRenderHook.BODY_END)).isEmpty();
+        assertThat(panel.renderHooks(RenderHook.BODY_END)).isEmpty();
     }
 
     /**
@@ -105,25 +105,25 @@ class AdminPanelTest {
     @Test
     void applies_a_plugin_running_register_then_boot() {
         boolean[] booted = {false};
-        AdminPanelPlugin plugin =
-                new AdminPanelPlugin() {
+        Plugin plugin =
+                new Plugin() {
                     @Override
                     public String getId() {
                         return "demo";
                     }
 
                     @Override
-                    public void register(AdminPanel panel) {
+                    public void register(Panel panel) {
                         panel.resource(new StringsResource());
                     }
 
                     @Override
-                    public void boot(AdminPanel panel) {
+                    public void boot(Panel panel) {
                         booted[0] = true;
                     }
                 };
 
-        AdminPanel panel = AdminPanel.create("admin").plugin(plugin);
+        Panel panel = Panel.create("admin").plugin(plugin);
 
         assertThat(panel.resources()).hasSize(1);
         assertThat(panel.plugin("demo")).containsSame(plugin);

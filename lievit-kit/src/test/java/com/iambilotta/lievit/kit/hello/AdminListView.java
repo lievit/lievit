@@ -7,12 +7,12 @@ package com.iambilotta.lievit.kit.hello;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.iambilotta.lievit.kit.AdminColumn;
-import com.iambilotta.lievit.kit.AdminResource;
-import com.iambilotta.lievit.kit.AdminTable;
+import com.iambilotta.lievit.kit.Column;
+import com.iambilotta.lievit.kit.Resource;
+import com.iambilotta.lievit.kit.Table;
 
 /**
- * The render view-model the kit derives from an {@link AdminResource} for the list page: the table
+ * The render view-model the kit derives from an {@link Resource} for the list page: the table
  * heading, the column headers, and one {@link Row} per record (its id plus the cell strings the
  * columns extract). This is the seam the JTE template iterates; it is pure data, no engine knowledge.
  *
@@ -41,19 +41,19 @@ public record AdminListView(String heading, List<String> headers, List<Row> rows
      * @param <T> the row type
      * @return the view-model
      */
-    public static <T> AdminListView of(AdminResource<T> resource) {
-        AdminTable<T> table = resource.table();
-        List<AdminColumn<T>> columns = table.columns();
+    public static <T> AdminListView of(Resource<T> resource) {
+        Table<T> table = resource.table();
+        List<Column<T>> columns = table.columns();
 
         List<String> headers = new ArrayList<>();
-        for (AdminColumn<T> column : columns) {
+        for (Column<T> column : columns) {
             headers.add(column.label());
         }
 
         List<Row> rows = new ArrayList<>();
         for (T record : resource.repository().findAll()) {
             List<String> cells = new ArrayList<>();
-            for (AdminColumn<T> column : columns) {
+            for (Column<T> column : columns) {
                 cells.add(column.cell(record));
             }
             rows.add(new Row(table.idOf(record), cells));

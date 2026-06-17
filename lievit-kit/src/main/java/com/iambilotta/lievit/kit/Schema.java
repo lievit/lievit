@@ -7,7 +7,7 @@ package com.iambilotta.lievit.kit;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The common builder parent of {@link AdminForm} and {@link AdminTable}, shared from v0.1.
+ * The common builder parent of {@link Form} and {@link Table}, shared from v0.1.
  *
  * <p>This is the distilled Filament lesson (filament-internals.md section "Design lessons"): Filament
  * shipped three independent builder hierarchies (Form, Table, Infolist) in v3 and paid a breaking
@@ -16,17 +16,17 @@ import org.jspecify.annotations.Nullable;
  * migration.
  *
  * <p>Uses the curiously-recurring self-type {@code SELF} so fluent setters return the concrete
- * builder, keeping the type chain intact ({@code AdminTable.create().heading(...).column(...)}).
+ * builder, keeping the type chain intact ({@code Table.create().heading(...).column(...)}).
  *
  * @param <T> the row type the schema is built for
  * @param <SELF> the concrete builder type, for fluent returns
  */
-public abstract class AdminSchema<T, SELF extends AdminSchema<T, SELF>> {
+public abstract class Schema<T, SELF extends Schema<T, SELF>> {
 
     private @Nullable String heading;
 
     /** Package-private: only the concrete builders in this package extend the schema. */
-    AdminSchema() {}
+    Schema() {}
 
     /**
      * @return {@code this}, typed as the concrete builder

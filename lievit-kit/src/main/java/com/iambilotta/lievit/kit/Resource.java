@@ -13,33 +13,33 @@ package com.iambilotta.lievit.kit;
  *
  * <ol>
  *   <li><strong>Instance-based, not static.</strong> A resource is a Spring bean: it receives its
- *       {@link AdminRecordRepository} by constructor injection and its {@code table()} /
+ *       {@link RecordRepository} by constructor injection and its {@code table()} /
  *       {@code form()} are instance methods. Statics are hard to test and do not compose with DI.
  *   <li><strong>Persistence-agnostic.</strong> The resource reads rows only through the injected
- *       {@link AdminRecordRepository} port, never a {@code JdbcClient} or {@code JpaRepository}.
+ *       {@link RecordRepository} port, never a {@code JdbcClient} or {@code JpaRepository}.
  * </ol>
  *
  * <p>A concrete resource overrides {@link #table()} and {@link #form()} to build its two views with
- * the fluent {@link AdminTable} / {@link AdminForm} DSL, and {@link #slug()} / {@link #label()} for
+ * the fluent {@link Table} / {@link Form} DSL, and {@link #slug()} / {@link #label()} for
  * its navigation and routes.
  *
  * @param <T> the row type this resource manages
  */
-public abstract class AdminResource<T> {
+public abstract class Resource<T> {
 
-    private final AdminRecordRepository<T> repository;
+    private final RecordRepository<T> repository;
 
     /**
      * @param repository the persistence-agnostic data port, provided by the adopter
      */
-    protected AdminResource(AdminRecordRepository<T> repository) {
+    protected Resource(RecordRepository<T> repository) {
         this.repository = repository;
     }
 
     /**
      * @return the data port for this resource's rows
      */
-    public final AdminRecordRepository<T> repository() {
+    public final RecordRepository<T> repository() {
         return repository;
     }
 
@@ -63,7 +63,7 @@ public abstract class AdminResource<T> {
      *
      * @return the configured table builder
      */
-    public abstract AdminTable<T> table();
+    public abstract Table<T> table();
 
     /**
      * Builds the form (create / edit) view. Defaults to an empty form so a read-only,
@@ -71,7 +71,7 @@ public abstract class AdminResource<T> {
      *
      * @return the configured form builder
      */
-    public AdminForm<T> form() {
-        return AdminForm.create();
+    public Form<T> form() {
+        return Form.create();
     }
 }

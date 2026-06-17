@@ -7,7 +7,7 @@ package com.iambilotta.lievit.kit.hello;
 /**
  * The hello-admin row type: a minimal real-estate-agnostic record the skeleton lists. Generic on
  * purpose, the kit must work over any row type through the {@link
- * com.iambilotta.lievit.kit.AdminRecordRepository} port.
+ * com.iambilotta.lievit.kit.RecordRepository} port.
  *
  * @param ref a stable id
  * @param city a display attribute

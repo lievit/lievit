@@ -12,7 +12,7 @@
 
     <artifactId>lievit-kit</artifactId>
     <name>lievit (kit: the admin layer)</name>
-    <description>lievit-kit: the "Filament for Spring" admin layer, an in-monorepo module on the lievit runtime (ADR-0008, amended 2026-06-17). AdminResource + AdminPanel + Form/Table builders (a shared parent from v0.1) + render-hook extension points + a persistence-agnostic record port + a first-class @AdminPage. Path-depends on lievit-core (the SPI) and the starter (the wire runtime); never hard-couples a persistence engine.</description>
+    <description>lievit-kit: the "Filament for Spring" admin layer, an in-monorepo module on the lievit runtime (ADR-0008, amended 2026-06-17). Resource + Panel + Form/Table builders (a shared Schema parent from v0.1) + RenderHook extension points + a persistence-agnostic RecordRepository port + a first-class @Page. Path-depends on lievit-core (the SPI) and the starter (the wire runtime); never hard-couples a persistence engine.</description>
 
     <dependencies>
         <!-- The SPI: TemplateAdapter, ComponentMetadata, the seven annotations. -->
