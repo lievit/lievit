@@ -6,6 +6,8 @@ package io.lievit.kit;
 
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The unit of work of the admin layer: one resource per domain entity, exposing a table view (the
  * list) and a form view (create / edit) over the row type {@code <T>} (the filament-internals.md
@@ -88,5 +90,93 @@ public abstract class Resource<T> {
      */
     public Optional<ResourcePages> pages() {
         return Optional.empty();
+    }
+
+    // ── Navigation derivation (the Filament HasNavigation seam) ──────────────────────────────────
+
+    /**
+     * Whether this resource contributes an entry to the panel navigation. Override to return
+     * {@code false} for a resource reachable only by direct link (Filament's
+     * {@code shouldRegisterNavigation}).
+     *
+     * @return {@code true} to register a navigation item (the default)
+     */
+    public boolean shouldRegisterNavigation() {
+        return true;
+    }
+
+    /**
+     * The navigation group label this resource's item belongs under, or {@code null} for a
+     * top-level item.
+     *
+     * @return the group label, or {@code null}
+     */
+    public @Nullable String navigationGroup() {
+        return null;
+    }
+
+    /**
+     * The navigation icon for this resource's item, or {@code null} for none. Defaults to the
+     * semantic {@code nav.resource} alias so the registry can theme it.
+     *
+     * @return the icon, or {@code null}
+     */
+    public @Nullable Icon navigationIcon() {
+        return Icon.of("nav.resource");
+    }
+
+    /**
+     * The sort key of this resource's navigation item (ascending). Defaults to last.
+     *
+     * @return the sort key
+     */
+    public int navigationSort() {
+        return Integer.MAX_VALUE;
+    }
+
+    /**
+     * The navigation badge text (for example a pending count), or {@code null} for none.
+     *
+     * @return the badge, or {@code null}
+     */
+    public @Nullable String navigationBadge() {
+        return null;
+    }
+
+    /**
+     * The navigation badge color (used only when {@link #navigationBadge()} is set).
+     *
+     * @return the badge color
+     */
+    public Color navigationBadgeColor() {
+        return Color.PRIMARY;
+    }
+
+    /**
+     * Derives this resource's {@link NavigationItem}, applying the overridable group / icon / sort /
+     * badge slots above. The item's url is the resource's list route under the given panel path.
+     *
+     * @param panelPath the panel's route prefix (for example {@code "admin"})
+     * @return the derived navigation item, or empty if {@link #shouldRegisterNavigation()} is false
+     */
+    public Optional<NavigationItem> navigationItem(String panelPath) {
+        if (!shouldRegisterNavigation()) {
+            return Optional.empty();
+        }
+        String url = "/" + panelPath + "/" + slug();
+        NavigationItem item = NavigationItem.make(label(), url).sort(navigationSort());
+        Icon icon = navigationIcon();
+        if (icon != null) {
+            item.icon(icon);
+        }
+        String group = navigationGroup();
+        if (group != null) {
+            item.group(group);
+        }
+        String badge = navigationBadge();
+        if (badge != null) {
+            item.badge(badge, navigationBadgeColor());
+        }
+        return Optional.of(item);
     }
 }
