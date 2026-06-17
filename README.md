@@ -32,7 +32,7 @@ Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a c
 
 [**The category**](#the-category) ·
 [**The three strata**](#the-three-strata) ·
-[**The seven-annotation API**](#the-public-api-seven-annotations) ·
+[**The public API**](#the-public-api-nine-annotations) ·
 [**Hello component**](#hello-component-api-first-sketch) ·
 [**Single-file vs multi-file**](#single-file--multi-file) ·
 [**Wire protocol**](#wire-protocol-v01) ·
@@ -84,10 +84,11 @@ A developer only ever thinks about five things:
 | **Mount** | The lifecycle hook that runs after construction, before the first render. |
 | **Render** | The render step (template + checksum + signed snapshot). |
 
-## The public API (seven annotations)
+## The public API (nine annotations)
 
-The public surface is hard-capped at seven annotations (anti-overkill, see
-[`docs/adr/0002`](docs/adr/0002-seven-annotation-api-surface.md)):
+The public surface is nine annotations (ADR-0002's seven-annotation cap superseded by ADR-0015 for
+`@LievitComputed` — see [`docs/adr/0015`](docs/adr/0015-computed-properties.md) — and by the
+URL-binding feature for `@LievitUrl`):
 
 | Annotation | Purpose |
 |---|---|
@@ -97,7 +98,9 @@ The public surface is hard-capped at seven annotations (anti-overkill, see
 | `@LievitAction` | Marks a method callable from the template. |
 | `@LievitMount` | Lifecycle hook: after construction, before render. |
 | `@LievitRender` | Custom pre-render hook. |
-| `@LievitProperty` | Optional: extended metadata on a `@Wire` field (validation, transform, serialize). |
+| `@LievitProperty` | Optional: extended metadata on a `@Wire` field (serialize, locked, modelable two-way bind). |
+| `@LievitComputed` | Marks a no-arg method as a per-request computed property (memoized once per wire call, not serialized into the snapshot). |
+| `@LievitUrl` | Optional: reflects a `@Wire` field into the URL query string (mount-from-query + `url` effect on change). |
 
 ## Hello component (API-first sketch)
 
@@ -175,6 +178,15 @@ Single-file is not a trade on type-safety: it is "DSL instead of JTE", both are 
 Reactive single-file type-safe components are the hard differentiator: impossible in Volt / PHP
 (not compiled). See [`docs/adr/0003`](docs/adr/0003-single-file-multi-file-dual-mode.md).
 
+The DSL lives in the `lievit-dsl` module (`import static com.iambilotta.lievit.dsl.H.*;`): a sealed
+`Html` tree built by static factories (`div`, `span`, `button`, `text`, `el`), escape-by-construction
+(a `@Wire` value carrying markup renders inert; the one escape hatch is the explicit `raw(...)`), and
+wire-binding helpers (`.wireClick("increment")`, `.wireModel("name")`) that emit the `l:*` markers the
+client binds. A `DslTemplateAdapter` renders the `@LievitRender Html` tree through the same wire
+pipeline (mount, wire call, effects, morph) as a template component, behind the one `TemplateAdapter`
+SPI, so the dispatcher and codec are untouched. See
+[`docs/adr/0018`](docs/adr/0018-single-file-dsl.md).
+
 ## Single-file + multi-file
 
 Both modes ship from v0.1, both are type-safe:
@@ -197,7 +209,8 @@ The full normative spec is [`docs/adr/0001`](docs/adr/0001-wire-protocol-v0.1.md
 - **Response**: `text/html` + header `Lievit-Snapshot`.
 - **Snapshot**: `{cid, cls, wire, iat, exp}`, HMAC-SHA-256 signed (HS256, `kid` header for
   rotation). Carries **state, never code**; the class is an FQN resolved at unwrap time.
-- **DOM patching**: Idiomorph (no DIY diff, no innerHTML, no virtual DOM).
+- **DOM patching**: a bespoke identity-preserving morph (no DIY diff, no innerHTML, no virtual DOM;
+  ADR-0019 amends ADR-0001's Idiomorph choice to keep the client bundle dependency-free).
 - **Client modifiers**: `l:model.live / .lazy / .blur / .debounce.500ms` (debounce 500 ms is
   the default, opt out with `.eager`), events `l:click / submit / keydown.enter`.
 - **Errors** (fail-closed, empty body, only the `Lievit-Reason` header; ADR-0014): `410 Gone`
@@ -208,6 +221,85 @@ The full normative spec is [`docs/adr/0001`](docs/adr/0001-wire-protocol-v0.1.md
   `504` (action timeout 5 s).
 - **Limits**: payload 64 kb, snapshot 16 kb, idle TTL 1 h, action timeout 5 s, signing key
   >= 32 bytes base64url with a 24 h previous-key grace window.
+
+## Real-time server-side validation
+
+Add Jakarta Bean Validation constraints directly on `@Wire` fields. lievit validates the component
+instance on every wire call, before running any action. If validation fails the action is skipped and
+the per-field errors ride the `Lievit-Effects` header as the `errors` key. The template receives them
+as the reserved `_errors` model parameter. Debounce is a client concern (`l:model.blur`,
+`l:model.debounce.300ms`); the server validates idempotently on every call.
+
+**Component** — annotate `@Wire` fields with any Jakarta constraint:
+
+```java
+@LievitComponent(template = "registration")
+public class RegistrationComponent {
+
+    @Wire @NotBlank(message = "Email is required") @Email(message = "Must be a valid email address")
+    String email = "";
+
+    @Wire @NotBlank(message = "Name is required") @Size(min = 2, message = "Name must be at least 2 characters")
+    String name = "";
+
+    @Wire boolean submitted = false;   // @Wire so it round-trips in the snapshot
+
+    @LievitAction
+    void submit() { this.submitted = true; }
+}
+```
+
+**Template** — read `_errors` (always a `Map<String, List<String>>`, `null` when no errors):
+
+```
+@param Map<String, List<String>> _errors = null
+
+<input l:model.blur="email" name="email" value="${email}">
+@if(_errors != null && _errors.containsKey("email"))
+    @for(String msg : _errors.get("email"))
+        <span class="error" data-field="email">${msg}</span>
+    @endfor
+@endif
+```
+
+**Auto-wiring** — add `spring-boot-starter-validation` and lievit's autoconfiguration wires
+`BeanValidationFieldValidator` automatically (Hibernate Validator on the classpath). No annotation,
+no `@Bean` required. Swap in a custom `FieldValidator` bean to override (e.g. cross-field
+validation, async checks):
+
+```java
+@Bean
+FieldValidator myValidator(MyService svc) {
+    return instance -> svc.validate(instance);
+}
+```
+
+**Testing** — the harness exposes `assertHasError(field, fragment)`, `assertNoErrors()`,
+`assertNoErrors(field)`:
+
+```java
+@Test
+void invalid_email_blocks_submit() {
+    test(RegistrationComponent.class)
+        .mount()
+        .model("email", "not-an-email")
+        .model("name", "Alice")
+        .call("submit")
+        .assertHasError("email", "valid email")   // message contains "valid email"
+        .assertNoErrors("name");
+}
+
+@Test
+void valid_form_submits() {
+    test(RegistrationComponent.class)
+        .mount()
+        .model("email", "alice@example.com")
+        .model("name", "Alice")
+        .call("submit")
+        .assertNoErrors()
+        .assertWireMatches(comp -> comp.submitted);
+}
+```
 
 ## Testing your components (`Lievit.test()`)
 
@@ -248,16 +340,14 @@ class CounterComponentTest {
 
 Assertion surface: `assertWire(path, value)` (typed, dotted + `.size` navigation),
 `assertWireMatches(predicate)` (typed predicate over the real instance), `assertSee` / `assertDontSee`
-/ `assertSeeHtml` / `assertSeeInOrder`, `assertSnapshotRotated` / `assertSnapshotValid`, and
+/ `assertSeeHtml` / `assertSeeInOrder`, `assertSnapshotRotated` / `assertSnapshotValid`,
 `assertRejected(<reason>.class)` for the whole error-code state machine — including `LockedProperty`
 (403, attacker's seat) and `TooManyFailures` (429), the two Livewire's own component tester cannot
-reach. Hostile-seat affordances `tamperUpdate(field, value)` and `forgeSnapshot()` drive the locked
-and rate-limit defenses headless. Failure messages name the call sequence that produced the state
-(`expected @Wire count == 1 but was 0 after calls [increment]`). `@LievitTest` is test-scope and does
-**not** count against the seven-annotation public cap.
-
-> An effects channel is not yet a harness surface: when the sibling effects-channel work lands, an
-> `assertEffect`-style assertion follows it.
+reach — and `assertHasError(field, fragment)` / `assertNoErrors()` / `assertNoErrors(field)` for
+real-time validation (the `errors` effect). Hostile-seat affordances `tamperUpdate(field, value)` and
+`forgeSnapshot()` drive the locked and rate-limit defenses headless. Failure messages name the call
+sequence that produced the state (`expected @Wire count == 1 but was 0 after calls [increment]`).
+`@LievitTest` is test-scope and does **not** count against the seven-annotation public cap.
 
 ## Custom elements
 

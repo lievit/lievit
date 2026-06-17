@@ -248,20 +248,33 @@ calls.
   An action directive collects the current snapshot and any pending `l:model` updates, then issues
   the wire call (phase 3 of the lifecycle).
 
-### DOM patching: Idiomorph
+### DOM patching: a bespoke morph (ADR-0019)
 
 The 200 response body is the freshly rendered HTML for the component. The client does **not**
-replace `innerHTML` and does **not** run a DIY diff or a virtual DOM. It uses **Idiomorph**
-directly to morph the existing DOM toward the new markup:
+replace `innerHTML` and does **not** run a DIY diff or a virtual DOM. It runs a small **bespoke
+morph** (`lievit-ui/runtime/morph.ts`) that walks the live DOM toward the new markup:
 
-- Idiomorph preserves DOM identity where the structure matches, so focus, selection, scroll
-  position, in-flight CSS transitions, and uncontrolled input state survive the patch.
-- Only the parts that actually changed are touched; unchanged nodes are left in place.
-- Idiomorph is the same library Turbo 8 uses. Livewire v3/v4 morphs with `@alpinejs/morph`, not
-  Idiomorph; lievit chooses Idiomorph deliberately because it is framework-agnostic and does not
-  drag Alpine onto a non-Alpine stack (corrected in the ADR-0001 amendment of 2026-06-17). The
-  shared principle across all three (Livewire, Turbo, LiveView) is "morph, do not replace
-  innerHTML"; the library differs.
+- It preserves DOM identity where the structure matches, so focus, selection, scroll position,
+  in-flight CSS transitions, and uncontrolled input state survive the patch.
+- Only the parts that actually changed are touched; unchanged nodes are left in place. Keyed nodes
+  (`id`, then `name`) are reused/moved rather than rebuilt.
+- ADR-0001 originally named **Idiomorph**; ADR-0019 amends that to a bespoke implementation of the
+  same principle ("morph, do not replace innerHTML"), keeping the client bundle dependency-free and
+  Apache-clean (no vendored copy, no npm dep). Swapping Idiomorph back in behind the same
+  `morph(root, html)` seam is a reversible one-file change. The shared principle across Livewire,
+  Turbo, and LiveView holds; only lievit's implementation is its own.
+
+### The client runtime bundle (ADR-0019)
+
+The browser half of the protocol is `lievit-ui/runtime/` (ES modules, zero framework deps,
+strict-CSP-safe): `wire.ts` (serialize/POST/decode), `morph.ts` (above), `directives.ts` (the
+`l:*` registry + built-ins), `lifecycle.ts` (the hook bus), `runtime.ts` (the loop), and the
+existing `effects.ts` (§5b consumer). The client reads each component's initial snapshot from the
+`data-lievit-snapshot` attribute on its root (alongside `data-lievit-id` and
+`data-lievit-component`) and stashes each rotation back there. Two extension points let later
+features (loading/dirty, `wire:navigate`, polling, `wire:ignore`) plug in without editing the core:
+`runtime.directives.register(...)` for new `l:*` directives and `runtime.use(hook)` for lifecycle
+hooks (`beforeCall`/`afterCall`/`onError`/`onModelChange`/`onComponentInit`). See ADR-0019.
 
 ## 5b. The effects channel: `Lievit-Effects` (ADR-0012)
 
@@ -280,10 +293,49 @@ Lievit-Effects: {"redirect":"/done","dispatch":[{"name":"saved","detail":{"id":7
 | `redirect` | `string` | the action requested navigation | navigate (`location.assign`) instead of morphing |
 | `dispatch` | array of `{name, detail?}` | events the action queued | re-emit each as a DOM `CustomEvent` on `window` (the cross-component bus) |
 | `returns` | any JSON | the action's return value | available to the caller / test API; no DOM effect by itself |
+| `url` | `{query, history}` | the `@LievitUrl` fields' new query string | update the address bar via the History API (see below); no navigation |
 
 Reserved for later (named so the channel leaves room, not implemented in v0.1 of the channel):
 `stream` (SSE/chunked), `js` (server-requested eval, security-sensitive, deferred), `download`
 (base64 ride-along). Each is a new key in the bag, never a new response shape.
+
+### The `url` effect (`@LievitUrl` query-string binding)
+
+A `@Wire` field annotated `@LievitUrl` is reflected into the browser's query string. The server
+emits the `url` effect after every wire call that touches a component with such a field; the client
+writes it to the address bar with the History API, without navigating.
+
+```
+Lievit-Effects: {"url":{"query":"search=spring&tab=details","history":"PUSH"}}
+```
+
+| Key | Type | Meaning |
+|---|---|---|
+| `query` | `string` | the **query string only** (the part after `?`, no leading `?`), already URL-encoded per `key=value` pair. An **empty string** means "no query parameters" (clear them all). |
+| `history` | `"PUSH"` \| `"REPLACE"` | `PUSH` adds a back-stack entry (`history.pushState`), `REPLACE` rewrites the current one (`history.replaceState`). |
+
+**Exactly what the client must do** (CSP-safe, in the client-glue bundle, never inline script):
+
+```js
+const { query, history: mode } = effects.url;          // from the parsed Lievit-Effects bag
+const next = window.location.pathname + (query ? "?" + query : "");
+if (mode === "REPLACE") {
+  window.history.replaceState({}, "", next);
+} else {
+  window.history.pushState({}, "", next);              // PUSH is the default
+}
+```
+
+- The client merges `query` onto the **current `location.pathname`** and never onto a host or
+  scheme. The server emits *only* the query string, so the effect can never be a navigation target
+  or an open redirect (it updates the URL, it does not follow it). Do **not** pass `query` to
+  `location.assign` / `location.href`.
+- `query` is already encoded server-side; the client uses it verbatim (no double-encoding).
+- The back button restores the prior state because `PUSH` left a history entry; on `popstate` the
+  glue re-mounts / re-syncs the component from the restored query string (the symmetric read side of
+  the `mount`-from-query step in phase 1).
+- The `url` effect rides the same `200`-only, server-authored, never-signed channel as the other
+  effects (§5b security note); an error response carries no effects.
 
 **Security**: the effects bag is **server-authored and never signed** — nothing the client could
 tamper rides in it, so it is outside the HMAC boundary (which still covers only the snapshot). The
@@ -346,5 +398,10 @@ force the dependency on every consumer); the contract is the host application's 
   encode/decode/tamper/replay behavior of the snapshot.
 - ADR-0013 — payload hardening (settable/callable allowlist, deserialization allowlist, structural caps).
 - ADR-0014 — fail-closed, leak-free error rendering + the wire endpoint's security context.
+- ADR-0016 — nested components (keyed children, reactive props, modelable). Composition is
+  render-time and does not change this protocol: a child is an independent component with its own
+  snapshot, so the schema, signing, and lifecycle above are unchanged. Closes ADR-0001's open
+  `children` carve-out (a child is NOT a fragment of the parent's signed payload).
+- ADR-0019 — the client runtime bundle (wire glue, bespoke morph, directive + lifecycle extension points).
 - SECURITY.md — the HMAC chain as the security boundary, key handling, reporting.
 - README.md — the at-a-glance summary of this protocol.

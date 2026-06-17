@@ -1,0 +1,14 @@
+@import com.iambilotta.lievit.component.ComponentMetadata
+@import com.iambilotta.lievit.component.LievitChildren
+@param int rows
+@param String draft
+@param ComponentMetadata _component
+<div data-lievit-component="${_component.className()}">
+    <ul data-lievit-rows="${rows}">
+        @for(int i = 0; i < rows; i++)
+            <li>$unsafe{LievitChildren.placeholderFor("row-" + i)}</li>
+        @endfor
+    </ul>
+    <div class="draft">$unsafe{LievitChildren.placeholderFor("draft-input")}</div>
+    <button l:click="addRow">add row</button>
+</div>

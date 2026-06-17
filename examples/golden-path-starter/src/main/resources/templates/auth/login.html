@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign In - Lievit Demo</title>
+    <style>
+        body { font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }
+        label { display: block; margin: 12px 0 4px; }
+        input { width: 100%; box-sizing: border-box; padding: 8px; }
+        button { margin-top: 16px; padding: 8px 16px; }
+        .msg-ok  { color: green; }
+        .msg-err { color: red; }
+    </style>
+</head>
+<body>
+<h1>Sign In</h1>
+
+<p class="msg-ok" th:if="${param.registered}">Account created! Please sign in.</p>
+<p class="msg-err" th:if="${param.error}">Invalid username or password.</p>
+<p th:if="${param.logout}">You have been signed out.</p>
+
+<form method="post" th:action="@{/login}">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+    <label for="username">Username</label>
+    <input id="username" type="text" name="username" autofocus autocomplete="username">
+    <label for="password">Password</label>
+    <input id="password" type="password" name="password" autocomplete="current-password">
+    <button type="submit">Sign In</button>
+</form>
+
+<p><a th:href="@{/register}">Create an account</a></p>
+</body>
+</html>
