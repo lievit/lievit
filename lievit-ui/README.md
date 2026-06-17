@@ -37,6 +37,71 @@ Each component is a directory with the Lit source plus a `meta.json` (its files,
 `registryDependencies`, npm `dependencies`, and post-copy `docs`). `registry.json` is the
 single manifest derived from those (`npm run build:registry`); CI checks it for drift.
 
+## The client runtime (`runtime/`)
+
+Separate from the copy-in registry, `runtime/` is lievit's **browser glue**: the ES-module bundle
+that talks the wire protocol (ADR-0019, `../docs/wire-protocol.md` §5/§5b). Zero framework deps,
+strict-CSP-safe (no `eval`, no inline handlers, an external module file).
+
+```
+runtime/
+  wire.ts        # serialize a call, POST /lievit/{id}/call, decode 200 (html + snapshot + effects)
+                 #   or a fail-closed failure (status + Lievit-Reason + a re-mount flag for 409/410)
+  morph.ts       # bespoke identity-preserving DOM morph (keyed reuse, in-place text/attrs,
+                 #   uncontrolled form-state preserved); the morph(root, html) seam
+  directives.ts  # the l:* directive registry + built-ins (l:click, l:submit, l:keydown[.key],
+                 #   l:model[.live|.lazy|.blur|.debounce.Nms])
+  lifecycle.ts   # the lifecycle hook bus (beforeCall/afterCall/onError/onModelChange/onComponentInit)
+  runtime.ts     # the orchestrator + startLievit(); owns per-component snapshot + pending updates
+  effects.ts     # the Lievit-Effects consumer (redirect / dispatch / returns)
+  index.ts       # the public barrel
+```
+
+### Wiring it up
+
+```ts
+import { startLievit } from "@iambilotta/lievit-ui/runtime";
+
+// Reads each component's initial snapshot from data-lievit-snapshot on its root
+// (alongside data-lievit-id and data-lievit-component), binds every l:* directive,
+// and runs the call loop. Pass the page's CSRF token so Spring Security validates it.
+const lievit = startLievit({
+  csrfToken: document.querySelector<HTMLMetaElement>('meta[name="_csrf"]')?.content,
+  csrfHeader: document.querySelector<HTMLMetaElement>('meta[name="_csrf_header"]')?.content,
+});
+```
+
+### Extension API (for later client features)
+
+Two public extension points let batch-2 features (loading/dirty, `wire:navigate`, polling,
+`wire:ignore`) plug in **without editing the core bundle**:
+
+```ts
+// 1. Register a new l:* directive. The registry IS the API: a built-in directive has no privilege
+//    a third-party one lacks.
+lievit.directives.register({
+  name: "navigate",                                   // makes l:navigate="/path" live app-wide
+  bind(el, _attribute, value, rt) {
+    el.addEventListener("click", () => rt.callAction(el, value));
+  },
+});
+
+// 2. Register a lifecycle hook. Every phase is optional; a throwing hook is isolated (fail-soft),
+//    so a buggy indicator never breaks interactivity.
+const off = lievit.use({
+  onComponentInit: ({ root }) => {/* bind one component */},
+  onModelChange:   ({ root }, field, value) => {/* dirty tracking */},
+  beforeCall:      ({ root, calls, updates }) => root.setAttribute("aria-busy", "true"),
+  afterCall:       ({ root, status }) => root.removeAttribute("aria-busy"),
+  onError:         ({ status, reason }) => {/* surface fail-closed; 409/410 auto re-mount */},
+});
+off();                                                // unsubscribe on teardown
+```
+
+The `DirectiveRuntime` passed to `bind` exposes `callAction(element, action)` and
+`setModel(element, field, value, sendNow)` — the only two things a directive needs to drive the
+wire. The runtime owns snapshot rotation, morphing, and effect application.
+
 ## The tokens
 
 Tokens are plain CSS custom properties under the `--lv-*` namespace (the namespace is

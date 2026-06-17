@@ -31,6 +31,7 @@ question and is pending a final call.
 - [ADR-0016](0016-nested-components.md): Nested components (keyed children, reactive props, modelable two-way bind). Closes ADR-0001's open `children` carve-out. **accepted**
 - [ADR-0017](0017-form-objects.md): Form objects — grouped fields with co-located validation. **accepted**
 - [ADR-0018](0018-single-file-dsl.md): The single-file DSL render path (a type-safe HTML builder + a TemplateAdapter). **accepted**
+- [ADR-0019](0019-client-runtime-bundle.md): The client runtime bundle (wire glue, bespoke morph, directive + lifecycle extension points). **accepted**
 
 ## How to add an ADR
 

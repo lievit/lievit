@@ -248,20 +248,33 @@ calls.
   An action directive collects the current snapshot and any pending `l:model` updates, then issues
   the wire call (phase 3 of the lifecycle).
 
-### DOM patching: Idiomorph
+### DOM patching: a bespoke morph (ADR-0019)
 
 The 200 response body is the freshly rendered HTML for the component. The client does **not**
-replace `innerHTML` and does **not** run a DIY diff or a virtual DOM. It uses **Idiomorph**
-directly to morph the existing DOM toward the new markup:
+replace `innerHTML` and does **not** run a DIY diff or a virtual DOM. It runs a small **bespoke
+morph** (`lievit-ui/runtime/morph.ts`) that walks the live DOM toward the new markup:
 
-- Idiomorph preserves DOM identity where the structure matches, so focus, selection, scroll
-  position, in-flight CSS transitions, and uncontrolled input state survive the patch.
-- Only the parts that actually changed are touched; unchanged nodes are left in place.
-- Idiomorph is the same library Turbo 8 uses. Livewire v3/v4 morphs with `@alpinejs/morph`, not
-  Idiomorph; lievit chooses Idiomorph deliberately because it is framework-agnostic and does not
-  drag Alpine onto a non-Alpine stack (corrected in the ADR-0001 amendment of 2026-06-17). The
-  shared principle across all three (Livewire, Turbo, LiveView) is "morph, do not replace
-  innerHTML"; the library differs.
+- It preserves DOM identity where the structure matches, so focus, selection, scroll position,
+  in-flight CSS transitions, and uncontrolled input state survive the patch.
+- Only the parts that actually changed are touched; unchanged nodes are left in place. Keyed nodes
+  (`id`, then `name`) are reused/moved rather than rebuilt.
+- ADR-0001 originally named **Idiomorph**; ADR-0019 amends that to a bespoke implementation of the
+  same principle ("morph, do not replace innerHTML"), keeping the client bundle dependency-free and
+  Apache-clean (no vendored copy, no npm dep). Swapping Idiomorph back in behind the same
+  `morph(root, html)` seam is a reversible one-file change. The shared principle across Livewire,
+  Turbo, and LiveView holds; only lievit's implementation is its own.
+
+### The client runtime bundle (ADR-0019)
+
+The browser half of the protocol is `lievit-ui/runtime/` (ES modules, zero framework deps,
+strict-CSP-safe): `wire.ts` (serialize/POST/decode), `morph.ts` (above), `directives.ts` (the
+`l:*` registry + built-ins), `lifecycle.ts` (the hook bus), `runtime.ts` (the loop), and the
+existing `effects.ts` (§5b consumer). The client reads each component's initial snapshot from the
+`data-lievit-snapshot` attribute on its root (alongside `data-lievit-id` and
+`data-lievit-component`) and stashes each rotation back there. Two extension points let later
+features (loading/dirty, `wire:navigate`, polling, `wire:ignore`) plug in without editing the core:
+`runtime.directives.register(...)` for new `l:*` directives and `runtime.use(hook)` for lifecycle
+hooks (`beforeCall`/`afterCall`/`onError`/`onModelChange`/`onComponentInit`). See ADR-0019.
 
 ## 5b. The effects channel: `Lievit-Effects` (ADR-0012)
 
@@ -385,9 +398,10 @@ force the dependency on every consumer); the contract is the host application's 
   encode/decode/tamper/replay behavior of the snapshot.
 - ADR-0013 — payload hardening (settable/callable allowlist, deserialization allowlist, structural caps).
 - ADR-0014 — fail-closed, leak-free error rendering + the wire endpoint's security context.
-- ADR-0015 — nested components (keyed children, reactive props, modelable). Composition is
+- ADR-0016 — nested components (keyed children, reactive props, modelable). Composition is
   render-time and does not change this protocol: a child is an independent component with its own
   snapshot, so the schema, signing, and lifecycle above are unchanged. Closes ADR-0001's open
   `children` carve-out (a child is NOT a fragment of the parent's signed payload).
+- ADR-0019 — the client runtime bundle (wire glue, bespoke morph, directive + lifecycle extension points).
 - SECURITY.md — the HMAC chain as the security boundary, key handling, reporting.
 - README.md — the at-a-glance summary of this protocol.
