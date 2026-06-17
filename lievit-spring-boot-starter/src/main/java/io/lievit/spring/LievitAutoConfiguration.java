@@ -305,6 +305,59 @@ public class LievitAutoConfiguration {
         return new LievitWireController(service);
     }
 
+    /**
+     * The temp-path signer for file uploads (issue #159): reuses the lievit signing key so an upload
+     * token is signed with the same secret as the snapshot (one key to manage).
+     *
+     * @param properties the bound {@code lievit.*} configuration
+     * @return the signer
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public io.lievit.upload.TempFileSigner lievitTempFileSigner(LievitProperties properties) {
+        String key = properties.getSigningKey();
+        if (key == null || key.isBlank()) {
+            throw new IllegalStateException("lievit.signing-key is required (also used to sign upload paths)");
+        }
+        return new io.lievit.upload.TempFileSigner(decode(key), properties.getUploadPreviewTtl());
+    }
+
+    /**
+     * The filesystem temp storage for uploads (issue #159).
+     *
+     * @param properties the bound {@code lievit.*} configuration
+     * @return the storage, rooted at {@code lievit.upload-temp-dir} or {@code ${tmp}/lievit-uploads}
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public io.lievit.spring.upload.TempFileStorage lievitUploadStorage(LievitProperties properties) {
+        String dir = properties.getUploadTempDir();
+        java.nio.file.Path root =
+                dir != null && !dir.isBlank()
+                        ? java.nio.file.Path.of(dir)
+                        : java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "lievit-uploads");
+        return new io.lievit.spring.upload.TempFileStorage(root);
+    }
+
+    /**
+     * The upload controller (issue #159): {@code POST /lievit/upload} + the signed preview route.
+     *
+     * @param storage the temp storage
+     * @param signer the temp-path signer
+     * @param properties the bound configuration (max size)
+     * @return the controller
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public io.lievit.spring.upload.LievitUploadController lievitUploadController(
+            io.lievit.spring.upload.TempFileStorage storage,
+            io.lievit.upload.TempFileSigner signer,
+            LievitProperties properties) {
+        io.lievit.upload.UploadConstraints constraints =
+                new io.lievit.upload.UploadConstraints(properties.getUploadMaxBytes(), java.util.Set.of());
+        return new io.lievit.spring.upload.LievitUploadController(storage, signer, constraints);
+    }
+
     private static byte[] decode(String base64Url) {
         try {
             return Base64.getUrlDecoder().decode(base64Url);

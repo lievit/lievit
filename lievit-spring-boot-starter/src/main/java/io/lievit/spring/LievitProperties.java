@@ -44,6 +44,15 @@ public class LievitProperties {
     /** Max update-value nesting depth (Livewire parity 10, ADR-0013). */
     private int maxNestingDepth = 10;
 
+    /** File-upload temp root directory (issue #159). Default: {@code ${java.io.tmpdir}/lievit-uploads}. */
+    private @Nullable String uploadTempDir;
+
+    /** File-upload max size in bytes (issue #159). Default 12 MiB. */
+    private long uploadMaxBytes = io.lievit.upload.UploadConstraints.DEFAULT_MAX_BYTES;
+
+    /** Upload preview signed-token TTL (issue #159, the 30-min preview window). */
+    private Duration uploadPreviewTtl = Duration.ofMinutes(30);
+
     public @Nullable String getSigningKey() {
         return signingKey;
     }
@@ -106,5 +115,29 @@ public class LievitProperties {
 
     public void setMaxNestingDepth(int maxNestingDepth) {
         this.maxNestingDepth = maxNestingDepth;
+    }
+
+    public @Nullable String getUploadTempDir() {
+        return uploadTempDir;
+    }
+
+    public void setUploadTempDir(@Nullable String uploadTempDir) {
+        this.uploadTempDir = uploadTempDir;
+    }
+
+    public long getUploadMaxBytes() {
+        return uploadMaxBytes;
+    }
+
+    public void setUploadMaxBytes(long uploadMaxBytes) {
+        this.uploadMaxBytes = uploadMaxBytes;
+    }
+
+    public Duration getUploadPreviewTtl() {
+        return uploadPreviewTtl;
+    }
+
+    public void setUploadPreviewTtl(Duration uploadPreviewTtl) {
+        this.uploadPreviewTtl = uploadPreviewTtl;
     }
 }
