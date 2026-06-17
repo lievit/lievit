@@ -1,0 +1,16 @@
+{
+  "name": "tabs",
+  "type": "registry:ui",
+  "description": "A keyboard-navigable tab bar with associated panels; roving tabindex, aria-selected, aria-controls, arrow-key navigation (WAI-ARIA APG tabs pattern).",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/tabs/tabs.ts",
+      "type": "registry:ui",
+      "target": "components/ui/tabs.ts"
+    }
+  ],
+  "tokens": ["color", "space", "type", "ring"],
+  "docs": "Register <lv-tabs> by importing components/ui/tabs.ts from your entry point. Pass `tabs` as an array of { id, label, disabled? } and `value` for the initial active tab. Project panel content via named slots: <div slot=\"panel-{id}\">...</div>. Listen for `lv-change` to receive the activated tab id."
+}

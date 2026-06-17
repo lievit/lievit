@@ -1,0 +1,16 @@
+{
+  "name": "slider",
+  "type": "registry:ui",
+  "description": "A single-thumb range slider; wraps a native input[type=range] for free ARIA semantics (aria-valuemin/max/now, keyboard navigation).",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/slider/slider.ts",
+      "type": "registry:ui",
+      "target": "components/ui/slider.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-slider> by importing components/ui/slider.ts from your entry point. Bind `value`, `min`, `max`, `step`. Listen for `lv-change` to receive the new numeric value. Set `show-value` to render the current value beside the track."
+}
