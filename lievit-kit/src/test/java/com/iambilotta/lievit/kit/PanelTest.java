@@ -20,14 +20,27 @@ class PanelTest {
 
     static final class StringRepo implements RecordRepository<String> {
         @Override
-        public List<String> findAll() {
-            return List.of("a", "b");
+        public Page<String> page(Query query) {
+            return Page.of(List.of("a", "b"), 2);
         }
 
         @Override
         public Optional<String> findById(String id) {
             return Optional.of(id);
         }
+
+        @Override
+        public String create(String record) {
+            return record;
+        }
+
+        @Override
+        public String update(String id, String record) {
+            return record;
+        }
+
+        @Override
+        public void delete(String id) {}
     }
 
     static final class StringsResource extends Resource<String> {

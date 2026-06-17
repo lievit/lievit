@@ -32,6 +32,22 @@ All notable changes to this project are documented here. Format follows
   points, the persistence-agnostic `AdminRecordRepository<T>` port, `AdminPanelPlugin`
   (`getId`/`register`/`boot`), and the first-class `@AdminPage`. Proven end-to-end by a hello-admin:
   a list-only `AdminResource` rendered through the runtime via lievit-jte (`HelloAdminIT`).
+- `lievit-kit` CRUD data spine (the Filament P0, full-page List / Create / Edit / Delete only;
+  modal / single-page CRUD is deferred to the nested-component wave). `RecordRepository` gains a
+  bounded read (`Query` offset+limit + `Page<T> page(Query)`, replacing unbounded `findAll`, kept as
+  a default) and the write path (`create` / `update` / `delete`). `Form` owns the write: a
+  `FormBinder<T>` maps string state to and from the typed record, an optional `FormValidator`
+  (Jakarta Bean Validation) gates `save` at submit time and collects `FieldError`s, and `save`
+  returns a `SaveResult<T>`. `AdminAction<T>` is the first-class action abstraction with built-in
+  `CreateAction` / `EditAction` / `DeleteAction`; on success they flash an `AdminNotification` and
+  redirect on the existing `LievitEffects` substrate (`DeleteAction` is server-confirmed). The
+  write boundary funnels through the `AdminAuthorizer` seam (default `permitAll()`; the host wires
+  its policy). `AdminListView` (with `Pagination`) / `AdminFormView` are the render view-models;
+  `ListPageDriver` / `FormPageDriver` are the reusable page logic a concrete `@LievitComponent`
+  delegates to (the core binds only members declared on the component class itself); `ResourcePages`
+  + `Resource.pages()` bind a resource to its four pages. A worked CRUD example (`ListingResource`
+  + three page components + JTE templates) drives the whole spine List→Create→Edit→Delete through
+  the real runtime and effects channel (`HelloAdminIT`).
 - Repository foundation: organisation, conventions, and the doc set derived from the locked
   design decisions in the project entity. README-driven skeleton (category, three strata, the
   seven-annotation public API, wire protocol v0.1, quickstart sketch). Foundational ADRs under
