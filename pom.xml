@@ -54,6 +54,7 @@
         <module>lievit-raw</module>
         <module>lievit-spring-boot-starter</module>
         <module>lievit-kit</module>
+        <module>examples/golden-path-starter</module>
     </modules>
 
     <properties>
