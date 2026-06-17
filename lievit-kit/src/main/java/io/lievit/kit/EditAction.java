@@ -23,6 +23,12 @@ public final class EditAction<T> extends AdminAction<T> {
     public EditAction(Form<T> form) {
         super("save", "Save", AdminOperation.UPDATE);
         this.form = java.util.Objects.requireNonNull(form, "form");
+        icon("heroicon-o-pencil-square");
+    }
+
+    @Override
+    protected @org.jspecify.annotations.Nullable String defaultColor() {
+        return "primary";
     }
 
     @Override
