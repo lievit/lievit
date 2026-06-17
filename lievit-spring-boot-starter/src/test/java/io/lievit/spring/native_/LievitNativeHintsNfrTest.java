@@ -58,6 +58,9 @@ class LievitNativeHintsNfrTest {
         assertThat(RuntimeHintsPredicates.serialization().onType(WireEffects.class)).accepts(hints);
         assertThat(RuntimeHintsPredicates.serialization().onType(WireEffects.Event.class))
                 .accepts(hints);
+        // The v4 convergence $js call record (ADR-0024 #131) rides the same header.
+        assertThat(RuntimeHintsPredicates.serialization().onType(WireEffects.Js.class))
+                .accepts(hints);
     }
 
     /**

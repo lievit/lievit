@@ -47,6 +47,8 @@ public final class LievitRuntimeHints implements RuntimeHintsRegistrar {
         // type), so it is registered for serialization explicitly.
         hints.serialization().registerType(TypeReference.of(WireEffects.class));
         hints.serialization().registerType(TypeReference.of(WireEffects.Event.class));
+        // The v4 convergence $js call record (ADR-0024 #131), serialized into the same header.
+        hints.serialization().registerType(TypeReference.of(WireEffects.Js.class));
         hints.reflection()
                 .registerType(
                         WireEffects.class,
@@ -56,6 +58,12 @@ public final class LievitRuntimeHints implements RuntimeHintsRegistrar {
         hints.reflection()
                 .registerType(
                         WireEffects.Event.class,
+                        MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                        MemberCategory.INVOKE_DECLARED_METHODS,
+                        MemberCategory.DECLARED_FIELDS);
+        hints.reflection()
+                .registerType(
+                        WireEffects.Js.class,
                         MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                         MemberCategory.INVOKE_DECLARED_METHODS,
                         MemberCategory.DECLARED_FIELDS);
