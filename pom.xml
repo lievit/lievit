@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.iambilotta</groupId>
+    <artifactId>lievit-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>lievit (parent)</name>
+    <description>HTML over the wire for Spring. Type-safe. Native. EU-grade. The named full-stack way to build interactive Spring apps.</description>
+    <url>https://github.com/lievit/lievit</url>
+    <inceptionYear>2026</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>iambilotta</id>
+            <name>Francesco Bilotta</name>
+            <email>francesco@iambilotta.com</email>
+            <url>https://iambilotta.com</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git@github.com:lievit/lievit.git</connection>
+        <developerConnection>scm:git:git@github.com:lievit/lievit.git</developerConnection>
+        <url>https://github.com/lievit/lievit</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <!--
+      ADR-0008: one monorepo, seven published Maven artifacts. lievit-core is a
+      published coordinate; the five template adapters are split so an adopter drags
+      only the engine it uses; the starter is the single primary dependency.
+    -->
+    <modules>
+        <module>lievit-core</module>
+        <module>lievit-jte</module>
+        <module>lievit-thymeleaf</module>
+        <module>lievit-mustache</module>
+        <module>lievit-freemarker</module>
+        <module>lievit-raw</module>
+        <module>lievit-spring-boot-starter</module>
+    </modules>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- ADR/entity/README: lievit targets Java 25 (Temurin/Corretto). -->
+        <maven.compiler.release>25</maven.compiler.release>
+        <java.version>25</java.version>
+
+        <!-- Verified versions (2026-06-17, docs-first; sister repo spring-gdpr parity for the Spring stack). -->
+        <spring-boot.version>4.0.6</spring-boot.version>
+        <jte.version>3.2.4</jte.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <jspecify.version>1.0.0</jspecify.version>
+        <jqwik.version>1.9.3</jqwik.version>
+        <archunit.version>1.3.2</archunit.version>
+        <byte-buddy.version>1.17.8</byte-buddy.version>
+        <assertj.version>3.27.6</assertj.version>
+
+        <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>3.5.6</maven-failsafe-plugin.version>
+        <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+        <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
+        <spotless-maven-plugin.version>3.6.0</spotless-maven-plugin.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- lievit reactor coordinates -->
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-jte</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-thymeleaf</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-mustache</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-freemarker</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-raw</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- JTE engine (the adapter wraps gg.jte.TemplateEngine directly, engine-agnostic). -->
+            <dependency>
+                <groupId>gg.jte</groupId>
+                <artifactId>jte</artifactId>
+                <version>${jte.version}</version>
+            </dependency>
+
+            <!-- JJWT (HS256 snapshot signing). -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+
+            <!-- Null-safety annotations (JSpecify), compile-time only. -->
+            <dependency>
+                <groupId>org.jspecify</groupId>
+                <artifactId>jspecify</artifactId>
+                <version>${jspecify.version}</version>
+            </dependency>
+
+            <!-- Property-based testing (jqwik) for the codec / signing invariants. -->
+            <dependency>
+                <groupId>net.jqwik</groupId>
+                <artifactId>jqwik</artifactId>
+                <version>${jqwik.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <!-- Boundary enforcement (ArchUnit): wire codec pure-Java zero-Spring. -->
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                        <!-- @param names available at runtime; used by reflection-free binding. -->
+                        <parameters>true</parameters>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <!--
+                            Mockito self-attaches as a Java agent, which the JDK is
+                            deprecating. Pre-attach byte-buddy-agent so future JDKs
+                            that disallow dynamic agent loading still run clean.
+                        -->
+                        <argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${byte-buddy.version}/byte-buddy-agent-${byte-buddy.version}.jar</argLine>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${maven-source-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven-javadoc-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco-maven-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>${spotless-maven-plugin.version}</version>
+                    <configuration>
+                        <java>
+                            <includes>
+                                <include>src/main/java/**/*.java</include>
+                                <include>src/test/java/**/*.java</include>
+                            </includes>
+                            <removeUnusedImports/>
+                            <importOrder>
+                                <order>java,javax,jakarta,org,com,</order>
+                            </importOrder>
+                            <trimTrailingWhitespace/>
+                            <endWithNewline/>
+                        </java>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>verify</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--
+                Bind failsafe so *IT integration tests (Spring Boot slices, the end-to-end
+                golden roundtrip) actually run on `verify`. Surefire owns the fast *Test loop;
+                failsafe owns the context-booting *IT loop (the test taxonomy of ADR-0007).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <name>Maven Central</name>
+            <url>https://central.sonatype.com</url>
+        </repository>
+    </distributionManagement>
+</project>
