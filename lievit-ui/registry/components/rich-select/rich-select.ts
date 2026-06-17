@@ -381,8 +381,6 @@ export class LvRichSelect extends LitElement {
 
   render() {
     const filtered = this.filteredOptions;
-    const multiSel = Array.isArray(this.value) ? (this.value as string[]) : [];
-    const hasValue = this.multiple ? multiSel.length > 0 : !!this.value;
 
     return html`
       <div class="lv-rs">
