@@ -10,10 +10,11 @@
 [![Java](https://img.shields.io/badge/java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/spring--boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
 
-> **Status: pre-public foundation.** The conventions, the docs, and the design decisions are
-> being laid down. The build (Maven, modules, runtime code) is **not wired yet**, by intent.
-> The code samples below are the **API-first contract** the implementation will be built to,
-> spec-first, not yet runnable. Project home and canonical reference:
+> **Status: pre-1.0 (`0.1.0-SNAPSHOT`), build live.** The Maven reactor builds green: 11 modules
+> (the wire runtime, the single-file DSL, five template adapters, the Spring Boot starter, the
+> admin kit, the CLI), the `Lievit.test()` harness, and a runnable golden-path example. The API
+> is still pre-1.0 and may move before a tagged `0.1.0`. Not yet on Maven Central; consume it
+> today via JitPack (see [Install](#install)). Project home and canonical reference:
 > [iambilotta.com](https://iambilotta.com).
 
 ```
@@ -30,6 +31,7 @@ Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a c
          library, not a kit. You bring Spring; lievit makes it interactive.
 ```
 
+[**Install**](#install) ·
 [**The category**](#the-category) ·
 [**The three strata**](#the-three-strata) ·
 [**The public API**](#the-public-api-nine-annotations) ·
@@ -40,6 +42,50 @@ Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a c
 [**Docs plan**](docs/PLAN.md)
 
 ---
+
+## Install
+
+lievit is not on Maven Central yet. Until the first signed `0.1.0` lands there, consume it via
+[JitPack](https://jitpack.io), pinned to a commit SHA (or a tag once one exists). JitPack builds
+the Java 25 reactor on demand (see [`jitpack.yml`](jitpack.yml)) and publishes every module under
+the coordinate `com.github.lievit.lievit:<module>`.
+
+The one dependency most apps need is the Spring Boot starter (`lievit-spring-boot-starter`); add
+`lievit-kit` for the admin layer and `lievit-dsl` for the single-file typed-HTML mode.
+
+**Maven** — add the JitPack repository and the starter:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.github.lievit.lievit</groupId>
+    <artifactId>lievit-spring-boot-starter</artifactId>
+    <version>main-SNAPSHOT</version> <!-- or a commit SHA / tag, e.g. 06b7e36 -->
+</dependency>
+```
+
+**Gradle** (Kotlin DSL):
+
+```kotlin
+repositories {
+    maven { url = uri("https://jitpack.io") }
+}
+
+dependencies {
+    implementation("com.github.lievit.lievit:lievit-spring-boot-starter:main-SNAPSHOT")
+}
+```
+
+Pin a commit SHA rather than `main-SNAPSHOT` for a reproducible build (the SHA is immutable on
+JitPack). The version follows JitPack's rules: a tag, a commit, or `<branch>-SNAPSHOT`. The first
+build of any new ref takes a minute while JitPack compiles the reactor; subsequent resolves are
+cached.
 
 ## The category
 
@@ -104,7 +150,8 @@ URL-binding feature for `@LievitUrl`):
 
 ## Hello component (API-first sketch)
 
-> Spec-first. This is the contract the implementation will be built to; it does not run yet.
+> This is the runnable API as it ships in `0.1.0-SNAPSHOT`. The signature may still move before
+> the tagged `0.1.0`, but the build is live: see the golden-path example under `examples/`.
 
 A counter, multi-file mode (typed Java class + a JTE template):
 

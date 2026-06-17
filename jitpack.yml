@@ -1,0 +1,27 @@
+# JitPack build config for the lievit Java 25 reactor.
+#
+# Why before_install + sdkman instead of a bare `jdk: openjdk25`: JitPack's built-in `jdk:`
+# list lags new releases and silently falls back to JDK 8 for versions it does not recognise
+# (jitpack/jitpack.io#3845), which would fail a `--release 25` build. The canonical recipe for
+# a modern-JDK library on JitPack is to install the exact JDK via sdkman in before_install and
+# point JAVA_HOME at it (docs.jitpack.io/building + cicirello "Configure JitPack for Recent JDK
+# Versions"). Verified against the docs 2026-06-17.
+#
+# install: JitPack runs `mvn install` at the repo root. The reactor installs every library module
+# a consumer needs (lievit-core, lievit-dsl, the five template adapters, lievit-spring-boot-starter,
+# lievit-kit, lievit-cli) into ~/.m2 so the JitPack coordinate `com.github.lievit.lievit:<module>`
+# resolves. examples/golden-path-starter sets maven.install.skip=true (a runnable demo, not a
+# library), so it builds in the reactor but is not published. Tests are skipped on JitPack (they
+# run in CI); -DskipTests keeps the publish build fast and avoids the Testcontainers/Spring slices.
+#
+# The `native` profile is NOT activated (it needs a GraalVM toolchain JitPack does not provide);
+# it only runs under an explicit `-Pnative`, so the default `mvn install` here never triggers it.
+jdk:
+  - openjdk25
+before_install:
+  - sdk install java 25-tem
+  - sdk use java 25-tem
+  - export JAVA_HOME="$(sdk home java 25-tem)"
+  - java -version
+install:
+  - ./mvnw -B -ntp -DskipTests install
