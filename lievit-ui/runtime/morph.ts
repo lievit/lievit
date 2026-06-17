@@ -23,8 +23,47 @@
  * Scope: it morphs the *children* of a root element toward a new HTML string, which is exactly the
  * lievit wire contract (the 200 body is the component's rendered markup). Strict-CSP-safe: it parses
  * via the inert template element, never `eval`/`innerHTML`-executes script.
+ *
+ * ## The morph hooks (ADR-0019 extension seam)
+ *
+ * ADR-0019 anticipated that `l:ignore` (skip a subtree from morphing) and `l:transition` (defer a
+ * node's removal so it can animate out) would each need "a small morph hook". {@link MorphHooks} is
+ * that seam: a feature passes callbacks to {@link morph} (the runtime forwards the hooks it has been
+ * given) WITHOUT editing this file's algorithm. `elementMode` lets a feature freeze a live node (the
+ * third-party-managed DOM case); `beforeRemove` lets a feature take over the removal of a leftover
+ * node (the animate-out case) and report whether it has handled it.
  */
 
+/** How an element is morphed (see {@link MorphHooks.elementMode}). */
+export type MorphMode = "morph" | "skip" | "self" | "children";
+
+/** Optional, fail-soft hooks a feature can pass to {@link morph} (ADR-0019 morph seam). */
+export interface MorphHooks {
+  /**
+   * Decides how a live element is morphed. Return:
+   * - `"skip"` to leave the element and its whole subtree untouched (`l:ignore`),
+   * - `"self"` to reconcile the element's own attributes but NOT recurse into children
+   *   (`l:ignore.children` — the element morphs, its children are frozen),
+   * - `"children"` to skip the element's own attributes/value but still morph children
+   *   (`l:ignore.self` — only the element itself is frozen),
+   * - `"morph"`/`undefined` for the normal full morph.
+   *
+   * @param oldEl the live element about to be morphed
+   * @param newEl the new element it is being morphed toward
+   */
+  readonly elementMode?: (oldEl: Element, newEl: Element) => MorphMode | undefined;
+  /**
+   * Called for a leftover live node the new markup dropped, just before removal. Return `true` to
+   * claim the removal (the feature removes the node itself later, e.g. after an out transition); the
+   * morph then leaves it in place. Return `false`/`undefined` to remove it now.
+   *
+   * @param node the live node the new markup no longer accounts for
+   */
+  readonly beforeRemove?: (node: Node) => boolean | undefined;
+}
+
+/** No-op hooks: the default when a caller passes none (preserves the plain bespoke algorithm). */
+const NO_HOOKS: MorphHooks = {};
 
 /**
  * Morphs the children of `root` to match `newHtml`. The root element itself is kept; only its
@@ -32,8 +71,10 @@
  *
  * @param root the live element whose subtree is patched (the component root)
  * @param newHtml the freshly rendered HTML for that subtree (the wire 200 body)
+ * @param hooks optional morph hooks (ADR-0019 seam for `l:ignore` / `l:transition`); omitted = the
+ *     plain bespoke morph
  */
-export function morph(root: Element, newHtml: string): void {
+export function morph(root: Element, newHtml: string, hooks: MorphHooks = NO_HOOKS): void {
   const template = document.createElement("template");
   template.innerHTML = newHtml;
   // The wire body is the component root's own markup; if it re-renders a single root element that
@@ -45,9 +86,9 @@ export function morph(root: Element, newHtml: string): void {
     parsedRoot != null &&
     parsedRoot.tagName === root.tagName
   ) {
-    morphElement(root, parsedRoot);
+    morphElement(root, parsedRoot, hooks);
   } else {
-    morphChildren(root, template.content);
+    morphChildren(root, template.content, hooks);
   }
 }
 
@@ -69,7 +110,7 @@ function keyOf(node: Node): string | null {
 }
 
 /** Reconciles `oldParent`'s children toward `newParent`'s children. */
-function morphChildren(oldParent: Node, newParent: Node): void {
+function morphChildren(oldParent: Node, newParent: Node, hooks: MorphHooks): void {
   // Index keyed old children so a reordered keyed node is reused rather than rebuilt.
   const keyed = new Map<string, Node>();
   for (let n = oldParent.firstChild; n != null; n = n.nextSibling) {
@@ -95,7 +136,7 @@ function morphChildren(oldParent: Node, newParent: Node): void {
       } else {
         oldChild = oldChild.nextSibling;
       }
-      morphNode(match, newChild);
+      morphNode(match, newChild, hooks);
       newChild = nextNew;
       continue;
     }
@@ -103,7 +144,7 @@ function morphChildren(oldParent: Node, newParent: Node): void {
     // Positional match: same node kind and (for elements) same tag → morph in place.
     if (oldChild != null && keyOf(oldChild) == null && compatible(oldChild, newChild)) {
       const nextOld = oldChild.nextSibling;
-      morphNode(oldChild, newChild);
+      morphNode(oldChild, newChild, hooks);
       oldChild = nextOld;
       newChild = nextNew;
       continue;
@@ -114,11 +155,14 @@ function morphChildren(oldParent: Node, newParent: Node): void {
     newChild = nextNew;
   }
 
-  // Remove any old children the new markup did not account for.
+  // Remove any old children the new markup did not account for, unless a hook claims the removal
+  // (e.g. an out-transition that animates the node away and removes it itself).
   while (oldChild != null) {
     const next = oldChild.nextSibling;
-    // A keyed node still in the index was not re-referenced → it is gone from the new markup.
-    oldParent.removeChild(oldChild);
+    const claimed = hooks.beforeRemove?.(oldChild) === true;
+    if (!claimed) {
+      oldParent.removeChild(oldChild);
+    }
     oldChild = next;
   }
 }
@@ -135,7 +179,7 @@ function compatible(a: Node, b: Node): boolean {
 }
 
 /** Morphs one node (text → text in place, element → element, else replace). */
-function morphNode(oldNode: Node, newNode: Node): void {
+function morphNode(oldNode: Node, newNode: Node, hooks: MorphHooks): void {
   if (oldNode.nodeType === Node.TEXT_NODE && newNode.nodeType === Node.TEXT_NODE) {
     if (oldNode.nodeValue !== newNode.nodeValue) {
       oldNode.nodeValue = newNode.nodeValue;
@@ -143,7 +187,7 @@ function morphNode(oldNode: Node, newNode: Node): void {
     return;
   }
   if (oldNode.nodeType === Node.ELEMENT_NODE && newNode.nodeType === Node.ELEMENT_NODE) {
-    morphElement(oldNode as Element, newNode as Element);
+    morphElement(oldNode as Element, newNode as Element, hooks);
     return;
   }
   // Mismatched kinds (e.g. text vs comment): replace wholesale.
@@ -151,18 +195,29 @@ function morphNode(oldNode: Node, newNode: Node): void {
 }
 
 /** Reconciles an element's attributes and recurses into its children. */
-function morphElement(oldEl: Element, newEl: Element): void {
+function morphElement(oldEl: Element, newEl: Element, hooks: MorphHooks): void {
+  // The morph seam (ADR-0019): a feature may freeze this node or its subtree (`l:ignore`).
+  const mode = hooks.elementMode?.(oldEl, newEl) ?? "morph";
+  if (mode === "skip") {
+    return; // the element and its whole subtree are left exactly as the user/third party left them.
+  }
+
   // Snapshot uncontrolled form state before attribute reconciliation, restore it after unless the
   // server re-asserted it: a re-render the user's typing did not address must not wipe that typing.
   const liveValue = uncontrolledValue(oldEl);
 
-  reconcileAttributes(oldEl, newEl);
-
-  if (liveValue != null && !serverAsserts(newEl, liveValue.kind)) {
-    restoreUncontrolledValue(oldEl, liveValue);
+  if (mode !== "children") {
+    // "children" means "freeze the element itself" — skip its own attribute reconciliation.
+    reconcileAttributes(oldEl, newEl);
+    if (liveValue != null && !serverAsserts(newEl, liveValue.kind)) {
+      restoreUncontrolledValue(oldEl, liveValue);
+    }
   }
 
-  morphChildren(oldEl, newEl);
+  if (mode !== "self") {
+    // "self" means "freeze the children" — reconcile this element only, do not recurse.
+    morphChildren(oldEl, newEl, hooks);
+  }
 }
 
 /** The live, user-edited value of an input/textarea/checkbox, or `null` for other elements. */
