@@ -13,6 +13,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.iambilotta.lievit.LievitAction;
 import com.iambilotta.lievit.LievitComponent;
+import com.iambilotta.lievit.LievitFormObject;
 import com.iambilotta.lievit.LievitMount;
 import com.iambilotta.lievit.LievitProperty;
 import com.iambilotta.lievit.LievitRender;
@@ -22,6 +23,11 @@ import com.iambilotta.lievit.Wire;
  * The reflected shape of a {@link LievitComponent} class: its {@code @Wire} fields (each with its
  * {@code @LievitProperty} flags), its {@code @LievitAction} methods, and its optional
  * {@code @LievitMount} / {@code @LievitRender} lifecycle hooks (ADR-0001, ADR-0002).
+ *
+ * <p>A {@code @Wire} field whose type implements {@link LievitFormObject} additionally carries a
+ * {@link FormObjectMetadata} entry: the dispatcher can then hydrate and dehydrate the nested form
+ * fields via dotted paths in {@code _updates} and a nested map in the snapshot {@code wire}
+ * (ADR-0015).
  *
  * <p>Pure Java reflection, zero Spring (ADR-0007). Built once per component class and reused; the
  * wire layer reads field state and invokes actions through it. Only fields declared on the
@@ -33,6 +39,8 @@ public final class ComponentMetadata {
     private final Class<?> type;
     private final String template;
     private final Map<String, WireField> wireFields;
+    /** Form-object metadata keyed by the @Wire field name; present only for form-object fields. */
+    private final Map<String, FormObjectMetadata> formObjects;
     private final Map<String, Method> actions;
     private final @Nullable Method mount;
     private final @Nullable Method render;
@@ -41,12 +49,14 @@ public final class ComponentMetadata {
             Class<?> type,
             String template,
             Map<String, WireField> wireFields,
+            Map<String, FormObjectMetadata> formObjects,
             Map<String, Method> actions,
             @Nullable Method mount,
             @Nullable Method render) {
         this.type = type;
         this.template = template;
         this.wireFields = wireFields;
+        this.formObjects = formObjects;
         this.actions = actions;
         this.mount = mount;
         this.render = render;
@@ -67,6 +77,7 @@ public final class ComponentMetadata {
         }
 
         Map<String, WireField> fields = new LinkedHashMap<>();
+        Map<String, FormObjectMetadata> formObjects = new LinkedHashMap<>();
         for (Field field : type.getDeclaredFields()) {
             if (!field.isAnnotationPresent(Wire.class)) {
                 continue;
@@ -76,6 +87,12 @@ public final class ComponentMetadata {
             boolean serialize = property == null || property.serialize();
             boolean locked = property != null && property.locked();
             fields.put(field.getName(), new WireField(field.getName(), field, serialize, locked));
+
+            // If the field type is a LievitFormObject, build (and cache) its form metadata.
+            // The form object's own fields will be bound via dotted paths (ADR-0015).
+            if (LievitFormObject.class.isAssignableFrom(field.getType())) {
+                formObjects.put(field.getName(), FormObjectMetadata.of(field.getType()));
+            }
         }
 
         Map<String, Method> methods = new LinkedHashMap<>();
@@ -97,7 +114,12 @@ public final class ComponentMetadata {
         }
 
         return new ComponentMetadata(
-                type, component.template(), Map.copyOf(fields), Map.copyOf(methods), mountHook,
+                type,
+                component.template(),
+                Map.copyOf(fields),
+                Map.copyOf(formObjects),
+                Map.copyOf(methods),
+                mountHook,
                 renderHook);
     }
 
@@ -127,6 +149,24 @@ public final class ComponentMetadata {
      */
     public Map<String, WireField> wireFields() {
         return wireFields;
+    }
+
+    /**
+     * Returns the {@link FormObjectMetadata} for the named {@code @Wire} field, when that field is
+     * a {@link LievitFormObject}.
+     *
+     * @param wireFieldName the {@code @Wire} field name on the component
+     * @return the form object metadata, or {@code null} if the field is not a form object
+     */
+    public @Nullable FormObjectMetadata formObject(String wireFieldName) {
+        return formObjects.get(wireFieldName);
+    }
+
+    /**
+     * @return the form-object metadata keyed by {@code @Wire} field name (immutable; may be empty)
+     */
+    public Map<String, FormObjectMetadata> formObjects() {
+        return formObjects;
     }
 
     /**

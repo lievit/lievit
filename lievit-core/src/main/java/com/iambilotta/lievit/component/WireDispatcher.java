@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
+import com.iambilotta.lievit.LievitFormObject;
 import com.iambilotta.lievit.wire.PayloadGuard;
 import com.iambilotta.lievit.wire.WireError;
 import com.iambilotta.lievit.wire.WireException;
@@ -40,6 +41,9 @@ import com.iambilotta.lievit.wire.WireException;
  *       (ADR-0001 amendment).
  *   <li>the {@link PayloadGuard} bounds the payload's shape (max updates / calls / nesting) and
  *       enforces the deserialization allowlist before any value is bound (ADR-0013).
+ *   <li>form-object fields ({@link LievitFormObject}) hydrate from a nested map in the snapshot
+ *       and accept dotted-path updates (e.g., {@code "form.email"}) in {@code _updates} (ADR-0015).
+ *       Only fields declared on the form object class are settable; depth is bounded at one level.
  * </ul>
  */
 public final class WireDispatcher {
@@ -111,41 +115,151 @@ public final class WireDispatcher {
         }
     }
 
-    /** Rehydrates every {@code @Wire} field present in the verified snapshot state. */
+    /**
+     * Rehydrates every {@code @Wire} field present in the verified snapshot state.
+     *
+     * <p>For form-object fields, the snapshot carries a nested {@link Map}; the dispatcher
+     * creates a fresh form object instance and writes each sub-field from that map, then sets
+     * the form object instance onto the component (ADR-0015).
+     */
     private void rehydrate(
             ComponentMetadata metadata, Object instance, Map<String, Object> snapshotWire) {
         for (Map.Entry<String, Object> entry : snapshotWire.entrySet()) {
             WireField field = metadata.wireFields().get(entry.getKey());
-            if (field != null) {
+            if (field == null) {
+                continue;
+            }
+            FormObjectMetadata formMeta = metadata.formObject(entry.getKey());
+            if (formMeta != null) {
+                // The snapshot carries {"form": {"email": "x", ...}}: rehydrate the nested map
+                // into a fresh form object and write it onto the component.
+                rehydrateFormObject(formMeta, field, instance, entry.getValue());
+            } else {
                 field.write(instance, entry.getValue());
             }
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private void rehydrateFormObject(
+            FormObjectMetadata formMeta,
+            WireField field,
+            Object componentInstance,
+            Object snapshotValue) {
+        if (!(snapshotValue instanceof Map<?, ?> rawMap)) {
+            // A form field whose snapshot value is not a map: write it as-is and let the
+            // field's own write() handle the type mismatch (fail-closed INTERNAL_ERROR).
+            field.write(componentInstance, snapshotValue);
+            return;
+        }
+        Map<String, Object> nestedMap = (Map<String, Object>) rawMap;
+
+        // Reuse the existing form object from the component, if already initialised (e.g. by a
+        // @LievitMount hook), to preserve fields that are not in the snapshot. Otherwise create
+        // a fresh instance so the component is never left with a null form reference.
+        Object formInstance = field.read(componentInstance);
+        if (formInstance == null) {
+            formInstance = formMeta.newInstance();
+        }
+        for (Map.Entry<String, Object> sub : nestedMap.entrySet()) {
+            FormField formField = formMeta.fields().get(sub.getKey());
+            if (formField != null) {
+                formField.write(formInstance, sub.getValue());
+            }
+        }
+        field.write(componentInstance, formInstance);
+    }
+
     /**
-     * Applies client field updates, rejecting any that target a locked field. Only a {@code @Wire}
-     * field is settable: this is the authorization allowlist (ADR-0013). An update naming anything
-     * else (a non-{@code @Wire} field, a setter, a private field) is <em>dropped</em>, never
-     * applied, so a first POST cannot write a property the component never exposed to the wire. The
-     * drop is silent rather than a hard error because the signed snapshot already bounds the
-     * non-malicious surface and a stray key is treated as noise; the security property is that the
-     * write does not happen, which {@code WireDispatcherTest} pins.
+     * Applies client field updates, rejecting any that target a locked field. Supports:
+     *
+     * <ul>
+     *   <li><b>Top-level</b> keys ({@code "count"}) — existing behaviour.
+     *   <li><b>Dotted-path</b> keys ({@code "form.email"}) — the first segment names a {@code @Wire}
+     *       field that is a {@link LievitFormObject}; the second segment names a field on that form
+     *       object. Only one level of nesting is supported (ADR-0015 §Security). A dotted path with
+     *       three or more segments is silently dropped (the write is outside the settable allowlist
+     *       by depth, which is the security property; the drop matches the treatment of non-@Wire
+     *       keys in ADR-0013).
+     * </ul>
+     *
+     * <p>Only a {@code @Wire} field (or a field declared on a {@link LievitFormObject} carried by a
+     * {@code @Wire} field) is settable: this is the authorization allowlist (ADR-0013). An update
+     * naming anything else is <em>dropped</em>, never applied.
      */
     private void applyUpdates(
             ComponentMetadata metadata, Object instance, Map<String, Object> updates) {
         for (Map.Entry<String, Object> entry : updates.entrySet()) {
-            WireField field = metadata.wireFields().get(entry.getKey());
-            if (field == null) {
-                // Not a @Wire field: outside the settable allowlist. Drop it.
-                continue;
+            String key = entry.getKey();
+            int dot = key.indexOf('.');
+            if (dot >= 0) {
+                // Dotted path: delegate to the form-object update logic.
+                applyFormObjectUpdate(metadata, instance, key, dot, entry.getValue());
+            } else {
+                applyTopLevelUpdate(metadata, instance, key, entry.getValue());
             }
-            if (field.locked()) {
-                throw new WireException(
-                        WireError.LOCKED_PROPERTY,
-                        "client update rejected for locked @Wire field");
-            }
-            field.write(instance, entry.getValue());
         }
+    }
+
+    private void applyTopLevelUpdate(
+            ComponentMetadata metadata, Object instance, String key, Object value) {
+        WireField field = metadata.wireFields().get(key);
+        if (field == null) {
+            // Not a @Wire field: outside the settable allowlist. Drop it.
+            return;
+        }
+        if (field.locked()) {
+            throw new WireException(
+                    WireError.LOCKED_PROPERTY,
+                    "client update rejected for locked @Wire field");
+        }
+        field.write(instance, value);
+    }
+
+    private void applyFormObjectUpdate(
+            ComponentMetadata metadata,
+            Object instance,
+            String key,
+            int dot,
+            Object value) {
+        String formFieldName = key.substring(0, dot);
+        String subFieldName = key.substring(dot + 1);
+
+        // A deeper path (a second dot) is outside the one-level bound: drop it.
+        if (subFieldName.indexOf('.') >= 0) {
+            return;
+        }
+
+        WireField field = metadata.wireFields().get(formFieldName);
+        if (field == null) {
+            // The left side of the dot does not name a @Wire field. Drop.
+            return;
+        }
+        if (field.locked()) {
+            throw new WireException(
+                    WireError.LOCKED_PROPERTY,
+                    "client update rejected for locked @Wire field");
+        }
+
+        FormObjectMetadata formMeta = metadata.formObject(formFieldName);
+        if (formMeta == null) {
+            // The @Wire field exists but is not a form object. Drop the dotted path.
+            return;
+        }
+
+        FormField formField = formMeta.fields().get(subFieldName);
+        if (formField == null) {
+            // The right side does not name a declared form field. Drop it (settable allowlist).
+            return;
+        }
+
+        // Obtain or create the form object instance.
+        Object formInstance = field.read(instance);
+        if (formInstance == null) {
+            formInstance = formMeta.newInstance();
+            field.write(instance, formInstance);
+        }
+        formField.write(formInstance, value);
     }
 
     private @Nullable Object invokeAction(ComponentMetadata metadata, Object instance, String name) {
@@ -161,7 +275,7 @@ public final class WireDispatcher {
         return invoke(action, instance);
     }
 
-    private void invokeHook(Method hook, Object instance) {
+    private void invokeHook(@Nullable Method hook, Object instance) {
         if (hook != null) {
             invoke(hook, instance);
         }
@@ -181,13 +295,44 @@ public final class WireDispatcher {
         }
     }
 
+    /**
+     * Reads the {@code @Wire} state for the next snapshot.
+     *
+     * <p>For a form-object field, the value written into the snapshot is a nested map of the form
+     * object's field values (keyed by field name). This mirrors the structure that
+     * {@link #rehydrateFormObject} reads back on the next call.
+     */
     private Map<String, Object> readWire(ComponentMetadata metadata, Object instance) {
         Map<String, Object> wire = new LinkedHashMap<>();
         for (WireField field : metadata.wireFields().values()) {
-            if (field.serialize()) {
+            if (!field.serialize()) {
+                continue;
+            }
+            FormObjectMetadata formMeta = metadata.formObject(field.name());
+            if (formMeta != null) {
+                // Dehydrate the form object to a nested map for the snapshot.
+                wire.put(field.name(), dehydrateFormObject(formMeta, field, instance));
+            } else {
                 wire.put(field.name(), field.read(instance));
             }
         }
         return wire;
+    }
+
+    private Map<String, Object> dehydrateFormObject(
+            FormObjectMetadata formMeta, WireField field, Object componentInstance) {
+        Object formInstance = field.read(componentInstance);
+        Map<String, Object> nested = new LinkedHashMap<>();
+        if (formInstance == null) {
+            // Null form object: dehydrate all fields as null (the form was never set up).
+            for (String name : formMeta.fields().keySet()) {
+                nested.put(name, null);
+            }
+        } else {
+            for (FormField formField : formMeta.fields().values()) {
+                nested.put(formField.name(), formField.read(formInstance));
+            }
+        }
+        return nested;
     }
 }

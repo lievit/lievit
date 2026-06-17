@@ -35,7 +35,37 @@
             <artifactId>jjwt-jackson</artifactId>
         </dependency>
 
+        <!--
+            Bean Validation API (optional): honored when present on the classpath.
+            LievitFormObject.validate() degrades to "no violations" when absent (ADR-0015).
+            Spring Boot apps that depend on lievit-spring-boot-starter pull
+            jakarta.validation-api transitively via spring-boot-starter-validation; this
+            optional dep lets lievit-core compile against the API without forcing it on
+            adopters who choose not to use validation.
+        -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Tests. -->
+        <!--
+            Hibernate Validator (reference impl) and its EL runtime requirement (tomcat-embed-el)
+            for form-object validation tests. In a Spring Boot app both are present via
+            spring-boot-starter-validation and spring-boot-starter-web; in lievit-core tests
+            (a pure-Java module without a web container) we must supply them explicitly.
+        -->
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-el</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
