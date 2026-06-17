@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.iambilotta</groupId>
+        <artifactId>lievit-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>lievit-kit</artifactId>
+    <name>lievit (kit: the admin layer)</name>
+    <description>lievit-kit: the "Filament for Spring" admin layer, an in-monorepo module on the lievit runtime (ADR-0008, amended 2026-06-17). AdminResource + AdminPanel + Form/Table builders (a shared parent from v0.1) + render-hook extension points + a persistence-agnostic record port + a first-class @AdminPage. Path-depends on lievit-core (the SPI) and the starter (the wire runtime); never hard-couples a persistence engine.</description>
+
+    <dependencies>
+        <!-- The SPI: TemplateAdapter, ComponentMetadata, the seven annotations. -->
+        <dependency>
+            <groupId>com.iambilotta</groupId>
+            <artifactId>lievit-core</artifactId>
+        </dependency>
+        <!-- The wire runtime: the admin mounts AdminResource components through it (ADR-0008). -->
+        <dependency>
+            <groupId>com.iambilotta</groupId>
+            <artifactId>lievit-spring-boot-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+        </dependency>
+
+        <!-- Spring DI: AdminResource is instance-based, discovered as a bean (not static, ADR-0008). -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+
+        <!-- Tests. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- The hello-admin slice/IT boots a Spring context and renders through the runtime. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

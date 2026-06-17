@@ -8,6 +8,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- `lievit-kit`: the admin layer ("Filament for Spring") as an in-monorepo reactor module on the
+  lievit runtime (ADR-0008, amended 2026-06-17). Skeleton: `AdminPanel` builder DSL,
+  instance-based `AdminResource<T>`, the shared `AdminSchema` parent of the `AdminForm`/`AdminTable`
+  builders (one hierarchy from v0.1, no later unification), `AdminRenderHook` named injection
+  points, the persistence-agnostic `AdminRecordRepository<T>` port, `AdminPanelPlugin`
+  (`getId`/`register`/`boot`), and the first-class `@AdminPage`. Proven end-to-end by a hello-admin:
+  a list-only `AdminResource` rendered through the runtime via lievit-jte (`HelloAdminIT`).
 - Repository foundation: organisation, conventions, and the doc set derived from the locked
   design decisions in the project entity. README-driven skeleton (category, three strata, the
   seven-annotation public API, wire protocol v0.1, quickstart sketch). Foundational ADRs under
