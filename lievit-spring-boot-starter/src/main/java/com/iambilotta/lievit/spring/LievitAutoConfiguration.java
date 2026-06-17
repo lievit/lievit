@@ -15,9 +15,16 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.ImportRuntimeHints;
 
 import com.iambilotta.lievit.LievitComponent;
+import com.iambilotta.lievit.component.BeanValidationFieldValidator;
+import com.iambilotta.lievit.component.FieldValidator;
+import com.iambilotta.lievit.component.NoOpFieldValidator;
 import com.iambilotta.lievit.component.WireDispatcher;
+import com.iambilotta.lievit.dsl.DslOrEngineTemplateAdapter;
+import com.iambilotta.lievit.dsl.DslTemplateAdapter;
 import com.iambilotta.lievit.jte.JteTemplateAdapter;
 import com.iambilotta.lievit.render.TemplateAdapter;
 import com.iambilotta.lievit.wire.ChecksumFailureLimiter;
@@ -25,6 +32,7 @@ import com.iambilotta.lievit.wire.ComponentId;
 import com.iambilotta.lievit.wire.PayloadGuard;
 import com.iambilotta.lievit.wire.SigningKeys;
 import com.iambilotta.lievit.wire.SnapshotCodec;
+import com.iambilotta.lievit.spring.native_.LievitRuntimeHints;
 
 import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
@@ -38,11 +46,18 @@ import gg.jte.resolve.ResourceCodeResolver;
  *
  * <p>The web layer lives here, never in the codec (ADR-0007). Every bean is {@code
  * @ConditionalOnMissingBean}, so an application can override any piece (a custom adapter, a custom
- * codec) without forking the starter.
+ * codec, a custom field validator) without forking the starter.
+ *
+ * <p>Real-time validation: when {@code jakarta.validation.Validator} is available (i.e.
+ * {@code spring-boot-starter-validation} / Hibernate Validator is on the classpath), a
+ * {@link BeanValidationFieldValidator} bean is auto-configured and injected into the dispatcher.
+ * Applications may declare their own {@link FieldValidator} bean to override it. Without Hibernate
+ * Validator, the dispatcher uses {@link NoOpFieldValidator} and validation is a no-op.
  */
 @AutoConfiguration
 @ConditionalOnClass(WireDispatcher.class)
 @EnableConfigurationProperties(LievitProperties.class)
+@ImportRuntimeHints(LievitRuntimeHints.class)
 public class LievitAutoConfiguration {
 
     /**
@@ -93,13 +108,47 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * The Jakarta Bean Validation-backed {@link FieldValidator}, in a nested configuration so the
+     * outer class carries no {@code jakarta.validation.Validator} reference in any method signature.
+     *
+     * <p>This matters: Spring introspects the whole enclosing configuration class (every declared
+     * method) while evaluating conditions on any one bean. If the outer class held a
+     * {@code lievitFieldValidator(Validator)} method, an application that does not put
+     * {@code jakarta.validation} on the classpath (a plain lievit app, e.g. {@code lievit-kit}) would
+     * fail to introspect the class at all (CNFE on the absent parameter type), and the entire lievit
+     * autoconfiguration would not load. Isolating the validator method behind
+     * {@code @ConditionalOnClass(Validator.class)} on a nested class means the nested class is only
+     * introspected when {@code jakarta.validation} is present; absent it, the dispatcher falls back
+     * to {@link NoOpFieldValidator} and validation is a no-op.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(jakarta.validation.Validator.class)
+    public static class ValidationConfiguration {
+
+        /**
+         * @param validator the Jakarta Validator provided by Spring's {@code LocalValidatorFactoryBean}
+         * @return the Bean Validation-backed field validator (overridable by the application)
+         */
+        @Bean
+        @ConditionalOnMissingBean(FieldValidator.class)
+        public FieldValidator lievitFieldValidator(jakarta.validation.Validator validator) {
+            return new BeanValidationFieldValidator(validator);
+        }
+    }
+
+    /**
      * @param payloadGuard the structural-cap / deserialization-allowlist guard (ADR-0013)
+     * @param fieldValidator the field validator (Bean Validation-backed or custom); falls back to
+     *     {@link NoOpFieldValidator} when no validator bean is available
      * @return the stateless lifecycle engine
      */
     @Bean
     @ConditionalOnMissingBean
-    public WireDispatcher lievitWireDispatcher(PayloadGuard payloadGuard) {
-        return new WireDispatcher(payloadGuard);
+    public WireDispatcher lievitWireDispatcher(
+            PayloadGuard payloadGuard, ObjectProvider<FieldValidator> fieldValidator) {
+        FieldValidator validator =
+                fieldValidator.getIfAvailable(() -> NoOpFieldValidator.INSTANCE);
+        return new WireDispatcher(payloadGuard, validator);
     }
 
     /**
@@ -134,15 +183,20 @@ public class LievitAutoConfiguration {
     }
 
     /**
-     * The JTE template adapter (canonical primary, ADR-0004).
+     * The active template adapter: a router (ADR-0018) that renders a single-file component (no
+     * template, an {@code @LievitRender} returning {@code Html}) through the {@link
+     * DslTemplateAdapter} and every other component through the JTE engine adapter (the canonical
+     * primary, ADR-0004). Routing lives entirely behind the one {@link TemplateAdapter} SPI, so the
+     * dispatcher, codec, registry, and HTTP edge are untouched by the second authoring mode.
      *
      * @param engine the JTE engine
-     * @return the adapter
+     * @return the routing adapter
      */
     @Bean
     @ConditionalOnMissingBean
     public TemplateAdapter lievitTemplateAdapter(TemplateEngine engine) {
-        return new JteTemplateAdapter(engine);
+        return new DslOrEngineTemplateAdapter(
+                new DslTemplateAdapter(), new JteTemplateAdapter(engine));
     }
 
     /**
@@ -185,9 +239,17 @@ public class LievitAutoConfiguration {
             TemplateAdapter templateAdapter,
             ChecksumFailureLimiter failureLimiter,
             ComponentId componentIds,
-            tools.jackson.databind.ObjectMapper json) {
+            tools.jackson.databind.ObjectMapper json,
+            LievitProperties properties) {
         return new LievitWireService(
-                codec, registry, dispatcher, templateAdapter, failureLimiter, componentIds, json);
+                codec,
+                registry,
+                dispatcher,
+                templateAdapter,
+                failureLimiter,
+                componentIds,
+                json,
+                properties.getMaxNestingDepth());
     }
 
     /**
