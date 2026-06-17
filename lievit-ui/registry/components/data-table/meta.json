@@ -1,0 +1,16 @@
+{
+  "name": "data-table",
+  "type": "registry:ui",
+  "description": "A sortable, paginated data table with WAI-ARIA grid semantics; column-header aria-sort, client-side sort + pagination, emits lv-sort and lv-page events.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/data-table/data-table.ts",
+      "type": "registry:ui",
+      "target": "components/ui/data-table.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-data-table> by importing components/ui/data-table.ts from your entry point. Pass `columns` (array of { key, label, sortable?, align? }) and `rows` (array of plain objects). Listen for `lv-sort` ({ key, direction }) and `lv-page` ({ page }) to integrate server-side sorting/pagination."
+}

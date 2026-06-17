@@ -1,0 +1,16 @@
+{
+  "name": "dropdown-menu",
+  "type": "registry:ui",
+  "description": "A keyboard-navigable floating action menu (WAI-ARIA APG menu-button pattern); positioned by @floating-ui/dom with flip + shift.",
+  "dependencies": ["lit", "@floating-ui/dom"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/dropdown-menu/dropdown-menu.ts",
+      "type": "registry:ui",
+      "target": "components/ui/dropdown-menu.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-dropdown-menu> by importing components/ui/dropdown-menu.ts from your entry point. Pass `items` as an array of { key, label, icon?, disabled?, separator? }. Listen for `lv-select` to receive the activated item key."
+}
