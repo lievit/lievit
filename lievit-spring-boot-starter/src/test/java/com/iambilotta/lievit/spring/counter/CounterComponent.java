@@ -1,0 +1,39 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ */
+package com.iambilotta.lievit.spring.counter;
+
+import com.iambilotta.lievit.LievitAction;
+import com.iambilotta.lievit.LievitComponent;
+import com.iambilotta.lievit.LievitMount;
+import com.iambilotta.lievit.LievitProperty;
+import com.iambilotta.lievit.Wire;
+
+/**
+ * The walking-skeleton tracer-bullet: a counter with one {@code @Wire int count} and one
+ * {@code @LievitAction increment}, rendered by the JTE {@code counter} template. It is the single
+ * end-to-end path that proves mount -&gt; render -&gt; {@code l:click} -&gt; re-render works
+ * (ADR-0001, the golden roundtrip of ADR-0007).
+ *
+ * <p>{@code startedAt} is a locked {@code @LievitProperty}: it demonstrates the ADR-0001 amendment
+ * (Livewire {@code #[Locked]} parity). The server seeds it; a client {@code _updates} entry for it
+ * is rejected with a 403, even though the snapshot itself is validly signed.
+ */
+@LievitComponent(template = "counter")
+public class CounterComponent {
+
+    @Wire int count;
+
+    @Wire @LievitProperty(locked = true) String label = "server-set";
+
+    @LievitMount
+    void seed() {
+        this.count = 0;
+    }
+
+    @LievitAction
+    void increment() {
+        this.count++;
+    }
+}

@@ -119,6 +119,27 @@ The verifier selects the key by the `kid` in the header: current key for new `ki
 (if `LIEVIT_SIGNING_KEY_PREV` is set and within the 24 h grace) for the old `kid`. After the
 grace window, only the current key is honored.
 
+### What the signature does NOT cover: locked fields
+
+The signature proves the snapshot was not altered **between** requests. It does **not** stop the
+**first** POST from setting any `@Wire` field to any value: the client sends the initial state and
+its `_updates`, and a malicious client can put anything in either. For an id, a price, or a role
+flag this is a real vulnerability hiding behind "the snapshot is signed" (the gap the Livewire
+research surfaced, ADR-0001 amendment 2026-06-17).
+
+A `@Wire` field marked `@LievitProperty(locked = true)` is **server-authoritative**: the server
+seeds it (mount / action), it is serialized into the snapshot so the template can render it, but any
+inbound `_updates` entry targeting it is rejected with `403` + `Lievit-Reason: locked-property`. The
+lock, not the signature, is the defense for state the client must never set. This is the lievit
+equivalent of Livewire's `#[Locked]`, expressed without an eighth annotation (ADR-0002's cap).
+
+### Checksum-failure rate limit
+
+On top of the HMAC, lievit limits **signature failures** per client: more than 10 forged/tampered
+snapshots from one client (keyed on the IP) within 600 s trips a `429` +
+`Lievit-Reason: too-many-failures`. The HMAC already makes a forged snapshot unusable; the limiter
+stops a client from grinding against the signature offline (Livewire parity: 10 / 600 s).
+
 ## 4. The error-code state machine
 
 Every wire call lands in exactly one terminal state. The client reacts to each deterministically.
@@ -164,6 +185,8 @@ Every wire call lands in exactly one terminal state. The client reacts to each d
 | `413` | Request payload exceeds 64 kb | (too large) | Surface an error; the component state outgrew the wire (move state server-side, v0.2 store). |
 | `504` | An action exceeded the 5 s timeout | (timeout) | Surface a timeout; the action did not complete. |
 | `403` | CSRF token invalid/missing | (Spring Security) | Standard CSRF failure; the session is stale. |
+| `403` | Client `_updates` targeted a locked `@Wire` field | `locked-property` | A bug or a tamper attempt; the field is server-owned. Surface an error; do not retry. |
+| `429` | Too many checksum failures from this client (10 / 600 s) | `too-many-failures` | The client is being rate-limited after repeated forged/tampered snapshots; back off. |
 
 `409` and `410` are both "the snapshot no longer matches the server", but they are distinct
 causes: `409` is *time* (the snapshot aged out), `410` is *identity* (the class moved). Keeping
@@ -182,16 +205,17 @@ calls.
 
   | Modifier | Sends the update when | Use for |
   |---|---|---|
-  | `l:model` (no modifier) | debounced, **500 ms after the last keystroke** (the default) | the common text input case |
-  | `l:model.live` | on every input event (each keystroke) | live-search, instant-feedback fields (use sparingly) |
+  | `l:model` (no modifier) | **never on its own**: the value is held client-side and synced with the next action (the deferred default) | the common text input case |
+  | `l:model.live` | on every input event, debounced ~150 ms | live-search, instant-feedback fields (use sparingly) |
   | `l:model.lazy` | on `change` (when the field loses focus or commits) | fields that only matter when finished |
   | `l:model.blur` | on `blur` (focus leaves the field) | validate-on-leave fields |
-  | `l:model.debounce.500ms` | debounced by the explicit interval given | tuning the debounce window |
-  | `l:model.debounce.500ms` + `.eager` | opt out of the default debounce | when you deliberately want no debounce |
+  | `l:model.debounce.Xms` | debounced by the explicit interval given (implies `.live`) | tuning the live debounce window |
 
-  The **500 ms debounce is the default** specifically to avoid the Livewire wound of one request
-  per keystroke. `.live` is the explicit opt-in to per-keystroke traffic; `.eager` is the explicit
-  opt-out of debouncing.
+  **`l:model` is deferred by default**: it sends no network request while the user types and rides
+  along with the next action (`l:click`, `l:submit`), which is what makes a typical form interactive
+  at zero per-keystroke cost. `.live` is the explicit opt-in to per-keystroke traffic (debounced
+  ~150 ms). This matches Livewire v3/v4 and the performance budget; the earlier "500 ms per
+  keystroke default" was a factual error corrected in the ADR-0001 amendment of 2026-06-17.
 
 - **Action events** invoke `@LievitAction` methods:
 
@@ -213,8 +237,11 @@ directly to morph the existing DOM toward the new markup:
 - Idiomorph preserves DOM identity where the structure matches, so focus, selection, scroll
   position, in-flight CSS transitions, and uncontrolled input state survive the patch.
 - Only the parts that actually changed are touched; unchanged nodes are left in place.
-- This is the convergent choice across Livewire v3, Turbo 8, and LiveView; lievit adopts it rather
-  than reinventing a diff.
+- Idiomorph is the same library Turbo 8 uses. Livewire v3/v4 morphs with `@alpinejs/morph`, not
+  Idiomorph; lievit chooses Idiomorph deliberately because it is framework-agnostic and does not
+  drag Alpine onto a non-Alpine stack (corrected in the ADR-0001 amendment of 2026-06-17). The
+  shared principle across all three (Livewire, Turbo, LiveView) is "morph, do not replace
+  innerHTML"; the library differs.
 
 ## 6. Limits and budgets
 
@@ -228,6 +255,7 @@ These are protocol-level limits, enforced server-side and surfaced through the e
 | **Action timeout** | 5 s | server (bounds each `_calls` invocation) | `504 Gateway Timeout` |
 | **Signing key** | >= 32 bytes, base64url | startup validation | startup failure if weak/missing |
 | **Previous-key grace** | 24 h | `LIEVIT_SIGNING_KEY_PREV` | old-`kid` snapshots verify within the window, fail after |
+| **Checksum-failure budget** | 10 failures / 600 s per client | server (per-IP) | `429 too-many-failures` once the budget is exceeded |
 
 Deferred to v0.2 (recorded here so v0.1 leaves room for them): a **server-side snapshot store**
 (removes the 16 kb / 64 kb pressure for large-state components), **WebSocket / SSE transports**
