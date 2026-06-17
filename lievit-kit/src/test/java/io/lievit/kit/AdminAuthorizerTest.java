@@ -91,4 +91,39 @@ class AdminAuthorizerTest {
         assertThat(authorizer.isAllowed(AdminOperation.DELETE, resource(), "1")).isFalse();
         assertThat(authorizer.isAllowed(AdminOperation.UPDATE, resource(), "1")).isTrue();
     }
+
+    /**
+     * @spec.given an authorizer that denies deleting records whose value starts with "x" and a mixed
+     *     selection
+     * @spec.when  the selection is filtered for a bulk DELETE
+     * @spec.then  only the authorized records survive and the denied ones are counted (issue #327)
+     */
+    @Test
+    void bulk_filter_keeps_authorized_records_and_counts_denials() {
+        AdminAuthorizer authorizer =
+                (operation, resource, record) -> !String.valueOf(record).startsWith("x");
+
+        AdminAuthorizer.BulkAuthorization<String> result =
+                authorizer.filterAuthorized(
+                        AdminOperation.DELETE, resource(), List.of("a", "x1", "b", "x2"));
+
+        assertThat(result.authorized()).containsExactly("a", "b");
+        assertThat(result.deniedCount()).isEqualTo(2);
+        assertThat(result.allAuthorized()).isFalse();
+    }
+
+    /**
+     * @spec.given the permit-all authorizer and a selection
+     * @spec.when  the selection is filtered for a bulk operation
+     * @spec.then  every record survives and the denied count is zero
+     */
+    @Test
+    void bulk_filter_under_permit_all_authorizes_the_whole_selection() {
+        AdminAuthorizer.BulkAuthorization<String> result =
+                AdminAuthorizer.permitAll()
+                        .filterAuthorized(AdminOperation.DELETE, resource(), List.of("a", "b", "c"));
+
+        assertThat(result.authorized()).containsExactly("a", "b", "c");
+        assertThat(result.allAuthorized()).isTrue();
+    }
 }

@@ -77,6 +77,10 @@ public final class LievitTester<T> {
     // Validation errors from the last successful call's Lievit-Effects header, or null if none.
     private @Nullable Map<String, List<String>> lastErrors;
 
+    // The full parsed Lievit-Effects JSON from the last successful call (or null). Used by the
+    // domain test helpers to read dispatched events (e.g. the admin-notify toast).
+    private @Nullable JsonNode lastEffects;
+
     private boolean rejected;
     private int rejectionStatus;
     private String rejectionReason = "";
@@ -203,7 +207,9 @@ public final class LievitTester<T> {
             if (fresh != null) {
                 this.snapshot = fresh;
             }
-            this.lastErrors = parseErrors(result.getResponse().getHeader("Lievit-Effects"));
+            String effectsHeader = result.getResponse().getHeader("Lievit-Effects");
+            this.lastErrors = parseErrors(effectsHeader);
+            this.lastEffects = parseEffects(effectsHeader);
             this.callHistory.addAll(calls);
             this.pendingUpdates.clear();
         } else {
@@ -483,7 +489,419 @@ public final class LievitTester<T> {
         return this;
     }
 
+    // --- domain test-DX: form helpers (Filament TestsForms, issue #367) --------------------------
+
+    /**
+     * Fills several form fields at once by staging a client model-update per entry (the Filament
+     * {@code fillForm}). The values ride with the next {@link #call(String)}, exactly as a user
+     * typing into the form then submitting would carry them.
+     *
+     * @param values field name to value
+     * @return this tester
+     */
+    public LievitTester<T> fillForm(Map<String, Object> values) {
+        values.forEach(this::model);
+        return this;
+    }
+
+    /**
+     * Asserts the live form state equals the given values, reading each field back from the signed
+     * snapshot (the Filament {@code assertFormSet}).
+     *
+     * @param values field name to expected value
+     * @return this tester
+     */
+    public LievitTester<T> assertFormSet(Map<String, Object> values) {
+        values.forEach(this::assertWire);
+        return this;
+    }
+
+    /**
+     * Asserts the last call returned a validation error for each of the given fields (the Filament
+     * {@code assertHasFormErrors}). Only field presence is checked, not the message.
+     *
+     * @param fields the field names expected to have at least one error
+     * @return this tester
+     */
+    public LievitTester<T> assertHasFormErrors(List<String> fields) {
+        requireNotRejected("assertHasFormErrors(" + fields + ")");
+        for (String field : fields) {
+            if (lastErrors == null || !lastErrors.containsKey(field)) {
+                throw new AssertionError(
+                        "expected a form error for field \"" + field + "\" but the last call had none"
+                                + afterCalls() + " — actual errors: " + render(lastErrors));
+            }
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last call returned no validation errors on any field (the Filament
+     * {@code assertHasNoFormErrors}).
+     *
+     * @return this tester
+     */
+    public LievitTester<T> assertHasNoFormErrors() {
+        return assertNoErrors();
+    }
+
+    /**
+     * Asserts a form field is present in the rendered form (the Filament
+     * {@code assertFormFieldExists}). A field is "present" when its {@code @Wire}-bound name appears
+     * in the rendered HTML's binding markup.
+     *
+     * @param field the field name
+     * @return this tester
+     */
+    public LievitTester<T> assertFormFieldExists(String field) {
+        requireNotRejected("assertFormFieldExists(\"" + field + "\")");
+        if (!htmlBindsField(field)) {
+            throw new AssertionError(
+                    "expected the form to contain a field \"" + field + "\" but it was not rendered"
+                            + afterCalls() + " — actual HTML:\n" + html);
+        }
+        return this;
+    }
+
+    /**
+     * Asserts a form field is currently hidden (not rendered) — typically after a reactive change
+     * that should hide it (the Filament {@code assertFormFieldHidden}).
+     *
+     * @param field the field name
+     * @return this tester
+     */
+    public LievitTester<T> assertFormFieldHidden(String field) {
+        requireNotRejected("assertFormFieldHidden(\"" + field + "\")");
+        if (htmlBindsField(field)) {
+            throw new AssertionError(
+                    "expected the form field \"" + field + "\" to be hidden but it was rendered"
+                            + afterCalls() + " — actual HTML:\n" + html);
+        }
+        return this;
+    }
+
+    /**
+     * Asserts a form field is currently visible (rendered) — the inverse of
+     * {@link #assertFormFieldHidden}.
+     *
+     * @param field the field name
+     * @return this tester
+     */
+    public LievitTester<T> assertFormFieldVisible(String field) {
+        return assertFormFieldExists(field);
+    }
+
+    // --- domain test-DX: table helpers (Filament TestsRecords/Columns, issue #369) ---------------
+
+    /**
+     * Loads/refreshes the table by re-rendering the component (the Filament {@code loadTable}). No-op
+     * over the wire other than reading the current HTML; reads clearly at the head of a table chain.
+     *
+     * @return this tester
+     */
+    public LievitTester<T> loadTable() {
+        requireNotRejected("loadTable()");
+        return this;
+    }
+
+    /**
+     * Asserts every given record is visible in the rendered table (the Filament
+     * {@code assertCanSeeTableRecords}). Each record's string form must appear in the HTML.
+     *
+     * @param records the records expected to be visible
+     * @return this tester
+     */
+    public LievitTester<T> assertCanSeeTableRecords(List<?> records) {
+        requireNotRejected("assertCanSeeTableRecords(...)");
+        for (Object record : records) {
+            String token = String.valueOf(record);
+            if (!html.contains(token)) {
+                throw new AssertionError(
+                        "expected the table to show record \"" + token + "\" but it did not"
+                                + afterCalls() + " — actual HTML:\n" + html);
+            }
+        }
+        return this;
+    }
+
+    /**
+     * Asserts none of the given records is visible in the rendered table (the Filament
+     * {@code assertCanNotSeeTableRecords}).
+     *
+     * @param records the records expected to be absent
+     * @return this tester
+     */
+    public LievitTester<T> assertCanNotSeeTableRecords(List<?> records) {
+        requireNotRejected("assertCanNotSeeTableRecords(...)");
+        for (Object record : records) {
+            String token = String.valueOf(record);
+            if (html.contains(token)) {
+                throw new AssertionError(
+                        "expected the table NOT to show record \"" + token + "\" but it did"
+                                + afterCalls() + " — actual HTML:\n" + html);
+            }
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the table shows exactly {@code count} records, counted by occurrences of a per-row
+     * marker the table template emits (the Filament {@code assertCountTableRecords}). The marker is
+     * the {@code data-lievit-row} attribute the kit's list template stamps on each row.
+     *
+     * @param count the expected row count
+     * @return this tester
+     */
+    public LievitTester<T> assertCountTableRecords(int count) {
+        requireNotRejected("assertCountTableRecords(" + count + ")");
+        int actual = countOccurrences(html, "data-lievit-row");
+        if (actual != count) {
+            throw new AssertionError(
+                    "expected the table to show " + count + " records but it showed " + actual
+                            + afterCalls());
+        }
+        return this;
+    }
+
+    /**
+     * Searches the table by staging the search term and calling the table's search action (the
+     * Filament {@code searchTable}). Assumes the component binds a {@code search} field and exposes a
+     * {@code search} action; an adopter table that names these differently uses {@link #model} +
+     * {@link #call} directly.
+     *
+     * @param term the search term
+     * @return this tester
+     */
+    public LievitTester<T> searchTable(String term) {
+        return model("search", term).call("search");
+    }
+
+    /**
+     * Sorts the table by staging the sort column + direction and calling the {@code sort} action
+     * (the Filament {@code sortTable}).
+     *
+     * @param column the column key
+     * @param direction {@code "asc"} or {@code "desc"}
+     * @return this tester
+     */
+    public LievitTester<T> sortTable(String column, String direction) {
+        return model("sortColumn", column).model("sortDirection", direction).call("sort");
+    }
+
+    /**
+     * Applies a table filter by staging its values and calling the {@code filter} action (the
+     * Filament {@code filterTable}).
+     *
+     * @param filter the filter name
+     * @param values the filter values
+     * @return this tester
+     */
+    public LievitTester<T> filterTable(String filter, Map<String, Object> values) {
+        model("activeFilter", filter);
+        values.forEach((k, v) -> model("filter." + k, v));
+        return call("filter");
+    }
+
+    // --- domain test-DX: action + bulk-action helpers (Filament TestsActions, issue #371) --------
+
+    /**
+     * Calls a page action by name with data (the Filament {@code callAction}): stages the data and
+     * invokes the action over the wire.
+     *
+     * @param name the action name (a {@code @LievitAction} the component exposes)
+     * @param data the action's form/argument data
+     * @return this tester
+     */
+    public LievitTester<T> callAction(String name, Map<String, Object> data) {
+        data.forEach(this::model);
+        return call(name);
+    }
+
+    /**
+     * Calls a page action by name with no data.
+     *
+     * @param name the action name
+     * @return this tester
+     */
+    public LievitTester<T> callAction(String name) {
+        return call(name);
+    }
+
+    /**
+     * Calls a row-scoped table action against a specific record (the Filament
+     * {@code callTableAction}): stages the record id and the action data, then invokes the action.
+     *
+     * @param name the action name
+     * @param recordId the id of the row the action targets
+     * @param data the action data
+     * @return this tester
+     */
+    public LievitTester<T> callTableAction(String name, Object recordId, Map<String, Object> data) {
+        model("recordId", recordId);
+        data.forEach(this::model);
+        return call(name);
+    }
+
+    /**
+     * Calls a bulk action over a selection of record ids (the Filament {@code callTableBulkAction}):
+     * stages the selection then invokes the bulk action.
+     *
+     * @param name the bulk action name
+     * @param recordIds the selected record ids
+     * @return this tester
+     */
+    public LievitTester<T> callTableBulkAction(String name, List<?> recordIds) {
+        model("selectedRecords", recordIds);
+        return call(name);
+    }
+
+    /**
+     * Stages a table-row selection without running an action (the Filament
+     * {@code selectTableRecords}).
+     *
+     * @param recordIds the selected record ids
+     * @return this tester
+     */
+    public LievitTester<T> selectTableRecords(List<?> recordIds) {
+        return model("selectedRecords", recordIds);
+    }
+
+    // --- domain test-DX: notification helpers (Filament TestsNotifications, issue #375) ----------
+
+    /**
+     * Asserts a flash notification with the given title/message was sent on the last call (the
+     * Filament {@code assertNotified}). Reads the {@code lievit-admin-notify} event dispatched onto
+     * the {@code Lievit-Effects} channel.
+     *
+     * @param titleFragment a substring expected in the notification's message
+     * @return this tester
+     */
+    public LievitTester<T> assertNotified(String titleFragment) {
+        requireNotRejected("assertNotified(\"" + titleFragment + "\")");
+        List<String> messages = notificationMessages();
+        boolean found = messages.stream().anyMatch(m -> m != null && m.contains(titleFragment));
+        if (!found) {
+            throw new AssertionError(
+                    "expected a notification containing \"" + titleFragment + "\" but the last call"
+                            + " sent: " + messages + afterCalls());
+        }
+        return this;
+    }
+
+    /**
+     * Asserts no notification was sent on the last call (the Filament {@code assertNotNotified}) —
+     * for example an action that halted before notifying.
+     *
+     * @return this tester
+     */
+    public LievitTester<T> assertNotNotified() {
+        requireNotRejected("assertNotNotified()");
+        List<String> messages = notificationMessages();
+        if (!messages.isEmpty()) {
+            throw new AssertionError(
+                    "expected no notification but the last call sent: " + messages + afterCalls());
+        }
+        return this;
+    }
+
+    // --- domain test-DX: schema + wizard helpers (Filament TestsSchemas, issue #373) -------------
+
+    /**
+     * Asserts a schema component is rendered (the Filament {@code assertSchemaComponentExists}).
+     * Reuses the form-field presence check on the component's bound name.
+     *
+     * @param component the component (field/section) name
+     * @return this tester
+     */
+    public LievitTester<T> assertSchemaComponentExists(String component) {
+        return assertFormFieldExists(component);
+    }
+
+    /**
+     * Asserts a schema component is hidden (the Filament {@code assertSchemaComponentHidden}) — for
+     * example a section gated by a conditional-visibility rule.
+     *
+     * @param component the component name
+     * @return this tester
+     */
+    public LievitTester<T> assertSchemaComponentHidden(String component) {
+        return assertFormFieldHidden(component);
+    }
+
+    /**
+     * Asserts the wizard's current step (the Filament {@code assertWizardCurrentStep}), read from the
+     * {@code @Wire currentStep} field.
+     *
+     * @param step the expected one-based step number
+     * @return this tester
+     */
+    public LievitTester<T> assertWizardCurrentStep(int step) {
+        return assertWire("currentStep", step);
+    }
+
+    /**
+     * Advances the wizard to the next step (the Filament {@code goToNextWizardStep}): invokes the
+     * {@code nextStep} action. If the current step's validation fails the action halts and the step
+     * does not advance, which the caller asserts with {@link #assertWizardCurrentStep}.
+     *
+     * @return this tester
+     */
+    public LievitTester<T> goToNextWizardStep() {
+        return call("nextStep");
+    }
+
+    /**
+     * Goes back to the previous wizard step (the Filament {@code goToPreviousWizardStep}).
+     *
+     * @return this tester
+     */
+    public LievitTester<T> goToPreviousWizardStep() {
+        return call("previousStep");
+    }
+
     // --- internals -------------------------------------------------------------------------------
+
+    /** @return whether the rendered HTML binds the given field name (a {@code l:model} binding) */
+    private boolean htmlBindsField(String field) {
+        return html.contains("l:model=\"" + field + "\"")
+                || html.contains("l:model.live=\"" + field + "\"")
+                || html.contains("l:model.blur=\"" + field + "\"")
+                || html.contains("name=\"" + field + "\"")
+                || html.contains("wire:model=\"" + field + "\"");
+    }
+
+    /** @return the messages of every {@code lievit-admin-notify} dispatch on the last call */
+    private List<String> notificationMessages() {
+        List<String> messages = new ArrayList<>();
+        if (lastEffects == null) {
+            return messages;
+        }
+        JsonNode dispatch = lastEffects.get("dispatch");
+        if (dispatch == null || !dispatch.isArray()) {
+            return messages;
+        }
+        for (JsonNode event : dispatch) {
+            JsonNode name = event.get("name");
+            if (name != null && "lievit-admin-notify".equals(name.asText())) {
+                JsonNode detail = event.get("detail");
+                JsonNode message = detail == null ? null : detail.get("message");
+                if (message != null) {
+                    messages.add(message.asText());
+                }
+            }
+        }
+        return messages;
+    }
+
+    private static int countOccurrences(String haystack, String needle) {
+        int count = 0;
+        int at = 0;
+        while ((at = haystack.indexOf(needle, at)) >= 0) {
+            count++;
+            at += needle.length();
+        }
+        return count;
+    }
 
     private Map<String, Object> wireState() {
         Snapshot decoded = codec.verify(snapshot, Instant.now());
@@ -586,6 +1004,18 @@ public final class LievitTester<T> {
             // with a clear message rather than a silent null.
             throw new AssertionError(
                     "could not parse Lievit-Effects header: " + effectsHeader, e);
+        }
+    }
+
+    /** Parses the whole {@code Lievit-Effects} JSON header into a tree, or null if absent/blank. */
+    private @Nullable JsonNode parseEffects(@Nullable String effectsHeader) {
+        if (effectsHeader == null || effectsHeader.isBlank()) {
+            return null;
+        }
+        try {
+            return json.readTree(effectsHeader);
+        } catch (Exception e) {
+            throw new AssertionError("could not parse Lievit-Effects header: " + effectsHeader, e);
         }
     }
 
