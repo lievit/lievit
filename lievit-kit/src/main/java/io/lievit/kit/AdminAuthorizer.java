@@ -4,6 +4,11 @@
  */
 package io.lievit.kit;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,5 +47,59 @@ public interface AdminAuthorizer {
      */
     static AdminAuthorizer permitAll() {
         return (operation, resource, record) -> true;
+    }
+
+    /**
+     * Filters a selection of records by per-record authorization for a bulk operation (the Filament
+     * {@code getIndividuallyAuthorizedSelectedRecords} seam, issue #327): each record is checked
+     * with {@link #isAllowed}; denied records are dropped and counted as failures so the bulk action
+     * can report "deleted 8 of 10, 2 were not yours". This is the engine the
+     * {@code DeleteBulkAction}-family shares.
+     *
+     * @param operation the bulk operation (typically {@link AdminOperation#DELETE})
+     * @param resource the resource the selection belongs to
+     * @param selection the selected records
+     * @param <T> the record type
+     * @return the authorized subset plus the count of denied records
+     */
+    default <T> BulkAuthorization<T> filterAuthorized(
+            AdminOperation operation, Resource<?> resource, Collection<T> selection) {
+        Objects.requireNonNull(operation, "operation");
+        Objects.requireNonNull(resource, "resource");
+        Objects.requireNonNull(selection, "selection");
+        List<T> authorized = new ArrayList<>();
+        int denied = 0;
+        for (T record : selection) {
+            if (isAllowed(operation, resource, record)) {
+                authorized.add(record);
+            } else {
+                denied++;
+            }
+        }
+        return new BulkAuthorization<>(List.copyOf(authorized), denied);
+    }
+
+    /**
+     * The outcome of {@link #filterAuthorized}: the records the principal may act on, and how many
+     * were dropped because they were not authorized.
+     *
+     * @param authorized the authorized records (a sub-list of the selection, order preserved)
+     * @param deniedCount the number of selected records the principal was not authorized for
+     * @param <T> the record type
+     */
+    record BulkAuthorization<T>(List<T> authorized, int deniedCount) {
+
+        /** Compact constructor: defends the authorized list and rejects a negative denied count. */
+        public BulkAuthorization {
+            authorized = List.copyOf(authorized);
+            if (deniedCount < 0) {
+                throw new IllegalArgumentException("deniedCount must be >= 0, got: " + deniedCount);
+            }
+        }
+
+        /** @return whether every selected record was authorized */
+        public boolean allAuthorized() {
+            return deniedCount == 0;
+        }
     }
 }
