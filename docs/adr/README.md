@@ -32,6 +32,9 @@ question and is pending a final call.
 - [ADR-0017](0017-form-objects.md): Form objects — grouped fields with co-located validation. **accepted**
 - [ADR-0018](0018-single-file-dsl.md): The single-file DSL render path (a type-safe HTML builder + a TemplateAdapter). **accepted**
 - [ADR-0019](0019-client-runtime-bundle.md): The client runtime bundle (wire glue, bespoke morph, directive + lifecycle extension points). **accepted**
+- [ADR-0020](0020-typed-state-synthesizers.md): Typed-state round-trip — a synthesizer registry + `Wireable` SPI (a non-primitive `@Wire` value dehydrates to a `{d,s,t}` tuple and hydrates to the exact type). **accepted**
+- [ADR-0021](0021-class-instantiation-guard.md): Class-instantiation guard for the synthesizer hydrate path (default-deny by gadget-prone root, under the ADR-0013 allowlist). **accepted**
+- [ADR-0022](0022-request-lifecycle-bus.md): Request lifecycle — ordered phases + a `trigger()` interceptor bus (updated-after-all, early-return, render-skippable, dehydrate memo). **accepted**
 
 ## How to add an ADR
 

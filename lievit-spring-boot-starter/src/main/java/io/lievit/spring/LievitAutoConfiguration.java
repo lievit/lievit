@@ -21,8 +21,10 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 import io.lievit.LievitComponent;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
+import io.lievit.component.LifecycleBus;
 import io.lievit.component.NoOpFieldValidator;
 import io.lievit.component.WireDispatcher;
+import io.lievit.wire.synth.SynthesizerRegistry;
 import io.lievit.dsl.DslOrEngineTemplateAdapter;
 import io.lievit.dsl.DslTemplateAdapter;
 import io.lievit.jte.JteTemplateAdapter;
@@ -137,18 +139,51 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * The typed-state synthesizer registry (ADR-0020): dehydrates a non-primitive {@code @Wire}
+     * value (record / enum / date / money VO) to a tuple and hydrates it back to the exact type, so
+     * a typed component survives the stateless round trip. An application registers custom synths by
+     * declaring its own {@code SynthesizerRegistry} bean.
+     *
+     * @return the default synthesizer registry (built-in synth set + class-instantiation guard)
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public SynthesizerRegistry lievitSynthesizerRegistry() {
+        return new SynthesizerRegistry();
+    }
+
+    /**
+     * The lifecycle interceptor bus (ADR-0022): a cross-cutting feature registers a listener on a
+     * named phase (hydrate / update / call / render / dehydrate / destroy) instead of editing the
+     * dispatcher. The default bus is empty (behavior-neutral); an application or a feature module
+     * contributes listeners by declaring its own {@code LifecycleBus} bean.
+     *
+     * @return the default (empty) lifecycle bus
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LifecycleBus lievitLifecycleBus() {
+        return new LifecycleBus();
+    }
+
+    /**
      * @param payloadGuard the structural-cap / deserialization-allowlist guard (ADR-0013)
      * @param fieldValidator the field validator (Bean Validation-backed or custom); falls back to
      *     {@link NoOpFieldValidator} when no validator bean is available
+     * @param synthesizers the typed-state synthesizer registry (ADR-0020)
+     * @param lifecycle the lifecycle interceptor bus (ADR-0022)
      * @return the stateless lifecycle engine
      */
     @Bean
     @ConditionalOnMissingBean
     public WireDispatcher lievitWireDispatcher(
-            PayloadGuard payloadGuard, ObjectProvider<FieldValidator> fieldValidator) {
+            PayloadGuard payloadGuard,
+            ObjectProvider<FieldValidator> fieldValidator,
+            SynthesizerRegistry synthesizers,
+            LifecycleBus lifecycle) {
         FieldValidator validator =
                 fieldValidator.getIfAvailable(() -> NoOpFieldValidator.INSTANCE);
-        return new WireDispatcher(payloadGuard, validator);
+        return new WireDispatcher(payloadGuard, validator, synthesizers, lifecycle);
     }
 
     /**
