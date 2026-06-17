@@ -18,6 +18,8 @@ import org.springframework.context.annotation.Bean;
 
 import com.iambilotta.lievit.LievitComponent;
 import com.iambilotta.lievit.component.WireDispatcher;
+import com.iambilotta.lievit.dsl.DslOrEngineTemplateAdapter;
+import com.iambilotta.lievit.dsl.DslTemplateAdapter;
 import com.iambilotta.lievit.jte.JteTemplateAdapter;
 import com.iambilotta.lievit.render.TemplateAdapter;
 import com.iambilotta.lievit.wire.ChecksumFailureLimiter;
@@ -134,15 +136,20 @@ public class LievitAutoConfiguration {
     }
 
     /**
-     * The JTE template adapter (canonical primary, ADR-0004).
+     * The active template adapter: a router (ADR-0015) that renders a single-file component (no
+     * template, an {@code @LievitRender} returning {@code Html}) through the {@link
+     * DslTemplateAdapter} and every other component through the JTE engine adapter (the canonical
+     * primary, ADR-0004). Routing lives entirely behind the one {@link TemplateAdapter} SPI, so the
+     * dispatcher, codec, registry, and HTTP edge are untouched by the second authoring mode.
      *
      * @param engine the JTE engine
-     * @return the adapter
+     * @return the routing adapter
      */
     @Bean
     @ConditionalOnMissingBean
     public TemplateAdapter lievitTemplateAdapter(TemplateEngine engine) {
-        return new JteTemplateAdapter(engine);
+        return new DslOrEngineTemplateAdapter(
+                new DslTemplateAdapter(), new JteTemplateAdapter(engine));
     }
 
     /**
