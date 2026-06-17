@@ -1,6 +1,6 @@
 # ADR-0008: Module packaging (one starter, modular internals)
 
-- **Status:** accepted
+- **Status:** accepted (amended 2026-06-17, admin moved in-monorepo)
 - **Date:** 2026-06-17
 - **Deciders:** Francesco Bilotta
 
@@ -40,7 +40,32 @@ cost.
   `src/main/java` Maven module). The design tokens MAY later ship as a small published artifact; the
   components stay copy-in. Detailed in a dedicated ADR (lievit-ui).
 
-The reconciliation rationale that informed the call is kept below for the record.
+## Amendment (2026-06-17): the admin is an in-monorepo module named `lievit-kit`
+
+**Resolved by Francesco, 2026-06-17.** The earlier posture (sub-question 3: the Filament-style admin
+reserved as a future SEPARATE REPOSITORY) is **superseded**. There is **no real motivation for a
+separate repo for now**, so the admin ships **inside this monorepo** as a module:
+
+- The admin is named **`lievit-kit`** ("Filament for Spring"), a reactor module `lievit-kit/`
+  (`com.iambilotta:lievit-kit`), **path-depending on `lievit-core`** (the SPI) and on
+  `lievit-spring-boot-starter` (the wire runtime). It is NOT bundled into the runtime: an adopter who
+  wants only the wire runtime never pulls it; an adopter who wants the admin adds the one extra
+  coordinate. This keeps the ADR-0004 / ADR-0006 acyclic-graph and native-tree-shaking properties
+  (the runtime image does not drag admin code) while dropping the cross-repo overhead the separate-repo
+  posture was paying for nothing.
+- **Revisit only if a real motivation appears** (e.g. the admin's release cadence genuinely needs to
+  diverge from the runtime's, the Livewire/Filament split). Until then, monorepo module.
+- The reconciliation rationale below still argued for "separate, opt-in"; it stays for the record, but
+  "separate" now means **separate module, same repo**, not separate repository.
+
+### Naming: "kit" now denotes the admin module (golden-path stratum renamed)
+
+The word **"kit"** is hereby claimed for **this admin module** (`lievit-kit`). The knowledge entity's
+former **"golden-path kit"** stratum (the Breeze/Jetstream-style reference application) is renamed
+**"golden-path starter"** to avoid the collision. This ADR records the rename for the harness; the
+knowledge-entity edit itself is Francesco's (promotion direction workspace -> knowledge).
+
+The reconciliation rationale that informed the original call is kept below for the record.
 
 ## Coordinator's recommendation (to reconcile A and B)
 

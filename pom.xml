@@ -39,9 +39,11 @@
     </scm>
 
     <!--
-      ADR-0008: one monorepo, seven published Maven artifacts. lievit-core is a
-      published coordinate; the five template adapters are split so an adopter drags
-      only the engine it uses; the starter is the single primary dependency.
+      ADR-0008 (amended 2026-06-17): one monorepo. lievit-core is a published coordinate; the five
+      template adapters are split so an adopter drags only the engine it uses; the starter is the
+      single primary dependency. The Filament-style admin (lievit-kit) is now an in-monorepo module
+      on the runtime (the earlier "separate repo" posture is superseded), path-depending on the core
+      and the starter.
     -->
     <modules>
         <module>lievit-core</module>
@@ -51,6 +53,7 @@
         <module>lievit-freemarker</module>
         <module>lievit-raw</module>
         <module>lievit-spring-boot-starter</module>
+        <module>lievit-kit</module>
     </modules>
 
     <properties>
@@ -122,6 +125,11 @@
             <dependency>
                 <groupId>com.iambilotta</groupId>
                 <artifactId>lievit-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.iambilotta</groupId>
+                <artifactId>lievit-kit</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
