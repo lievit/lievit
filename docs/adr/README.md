@@ -32,6 +32,7 @@ question and is pending a final call.
 - [ADR-0017](0017-form-objects.md): Form objects — grouped fields with co-located validation. **accepted**
 - [ADR-0018](0018-single-file-dsl.md): The single-file DSL render path (a type-safe HTML builder + a TemplateAdapter). **accepted**
 - [ADR-0019](0019-client-runtime-bundle.md): The client runtime bundle (wire glue, bespoke morph, directive + lifecycle extension points). **accepted**
+- [ADR-0023](0023-v4-compiler-and-deterministic-keys.md): The v4 compiler layer (single-file compilation, `<lievit:...>` tag compilation, deterministic keys). **accepted**
 
 ## How to add an ADR
 
