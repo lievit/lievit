@@ -74,7 +74,7 @@ public final class WireDispatcher {
     }
 
     /**
-     * Mounts a fresh component with no props: the top-level page mount.
+     * Mounts a fresh component with no props and no URL query state: the top-level page mount.
      *
      * <p>Binds a {@link ComputedCache} for the duration of the mount so that any {@code
      * @LievitComputed} methods invoked from the mount hook or the render hook are memoized. The
@@ -86,26 +86,13 @@ public final class WireDispatcher {
      *     (ADR-0015), plus any children the render declared (ADR-0016)
      */
     public WireCall mount(ComponentMetadata metadata, Object instance) {
-        return mount(metadata, instance, Map.of());
+        return mount(metadata, instance, Map.of(), Map.of());
     }
 
     /**
-     * Mounts a fresh component, seeding parent-supplied props first: runs prop seeding, then the
-     * {@code @LievitMount} hook (if any), then the render (binding the {@link LievitChildren} sink so
-     * the render may declare its own children), then reads the initial {@code @Wire} state for the
-     * first snapshot.
-     *
-     * <p>Props are seeded <em>before</em> mount so the mount hook sees them (it can derive state from
-     * a prop), matching the props-then-mount order a parent expects (ADR-0016, Livewire mount-prop
-     * parity). Props go through the same settable allowlist as a client update: only a {@code @Wire}
-     * field is seeded, and the {@link PayloadGuard} proves every prop value is plain JSON data before
-     * it is bound (a parent passing an opaque object down is the same gadget surface a client update
-     * is). A prop targeting a locked field is honored (the parent is server-side, not the client):
-     * locked stops the <em>client</em>, not the owning parent.
-     *
-     * <p>Binds a {@link ComputedCache} for the duration of the mount so that any {@code
-     * @LievitComputed} methods invoked from the mount hook or the render hook are memoized; the
-     * resolved computed values ride the returned {@link WireCall} (ADR-0015).
+     * Mounts a fresh component, seeding parent-supplied props (a keyed child's props) before the
+     * mount hook. Delegates to {@link #mount(ComponentMetadata, Object, Map, Map)} with no URL query
+     * state: children are not URL-bound, only the top-level page mount carries query parameters.
      *
      * @param metadata the component metadata
      * @param instance a fresh component instance
@@ -115,6 +102,43 @@ public final class WireDispatcher {
      *     children the render declared (ADR-0016)
      */
     public WireCall mount(ComponentMetadata metadata, Object instance, Map<String, Object> props) {
+        return mount(metadata, instance, props, Map.of());
+    }
+
+    /**
+     * Mounts a fresh component, seeding parent-supplied props first, then seeding its
+     * {@code @LievitUrl} fields from the host page's query parameters.
+     *
+     * <p>Order (wire-protocol.md phase 1): props are seeded first (a child gets its parent props),
+     * then the {@code @LievitMount} hook runs (it can derive state from a prop and set mount-defaults
+     * for URL-bound fields), then the matching query parameters overwrite the URL-bound fields, then
+     * the render runs (binding the {@link LievitChildren} sink so it may declare its own children).
+     * So a URL with {@code ?search=foo} pre-fills the bound field before the first render, while a
+     * parameter absent from the URL leaves the mount-default in place ({@code @LievitUrl}, ADR-0012).
+     *
+     * <p>Props go through the same settable allowlist as a client update (only a {@code @Wire} field
+     * is seeded; the {@link PayloadGuard} proves every prop value is plain JSON data first), but a
+     * prop targeting a locked field is honored: the parent is server-side, and locked stops the
+     * <em>client</em>, not the owning parent (ADR-0016). URL seeding only ever writes a String into a
+     * String field and never touches a non-{@code @LievitUrl} field (ADR-0012).
+     *
+     * <p>Binds a {@link ComputedCache} for the duration of the mount so that any {@code
+     * @LievitComputed} methods invoked from the mount or render hook are memoized; the resolved
+     * computed values ride the returned {@link WireCall} (ADR-0015).
+     *
+     * @param metadata the component metadata
+     * @param instance a fresh component instance
+     * @param props the parent-supplied props to seed onto {@code @Wire} fields ({@code @key}-keyed
+     *     children pass these down); JSON-shaped, may be empty
+     * @param queryParams the host request's query parameters (first value per key), never null
+     * @return the initial {@code @Wire} state, empty effects, computed values (ADR-0015), plus any
+     *     children the render declared (ADR-0016)
+     */
+    public WireCall mount(
+            ComponentMetadata metadata,
+            Object instance,
+            Map<String, Object> props,
+            Map<String, String> queryParams) {
         ComputedCache computedCache = new ComputedCache();
         ComputedCache.bind(computedCache);
         LievitEffects effects = new LievitEffects();
@@ -125,6 +149,8 @@ public final class WireDispatcher {
             payloadGuard.checkSnapshotWire(props);
             seedProps(metadata, instance, props);
             invokeHook(metadata.mount(), instance);
+            // URL query parameters overwrite the URL-bound fields' mount-defaults, before render.
+            UrlQueryBinder.seedFromQuery(metadata, instance, queryParams);
             invokeHook(metadata.render(), instance);
             resolveAllComputed(metadata, instance, computedCache);
             return new WireCall(
@@ -192,6 +218,9 @@ public final class WireDispatcher {
             // their current props) on every re-render; the web layer re-mounts them (ADR-0016).
             invokeHook(metadata.render(), instance);
             resolveAllComputed(metadata, instance, computedCache);
+            // After the new state settles, reflect any @LievitUrl fields into the url effect so the
+            // client pushes/replaces the query string via the History API (ADR-0012, URL binding).
+            effects.url(UrlQueryBinder.buildEffect(metadata, instance));
             return new WireCall(
                     readWire(metadata, instance),
                     effects,

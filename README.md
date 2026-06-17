@@ -32,7 +32,7 @@ Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a c
 
 [**The category**](#the-category) ·
 [**The three strata**](#the-three-strata) ·
-[**The seven-annotation API**](#the-public-api-seven-annotations) ·
+[**The public API**](#the-public-api-nine-annotations) ·
 [**Hello component**](#hello-component-api-first-sketch) ·
 [**Single-file vs multi-file**](#single-file--multi-file) ·
 [**Wire protocol**](#wire-protocol-v01) ·
@@ -84,10 +84,11 @@ A developer only ever thinks about five things:
 | **Mount** | The lifecycle hook that runs after construction, before the first render. |
 | **Render** | The render step (template + checksum + signed snapshot). |
 
-## The public API (eight annotations)
+## The public API (nine annotations)
 
-The public surface is eight annotations (ADR-0002, cap superseded by ADR-0015 for
-`@LievitComputed`; see [`docs/adr/0015`](docs/adr/0015-computed-properties.md)):
+The public surface is nine annotations (ADR-0002's seven-annotation cap superseded by ADR-0015 for
+`@LievitComputed` — see [`docs/adr/0015`](docs/adr/0015-computed-properties.md) — and by the
+URL-binding feature for `@LievitUrl`):
 
 | Annotation | Purpose |
 |---|---|
@@ -97,8 +98,9 @@ The public surface is eight annotations (ADR-0002, cap superseded by ADR-0015 fo
 | `@LievitAction` | Marks a method callable from the template. |
 | `@LievitMount` | Lifecycle hook: after construction, before render. |
 | `@LievitRender` | Custom pre-render hook. |
-| `@LievitProperty` | Optional: extended metadata on a `@Wire` field (validation, transform, serialize). |
+| `@LievitProperty` | Optional: extended metadata on a `@Wire` field (serialize, locked, modelable two-way bind). |
 | `@LievitComputed` | Marks a no-arg method as a per-request computed property (memoized once per wire call, not serialized into the snapshot). |
+| `@LievitUrl` | Optional: reflects a `@Wire` field into the URL query string (mount-from-query + `url` effect on change). |
 
 ## Hello component (API-first sketch)
 

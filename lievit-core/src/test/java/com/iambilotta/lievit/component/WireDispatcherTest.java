@@ -289,7 +289,7 @@ class WireDispatcherTest {
                 .isEqualTo(WireError.PAYLOAD_TOO_COMPLEX);
     }
 
-    // --- nested components (ADR-0015) ------------------------------------------------------------
+    // --- nested components (ADR-0016) ------------------------------------------------------------
 
     @LievitComponent(template = "row")
     static class Row {
@@ -337,7 +337,7 @@ class WireDispatcherTest {
      * @spec.when  the dispatcher mounts the parent
      * @spec.then  the mounted result carries the declared children, each with its stable @key and the
      *     props the parent passed down (the parent's snapshot carries only the parent's own state)
-     * @spec.adr   ADR-0015
+     * @spec.adr   ADR-0016
      */
     @Test
     void mount_collects_the_children_a_parent_declared() {
@@ -358,7 +358,7 @@ class WireDispatcherTest {
      * @spec.when  the dispatcher mounts it with those props
      * @spec.then  the prop is seeded onto the @Wire field before @LievitMount runs (the mount hook
      *     sees it, so its default-only branch does not overwrite the prop)
-     * @spec.adr   ADR-0015
+     * @spec.adr   ADR-0016
      */
     @Test
     void mount_seeds_parent_props_before_the_mount_hook() {
@@ -373,7 +373,7 @@ class WireDispatcherTest {
      * @spec.given a Row mounted with no props
      * @spec.when  the dispatcher mounts it
      * @spec.then  the mount hook's default applies (no prop overrode it)
-     * @spec.adr   ADR-0015
+     * @spec.adr   ADR-0016
      */
     @Test
     void mount_with_no_props_lets_the_mount_hook_default_apply() {
@@ -389,7 +389,7 @@ class WireDispatcherTest {
      * @spec.when  the child is mounted with that prop
      * @spec.then  the prop is dropped (the settable allowlist applies to props too): the child's
      *     state is unaffected, no stray field is written
-     * @spec.adr   ADR-0015
+     * @spec.adr   ADR-0016
      */
     @Test
     void mount_drops_a_prop_that_is_not_a_wire_field() {
@@ -404,8 +404,8 @@ class WireDispatcherTest {
     /**
      * @spec.given a RowInput child whose value field is @LievitProperty(modelable)
      * @spec.when  its metadata is reflected
-     * @spec.then  the modelable field is discovered (the parent two-way-bind target, ADR-0015)
-     * @spec.adr   ADR-0015
+     * @spec.then  the modelable field is discovered (the parent two-way-bind target, ADR-0016)
+     * @spec.adr   ADR-0016
      */
     @Test
     void metadata_discovers_the_modelable_field() {
@@ -424,7 +424,7 @@ class WireDispatcherTest {
      * @spec.given a field declared both modelable and locked
      * @spec.when  the metadata is reflected
      * @spec.then  it is rejected: a server-owned (locked) field cannot be a parent two-way bind
-     * @spec.adr   ADR-0015
+     * @spec.adr   ADR-0016
      */
     @Test
     void metadata_rejects_a_field_that_is_both_modelable_and_locked() {
@@ -443,7 +443,7 @@ class WireDispatcherTest {
      * @spec.given a component declaring two modelable fields
      * @spec.when  the metadata is reflected
      * @spec.then  it is rejected: a component has at most one parent-bound value
-     * @spec.adr   ADR-0015
+     * @spec.adr   ADR-0016
      */
     @Test
     void metadata_rejects_more_than_one_modelable_field() {
@@ -457,7 +457,7 @@ class WireDispatcherTest {
      * @spec.when  the dispatcher runs the call
      * @spec.then  the re-render re-declares its children with their current props, so the children
      *     list reflects the new state (key-stable across re-renders is the client morph's job)
-     * @spec.adr   ADR-0015
+     * @spec.adr   ADR-0016
      */
     @Test
     void call_redeclares_children_on_re_render() {
