@@ -61,6 +61,14 @@ public record WireField(
     }
 
     /**
+     * @return the declared type of the field, used by the synthesizer registry to coerce a raw
+     *     {@code wire:model} update to the exact type (ADR-0020)
+     */
+    public Class<?> type() {
+        return field.getType();
+    }
+
+    /**
      * Reads the current value off a component instance.
      *
      * @param instance the component instance

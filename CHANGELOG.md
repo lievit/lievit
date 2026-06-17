@@ -8,6 +8,34 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Typed-state round-trip** (ADR-0020, the confirmed kit-CRUD blocker): a `Synthesizer<T>` SPI +
+  `SynthesizerRegistry` (`io.lievit.wire.synth`) so a non-primitive `@Wire` property (record, enum,
+  `LocalDate`/`LocalDateTime`/`LocalTime`/`Instant`, `BigDecimal`/`BigInteger`, `UUID`, `Set`, a
+  non-String-keyed `Map`, or a user value object) dehydrates to a `@w`-tagged `{d, s, t}` tuple and
+  hydrates back to the **exact** type, recursively — instead of decoding to a bare `LinkedHashMap`.
+  Built-in synths for the JVM analogues of Livewire's set; a `Wireable` SPI (`toWire()` / static
+  `fromWire(Object)`) the registry prefers over reflection and the native-safe escape hatch; the
+  typed-update path coerces a raw `wire:model` value (an `<input type=date>` string, a `<select>`
+  enum name) to the field's declared type. Primitives and plain JSON pass through unwrapped, so the
+  Counter snapshot stays byte-identical. The AOT processor registers the typed `@Wire` field types so
+  it round-trips in a native image too.
+- **Class-instantiation guard** (ADR-0021, the new part of the gadget-denylist issue): a
+  `ClassInstantiationGuard` consulted before any synthesizer reflectively instantiates the class
+  named in a tuple's `t`. Default-deny by gadget-prone root (`Runtime`, `ProcessBuilder`, IO / net /
+  naming / scripting / templating, Spring context, …) layered under the existing ADR-0013 JSON-shape
+  allowlist; a denied class is a `FORBIDDEN_DESERIALIZATION` (422), never a 500. The shipped HMAC /
+  `PayloadGuard` / `ChecksumFailureLimiter` paths are untouched.
+- **Request lifecycle + interceptor bus** (ADR-0022): a fixed, observable phase order
+  (`HYDRATE → UPDATE → UPDATED → CALL → RENDER → DEHYDRATE → DESTROY`, mount variant
+  `MOUNT → RENDER → DEHYDRATE → DESTROY`) dispatched through a named `LifecycleBus`
+  (`on(phase, listener)` / `trigger(phase, ctx)` with `finish`-callback semantics), so a feature
+  registers as a listener instead of a hardcoded branch. Strict ordering: `UPDATED` finishers run
+  after **all** updates (one hook can override another), a `CALL` listener can early-return to skip
+  the method (the magic-action seam), `RENDER` is skippable (the renderless seam), and a `DEHYDRATE`
+  memo survives the stateless round trip in the snapshot wire (the locales / persistent-middleware
+  pattern). The default bus is empty (behavior-neutral). `WireDispatcher`, `SynthesizerRegistry`, and
+  `LifecycleBus` are auto-configured beans, overridable by the application.
+
 - `Lievit.test()`: the developer-facing component test harness (ADR-0010), shipped as a feature in
   `lievit-spring-boot-starter` (`io.lievit.test`). A fluent tester that mounts and drives
   a `@LievitComponent` through the real wire pipeline (codec → registry → dispatcher → template →

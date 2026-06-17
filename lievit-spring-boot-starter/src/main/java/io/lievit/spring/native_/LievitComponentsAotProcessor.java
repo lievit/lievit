@@ -4,6 +4,11 @@
  */
 package io.lievit.spring.native_;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.RecordComponent;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
@@ -12,6 +17,8 @@ import org.springframework.beans.factory.aot.BeanFactoryInitializationAotProcess
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 
 import io.lievit.LievitComponent;
+import io.lievit.Wire;
+import io.lievit.wire.synth.Wireable;
 
 /**
  * Registers the GraalVM native reflection metadata for every {@code @LievitComponent} discovered in
@@ -34,6 +41,11 @@ import io.lievit.LievitComponent;
  * ADR-0006): the declared {@code @Wire} fields lievit gets/sets, the declared lifecycle/action
  * methods it invokes, and the no-arg constructor Spring uses to mint the prototype.
  *
+ * <p>It also registers the typed {@code @Wire} field state the synthesizer registry reconstructs
+ * reflectively (ADR-0020): a record's canonical constructor, an enum's {@code valueOf}, a
+ * {@link Wireable}'s {@code fromWire} factory, recursing through a record's components. Without these
+ * a typed component round-trips on the JVM but not in a native image.
+ *
  * <p>Implemented as a {@link BeanFactoryInitializationAotProcessor} rather than a static {@code
  * RuntimeHintsRegistrar} precisely because the set of components is the adopter's, not lievit's: the
  * processor reads the live bean factory at AOT time and contributes one hint per actual component.
@@ -50,10 +62,20 @@ public final class LievitComponentsAotProcessor implements BeanFactoryInitializa
         }
         return (generationContext, beanFactoryInitializationCode) -> {
             RuntimeHints hints = generationContext.getRuntimeHints();
+            Set<Class<?>> seen = new HashSet<>();
             for (String beanName : beanNames) {
                 Class<?> type = beanFactory.getType(beanName);
                 if (type != null) {
                     registerComponent(hints, type);
+                    // Register the typed @Wire field types (records / enums / Wireable VOs) the
+                    // synthesizer registry reconstructs reflectively, so a typed component round-trips
+                    // in a native image too (ADR-0020 + ADR-0006). Without this, a record @Wire field
+                    // has no canonical-constructor metadata and fails to rehydrate natively.
+                    for (Field field : type.getDeclaredFields()) {
+                        if (field.isAnnotationPresent(Wire.class)) {
+                            registerTypedState(hints, field.getType(), seen);
+                        }
+                    }
                 }
             }
         };
@@ -66,5 +88,41 @@ public final class LievitComponentsAotProcessor implements BeanFactoryInitializa
                         MemberCategory.DECLARED_FIELDS,
                         MemberCategory.INVOKE_DECLARED_METHODS,
                         MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+    }
+
+    /**
+     * Registers the reflective surface the synthesizer registry touches for a typed {@code @Wire}
+     * field value (ADR-0020): a {@code record}'s canonical constructor + accessors, an {@code enum}'s
+     * {@code valueOf}, a {@link Wireable}'s {@code fromWire} factory, recursing through a record's
+     * components so a nested typed value (a record holding a {@code List<EnumX>} or another record)
+     * is reachable. JDK temporal / numeric synth targets need no per-app hint (the built-in synths
+     * are registered statically). Cycle-safe via {@code seen}.
+     */
+    private void registerTypedState(RuntimeHints hints, Class<?> type, Set<Class<?>> seen) {
+        if (type == null || type.isPrimitive() || !seen.add(type)) {
+            return;
+        }
+        if (type.isEnum()) {
+            hints.reflection().registerType(type, MemberCategory.INVOKE_DECLARED_METHODS);
+            return;
+        }
+        if (Wireable.class.isAssignableFrom(type)) {
+            hints.reflection()
+                    .registerType(
+                            type,
+                            MemberCategory.INVOKE_DECLARED_METHODS,
+                            MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+            return;
+        }
+        if (type.isRecord()) {
+            hints.reflection()
+                    .registerType(
+                            type,
+                            MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                            MemberCategory.INVOKE_DECLARED_METHODS);
+            for (RecordComponent rc : type.getRecordComponents()) {
+                registerTypedState(hints, rc.getType(), seen);
+            }
+        }
     }
 }

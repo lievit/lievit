@@ -67,6 +67,63 @@ class LievitComponentsAotProcessorNfrTest {
                 .accepts(generationContext.getRuntimeHints());
     }
 
+    enum Status {
+        DRAFT,
+        ACTIVE
+    }
+
+    record Money(long cents, String currency) {}
+
+    record Listing(String title, Money price, Status status) {}
+
+    @io.lievit.LievitComponent
+    static class TypedComponent {
+        @io.lievit.Wire Listing listing = new Listing("x", new Money(1, "EUR"), Status.DRAFT);
+    }
+
+    /**
+     * @spec.given a @LievitComponent with a typed @Wire record field holding a nested record + enum
+     * @spec.when  the AOT processor runs
+     * @spec.then  the record's and the nested record's constructors and the enum's methods are
+     *     registered for reflection, so the synthesizer registry reconstructs the typed state in a
+     *     native image, not just on the JVM (ADR-0020 + ADR-0006)
+     * @spec.adr   ADR-0020
+     */
+    @Test
+    void contributes_reflection_hints_for_typed_wire_field_state() {
+        DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+        beanFactory.registerBeanDefinition(
+                "typedComponent", new RootBeanDefinition(TypedComponent.class));
+
+        GenerationContext generationContext =
+                new DefaultGenerationContext(
+                        new org.springframework.aot.generate.ClassNameGenerator(
+                                org.springframework.javapoet.ClassName.get(Object.class)),
+                        new InMemoryGeneratedFiles());
+
+        BeanFactoryInitializationAotContribution contribution =
+                processor.processAheadOfTime(beanFactory);
+        assertThat(contribution).isNotNull();
+        contribution.applyTo(generationContext, NO_CODE);
+
+        org.springframework.aot.hint.RuntimeHints hints = generationContext.getRuntimeHints();
+        assertThat(
+                        RuntimeHintsPredicates.reflection()
+                                .onType(Listing.class)
+                                .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
+                .accepts(hints);
+        assertThat(
+                        RuntimeHintsPredicates.reflection()
+                                .onType(Money.class)
+                                .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
+                .accepts(hints);
+        assertThat(
+                        RuntimeHintsPredicates.reflection()
+                                .onType(Status.class)
+                                .withMemberCategory(MemberCategory.INVOKE_DECLARED_METHODS))
+                .accepts(hints);
+    }
+
     /**
      * @spec.given a bean factory with no @LievitComponent at all
      * @spec.when  the AOT processor runs
