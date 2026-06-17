@@ -35,6 +35,18 @@
             <artifactId>jjwt-jackson</artifactId>
         </dependency>
 
+        <!--
+            Jakarta Bean Validation API (compile-time): lievit-core exposes FieldValidator and
+            BeanValidationFieldValidator which reference jakarta.validation types. The API jar is
+            optional so it is not forced on apps that do not use validation; the starter adds it
+            transitively through spring-boot-starter-validation.
+        -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Tests. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

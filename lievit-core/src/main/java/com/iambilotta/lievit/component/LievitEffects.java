@@ -17,6 +17,11 @@ import org.jspecify.annotations.Nullable;
  * as the {@code returns} effect. The sink is serialized into the {@code Lievit-Effects} response
  * header by the web layer.
  *
+ * <p>Real-time validation also writes here (via {@link #setValidationErrors}), set by the
+ * dispatcher when the {@link FieldValidator} finds constraint violations: the {@code errors} effect
+ * carries per-field messages to the client. Actions are skipped when validation fails; the client
+ * renders the errors inline, without a full submit.
+ *
  * <p>Lifecycle invariant (ADR-0001 statelessness): the sink is bound to the {@link
  * com.iambilotta.lievit.component.WireDispatcher} call via a {@link ThreadLocal} and reset for every
  * call. Nothing survives between calls; an action on a fresh instance starts with an empty sink.
@@ -33,6 +38,8 @@ public final class LievitEffects {
     private @Nullable String redirect;
     private final List<DispatchedEvent> dispatched = new ArrayList<>();
     private @Nullable Object returnValue;
+    /** Null means "validation did not run or produced no errors": the {@code errors} key is omitted. */
+    private @Nullable Map<String, List<String>> validationErrors;
 
     LievitEffects() {}
 
@@ -102,6 +109,21 @@ public final class LievitEffects {
     }
 
     /**
+     * Records the per-field validation errors produced by the {@link FieldValidator}. Called by
+     * the {@link WireDispatcher} when the validator returns a non-empty map; not called when
+     * validation passes (so {@link #validationErrors()} stays {@code null} and the {@code errors}
+     * key is omitted from the effects bag).
+     *
+     * <p>Only validation messages are surfaced: no internal class names, stack traces, or payload
+     * content ever reach the client (ADR-0014 fail-closed posture).
+     *
+     * @param errors the field → messages map from the validator (must be non-null, non-empty)
+     */
+    void setValidationErrors(Map<String, List<String>> errors) {
+        this.validationErrors = Map.copyOf(errors);
+    }
+
+    /**
      * @return the queued redirect location, or {@code null} if no redirect was requested
      */
     public @Nullable String redirect() {
@@ -123,9 +145,17 @@ public final class LievitEffects {
     }
 
     /**
+     * @return the per-field validation errors, or {@code null} if validation passed (or did not run)
+     */
+    public @Nullable Map<String, List<String>> validationErrors() {
+        return validationErrors;
+    }
+
+    /**
      * @return true if no effect was produced (so the {@code Lievit-Effects} header is omitted)
      */
     public boolean isEmpty() {
-        return redirect == null && dispatched.isEmpty() && returnValue == null;
+        return redirect == null && dispatched.isEmpty() && returnValue == null
+                && validationErrors == null;
     }
 }
