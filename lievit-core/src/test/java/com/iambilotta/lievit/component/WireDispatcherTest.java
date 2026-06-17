@@ -76,9 +76,9 @@ class WireDispatcherTest {
     void mount_runs_the_mount_hook_and_reads_initial_state() {
         ComponentMetadata meta = ComponentMetadata.of(Counter.class);
 
-        Map<String, Object> wire = dispatcher.mount(meta, new Counter());
+        WireCall result = dispatcher.mount(meta, new Counter());
 
-        assertThat(wire).containsEntry("count", 0);
+        assertThat(result.wire()).containsEntry("count", 0);
     }
 
     /**

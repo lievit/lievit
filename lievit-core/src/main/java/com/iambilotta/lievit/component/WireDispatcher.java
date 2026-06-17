@@ -62,14 +62,28 @@ public final class WireDispatcher {
      * Mounts a fresh component: runs its {@code @LievitMount} hook (if any), then reads the initial
      * {@code @Wire} state for the first snapshot.
      *
+     * <p>Binds a {@link ComputedCache} for the duration of the mount so that any {@code
+     * @LievitComputed} methods invoked from the mount hook or the render hook are memoized. The
+     * computed values resolved during mount are available via the returned {@link WireCall}.
+     *
      * @param metadata the component metadata
      * @param instance a fresh component instance
-     * @return the serialized initial {@code @Wire} state ({@code serialize = true} fields only)
+     * @return the wire call outcome: initial {@code @Wire} state, empty effects, computed values
      */
-    public Map<String, Object> mount(ComponentMetadata metadata, Object instance) {
-        invokeHook(metadata.mount(), instance);
-        invokeHook(metadata.render(), instance);
-        return readWire(metadata, instance);
+    public WireCall mount(ComponentMetadata metadata, Object instance) {
+        ComputedCache computedCache = new ComputedCache();
+        ComputedCache.bind(computedCache);
+        LievitEffects effects = new LievitEffects();
+        LievitEffects.bind(effects);
+        try {
+            invokeHook(metadata.mount(), instance);
+            invokeHook(metadata.render(), instance);
+            resolveAllComputed(metadata, instance, computedCache);
+            return new WireCall(readWire(metadata, instance), effects, computedCache.snapshot());
+        } finally {
+            ComputedCache.clear();
+            LievitEffects.clear();
+        }
     }
 
     /**
@@ -92,6 +106,8 @@ public final class WireDispatcher {
             Map<String, Object> snapshotWire,
             Map<String, Object> updates,
             List<String> calls) {
+        ComputedCache computedCache = new ComputedCache();
+        ComputedCache.bind(computedCache);
         LievitEffects effects = new LievitEffects();
         LievitEffects.bind(effects);
         try {
@@ -105,9 +121,23 @@ public final class WireDispatcher {
                 effects.captureReturn(invokeAction(metadata, instance, call));
             }
             invokeHook(metadata.render(), instance);
-            return new WireCall(readWire(metadata, instance), effects);
+            resolveAllComputed(metadata, instance, computedCache);
+            return new WireCall(readWire(metadata, instance), effects, computedCache.snapshot());
         } finally {
+            ComputedCache.clear();
             LievitEffects.clear();
+        }
+    }
+
+    /**
+     * Eagerly resolves every {@code @LievitComputed} method so all values are in the cache before
+     * the template adapter reads them (ADR-0015). Already-resolved methods (called by action logic
+     * during this call) are cache hits and are not re-invoked.
+     */
+    private void resolveAllComputed(
+            ComponentMetadata metadata, Object instance, ComputedCache computedCache) {
+        for (Method method : metadata.computedMethods().values()) {
+            computedCache.resolve(method, instance);
         }
     }
 
