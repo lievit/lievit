@@ -9,11 +9,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 /**
- * Specifies the {@link AdminForm} builder: it accumulates ordered fields (a name plus a label) from
- * a fluent DSL and shares the {@link AdminSchema} parent with {@link AdminTable} from v0.1, so the
+ * Specifies the {@link Form} builder: it accumulates ordered fields (a name plus a label) from
+ * a fluent DSL and shares the {@link Schema} parent with {@link Table} from v0.1, so the
  * two builders never need a later breaking unification (the Filament v3-&gt;v4 Schema lesson).
  */
-class AdminFormTest {
+class FormTest {
 
     record Listing(long ref, String city) {}
 
@@ -25,11 +25,11 @@ class AdminFormTest {
      */
     @Test
     void keeps_fields_in_declaration_order() {
-        AdminForm<Listing> form =
-                AdminForm.<Listing>create().field("ref", "Reference").field("city", "City");
+        Form<Listing> form =
+                Form.<Listing>create().field("ref", "Reference").field("city", "City");
 
-        assertThat(form.fields()).extracting(AdminField::name).containsExactly("ref", "city");
-        assertThat(form.fields()).extracting(AdminField::label).containsExactly("Reference", "City");
+        assertThat(form.fields()).extracting(Field::name).containsExactly("ref", "city");
+        assertThat(form.fields()).extracting(Field::label).containsExactly("Reference", "City");
     }
 
     /**
@@ -40,7 +40,7 @@ class AdminFormTest {
      */
     @Test
     void humanizes_the_label_when_only_a_name_is_given() {
-        AdminForm<Listing> form = AdminForm.<Listing>create().field("city");
+        Form<Listing> form = Form.<Listing>create().field("city");
 
         assertThat(form.fields().get(0).label()).isEqualTo("City");
     }
@@ -48,15 +48,15 @@ class AdminFormTest {
     /**
      * @spec.given a form and a table built for the same row type
      * @spec.when  their types are compared
-     * @spec.then  both are AdminSchema, the common parent shared from v0.1
+     * @spec.then  both are Schema, the common parent shared from v0.1
      * @spec.adr   ADR-0008
      */
     @Test
     void shares_the_schema_parent_with_the_table_builder() {
-        AdminForm<Listing> form = AdminForm.create();
-        AdminTable<Listing> table = AdminTable.create();
+        Form<Listing> form = Form.create();
+        Table<Listing> table = Table.create();
 
-        assertThat(form).isInstanceOf(AdminSchema.class);
-        assertThat(table).isInstanceOf(AdminSchema.class);
+        assertThat(form).isInstanceOf(Schema.class);
+        assertThat(table).isInstanceOf(Schema.class);
     }
 }

@@ -9,15 +9,15 @@ package com.iambilotta.lievit.kit;
  * require forking a published view (the load-bearing filament-internals.md lesson, "render hooks
  * beat published views").
  *
- * <p>An adopter or {@link AdminPanelPlugin} registers a hook against one of these names with {@link
- * AdminPanel#renderHook(String, java.util.function.Supplier)}; the layout stamps the registered
+ * <p>An adopter or {@link Plugin} registers a hook against one of these names with {@link
+ * Panel#renderHook(String, java.util.function.Supplier)}; the layout stamps the registered
  * fragments at each point. Because the surface is a fixed set of {@code String} constants, the
  * layout HTML stays owned by the kit and survives upgrades, unlike Filament's "publish the view and
  * hand-merge it forever".
  *
  * <p>v0.1 ships the four points the skeleton layout needs; the set grows as the layout does.
  */
-public final class AdminRenderHook {
+public final class RenderHook {
 
     /** Just inside the {@code <body>}, before anything else. */
     public static final String BODY_START = "kit::body.start";
@@ -31,5 +31,5 @@ public final class AdminRenderHook {
     /** Just before the closing {@code </body>}. */
     public static final String BODY_END = "kit::body.end";
 
-    private AdminRenderHook() {}
+    private RenderHook() {}
 }

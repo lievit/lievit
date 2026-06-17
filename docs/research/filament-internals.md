@@ -406,13 +406,13 @@ rarely need to fork the HTML. Render hooks beat published views.
 | Tailwind v4 | Tailwind v4 (same; lievit-ui copy-in tokens) |
 | Heroicons | Heroicons (same SVG, register via lievit-ui registry) |
 | `filament/support` Blade components | lievit-ui Lit components / JTE partials |
-| `Panel` builder | `AdminPanel` Spring configuration DSL |
-| `Resource` abstract class | `AdminResource<T>` abstract class |
-| `Schema` (Form/Table/Infolist) | `AdminForm<T>`, `AdminTable<T>`, `AdminInfolist<T>` |
+| `Panel` builder | `Panel` Spring configuration DSL |
+| `Resource` abstract class | `Resource<T>` abstract class |
+| `Schema` (Form/Table/Infolist) | `Form<T>`, `Table<T>`, `AdminInfolist<T>` |
 | `Action` | `AdminAction` |
 | Eloquent query | Spring `JdbcClient` / `JpaRepository` port |
-| `PanelProvider` (Laravel ServiceProvider) | Spring `@Configuration` with `@Bean AdminPanel` |
-| `Plugin` interface | `AdminPanelPlugin` interface |
+| `PanelProvider` (Laravel ServiceProvider) | Spring `@Configuration` with `@Bean Panel` |
+| `Plugin` interface | `Plugin` interface |
 | `make:filament-resource` artisan | `./mvnw generate` or CLI (`lievit-admin add resource`) |
 
 ### What to carry over
@@ -428,12 +428,12 @@ route slug. The lievit wire runtime already provides the component lifecycle
 (`@LievitMount`, `@LievitAction`); the admin panel adds navigation + layout wrapping.
 
 **3. Render hooks (named injection points).**
-A fixed set of `String` constants (e.g. `AdminRenderHook.CONTENT_BEFORE`) registered at panel
+A fixed set of `String` constants (e.g. `RenderHook.CONTENT_BEFORE`) registered at panel
 boot. Adopters insert JTE partials at hooks without touching the layout template.
 Beats Filament's "publish views and hand-merge forever".
 
 **4. Plugin interface.**
-`AdminPanelPlugin` with `register(AdminPanel panel)` and `boot(AdminPanel panel)`.
+`Plugin` with `register(Panel panel)` and `boot(Panel panel)`.
 The same two methods Filament uses; this is the right size.
 
 **5. Action as a first-class object.**
@@ -450,7 +450,7 @@ UI, and lets the admin iterate on CRUD conventions without breaking runtime adop
 **1. "Everything is a Resource" rigidity.**
 Filament forces every admin section through the Resource abstraction. Dashboard pages,
 settings pages, one-off tools — all need the Resource scaffolding or a custom Page escape.
-For "Filament for Spring", make `AdminResource` optional: a `@AdminPage` standalone component
+For "Filament for Spring", make `Resource` optional: a `@Page` standalone component
 should be a peer citizen, not a second-class escape hatch.
 
 **2. Static-only methods on Resource.**
@@ -464,7 +464,7 @@ model, ADR-0009); for admin layout, use render hooks + JTE params, not "publish 
 
 **4. Implicit Eloquent coupling.**
 Filament's entire data path assumes Eloquent. The Spring equivalent should accept a port
-interface (e.g. `AdminRecordRepository<T>`) injected by the adopter, not hard-code
+interface (e.g. `RecordRepository<T>`) injected by the adopter, not hard-code
 `JdbcClient` or `JpaRepository`. The admin layer should be persistence-agnostic; the
 adopter wires the data.
 

@@ -9,7 +9,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
 
-import com.iambilotta.lievit.kit.AdminRecordRepository;
+import com.iambilotta.lievit.kit.RecordRepository;
 
 /**
  * Minimal Spring Boot app for the hello-admin end-to-end test. Wires the adopter-supplied data port,
@@ -23,7 +23,7 @@ public class HelloAdminTestApp {
      * @return the in-memory data port standing in for the adopter's persistence
      */
     @Bean
-    AdminRecordRepository<Listing> listingRepository() {
+    RecordRepository<Listing> listingRepository() {
         return new InMemoryListingRepository();
     }
 
@@ -32,7 +32,7 @@ public class HelloAdminTestApp {
      * @return the admin resource for listings
      */
     @Bean
-    ListingResource listingResource(AdminRecordRepository<Listing> repository) {
+    ListingResource listingResource(RecordRepository<Listing> repository) {
         return new ListingResource(repository);
     }
 

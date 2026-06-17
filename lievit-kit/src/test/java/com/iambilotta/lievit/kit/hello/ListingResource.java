@@ -4,22 +4,22 @@
  */
 package com.iambilotta.lievit.kit.hello;
 
-import com.iambilotta.lievit.kit.AdminForm;
-import com.iambilotta.lievit.kit.AdminRecordRepository;
-import com.iambilotta.lievit.kit.AdminResource;
-import com.iambilotta.lievit.kit.AdminTable;
+import com.iambilotta.lievit.kit.Form;
+import com.iambilotta.lievit.kit.RecordRepository;
+import com.iambilotta.lievit.kit.Resource;
+import com.iambilotta.lievit.kit.Table;
 
 /**
- * The hello-admin resource: one {@link AdminResource} for the {@link Listing} entity, list-only for
+ * The hello-admin resource: one {@link Resource} for the {@link Listing} entity, list-only for
  * the skeleton. Instance-based (it takes its repository by constructor injection) and
  * persistence-agnostic (it never touches a DB directly).
  */
-public final class ListingResource extends AdminResource<Listing> {
+public final class ListingResource extends Resource<Listing> {
 
     /**
      * @param repository the adopter-supplied data port
      */
-    public ListingResource(AdminRecordRepository<Listing> repository) {
+    public ListingResource(RecordRepository<Listing> repository) {
         super(repository);
     }
 
@@ -34,8 +34,8 @@ public final class ListingResource extends AdminResource<Listing> {
     }
 
     @Override
-    public AdminTable<Listing> table() {
-        return AdminTable.<Listing>create()
+    public Table<Listing> table() {
+        return Table.<Listing>create()
                 .heading("Listings")
                 .id(l -> String.valueOf(l.ref()))
                 .column("Ref", Listing::ref)
@@ -43,7 +43,7 @@ public final class ListingResource extends AdminResource<Listing> {
     }
 
     @Override
-    public AdminForm<Listing> form() {
-        return AdminForm.<Listing>create().heading("Listing").field("city");
+    public Form<Listing> form() {
+        return Form.<Listing>create().heading("Listing").field("city");
     }
 }

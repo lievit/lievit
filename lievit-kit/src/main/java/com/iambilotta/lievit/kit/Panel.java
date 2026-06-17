@@ -23,14 +23,14 @@ import java.util.function.Supplier;
  * accumulates ~35 traits; heavy concerns like tenancy and multi-auth are opt-in later modules, not
  * baked into the core panel). v0.1 holds resources, render hooks, and plugins.
  */
-public final class AdminPanel {
+public final class Panel {
 
     private final String id;
-    private final List<AdminResource<?>> resources = new ArrayList<>();
+    private final List<Resource<?>> resources = new ArrayList<>();
     private final Map<String, List<Supplier<String>>> renderHooks = new LinkedHashMap<>();
-    private final Map<String, AdminPanelPlugin> plugins = new LinkedHashMap<>();
+    private final Map<String, Plugin> plugins = new LinkedHashMap<>();
 
-    private AdminPanel(String id) {
+    private Panel(String id) {
         this.id = Objects.requireNonNull(id, "id");
     }
 
@@ -38,8 +38,8 @@ public final class AdminPanel {
      * @param id the panel id (also its route prefix, for example {@code "admin"})
      * @return a new, empty panel
      */
-    public static AdminPanel create(String id) {
-        return new AdminPanel(id);
+    public static Panel create(String id) {
+        return new Panel(id);
     }
 
     /**
@@ -55,7 +55,7 @@ public final class AdminPanel {
      * @param resource the resource
      * @return this panel
      */
-    public AdminPanel resource(AdminResource<?> resource) {
+    public Panel resource(Resource<?> resource) {
         resources.add(Objects.requireNonNull(resource, "resource"));
         return this;
     }
@@ -63,25 +63,25 @@ public final class AdminPanel {
     /**
      * @return the registered resources, in registration order, as an unmodifiable snapshot
      */
-    public List<AdminResource<?>> resources() {
+    public List<Resource<?>> resources() {
         return Collections.unmodifiableList(resources);
     }
 
     /**
      * Registers a render hook: a fragment supplier injected at a named layout point.
      *
-     * @param point one of the {@link AdminRenderHook} constants
+     * @param point one of the {@link RenderHook} constants
      * @param fragment supplies the HTML fragment to inject
      * @return this panel
      */
-    public AdminPanel renderHook(String point, Supplier<String> fragment) {
+    public Panel renderHook(String point, Supplier<String> fragment) {
         renderHooks.computeIfAbsent(point, p -> new ArrayList<>())
                 .add(Objects.requireNonNull(fragment, "fragment"));
         return this;
     }
 
     /**
-     * @param point one of the {@link AdminRenderHook} constants
+     * @param point one of the {@link RenderHook} constants
      * @return the fragment suppliers registered at that point, in registration order (empty if none)
      */
     public List<Supplier<String>> renderHooks(String point) {
@@ -89,14 +89,14 @@ public final class AdminPanel {
     }
 
     /**
-     * Applies a plugin: runs its {@link AdminPanelPlugin#register(AdminPanel)} immediately and its
-     * {@link AdminPanelPlugin#boot(AdminPanel)} once registration has run (the Filament
+     * Applies a plugin: runs its {@link Plugin#register(Panel)} immediately and its
+     * {@link Plugin#boot(Panel)} once registration has run (the Filament
      * register-then-boot lifecycle).
      *
      * @param plugin the plugin
      * @return this panel
      */
-    public AdminPanel plugin(AdminPanelPlugin plugin) {
+    public Panel plugin(Plugin plugin) {
         Objects.requireNonNull(plugin, "plugin");
         plugins.put(plugin.getId(), plugin);
         plugin.register(this);
@@ -110,7 +110,7 @@ public final class AdminPanel {
      * @param id the plugin id
      * @return the plugin, or empty if none with that id was applied
      */
-    public Optional<AdminPanelPlugin> plugin(String id) {
+    public Optional<Plugin> plugin(String id) {
         return Optional.ofNullable(plugins.get(id));
     }
 }

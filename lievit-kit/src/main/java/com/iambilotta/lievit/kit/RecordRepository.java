@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The persistence-agnostic data port for an {@link AdminResource} (the filament-internals.md lesson:
+ * The persistence-agnostic data port for an {@link Resource} (the filament-internals.md lesson:
  * never hard-code {@code JdbcClient} or {@code JpaRepository}; the adopter wires the data).
  *
  * <p>Filament couples its whole data path to {@code getEloquentQuery()}; lievit-kit refuses that
@@ -22,7 +22,7 @@ import java.util.Optional;
  *
  * @param <T> the row type the resource lists
  */
-public interface AdminRecordRepository<T> {
+public interface RecordRepository<T> {
 
     /**
      * Lists the rows for the table view.
@@ -32,7 +32,7 @@ public interface AdminRecordRepository<T> {
     List<T> findAll();
 
     /**
-     * Looks up a single row by its string id (the value {@link AdminTable#id(java.util.function.Function)}
+     * Looks up a single row by its string id (the value {@link Table#id(java.util.function.Function)}
      * derives from a row).
      *
      * @param id the row id

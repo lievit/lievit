@@ -9,24 +9,24 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * The form-view builder of an {@link AdminResource}: an ordered list of {@link AdminField fields}
- * built with a fluent DSL (the filament-internals.md Form builder, on the shared {@link AdminSchema}
+ * The form-view builder of an {@link Resource}: an ordered list of {@link Field fields}
+ * built with a fluent DSL (the filament-internals.md Form builder, on the shared {@link Schema}
  * parent so it never needs a later unification with the table builder).
  *
  * @param <T> the row type the form edits
  */
-public final class AdminForm<T> extends AdminSchema<T, AdminForm<T>> {
+public final class Form<T> extends Schema<T, Form<T>> {
 
-    private final List<AdminField> fields = new ArrayList<>();
+    private final List<Field> fields = new ArrayList<>();
 
-    private AdminForm() {}
+    private Form() {}
 
     /**
      * @param <T> the row type
      * @return a new, empty form builder
      */
-    public static <T> AdminForm<T> create() {
-        return new AdminForm<>();
+    public static <T> Form<T> create() {
+        return new Form<>();
     }
 
     /**
@@ -36,8 +36,8 @@ public final class AdminForm<T> extends AdminSchema<T, AdminForm<T>> {
      * @param label the display label
      * @return this builder
      */
-    public AdminForm<T> field(String name, String label) {
-        fields.add(new AdminField(name, label));
+    public Form<T> field(String name, String label) {
+        fields.add(new Field(name, label));
         return this;
     }
 
@@ -47,14 +47,14 @@ public final class AdminForm<T> extends AdminSchema<T, AdminForm<T>> {
      * @param name the bound field name
      * @return this builder
      */
-    public AdminForm<T> field(String name) {
-        return field(name, AdminField.humanize(name));
+    public Form<T> field(String name) {
+        return field(name, Field.humanize(name));
     }
 
     /**
      * @return the fields, in declaration order, as an unmodifiable snapshot
      */
-    public List<AdminField> fields() {
+    public List<Field> fields() {
         return Collections.unmodifiableList(fields);
     }
 }
