@@ -30,8 +30,28 @@ class RelationFieldTest {
         }
 
         @Override
+        public Page<Category> page(Query query) {
+            return Page.of(findAll(), findAll().size());
+        }
+
+        @Override
         public Optional<Category> findById(String id) {
             return findAll().stream().filter(c -> c.id().equals(id)).findFirst();
+        }
+
+        @Override
+        public Category create(Category record) {
+            throw new UnsupportedOperationException("read-only fixture");
+        }
+
+        @Override
+        public Category update(String id, Category record) {
+            throw new UnsupportedOperationException("read-only fixture");
+        }
+
+        @Override
+        public void delete(String id) {
+            throw new UnsupportedOperationException("read-only fixture");
         }
     }
 

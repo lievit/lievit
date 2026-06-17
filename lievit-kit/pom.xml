@@ -37,6 +37,14 @@
             <artifactId>spring-context</artifactId>
         </dependency>
 
+        <!-- Submit-time Jakarta Bean Validation: Form.save() gates the write through a Validator over
+             the adopter's own jakarta.validation-annotated record (the canonical Spring way). Brings
+             jakarta.validation-api + hibernate-validator, version-managed by the Spring Boot BOM. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
         <!-- Tests. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

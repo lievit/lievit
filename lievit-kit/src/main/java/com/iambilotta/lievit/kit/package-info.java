@@ -27,6 +27,37 @@
  *       same {@code getId / register / boot} shape Filament uses.
  * </ul>
  *
+ * <p>The CRUD spine (full-page List / Create / Edit / Delete, the Filament P0):
+ *
+ * <ul>
+ *   <li>{@link com.iambilotta.lievit.kit.RecordRepository} carries the bounded read
+ *       ({@link com.iambilotta.lievit.kit.RecordRepository.Query} +
+ *       {@link com.iambilotta.lievit.kit.RecordRepository.Page}) and the write path
+ *       ({@code create} / {@code update} / {@code delete}).
+ *   <li>{@link com.iambilotta.lievit.kit.Form} owns the write: a
+ *       {@link com.iambilotta.lievit.kit.FormBinder} maps string state to the typed record, an
+ *       optional {@link com.iambilotta.lievit.kit.FormValidator} gates the save at submit time
+ *       (Jakarta Bean Validation -&gt; {@link com.iambilotta.lievit.kit.FieldError}), and
+ *       {@link com.iambilotta.lievit.kit.Form#save} returns a
+ *       {@link com.iambilotta.lievit.kit.SaveResult}.
+ *   <li>{@link com.iambilotta.lievit.kit.AdminAction} is the first-class action abstraction with
+ *       the built-in {@link com.iambilotta.lievit.kit.CreateAction} /
+ *       {@link com.iambilotta.lievit.kit.EditAction} /
+ *       {@link com.iambilotta.lievit.kit.DeleteAction}; on success they flash an
+ *       {@link com.iambilotta.lievit.kit.AdminNotification} and redirect on the lievit
+ *       {@link com.iambilotta.lievit.component.LievitEffects} substrate.
+ *   <li>{@link com.iambilotta.lievit.kit.AdminAuthorizer} is the write-boundary authorization seam
+ *       (default {@link com.iambilotta.lievit.kit.AdminAuthorizer#permitAll()}; the host supplies
+ *       a real policy).
+ *   <li>{@link com.iambilotta.lievit.kit.AdminListView} / {@link com.iambilotta.lievit.kit.AdminFormView}
+ *       are the render view-models; {@link com.iambilotta.lievit.kit.page.ListPageDriver} /
+ *       {@link com.iambilotta.lievit.kit.page.FormPageDriver} are the reusable page logic a concrete
+ *       {@code @LievitComponent} delegates to; {@link com.iambilotta.lievit.kit.ResourcePages} binds a
+ *       {@link com.iambilotta.lievit.kit.Resource} to its page component classes
+ *       ({@link com.iambilotta.lievit.kit.Resource#pages()}).
+ *   <li>Modal / single-page CRUD is deferred to the nested-component wave (this is full-page only).
+ * </ul>
+ *
  * <p>Concrete field types (all extend {@link com.iambilotta.lievit.kit.Field}):
  * {@link com.iambilotta.lievit.kit.TextField},
  * {@link com.iambilotta.lievit.kit.TextareaField},

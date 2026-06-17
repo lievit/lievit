@@ -4,6 +4,8 @@
  */
 package com.iambilotta.lievit.kit;
 
+import java.util.Optional;
+
 /**
  * The unit of work of the admin layer: one resource per domain entity, exposing a table view (the
  * list) and a form view (create / edit) over the row type {@code <T>} (the filament-internals.md
@@ -73,5 +75,18 @@ public abstract class Resource<T> {
      */
     public Form<T> form() {
         return Form.create();
+    }
+
+    /**
+     * Declares the concrete {@code @LievitComponent} page classes that render this resource's
+     * full-page CRUD pages, so the panel can mount each at its {@link AdminRoutes} URL ("declaring a
+     * Resource yields the four pages"). Defaults to none: a resource that does not declare its pages
+     * is configuration-only (its {@link #table()} / {@link #form()} can still be exercised
+     * head-less, as the builder tests do).
+     *
+     * @return the page-class triple, or empty if this resource does not declare CRUD pages
+     */
+    public Optional<ResourcePages> pages() {
+        return Optional.empty();
     }
 }
