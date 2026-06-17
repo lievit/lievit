@@ -1,6 +1,6 @@
 # ADR-0010: `Lievit.test()` — the developer-facing component test harness
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-06-17
 - **Deciders:** Francesco Bilotta
 

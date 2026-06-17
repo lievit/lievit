@@ -205,6 +205,56 @@ The full normative spec is [`docs/adr/0001`](docs/adr/0001-wire-protocol-v0.1.md
 - **Limits**: payload 64 kb, snapshot 16 kb, idle TTL 1 h, action timeout 5 s, signing key
   >= 32 bytes base64url with a 24 h previous-key grace window.
 
+## Testing your components (`Lievit.test()`)
+
+Full design in [`docs/adr/0010`](docs/adr/0010-dev-test-harness.md). lievit ships a developer-facing
+component test harness, the answer to Livewire's `Livewire::test()` — and it pulls behaviour *out of
+the browser*. Because lievit's wire is server-driven and typed, a fast in-process test drives the
+**real** pipeline (codec → registry → dispatcher → template → the `POST /lievit/{id}/call` HTTP edge
+over `MockMvc`) and reads typed state back. No browser, no JSON-map boilerplate, no snapshot juggling.
+
+```java
+import static com.iambilotta.lievit.test.Lievit.test;
+
+@LievitTest                                  // one meta-annotation: slice + dev key + MockMvc
+class CounterComponentTest {
+
+    @Test
+    void increments_over_the_wire() {
+        test(CounterComponent.class)
+            .mount()
+            .assertWire("count", 0)          // typed state read-back, not a string grep
+            .assertSee(">0<")                // the real re-rendered HTML
+            .call("increment")               // over the REAL signed snapshot
+            .assertWire("count", 1)
+            .assertSee(">1<")
+            .assertSnapshotRotated();        // a fresh Lievit-Snapshot came back
+    }
+
+    @Test
+    void a_client_cannot_write_a_locked_field() {
+        test(CounterComponent.class)
+            .mount()
+            .tamperUpdate("label", "x")      // a HOSTILE _updates entry, attacker's seat
+            .call("increment")
+            .assertRejected(LockedProperty.class);   // 403 — headless, what Livewire forces to a browser
+    }
+}
+```
+
+Assertion surface: `assertWire(path, value)` (typed, dotted + `.size` navigation),
+`assertWireMatches(predicate)` (typed predicate over the real instance), `assertSee` / `assertDontSee`
+/ `assertSeeHtml` / `assertSeeInOrder`, `assertSnapshotRotated` / `assertSnapshotValid`, and
+`assertRejected(<reason>.class)` for the whole error-code state machine — including `LockedProperty`
+(403, attacker's seat) and `TooManyFailures` (429), the two Livewire's own component tester cannot
+reach. Hostile-seat affordances `tamperUpdate(field, value)` and `forgeSnapshot()` drive the locked
+and rate-limit defenses headless. Failure messages name the call sequence that produced the state
+(`expected @Wire count == 1 but was 0 after calls [increment]`). `@LievitTest` is test-scope and does
+**not** count against the seven-annotation public cap.
+
+> An effects channel is not yet a harness surface: when the sibling effects-channel work lands, an
+> `assertEffect`-style assertion follows it.
+
 ## Custom elements
 
 lievit ships brand-visible custom elements: `<lievit-loading>`, `<lievit-error>`,
