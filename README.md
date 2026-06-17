@@ -209,6 +209,85 @@ The full normative spec is [`docs/adr/0001`](docs/adr/0001-wire-protocol-v0.1.md
 - **Limits**: payload 64 kb, snapshot 16 kb, idle TTL 1 h, action timeout 5 s, signing key
   >= 32 bytes base64url with a 24 h previous-key grace window.
 
+## Real-time server-side validation
+
+Add Jakarta Bean Validation constraints directly on `@Wire` fields. lievit validates the component
+instance on every wire call, before running any action. If validation fails the action is skipped and
+the per-field errors ride the `Lievit-Effects` header as the `errors` key. The template receives them
+as the reserved `_errors` model parameter. Debounce is a client concern (`l:model.blur`,
+`l:model.debounce.300ms`); the server validates idempotently on every call.
+
+**Component** — annotate `@Wire` fields with any Jakarta constraint:
+
+```java
+@LievitComponent(template = "registration")
+public class RegistrationComponent {
+
+    @Wire @NotBlank(message = "Email is required") @Email(message = "Must be a valid email address")
+    String email = "";
+
+    @Wire @NotBlank(message = "Name is required") @Size(min = 2, message = "Name must be at least 2 characters")
+    String name = "";
+
+    @Wire boolean submitted = false;   // @Wire so it round-trips in the snapshot
+
+    @LievitAction
+    void submit() { this.submitted = true; }
+}
+```
+
+**Template** — read `_errors` (always a `Map<String, List<String>>`, `null` when no errors):
+
+```
+@param Map<String, List<String>> _errors = null
+
+<input l:model.blur="email" name="email" value="${email}">
+@if(_errors != null && _errors.containsKey("email"))
+    @for(String msg : _errors.get("email"))
+        <span class="error" data-field="email">${msg}</span>
+    @endfor
+@endif
+```
+
+**Auto-wiring** — add `spring-boot-starter-validation` and lievit's autoconfiguration wires
+`BeanValidationFieldValidator` automatically (Hibernate Validator on the classpath). No annotation,
+no `@Bean` required. Swap in a custom `FieldValidator` bean to override (e.g. cross-field
+validation, async checks):
+
+```java
+@Bean
+FieldValidator myValidator(MyService svc) {
+    return instance -> svc.validate(instance);
+}
+```
+
+**Testing** — the harness exposes `assertHasError(field, fragment)`, `assertNoErrors()`,
+`assertNoErrors(field)`:
+
+```java
+@Test
+void invalid_email_blocks_submit() {
+    test(RegistrationComponent.class)
+        .mount()
+        .model("email", "not-an-email")
+        .model("name", "Alice")
+        .call("submit")
+        .assertHasError("email", "valid email")   // message contains "valid email"
+        .assertNoErrors("name");
+}
+
+@Test
+void valid_form_submits() {
+    test(RegistrationComponent.class)
+        .mount()
+        .model("email", "alice@example.com")
+        .model("name", "Alice")
+        .call("submit")
+        .assertNoErrors()
+        .assertWireMatches(comp -> comp.submitted);
+}
+```
+
 ## Testing your components (`Lievit.test()`)
 
 Full design in [`docs/adr/0010`](docs/adr/0010-dev-test-harness.md). lievit ships a developer-facing
@@ -248,16 +327,14 @@ class CounterComponentTest {
 
 Assertion surface: `assertWire(path, value)` (typed, dotted + `.size` navigation),
 `assertWireMatches(predicate)` (typed predicate over the real instance), `assertSee` / `assertDontSee`
-/ `assertSeeHtml` / `assertSeeInOrder`, `assertSnapshotRotated` / `assertSnapshotValid`, and
+/ `assertSeeHtml` / `assertSeeInOrder`, `assertSnapshotRotated` / `assertSnapshotValid`,
 `assertRejected(<reason>.class)` for the whole error-code state machine — including `LockedProperty`
 (403, attacker's seat) and `TooManyFailures` (429), the two Livewire's own component tester cannot
-reach. Hostile-seat affordances `tamperUpdate(field, value)` and `forgeSnapshot()` drive the locked
-and rate-limit defenses headless. Failure messages name the call sequence that produced the state
-(`expected @Wire count == 1 but was 0 after calls [increment]`). `@LievitTest` is test-scope and does
-**not** count against the seven-annotation public cap.
-
-> An effects channel is not yet a harness surface: when the sibling effects-channel work lands, an
-> `assertEffect`-style assertion follows it.
+reach — and `assertHasError(field, fragment)` / `assertNoErrors()` / `assertNoErrors(field)` for
+real-time validation (the `errors` effect). Hostile-seat affordances `tamperUpdate(field, value)` and
+`forgeSnapshot()` drive the locked and rate-limit defenses headless. Failure messages name the call
+sequence that produced the state (`expected @Wire count == 1 but was 0 after calls [increment]`).
+`@LievitTest` is test-scope and does **not** count against the seven-annotation public cap.
 
 ## Custom elements
 

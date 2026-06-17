@@ -8,6 +8,8 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+import jakarta.validation.Validator;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -17,6 +19,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 
 import com.iambilotta.lievit.LievitComponent;
+import com.iambilotta.lievit.component.BeanValidationFieldValidator;
+import com.iambilotta.lievit.component.FieldValidator;
+import com.iambilotta.lievit.component.NoOpFieldValidator;
 import com.iambilotta.lievit.component.WireDispatcher;
 import com.iambilotta.lievit.jte.JteTemplateAdapter;
 import com.iambilotta.lievit.render.TemplateAdapter;
@@ -38,7 +43,13 @@ import gg.jte.resolve.ResourceCodeResolver;
  *
  * <p>The web layer lives here, never in the codec (ADR-0007). Every bean is {@code
  * @ConditionalOnMissingBean}, so an application can override any piece (a custom adapter, a custom
- * codec) without forking the starter.
+ * codec, a custom field validator) without forking the starter.
+ *
+ * <p>Real-time validation: when {@code jakarta.validation.Validator} is available (i.e.
+ * {@code spring-boot-starter-validation} / Hibernate Validator is on the classpath), a
+ * {@link BeanValidationFieldValidator} bean is auto-configured and injected into the dispatcher.
+ * Applications may declare their own {@link FieldValidator} bean to override it. Without Hibernate
+ * Validator, the dispatcher uses {@link NoOpFieldValidator} and validation is a no-op.
  */
 @AutoConfiguration
 @ConditionalOnClass(WireDispatcher.class)
@@ -93,13 +104,34 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * The Jakarta Bean Validation-backed field validator. Registered only when
+     * {@code jakarta.validation.Validator} is available (i.e. {@code spring-boot-starter-validation}
+     * / Hibernate Validator is on the classpath). An application may declare its own
+     * {@link FieldValidator} bean to override this.
+     *
+     * @param validator the Jakarta Validator provided by Spring's {@code LocalValidatorFactoryBean}
+     * @return the Bean Validation-backed field validator
+     */
+    @Bean
+    @ConditionalOnMissingBean(FieldValidator.class)
+    @ConditionalOnClass(Validator.class)
+    public FieldValidator lievitFieldValidator(Validator validator) {
+        return new BeanValidationFieldValidator(validator);
+    }
+
+    /**
      * @param payloadGuard the structural-cap / deserialization-allowlist guard (ADR-0013)
+     * @param fieldValidator the field validator (Bean Validation-backed or custom); falls back to
+     *     {@link NoOpFieldValidator} when no validator bean is available
      * @return the stateless lifecycle engine
      */
     @Bean
     @ConditionalOnMissingBean
-    public WireDispatcher lievitWireDispatcher(PayloadGuard payloadGuard) {
-        return new WireDispatcher(payloadGuard);
+    public WireDispatcher lievitWireDispatcher(
+            PayloadGuard payloadGuard, ObjectProvider<FieldValidator> fieldValidator) {
+        FieldValidator validator =
+                fieldValidator.getIfAvailable(() -> NoOpFieldValidator.INSTANCE);
+        return new WireDispatcher(payloadGuard, validator);
     }
 
     /**

@@ -23,8 +23,8 @@ import com.iambilotta.lievit.wire.WireException;
  * <p>The two entry points are {@link #mount(ComponentMetadata, Object)} (first page load: run the
  * {@code @LievitMount} hook, then read the initial {@code @Wire} state) and
  * {@link #call(ComponentMetadata, Object, Map, Map, List)} (an interaction: rehydrate the snapshot
- * state, apply the client {@code _updates}, invoke the {@code _calls} actions in order, read back
- * the new state).
+ * state, apply the client {@code _updates}, run the {@link FieldValidator}, invoke the
+ * {@code _calls} actions in order, read back the new state).
  *
  * <p>The load-bearing security rules live in {@link #applyUpdates} and {@link #invokeAction}:
  *
@@ -40,22 +40,37 @@ import com.iambilotta.lievit.wire.WireException;
  *       (ADR-0001 amendment).
  *   <li>the {@link PayloadGuard} bounds the payload's shape (max updates / calls / nesting) and
  *       enforces the deserialization allowlist before any value is bound (ADR-0013).
+ *   <li>the {@link FieldValidator} runs after updates are applied and before any action: if it
+ *       returns per-field errors they are written to the effects sink and the actions are skipped.
+ *       Validation is server-authoritative; the client renders the errors inline. Idempotent: same
+ *       input always produces the same error set.
  * </ul>
  */
 public final class WireDispatcher {
 
     private final PayloadGuard payloadGuard;
+    private final FieldValidator fieldValidator;
 
-    /** Uses the protocol-default {@link PayloadGuard} (wire-protocol.md §6). */
+    /** Uses the protocol-default {@link PayloadGuard} and the no-op {@link FieldValidator}. */
     public WireDispatcher() {
-        this(new PayloadGuard());
+        this(new PayloadGuard(), NoOpFieldValidator.INSTANCE);
     }
 
     /**
      * @param payloadGuard the structural-cap and deserialization-allowlist guard (ADR-0013)
      */
     public WireDispatcher(PayloadGuard payloadGuard) {
+        this(payloadGuard, NoOpFieldValidator.INSTANCE);
+    }
+
+    /**
+     * @param payloadGuard the structural-cap and deserialization-allowlist guard (ADR-0013)
+     * @param fieldValidator the Jakarta Bean Validation-backed field validator (or a custom
+     *     implementation); use {@link NoOpFieldValidator#INSTANCE} to skip validation
+     */
+    public WireDispatcher(PayloadGuard payloadGuard, FieldValidator fieldValidator) {
         this.payloadGuard = payloadGuard;
+        this.fieldValidator = fieldValidator;
     }
 
     /**
@@ -75,12 +90,16 @@ public final class WireDispatcher {
     /**
      * Runs one wire call against a rehydrated component.
      *
+     * <p>Lifecycle: verify payload → rehydrate → apply updates → <strong>validate</strong> (if
+     * errors: write to effects, skip actions) → invoke actions → re-render → read wire.
+     *
      * @param metadata the component metadata
      * @param instance a fresh component instance to rehydrate onto
      * @param snapshotWire the {@code @Wire} state decoded from the verified snapshot
      * @param updates the client-supplied field updates ({@code _updates})
      * @param calls the action names to invoke, in order ({@code _calls})
-     * @return the new {@code @Wire} state plus any {@link LievitEffects} the actions produced
+     * @return the new {@code @Wire} state plus any {@link LievitEffects} the actions or the
+     *     validator produced
      * @throws WireException {@link WireError#LOCKED_PROPERTY} if an update targets a locked field;
      *     {@link WireError#UNKNOWN_COMPONENT} if a call names no {@code @LievitAction}; {@link
      *     WireError#PAYLOAD_TOO_COMPLEX} if a structural cap is exceeded; {@link
@@ -101,9 +120,19 @@ public final class WireDispatcher {
             payloadGuard.checkSnapshotWire(snapshotWire);
             rehydrate(metadata, instance, snapshotWire);
             applyUpdates(metadata, instance, updates);
-            for (String call : calls) {
-                effects.captureReturn(invokeAction(metadata, instance, call));
+
+            // Validate after updates are applied; if errors exist write them to the effects sink
+            // and skip the actions for this call. The re-render still runs so the template can
+            // read the (unchanged) wire state and render the errors from the model.
+            Map<String, List<String>> errors = fieldValidator.validate(instance);
+            if (errors != null && !errors.isEmpty()) {
+                effects.setValidationErrors(errors);
+            } else {
+                for (String call : calls) {
+                    effects.captureReturn(invokeAction(metadata, instance, call));
+                }
             }
+
             invokeHook(metadata.render(), instance);
             return new WireCall(readWire(metadata, instance), effects);
         } finally {
@@ -161,7 +190,7 @@ public final class WireDispatcher {
         return invoke(action, instance);
     }
 
-    private void invokeHook(Method hook, Object instance) {
+    private void invokeHook(@Nullable Method hook, Object instance) {
         if (hook != null) {
             invoke(hook, instance);
         }
