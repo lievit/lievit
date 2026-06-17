@@ -25,7 +25,14 @@ import org.jspecify.annotations.Nullable;
 public final class Table<T> extends Schema<T, Table<T>> {
 
     private final List<Column<T>> columns = new ArrayList<>();
+    private final List<Filter> filters = new ArrayList<>();
     private @Nullable Function<? super T, String> idFunction;
+    private Sort defaultSort = Sort.NONE;
+    private int defaultPageSize = RecordRepository.Query.DEFAULT_LIMIT;
+    private List<Integer> pageSizeOptions = List.of(10, 25, 50, 100);
+    private boolean striped;
+    private String emptyStateHeading = "No records";
+    private @Nullable String emptyStateDescription;
 
     private Table() {}
 
@@ -76,10 +83,132 @@ public final class Table<T> extends Schema<T, Table<T>> {
     }
 
     /**
+     * Registers the table's filters (the Filament {@code Table::filters}).
+     *
+     * @param fs the filters
+     * @return this builder
+     */
+    public Table<T> filters(Filter... fs) {
+        for (Filter f : fs) {
+            filters.add(Objects.requireNonNull(f, "filter"));
+        }
+        return this;
+    }
+
+    /**
+     * Sets the initial sort order (the Filament {@code Table::defaultSort}).
+     *
+     * @param column the column sort key
+     * @param direction the direction
+     * @return this builder
+     */
+    public Table<T> defaultSort(String column, SortDirection direction) {
+        this.defaultSort = Sort.by(column, direction);
+        return this;
+    }
+
+    /**
+     * Sets the initial sort order ascending.
+     *
+     * @param column the column sort key
+     * @return this builder
+     */
+    public Table<T> defaultSort(String column) {
+        return defaultSort(column, SortDirection.ASC);
+    }
+
+    /**
+     * Sets the initial page size (the Filament {@code Table::defaultPaginationPageOption}).
+     *
+     * @param size the default page size
+     * @return this builder
+     */
+    public Table<T> defaultPaginationPageOption(int size) {
+        this.defaultPageSize = size < 1 ? 1 : size;
+        return this;
+    }
+
+    /**
+     * Sets the records-per-page options offered in the page-size selector.
+     *
+     * @param options the page sizes (a non-positive entry is read as "all")
+     * @return this builder
+     */
+    public Table<T> paginationPageOptions(Integer... options) {
+        this.pageSizeOptions = List.of(options);
+        return this;
+    }
+
+    /**
+     * Alternates row backgrounds (the Filament {@code Table::striped}).
+     *
+     * @return this builder
+     */
+    public Table<T> striped() {
+        this.striped = true;
+        return this;
+    }
+
+    /**
+     * Sets the empty-state heading and description shown when no row matches.
+     *
+     * @param heading the empty-state heading
+     * @param description the empty-state description (may be null)
+     * @return this builder
+     */
+    public Table<T> emptyState(String heading, @Nullable String description) {
+        this.emptyStateHeading = Objects.requireNonNull(heading, "heading");
+        this.emptyStateDescription = description;
+        return this;
+    }
+
+    /**
      * @return the columns, in declaration order, as an unmodifiable snapshot
      */
     public List<Column<T>> columns() {
         return Collections.unmodifiableList(columns);
+    }
+
+    /** @return the registered filters, in declaration order */
+    public List<Filter> filters() {
+        return Collections.unmodifiableList(filters);
+    }
+
+    /** @return the initial sort order ({@link Sort#NONE} if none declared) */
+    public Sort defaultSort() {
+        return defaultSort;
+    }
+
+    /** @return the default page size */
+    public int defaultPageSize() {
+        return defaultPageSize;
+    }
+
+    /** @return the records-per-page options, in order */
+    public List<Integer> pageSizeOptions() {
+        return pageSizeOptions;
+    }
+
+    /** @return whether rows are striped */
+    public boolean isStriped() {
+        return striped;
+    }
+
+    /** @return the empty-state heading */
+    public String emptyStateHeading() {
+        return emptyStateHeading;
+    }
+
+    /** @return the empty-state description, or {@code null} */
+    public @Nullable String emptyStateDescription() {
+        return emptyStateDescription;
+    }
+
+    /**
+     * @return whether any column folds into the global search
+     */
+    public boolean hasSearchableColumns() {
+        return columns.stream().anyMatch(Column::isSearchable);
     }
 
     /**

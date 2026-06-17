@@ -60,6 +60,17 @@ public final class ListPageDriver<T> {
     }
 
     /**
+     * Builds the bounded list view-model for a full list request (page, size, sort, search,
+     * filters).
+     *
+     * @param request the user-driven list state
+     * @return the list view-model
+     */
+    public AdminListView view(io.lievit.kit.ListRequest request) {
+        return AdminListView.of(resource, request);
+    }
+
+    /**
      * Runs the row-level delete: authorize, delete the record, flash a success notification, and
      * redirect to the list. A blank id is a no-op (nothing armed).
      *

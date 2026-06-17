@@ -45,6 +45,18 @@ public final class LievitEffects {
     LievitEffects() {}
 
     /**
+     * Creates a standalone, capturing effects sink, off the wire. The dispatcher binds its own sink
+     * during a wire call (see {@link #current()}); this factory lets server-side code (e.g. the
+     * admin kit's action testing helpers) build an action context and assert over the queued
+     * {@link #redirect()} / {@link #dispatched()} effects without booting the wire.
+     *
+     * @return a fresh, unbound effects sink that captures the effects queued onto it
+     */
+    public static LievitEffects capturing() {
+        return new LievitEffects();
+    }
+
+    /**
      * Returns the effects sink for the current wire call.
      *
      * @return the bound sink

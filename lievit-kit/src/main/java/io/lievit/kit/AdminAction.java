@@ -30,6 +30,16 @@ public abstract class AdminAction<T> {
     private final String label;
     private final AdminOperation operation;
 
+    private @org.jspecify.annotations.Nullable String icon;
+    private @org.jspecify.annotations.Nullable String color;
+    private Size size = Size.MEDIUM;
+    private ActionVariant variant = ActionVariant.BUTTON;
+    private @org.jspecify.annotations.Nullable String tooltip;
+    private @org.jspecify.annotations.Nullable String badge;
+    private boolean outlined;
+    private boolean disabled;
+    private java.util.function.Predicate<@org.jspecify.annotations.Nullable Object> hidden = r -> false;
+
     /**
      * @param name the action name (stable id, the {@code @LievitAction}-side handle the page wires)
      * @param label the human label shown on the button
@@ -54,6 +64,181 @@ public abstract class AdminAction<T> {
     /** @return the CRUD operation this action performs */
     public final AdminOperation operation() {
         return operation;
+    }
+
+    // --- presentation surface (Filament Action: icon/color/size/variant/tooltip/badge/...) ---
+
+    /**
+     * Sets the action's icon name (resolved against the host's icon vocabulary).
+     *
+     * @param iconName the icon name
+     * @return this action
+     */
+    public AdminAction<T> icon(String iconName) {
+        this.icon = Objects.requireNonNull(iconName, "iconName");
+        return this;
+    }
+
+    /**
+     * Sets the action's semantic colour (e.g. {@code "primary"}, {@code "danger"}).
+     *
+     * @param colorName the colour name
+     * @return this action
+     */
+    public AdminAction<T> color(String colorName) {
+        this.color = Objects.requireNonNull(colorName, "colorName");
+        return this;
+    }
+
+    /**
+     * Sets the action's size.
+     *
+     * @param s the size
+     * @return this action
+     */
+    public AdminAction<T> size(Size s) {
+        this.size = Objects.requireNonNull(s, "s");
+        return this;
+    }
+
+    /**
+     * Sets how the action renders (button / link / icon-button / badge).
+     *
+     * @param v the variant
+     * @return this action
+     */
+    public AdminAction<T> variant(ActionVariant v) {
+        this.variant = Objects.requireNonNull(v, "v");
+        return this;
+    }
+
+    /**
+     * Sets a hover tooltip.
+     *
+     * @param text the tooltip text
+     * @return this action
+     */
+    public AdminAction<T> tooltip(String text) {
+        this.tooltip = Objects.requireNonNull(text, "text");
+        return this;
+    }
+
+    /**
+     * Sets a badge value shown on the action.
+     *
+     * @param value the badge value
+     * @return this action
+     */
+    public AdminAction<T> badge(String value) {
+        this.badge = Objects.requireNonNull(value, "value");
+        return this;
+    }
+
+    /**
+     * Renders the button outlined rather than filled.
+     *
+     * @return this action
+     */
+    public AdminAction<T> outlined() {
+        this.outlined = true;
+        return this;
+    }
+
+    /**
+     * Disables the action (rendered but not invokable).
+     *
+     * @param value whether the action is disabled
+     * @return this action
+     */
+    public AdminAction<T> disabled(boolean value) {
+        this.disabled = value;
+        return this;
+    }
+
+    /**
+     * Hides the action when the predicate matches the host record (or {@code null} for a
+     * resource-scoped action). Goes beyond the binary authorizer result: a per-record visibility
+     * gate.
+     *
+     * @param predicate matches a record to hide the action for it
+     * @return this action
+     */
+    public AdminAction<T> hidden(java.util.function.Predicate<@org.jspecify.annotations.Nullable Object> predicate) {
+        this.hidden = Objects.requireNonNull(predicate, "predicate");
+        return this;
+    }
+
+    /** @return the icon name, or {@code null} if none */
+    public @org.jspecify.annotations.Nullable String icon() {
+        return icon;
+    }
+
+    /** @return the semantic colour name, or the default for this action's kind */
+    public @org.jspecify.annotations.Nullable String color() {
+        return color != null ? color : defaultColor();
+    }
+
+    /** @return the action size */
+    public Size size() {
+        return size;
+    }
+
+    /** @return the render variant */
+    public ActionVariant variant() {
+        return variant;
+    }
+
+    /** @return the tooltip text, or {@code null} */
+    public @org.jspecify.annotations.Nullable String tooltip() {
+        return tooltip;
+    }
+
+    /** @return the badge value, or {@code null} */
+    public @org.jspecify.annotations.Nullable String badge() {
+        return badge;
+    }
+
+    /** @return whether the button is rendered outlined */
+    public boolean isOutlined() {
+        return outlined;
+    }
+
+    /** @return whether the action is disabled */
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    /**
+     * @param record the host record (or {@code null} for a resource-scoped action)
+     * @return whether the action is hidden for that record
+     */
+    public boolean isHiddenFor(@org.jspecify.annotations.Nullable Object record) {
+        return hidden.test(record);
+    }
+
+    /**
+     * The default semantic colour for this action's kind, used when none is set. The base default
+     * is {@code null} (the host's neutral); destructive actions and built-ins override.
+     *
+     * @return the default colour name, or {@code null}
+     */
+    protected @org.jspecify.annotations.Nullable String defaultColor() {
+        return isDestructive() ? "danger" : null;
+    }
+
+    // --- confirmation modal config (Filament CanRequireConfirmation) ---
+
+    /**
+     * @return the confirmation modal config (heading / description / submit label / icon), used when
+     *     {@link #requiresConfirmation()} is true; defaults are Filament's confirmation defaults
+     */
+    public ConfirmationModal confirmationModal() {
+        return new ConfirmationModal(
+                "Are you sure?",
+                isDestructive() ? "This cannot be undone." : null,
+                "Confirm",
+                "Cancel",
+                "heroicon-o-exclamation-triangle");
     }
 
     /**

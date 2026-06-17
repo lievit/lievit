@@ -85,22 +85,32 @@ public interface RecordRepository<T> {
     }
 
     /**
-     * The read window for {@link #page(Query)}: a zero-based row offset and a maximum row count.
+     * The read window for {@link #page(Query)}: a zero-based row offset and a maximum row count,
+     * plus the requested {@link Sort sort order}, global {@link #search() search term}, and active
+     * {@link FilterState filters}. The kit never executes the sort/search/filter: it carries the
+     * intent here so the adopter's repository translates it to SQL (or an in-memory operation).
      *
-     * <p>Deliberately minimal in v0.1 (offset + limit). Sort and filter ride here in a later slice;
-     * keeping the query as its own type means adding them is not a signature break.
+     * <p>The {@code offset}/{@code limit} factories ({@link #of}, {@link #page}) build a plain
+     * paginated window with no sort/search/filter; the {@code with*} builders add those facets
+     * without a signature break (this was always the design intent of keeping the query its own
+     * type).
      *
      * @param offset the zero-based index of the first row to return (clamped to {@code >= 0})
      * @param limit the maximum number of rows to return (clamped to {@code >= 1})
+     * @param sort the requested column sort order ({@link Sort#NONE} for the repository's natural
+     *     order)
+     * @param search the global search term applied across searchable columns (empty for none)
+     * @param filters the active filter values ({@link FilterState#EMPTY} for none)
      */
-    record Query(int offset, int limit) {
+    record Query(int offset, int limit, Sort sort, String search, FilterState filters) {
 
         /** The default page size when a list page does not specify one. */
         public static final int DEFAULT_LIMIT = 25;
 
         /**
          * Compact constructor: clamps the window to a sane range so a hostile or empty page
-         * parameter can never produce a negative offset or a non-positive limit.
+         * parameter can never produce a negative offset or a non-positive limit, and defends the
+         * sort/search/filter facets against null.
          */
         public Query {
             if (offset < 0) {
@@ -109,15 +119,18 @@ public interface RecordRepository<T> {
             if (limit < 1) {
                 limit = 1;
             }
+            sort = sort == null ? Sort.NONE : sort;
+            search = search == null ? "" : search;
+            filters = filters == null ? FilterState.EMPTY : filters;
         }
 
         /**
          * @param offset the zero-based first-row index
          * @param limit the maximum row count
-         * @return a query window
+         * @return a query window with no sort/search/filter
          */
         public static Query of(int offset, int limit) {
-            return new Query(offset, limit);
+            return new Query(offset, limit, Sort.NONE, "", FilterState.EMPTY);
         }
 
         /**
@@ -141,7 +154,37 @@ public interface RecordRepository<T> {
         public static Query page(int pageNumber, int size) {
             int safeSize = size < 1 ? 1 : size;
             int safePage = pageNumber < 1 ? 1 : pageNumber;
-            return new Query((safePage - 1) * safeSize, safeSize);
+            return new Query(
+                    (safePage - 1) * safeSize, safeSize, Sort.NONE, "", FilterState.EMPTY);
+        }
+
+        /**
+         * @param newSort the requested sort order
+         * @return a copy of this window with the given sort
+         */
+        public Query withSort(Sort newSort) {
+            return new Query(offset, limit, newSort, search, filters);
+        }
+
+        /**
+         * @param term the global search term
+         * @return a copy of this window with the given search term
+         */
+        public Query withSearch(String term) {
+            return new Query(offset, limit, sort, term, filters);
+        }
+
+        /**
+         * @param newFilters the active filter values
+         * @return a copy of this window with the given filters
+         */
+        public Query withFilters(FilterState newFilters) {
+            return new Query(offset, limit, sort, search, newFilters);
+        }
+
+        /** @return whether a non-blank global search term is set */
+        public boolean hasSearch() {
+            return !search.isBlank();
         }
     }
 
