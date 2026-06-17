@@ -4,136 +4,93 @@
  */
 package com.iambilotta.lievit.spring.counter;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import java.util.List;
-import java.util.Map;
+import static com.iambilotta.lievit.test.Lievit.test;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.iambilotta.lievit.spring.LievitWireService;
-import com.iambilotta.lievit.spring.WireCallResult;
+import com.iambilotta.lievit.test.LievitTest;
+import com.iambilotta.lievit.test.Rejections.LockedProperty;
+import com.iambilotta.lievit.test.Rejections.SnapshotForged;
+import com.iambilotta.lievit.test.Rejections.TooManyFailures;
 
 /**
- * The walking-skeleton golden roundtrip (ADR-0007): the Counter is mounted, its signed snapshot is
- * carried into a {@code POST /lievit/{id}/call} that invokes {@code increment}, and the re-rendered
- * HTML shows the count advanced by one with a fresh snapshot returned. Plus the load-bearing
- * security check: a client {@code _updates} entry for the locked {@code label} field is rejected
- * with 403 even though the snapshot is validly signed (the ADR-0001 amendment).
+ * The walking-skeleton golden roundtrip (ADR-0007), rewritten on top of the {@code Lievit.test()}
+ * harness (ADR-0010). This is the dogfooding proof: the verbose hand-rolled version (raw MockMvc,
+ * hand-built JSON maps, manual snapshot juggling, string-grep) collapses into the fluent intent
+ * mount → call → assert. The harness drives the same real codec / registry / dispatcher / JTE
+ * adapter / HTTP endpoint underneath; only the developer-facing surface changed.
  *
- * <p>This is the single end-to-end tracer-bullet the skeleton exists to prove: mount -&gt; render
- * -&gt; l:click -&gt; re-render, over the real codec, registry, dispatcher, JTE adapter, and HTTP
- * endpoint.
+ * <p>It still exercises the same three behaviours: the increment roundtrip with snapshot rotation,
+ * the locked-field tamper rejected 403 from the attacker's seat, and the forged-snapshot rejection
+ * — plus the rate-limit (429), which the harness makes reachable headless and which the old
+ * hand-rolled test never asserted.
  */
-@SpringBootTest(classes = CounterTestApp.class)
-@AutoConfigureMockMvc
-@TestPropertySource(
-        properties = {
-            // A >= 32-byte dev signing key (the codec floor). Spring Security is not on the test
-            // classpath, so CSRF is not exercised here; it is enforced upstream in a deployed app.
-            "lievit.signing-key=test-signing-key-0123456789abcdef-0123456789"
-        })
+@LievitTest(classes = CounterTestApp.class)
 class CounterRoundtripIT {
-
-    @Autowired MockMvc mvc;
-    @Autowired LievitWireService wireService;
-
-    private final ObjectMapper json = new ObjectMapper();
 
     /**
      * @spec.given a freshly mounted Counter and its signed initial snapshot
-     * @spec.when  that snapshot is POSTed back with an increment action
-     * @spec.then  the response is 200 text/html showing count 1, with a fresh Lievit-Snapshot header
+     * @spec.when  that snapshot is carried back over the wire with an increment action
+     * @spec.then  the count advances to 1, the re-rendered HTML shows it, and a fresh snapshot rotated
      * @spec.adr   ADR-0001
      */
     @Test
-    void mounts_then_increments_over_the_wire_endpoint() throws Exception {
-        WireCallResult mounted = wireService.mount(CounterComponent.class.getName());
-        assertThat(mounted.html()).contains(">0<").contains("l:click=\"increment\"");
-
-        String body =
-                json.writeValueAsString(
-                        Map.of(
-                                "_snapshot", mounted.snapshot(),
-                                "_updates", Map.of(),
-                                "_calls", List.of("increment")));
-
-        MvcResult result =
-                mvc.perform(
-                                post("/lievit/{id}/call", "ignored-path-cid")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(body))
-                        .andExpect(status().isOk())
-                        .andExpect(header().exists("Lievit-Snapshot"))
-                        .andReturn();
-
-        String html = result.getResponse().getContentAsString();
-        assertThat(html).contains(">1<");
-        assertThat(result.getResponse().getHeader("Lievit-Snapshot")).isNotBlank();
+    void mounts_then_increments_over_the_wire_endpoint() {
+        test(CounterComponent.class)
+                .mount()
+                .assertWire("count", 0)
+                .assertSee(">0<")
+                .assertSeeHtml("l:click=\"increment\"")
+                .call("increment")
+                .assertWire("count", 1)
+                .assertSee(">1<")
+                .assertSnapshotRotated();
     }
 
     /**
      * @spec.given a validly signed Counter snapshot and a client update to the locked label field
-     * @spec.when  the snapshot is POSTed back with that update
-     * @spec.then  the call is rejected 403 with Lievit-Reason: locked-property: the signature does
-     *     not stop the first POST from writing a server-owned field; the lock does
+     * @spec.when  the snapshot is carried back with that hostile update and an increment
+     * @spec.then  the call is rejected 403 locked-property: the lock stops a client writing a
+     *     server-owned field even though the snapshot signature is valid
      * @spec.adr   ADR-0001
      */
     @Test
-    void rejects_a_client_update_to_a_locked_field_with_403() throws Exception {
-        WireCallResult mounted = wireService.mount(CounterComponent.class.getName());
-
-        String body =
-                json.writeValueAsString(
-                        Map.of(
-                                "_snapshot", mounted.snapshot(),
-                                "_updates", Map.of("label", "attacker-set"),
-                                "_calls", List.of("increment")));
-
-        mvc.perform(
-                        post("/lievit/{id}/call", "cid")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(body))
-                .andExpect(status().isForbidden())
-                .andExpect(header().string("Lievit-Reason", "locked-property"));
+    void rejects_a_client_update_to_a_locked_field_with_403() {
+        test(CounterComponent.class)
+                .mount()
+                .tamperUpdate("label", "attacker-set")
+                .call("increment")
+                .assertRejected(LockedProperty.class);
     }
 
     /**
-     * @spec.given a tampered snapshot (a flipped payload char) carried back to the endpoint
+     * @spec.given a tampered snapshot (a flipped payload byte) carried back to the endpoint
      * @spec.when  it is POSTed
-     * @spec.then  the call is rejected (the HMAC boundary holds), never reaching the component
+     * @spec.then  the call is rejected at the HMAC boundary, never reaching the component
      * @spec.adr   ADR-0001
      */
     @Test
-    void rejects_a_tampered_snapshot_at_the_endpoint() throws Exception {
-        WireCallResult mounted = wireService.mount(CounterComponent.class.getName());
-        String[] parts = mounted.snapshot().split("\\.");
-        char[] payload = parts[1].toCharArray();
-        payload[0] = payload[0] == 'a' ? 'b' : 'a';
-        String tampered = parts[0] + "." + new String(payload) + "." + parts[2];
+    void rejects_a_tampered_snapshot_at_the_endpoint() {
+        test(CounterComponent.class)
+                .mount()
+                .forgeSnapshot()
+                .call("increment")
+                .assertRejected(SnapshotForged.class);
+    }
 
-        String body =
-                json.writeValueAsString(
-                        Map.of(
-                                "_snapshot", tampered,
-                                "_updates", Map.of(),
-                                "_calls", List.of("increment")));
-
-        mvc.perform(
-                        post("/lievit/{id}/call", "cid")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(body))
-                .andExpect(status().isForbidden());
+    /**
+     * @spec.given a mounted Counter whose signature is brute-forced past the failure budget
+     * @spec.when  more than the allowed signature failures arrive from the client
+     * @spec.then  the client is rate-limited 429 too-many-failures — reachable headless here,
+     *     unlike Livewire's component tester which short-circuits the limiter in tests
+     * @spec.adr   ADR-0001
+     */
+    @Test
+    void brute_forcing_the_signature_is_rate_limited() {
+        var tester = test(CounterComponent.class).mount();
+        for (int i = 0; i < 10; i++) {
+            tester.forgeSnapshot().callExpectingRejection().assertRejected(SnapshotForged.class);
+        }
+        tester.forgeSnapshot().callExpectingRejection().assertRejected(TooManyFailures.class);
     }
 }

@@ -46,16 +46,50 @@
             <artifactId>jte</artifactId>
         </dependency>
 
+        <!--
+            The Lievit.test() developer harness (ADR-0010) ships as a feature in main, so it needs
+            the Spring test infrastructure on the COMPILE classpath. These are <optional>true</optional>:
+            they reach an adopter's TEST classpath (when they add spring-boot-starter-test, as every
+            Spring Boot app does), never their runtime. The harness drives the real wire over MockMvc;
+            it is not itself a runtime dependency of a deployed app.
+        -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test-autoconfigure</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Jackson is already a transitive runtime dep via spring-boot-starter-web; the harness uses
+             it (the context's ObjectMapper) to build the wire body, so it needs it at compile too. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Tests: full Spring Boot test slice for the end-to-end tracer-bullet. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <!-- Spring Boot 4 split out the MockMvc autoconfigure into spring-boot-webmvc-test. -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
