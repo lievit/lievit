@@ -10,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 import com.iambilotta.lievit.wire.WireError;
 import com.iambilotta.lievit.wire.WireException;
 
@@ -52,23 +54,29 @@ public final class WireDispatcher {
      * @param snapshotWire the {@code @Wire} state decoded from the verified snapshot
      * @param updates the client-supplied field updates ({@code _updates})
      * @param calls the action names to invoke, in order ({@code _calls})
-     * @return the serialized new {@code @Wire} state after the actions ran
+     * @return the new {@code @Wire} state plus any {@link LievitEffects} the actions produced
      * @throws WireException {@link WireError#LOCKED_PROPERTY} if an update targets a locked field;
      *     {@link WireError#UNKNOWN_COMPONENT} if a call names no {@code @LievitAction}
      */
-    public Map<String, Object> call(
+    public WireCall call(
             ComponentMetadata metadata,
             Object instance,
             Map<String, Object> snapshotWire,
             Map<String, Object> updates,
             List<String> calls) {
-        rehydrate(metadata, instance, snapshotWire);
-        applyUpdates(metadata, instance, updates);
-        for (String call : calls) {
-            invokeAction(metadata, instance, call);
+        LievitEffects effects = new LievitEffects();
+        LievitEffects.bind(effects);
+        try {
+            rehydrate(metadata, instance, snapshotWire);
+            applyUpdates(metadata, instance, updates);
+            for (String call : calls) {
+                effects.captureReturn(invokeAction(metadata, instance, call));
+            }
+            invokeHook(metadata.render(), instance);
+            return new WireCall(readWire(metadata, instance), effects);
+        } finally {
+            LievitEffects.clear();
         }
-        invokeHook(metadata.render(), instance);
-        return readWire(metadata, instance);
     }
 
     /** Rehydrates every {@code @Wire} field present in the verified snapshot state. */
@@ -103,7 +111,7 @@ public final class WireDispatcher {
         }
     }
 
-    private void invokeAction(ComponentMetadata metadata, Object instance, String name) {
+    private @Nullable Object invokeAction(ComponentMetadata metadata, Object instance, String name) {
         Method action = metadata.action(name);
         if (action == null) {
             // An unknown action means the client named a method the component does not expose,
@@ -111,7 +119,7 @@ public final class WireDispatcher {
             throw new WireException(
                     WireError.UNKNOWN_COMPONENT, "no @LievitAction matches the requested call");
         }
-        invoke(action, instance);
+        return invoke(action, instance);
     }
 
     private void invokeHook(Method hook, Object instance) {
@@ -120,9 +128,9 @@ public final class WireDispatcher {
         }
     }
 
-    private void invoke(Method method, Object instance) {
+    private @Nullable Object invoke(Method method, Object instance) {
         try {
-            method.invoke(instance);
+            return method.invoke(instance);
         } catch (IllegalAccessException e) {
             throw new IllegalStateException("cannot invoke " + method.getName(), e);
         } catch (InvocationTargetException e) {

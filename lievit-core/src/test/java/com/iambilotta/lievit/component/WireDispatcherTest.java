@@ -80,7 +80,7 @@ class WireDispatcherTest {
     void call_rehydrates_then_invokes_the_action() {
         ComponentMetadata meta = ComponentMetadata.of(Counter.class);
 
-        Map<String, Object> wire =
+        WireCall result =
                 dispatcher.call(
                         meta,
                         new Counter(),
@@ -88,7 +88,7 @@ class WireDispatcherTest {
                         Map.of(),
                         List.of("increment"));
 
-        assertThat(wire).containsEntry("count", 8);
+        assertThat(result.wire()).containsEntry("count", 8);
     }
 
     /**
@@ -101,7 +101,7 @@ class WireDispatcherTest {
     void call_applies_an_unlocked_client_update() {
         ComponentMetadata meta = ComponentMetadata.of(Counter.class);
 
-        Map<String, Object> wire =
+        WireCall result =
                 dispatcher.call(
                         meta,
                         new Counter(),
@@ -109,7 +109,7 @@ class WireDispatcherTest {
                         Map.of("count", 100),
                         List.of("increment"));
 
-        assertThat(wire).containsEntry("count", 101);
+        assertThat(result.wire()).containsEntry("count", 101);
     }
 
     /**
@@ -147,7 +147,7 @@ class WireDispatcherTest {
     void call_honors_unlocked_fields_while_locking_others() {
         ComponentMetadata meta = ComponentMetadata.of(Cart.class);
 
-        Map<String, Object> wire =
+        WireCall result =
                 dispatcher.call(
                         meta,
                         new Cart(),
@@ -155,7 +155,7 @@ class WireDispatcherTest {
                         Map.of("quantity", 5),
                         List.of("addOne"));
 
-        assertThat(wire).containsEntry("quantity", 6).containsEntry("cartId", "server-owned");
+        assertThat(result.wire()).containsEntry("quantity", 6).containsEntry("cartId", "server-owned");
     }
 
     /**

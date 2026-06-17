@@ -43,9 +43,12 @@ run once on the initial page load; the last two repeat for every interaction.
       -> invoke _calls (the actions) in order; each may mutate @Wire state
       -> re-render to HTML
       -> sign a fresh snapshot of the new state
+      -> collect the effects the actions produced (redirect / dispatch / return value)
       -> respond: 200, text/html body (the patched markup),
-         header Lievit-Snapshot: <new signed snapshot>
-      -> the client morphs the DOM (Idiomorph) and stores the new snapshot
+         header Lievit-Snapshot: <new signed snapshot>,
+         header Lievit-Effects: <compact JSON effects bag>  (OMITTED if no effects)
+      -> the client morphs the DOM (Idiomorph), stores the new snapshot,
+         and applies the effects (dispatch CustomEvents, then redirect if present)
 ```
 
 The invariant: **the server never holds component state between calls.** State lives in the
@@ -242,6 +245,37 @@ directly to morph the existing DOM toward the new markup:
   drag Alpine onto a non-Alpine stack (corrected in the ADR-0001 amendment of 2026-06-17). The
   shared principle across all three (Livewire, Turbo, LiveView) is "morph, do not replace
   innerHTML"; the library differs.
+
+## 5b. The effects channel: `Lievit-Effects` (ADR-0012)
+
+A successful (`200`) wire call carries, beside the HTML body and the `Lievit-Snapshot` header, an
+optional **`Lievit-Effects`** header: a compact JSON bag of the *non-HTML* side effects the action
+produced. The HTML stays the body (it morphs in place); the bag carries only what cannot be
+expressed as DOM. The header is **omitted entirely** when an action produced no effects, so a plain
+action is byte-for-byte the ADR-0001 response (backward compatible).
+
+```
+Lievit-Effects: {"redirect":"/done","dispatch":[{"name":"saved","detail":{"id":7}}],"returns":42}
+```
+
+| Effect | Shape | Meaning | Client reaction |
+|---|---|---|---|
+| `redirect` | `string` | the action requested navigation | navigate (`location.assign`) instead of morphing |
+| `dispatch` | array of `{name, detail?}` | events the action queued | re-emit each as a DOM `CustomEvent` on `window` (the cross-component bus) |
+| `returns` | any JSON | the action's return value | available to the caller / test API; no DOM effect by itself |
+
+Reserved for later (named so the channel leaves room, not implemented in v0.1 of the channel):
+`stream` (SSE/chunked), `js` (server-requested eval, security-sensitive, deferred), `download`
+(base64 ride-along). Each is a new key in the bag, never a new response shape.
+
+**Security**: the effects bag is **server-authored and never signed** — nothing the client could
+tamper rides in it, so it is outside the HMAC boundary (which still covers only the snapshot). The
+bag appears only on a `200`; an error response (§4) carries no effects. The client applies
+dispatches first, then a redirect (so listeners react before navigation).
+
+Server side: an `@LievitAction` reads the per-call sink `LievitEffects.current()` to
+`redirect(...)` / `dispatch(...)`; a non-`void` return is captured as `returns`. The sink is
+request-scoped and reset per call (the statelessness invariant of §1 holds).
 
 ## 6. Limits and budgets
 

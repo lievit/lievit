@@ -25,4 +25,13 @@ public class CounterTestApp {
     CounterComponent counterComponent() {
         return new CounterComponent();
     }
+
+    /**
+     * @return a fresh effectful component per wire call (exercises the effects channel, ADR-0012)
+     */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    EffectfulComponent effectfulComponent() {
+        return new EffectfulComponent();
+    }
 }
