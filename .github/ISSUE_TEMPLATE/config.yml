@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/iambilotta/lievit/security/advisories/new
+    about: Report a security issue privately. Do not open a public issue. See SECURITY.md.
+  - name: Question or fit check
+    url: https://github.com/iambilotta/lievit/discussions
+    about: Ask whether lievit fits your app, or anything that is not a bug or a feature request.

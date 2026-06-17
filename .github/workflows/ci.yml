@@ -1,0 +1,83 @@
+name: ci
+
+# STUB — to be filled when the Maven build lands (see docs/PLAN.md and docs/adr/0008).
+# Mirrors the sister repos' shape (build/test matrix + a native job + a tracegate
+# drift-gate) but is intentionally inert while there is no `pom.xml`: every job
+# short-circuits with a clear message instead of failing an empty build. Replace the
+# guarded steps with the real Maven invocations once the modules exist.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Java 25 is the lievit target; the matrix shape is kept for parity with
+        # the sister repos and to add LTS rows when the build lands.
+        java: [ '25' ]
+    name: build (java ${{ matrix.java }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Build, test (stub until pom.xml exists)
+        run: |
+          if [ -f pom.xml ]; then
+            ./mvnw -B -ntp -V verify
+          else
+            echo "::notice::No pom.xml yet — lievit is in the pre-build foundation phase."
+            echo "Skipping the Maven build. This job is a stub; see docs/PLAN.md and docs/adr/0008."
+          fi
+
+  native:
+    runs-on: ubuntu-latest
+    name: native build (stub)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM (stub until pom.xml exists)
+        if: ${{ hashFiles('pom.xml') != '' }}
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm'
+
+      - name: GraalVM native build (stub until pom.xml exists)
+        run: |
+          if [ -f pom.xml ]; then
+            ./mvnw -B -ntp -Pnative native:compile
+          else
+            echo "::notice::No pom.xml yet — GraalVM native gate is a stub (see docs/adr/0006)."
+            echo "Skipping native compile. lievit targets GraalVM native day one once the build lands."
+          fi
+
+  tracegate:
+    name: tracegate drift-gate (stub)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Living-requirements drift-gate (stub until tests exist)
+        run: |
+          if [ -f tracegate.toml ]; then
+            pip install "git+https://github.com/iambilotta/tracegate@${TRACEGATE_REF:-HEAD}"
+            tracegate . --check
+          else
+            echo "::notice::No tracegate.toml yet — the living-requirements gate is a stub."
+            echo "It activates with the Maven build; see docs/PLAN.md."
+          fi

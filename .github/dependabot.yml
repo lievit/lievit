@@ -1,0 +1,55 @@
+version: 2
+updates:
+  # NOTE: the maven ecosystem activates once a pom.xml exists (the build is
+  # deferred, see docs/adr/0008). The block is kept so it is on the day the
+  # modules land. github-actions is active now.
+  - package-ecosystem: maven
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+      include: scope
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework:*"
+      jte:
+        patterns:
+          - "gg.jte:*"
+      junit:
+        patterns:
+          - "org.junit*:*"
+          - "org.assertj:*"
+      maven-plugins:
+        patterns:
+          - "org.apache.maven.plugins:*"
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+      include: scope
