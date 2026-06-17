@@ -7,6 +7,7 @@ package com.iambilotta.lievit.kit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The form-view builder of an {@link Resource}: an ordered list of {@link Field fields}
@@ -49,6 +50,21 @@ public final class Form<T> extends Schema<T, Form<T>> {
      */
     public Form<T> field(String name) {
         return field(name, Field.humanize(name));
+    }
+
+    /**
+     * Adds a pre-built typed field (e.g. {@link TextField}, {@link SelectField}).
+     *
+     * <p>Use this overload when the field carries type-specific configuration that the bare
+     * {@code field(name, label)} convenience cannot express. The field's name and label are already
+     * set on the instance; the form records it as declared.
+     *
+     * @param field the pre-built field, must not be null
+     * @return this builder
+     */
+    public Form<T> field(Field field) {
+        fields.add(Objects.requireNonNull(field, "field"));
+        return this;
     }
 
     /**

@@ -27,6 +27,7 @@ public final class Panel {
 
     private final String id;
     private final List<Resource<?>> resources = new ArrayList<>();
+    private final List<WidgetPage> pages = new ArrayList<>();
     private final Map<String, List<Supplier<String>>> renderHooks = new LinkedHashMap<>();
     private final Map<String, Plugin> plugins = new LinkedHashMap<>();
 
@@ -65,6 +66,25 @@ public final class Panel {
      */
     public List<Resource<?>> resources() {
         return Collections.unmodifiableList(resources);
+    }
+
+    /**
+     * Registers a {@link WidgetPage} on the panel. Widget pages appear in the panel's navigation
+     * as first-class pages alongside resources.
+     *
+     * @param page the widget page
+     * @return this panel
+     */
+    public Panel page(WidgetPage page) {
+        pages.add(Objects.requireNonNull(page, "page"));
+        return this;
+    }
+
+    /**
+     * @return the registered widget pages, in registration order, as an unmodifiable snapshot
+     */
+    public List<WidgetPage> pages() {
+        return Collections.unmodifiableList(pages);
     }
 
     /**

@@ -26,6 +26,27 @@
  *   <li>{@link com.iambilotta.lievit.kit.Plugin} is the third-party extension point, the
  *       same {@code getId / register / boot} shape Filament uses.
  * </ul>
+ *
+ * <p>Concrete field types (all extend {@link com.iambilotta.lievit.kit.Field}):
+ * {@link com.iambilotta.lievit.kit.TextField},
+ * {@link com.iambilotta.lievit.kit.TextareaField},
+ * {@link com.iambilotta.lievit.kit.SelectField} (static option set, uses
+ * {@link com.iambilotta.lievit.kit.SelectOption}),
+ * {@link com.iambilotta.lievit.kit.ToggleField},
+ * {@link com.iambilotta.lievit.kit.DateField}.
+ * Relation fields: {@link com.iambilotta.lievit.kit.BelongsToField} (options from a repository),
+ * {@link com.iambilotta.lievit.kit.HasManyField} (read-only display via a loader supplier).
+ *
+ * <p>Concrete column types (all extend {@link com.iambilotta.lievit.kit.Column}):
+ * {@link com.iambilotta.lievit.kit.TextColumn} (plain text, sortable flag),
+ * {@link com.iambilotta.lievit.kit.BadgeColumn} (styled badge with optional colour mapper),
+ * {@link com.iambilotta.lievit.kit.BooleanColumn} (renders icon names for true/false),
+ * {@link com.iambilotta.lievit.kit.DateColumn} (temporal value with optional formatter pattern).
+ *
+ * <p>Widget layer: {@link com.iambilotta.lievit.kit.Widget} (interface),
+ * {@link com.iambilotta.lievit.kit.StatWidget} (key-metric card with lazy value supplier),
+ * {@link com.iambilotta.lievit.kit.WidgetPage} (dashboard page hosting widgets, registered on a
+ * panel via {@link com.iambilotta.lievit.kit.Panel#page(WidgetPage)}).
  */
 @NullMarked
 package com.iambilotta.lievit.kit;
