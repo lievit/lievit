@@ -1,0 +1,10 @@
+{
+  "name": "toast",
+  "type": "registry:ui",
+  "description": "A brief overlay notification with WAI-ARIA live-region semantics; auto-dismisses after a configurable duration.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [{ "path": "components/toast/toast.ts", "type": "registry:ui", "target": "components/ui/toast.ts" }],
+  "tokens": ["color", "space", "radius", "type", "shadow"],
+  "docs": "Register <lv-toast> by importing components/ui/toast.ts from your entry point. Toggle the `open` boolean property to show/hide."
+}
