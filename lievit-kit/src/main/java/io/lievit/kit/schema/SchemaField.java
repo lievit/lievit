@@ -283,10 +283,255 @@ public abstract class SchemaField<T extends @Nullable Object, SELF extends Schem
     }
 
     /**
+     * Adds multiple validation rules to this field, in order.
+     *
+     * @param toAdd the rules
+     * @return this field
+     */
+    public SELF rules(Rule... toAdd) {
+        rules.rules(toAdd);
+        return self();
+    }
+
+    /**
      * @return the field's rule set
      */
     public RuleSet rules() {
         return rules;
+    }
+
+    // ── validation builder surface (filament CanBeValidated, shared by every field) ──
+
+    /**
+     * Restricts the value to a membership set (the filament {@code in}).
+     *
+     * @param allowed the allowed values
+     * @return this field
+     */
+    public SELF in(java.util.Collection<?> allowed) {
+        rules.rule("in", Rules.in(allowed));
+        return self();
+    }
+
+    /**
+     * Forbids the value from a disallowed set (the filament {@code notIn}).
+     *
+     * @param disallowed the disallowed values
+     * @return this field
+     */
+    public SELF notIn(java.util.Collection<?> disallowed) {
+        rules.rule("not_in", Rules.notIn(disallowed));
+        return self();
+    }
+
+    /**
+     * Requires a well-formed email (the filament {@code email}).
+     *
+     * @return this field
+     */
+    public SELF email() {
+        rules.rule("email", Rules.email());
+        return self();
+    }
+
+    /**
+     * Requires the value to match a regular expression in full (the filament {@code regex}).
+     *
+     * @param pattern the regex
+     * @return this field
+     */
+    public SELF regex(String pattern) {
+        rules.rule("regex", Rules.regex(pattern));
+        return self();
+    }
+
+    /**
+     * Requires the value to parse as a number (the filament {@code numeric}).
+     *
+     * @return this field
+     */
+    public SELF numeric() {
+        rules.rule("numeric", Rules.numeric());
+        return self();
+    }
+
+    /**
+     * Requires the value to parse as a whole number (the filament {@code integer}).
+     *
+     * @return this field
+     */
+    public SELF integer() {
+        rules.rule("integer", Rules.integer());
+        return self();
+    }
+
+    /**
+     * Requires the value to be strictly greater than a sibling field's live value (the filament
+     * {@code gt}).
+     *
+     * @param otherPath the sibling field's state path
+     * @return this field
+     */
+    public SELF gt(String otherPath) {
+        rules.rule("gt", Rules.gt(otherPath));
+        return self();
+    }
+
+    /**
+     * Requires the value to be greater than or equal to a sibling field's live value (the filament
+     * {@code gte}).
+     *
+     * @param otherPath the sibling field's state path
+     * @return this field
+     */
+    public SELF gte(String otherPath) {
+        rules.rule("gte", Rules.gte(otherPath));
+        return self();
+    }
+
+    /**
+     * Requires the value to be strictly less than a sibling field's live value (the filament
+     * {@code lt}).
+     *
+     * @param otherPath the sibling field's state path
+     * @return this field
+     */
+    public SELF lt(String otherPath) {
+        rules.rule("lt", Rules.lt(otherPath));
+        return self();
+    }
+
+    /**
+     * Requires the value to be less than or equal to a sibling field's live value (the filament
+     * {@code lte}).
+     *
+     * @param otherPath the sibling field's state path
+     * @return this field
+     */
+    public SELF lte(String otherPath) {
+        rules.rule("lte", Rules.lte(otherPath));
+        return self();
+    }
+
+    /**
+     * Requires the value to equal a sibling field's live value (the filament {@code same}).
+     *
+     * @param otherPath the sibling field's state path
+     * @return this field
+     */
+    public SELF same(String otherPath) {
+        rules.rule("same", Rules.same(otherPath));
+        return self();
+    }
+
+    /**
+     * Requires the value to differ from a sibling field's live value (the filament {@code different}).
+     *
+     * @param otherPath the sibling field's state path
+     * @return this field
+     */
+    public SELF different(String otherPath) {
+        rules.rule("different", Rules.different(otherPath));
+        return self();
+    }
+
+    /**
+     * Requires the value to equal its conventional confirmation sibling {@code <statePath>_confirmation}
+     * (the filament {@code confirmed}).
+     *
+     * @return this field
+     */
+    public SELF confirmed() {
+        String path = statePath();
+        rules.rule("confirmed", Rules.confirmed(path == null ? "" : path));
+        return self();
+    }
+
+    /**
+     * Makes the field required only when a sibling field equals an expected value (the filament
+     * {@code requiredIf}).
+     *
+     * @param otherPath the sibling field's state path
+     * @param expected the value that makes this field required
+     * @return this field
+     */
+    public SELF requiredIf(String otherPath, Object expected) {
+        rules.rule("required_if", Rules.requiredIf(otherPath, expected));
+        return self();
+    }
+
+    /**
+     * Makes the field required when any of the named sibling fields is present (the filament
+     * {@code requiredWith}).
+     *
+     * @param otherPaths the sibling fields whose presence makes this field required
+     * @return this field
+     */
+    public SELF requiredWith(String... otherPaths) {
+        rules.rule("required_with", Rules.requiredWith(otherPaths));
+        return self();
+    }
+
+    /**
+     * Makes the field required when any of the named sibling fields is absent (the filament
+     * {@code requiredWithout}).
+     *
+     * @param otherPaths the sibling fields whose absence makes this field required
+     * @return this field
+     */
+    public SELF requiredWithout(String... otherPaths) {
+        rules.rule("required_without", Rules.requiredWithout(otherPaths));
+        return self();
+    }
+
+    /**
+     * Requires the value to be unique, ignoring the current record on edit (the filament
+     * {@code unique(ignoreRecord)}). The existence check is the app's: a predicate answering whether
+     * ANOTHER record already holds the value.
+     *
+     * @param valueTakenByAnother given the value and the (nullable) current record, whether another
+     *     record already holds it
+     * @return this field
+     */
+    public SELF unique(
+            java.util.function.BiPredicate<Object, @Nullable Object> valueTakenByAnother) {
+        rules.rule("unique", Rules.unique(valueTakenByAnother));
+        return self();
+    }
+
+    /**
+     * Requires the value to exist in the app's backing store (the filament {@code exists}).
+     *
+     * @param exists whether the value exists in the backing store
+     * @return this field
+     */
+    public SELF exists(java.util.function.Predicate<Object> exists) {
+        rules.rule("exists", Rules.exists(exists));
+        return self();
+    }
+
+    /**
+     * Overrides the failure messages of named rules (the filament {@code validationMessages}). Keyed
+     * by the rule's name (for example {@code "email"}, {@code "min"}, {@code "unique"}).
+     *
+     * @param overrides rule name to custom message
+     * @return this field
+     */
+    public SELF validationMessages(java.util.Map<String, String> overrides) {
+        rules.validationMessages(overrides);
+        return self();
+    }
+
+    /**
+     * Sets the human attribute name used in default failure messages (the filament
+     * {@code validationAttribute}).
+     *
+     * @param attribute the attribute name (for example "email address")
+     * @return this field
+     */
+    public SELF validationAttribute(String attribute) {
+        rules.validationAttribute(attribute);
+        return self();
     }
 
     /**
