@@ -22,6 +22,7 @@ import io.lievit.LievitComponent;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
 import io.lievit.component.LifecycleBus;
+import io.lievit.component.IsolateListener;
 import io.lievit.component.LifecycleHooksListener;
 import io.lievit.component.LifecyclePhase;
 import io.lievit.component.LocaleListener;
@@ -188,6 +189,9 @@ public class LievitAutoConfiguration {
         // restore it on hydrate before render, so a wire update keeps the component's pinned locale
         // instead of reverting to the fresh request default. No-ops when no LocaleSource is bound.
         LocaleListener.registerOn(bus);
+        // @LievitIsolate (#61, ADR-0075): stamp isolate:true into the snapshot memo on mount/dehydrate
+        // so the client sends the component's updates in their own request, off the shared commit.
+        IsolateListener.registerOn(bus);
         bus.on(LifecyclePhase.CALL, new MagicActionListener(synthesizers));
         // RenderlessListener owns the render-skip tally for both @LievitRenderless and the
         // @LievitJson RPC actions (#99): both return without re-rendering.

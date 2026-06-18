@@ -316,6 +316,22 @@ export class LievitRuntime {
     return parent == null ? null : this.$lievit(parent);
   }
 
+  /**
+   * True if the component owning `element` is `@LievitIsolate` (#61, ADR-0075): the server stamped
+   * `isolate:true` into the snapshot memo, so the component's updates must be sent in their own
+   * request rather than bundled into a shared multi-component commit. A bundler consults this before
+   * folding a component into a batch; today every commit is already per-component (lievit has no
+   * shared client batch endpoint in v0.1), so an isolated component is de-facto isolated and this is
+   * the seam a future shared bundler reads to keep it out of the batch.
+   *
+   * @param element any element inside the target component
+   * @returns true when the component opted into isolated requests, false otherwise (incl. no component)
+   */
+  isIsolated(element: Element): boolean {
+    const state = this.stateOf(element);
+    return state != null && decodeMemo(state.snapshot)[ISOLATE_MEMO_KEY] === true;
+  }
+
   /** Registers a `$watch` listener for a field on a component root; returns an unsubscribe. */
   private addWatcher(root: Element, field: string, listener: WatchListener): () => void {
     let byField = this.watchers.get(root);
@@ -1122,6 +1138,21 @@ function decodeWire(snapshot: string): WireState {
   } catch {
     return {};
   }
+}
+
+/** The reserved key under which the server merges the cross-call memo into the snapshot wire. */
+const MEMO_KEY = "@memo";
+/** The memo flag a `@LievitIsolate` component carries (#61, ADR-0075). */
+const ISOLATE_MEMO_KEY = "isolate";
+
+/**
+ * Reads the snapshot memo bag (`wire["@memo"]`) the server round-trips: locale pinning (ADR-0037),
+ * the isolate flag (#61), and any other cross-call control. Returns an empty object when the snapshot
+ * carries no memo (the common case), so a caller reads a flag with a plain optional lookup.
+ */
+function decodeMemo(snapshot: string): Record<string, unknown> {
+  const memo = decodeWire(snapshot)[MEMO_KEY];
+  return memo != null && typeof memo === "object" ? (memo as Record<string, unknown>) : {};
 }
 
 /** Decodes a base64url string to UTF-8 text (CSP-safe, uses `atob`, no eval). */
