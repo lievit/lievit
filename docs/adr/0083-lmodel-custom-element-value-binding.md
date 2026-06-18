@@ -1,4 +1,4 @@
-# ADR-0082: `l:model` binds custom elements via a value-control registry
+# ADR-0083: `l:model` binds custom elements via a value-control registry
 
 - **Status:** accepted
 - **Date:** 2026-06-18
