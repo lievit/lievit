@@ -94,8 +94,34 @@ public final class LievitChildren {
      * @throws IllegalStateException if {@code key} was already declared in this render
      */
     public String child(String key, String className, @Nullable Map<String, Object> props) {
+        return child(key, className, props, Map.of());
+    }
+
+    /**
+     * Declares a child with parent-rendered slot content (issue #91). The {@code slots} map carries
+     * the HTML the parent rendered <em>in its own scope</em> for each slot ({@code "default"} for the
+     * unnamed slot); the child positions it via the {@link LievitSlots} proxy and the web layer
+     * substitutes it into the child markup. The content stays parent-owned (its state and events
+     * belong to the parent), so a button in a slot mutates the parent.
+     *
+     * @param key the stable child key (unique within this render)
+     * @param className the child {@code @LievitComponent} class name
+     * @param props the props seeded onto the child before mount (may be {@code null}/empty)
+     * @param slots the parent-rendered slot content by name (may be empty)
+     * @return the placeholder token the parent template renders where the child belongs
+     * @throws IllegalStateException if {@code key} was already declared in this render
+     */
+    public String child(
+            String key,
+            String className,
+            @Nullable Map<String, Object> props,
+            @Nullable Map<String, String> slots) {
         ChildComponent child =
-                new ChildComponent(key, className, props == null ? Map.of() : props);
+                new ChildComponent(
+                        key,
+                        className,
+                        props == null ? Map.of() : props,
+                        slots == null ? Map.of() : slots);
         if (byKey.putIfAbsent(key, child) != null) {
             throw new IllegalStateException(
                     "duplicate child @key '"

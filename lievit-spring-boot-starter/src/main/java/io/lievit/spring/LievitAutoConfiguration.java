@@ -183,6 +183,8 @@ public class LievitAutoConfiguration {
         LifecycleHooksListener.registerOn(bus);
         SessionListener.registerOn(bus);
         bus.on(LifecyclePhase.CALL, new MagicActionListener(synthesizers));
+        // RenderlessListener owns the render-skip tally for both @LievitRenderless and the
+        // @LievitJson RPC actions (#99): both return without re-rendering.
         RenderlessListener.registerOn(bus);
         RedirectListener.registerOn(bus);
         return bus;
@@ -377,6 +379,52 @@ public class LievitAutoConfiguration {
         io.lievit.upload.UploadConstraints constraints =
                 new io.lievit.upload.UploadConstraints(properties.getUploadMaxBytes(), java.util.Set.of());
         return new io.lievit.spring.upload.LievitUploadController(storage, signer, constraints);
+    }
+
+    /**
+     * The default layout wrapper (issue #63/#181): wraps a full-page component in a minimal HTML5
+     * document. A host that wants its own app shell declares its own {@link LayoutRenderer} bean.
+     *
+     * @return the default layout renderer
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LayoutRenderer lievitLayoutRenderer() {
+        return new DefaultLayoutRenderer();
+    }
+
+    /**
+     * The full-page renderer (issue #63/#181): mounts a route-target component, resolves its
+     * {@code @LievitLayout}/{@code @LievitTitle}, and wraps it in the layout.
+     *
+     * @param service the wire orchestrator
+     * @param layoutRenderer the layout wrapper
+     * @return the page renderer
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LievitPageRenderer lievitPageRenderer(
+            LievitWireService service, LayoutRenderer layoutRenderer) {
+        return new LievitPageRenderer(service, layoutRenderer);
+    }
+
+    /**
+     * Maps every {@code @LievitPage} component to a route on a single shared page handler (issue
+     * #181, Livewire {@code Route::livewire} + {@code LivewirePageController} parity). The route's
+     * path variables are bound to the component's same-named {@code @Wire} fields (props seeded before
+     * mount), the lievit analogue of implicit route-model binding. Returns an empty router when no
+     * {@code @LievitPage} component is present, so the bean is harmless in an app that routes its
+     * full pages itself.
+     *
+     * @param context the application context (source of {@code @LievitPage} component beans)
+     * @param renderer the full-page renderer
+     * @return a router function mapping each {@code @LievitPage} route to the page handler
+     */
+    @Bean
+    public org.springframework.web.servlet.function.RouterFunction<
+                    org.springframework.web.servlet.function.ServerResponse>
+            lievitPageRoutes(ApplicationContext context, LievitPageRenderer renderer) {
+        return new LievitPageRoutes(context, renderer).build();
     }
 
     private static byte[] decode(String base64Url) {

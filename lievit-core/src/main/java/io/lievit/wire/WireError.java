@@ -68,6 +68,14 @@ public enum WireError {
     ACTION_TIMEOUT(504, "timeout"),
 
     /**
+     * A wire request reached a wire-only endpoint without the {@code X-Lievit} header the client
+     * bundle stamps on every wire request (issue #177, Livewire {@code RequireLivewireHeaders}).
+     * Maps to {@code 400}: a plain browser navigation or a non-wire form POST cannot drive the
+     * batched update endpoint, which keeps the wire surface separate from the page surface.
+     */
+    MISSING_WIRE_HEADER(400, "missing-header"),
+
+    /**
      * An action (or a lifecycle hook) threw at runtime, or any other internal failure occurred while
      * serving the call. Maps to {@code 500}: the response is fail-closed and leak-free (ADR-0014),
      * carrying only this reason; the stack trace, the FQN, and the snapshot are logged server-side,
