@@ -68,6 +68,22 @@ export const COMPONENT_ATTR = "data-lievit-component";
 /** The prefix of a `$parent.action(...)` magic resolved client-side, not sent to the server (#67). */
 const PARENT_MAGIC_PREFIX = "$parent.";
 
+/**
+ * The attribute prefix the server stamps on a child component root for each parent-declared event
+ * listener (`@event="action"` on a `<lievit:child>` tag, #69 / ADR-0076). The suffix is the event
+ * name in its authored kebab form (DOM events are case-sensitive); the value is the parent action.
+ * The client routes a matching child-dispatched event to that action on the enclosing parent.
+ */
+const NESTED_LISTENER_ATTR_PREFIX = "lievit:on:";
+
+/**
+ * The attribute the server stamps on a modelable child root carrying the two-way-bind up-leg routing
+ * (`@LievitProperty(modelable=true)`, ADR-0016): `"<childField>:<parentProp>"`. When the child's
+ * `<childField>` is edited client-side, the client mirrors the value onto the parent's `<parentProp>`
+ * so it rides the parent's next wire call (the down-leg is an ordinary prop the parent seeds).
+ */
+const MODELABLE_ATTR = "lievit:modelable";
+
 /** Per-component live state the runtime owns (snapshot + pending deferred model updates). */
 interface ComponentState {
   readonly root: Element;
@@ -675,9 +691,47 @@ export class LievitRuntime {
     state.pendingPaths.add(field);
     this.lifecycle.modelChange(this.contextOf(state), field, value);
     this.fireWatchers(state.root, field, value);
+    // Modelable up-leg (ADR-0016, the client half): if this component is a modelable child and the
+    // edited field is its bound `<childField>`, mirror the value onto the parent's `<parentProp>` so
+    // it rides the parent's next call (a deferred update, never its own request). The down-leg is an
+    // ordinary prop the parent already seeds; this closes the two-way bind without server state.
+    this.propagateModelable(state, field, value);
     if (sendNow) {
       await this.enqueue(state, []);
     }
+  }
+
+  /**
+   * Routes a modelable child's bound-field edit up to its parent's bound property (ADR-0016 up-leg,
+   * the client half). The server stamps `lievit:modelable="<childField>:<parentProp>"` on a modelable
+   * child root; when `<childField>` changes, the parent's `<parentProp>` must follow. Resolves the
+   * parent with the same DOM walk as `$parent`, then records the value as a deferred update on the
+   * parent (`sendNow=false`), so it rides the parent's next wire call rather than firing one of its
+   * own. A non-modelable child, a top-level component, or an edit to any other field is a no-op.
+   *
+   * @param state the editing component's live state (its root carries any modelable marker)
+   * @param field the `@Wire` field just edited on this component
+   * @param value the new value
+   */
+  private propagateModelable(state: ComponentState, field: string, value: unknown): void {
+    const marker = state.root.getAttribute(MODELABLE_ATTR);
+    if (marker == null) {
+      return; // not a modelable child
+    }
+    const sep = marker.indexOf(":");
+    if (sep < 0) {
+      return; // malformed marker: no parentProp half
+    }
+    const childField = marker.slice(0, sep);
+    const parentProp = marker.slice(sep + 1);
+    if (childField !== field || parentProp.length === 0) {
+      return; // the edit is not the bound field, or there is no parent property to bind
+    }
+    const parentRoot = state.root.parentElement?.closest(`[${COMPONENT_ATTR}]`) ?? null;
+    if (parentRoot == null) {
+      return; // a top-level modelable component has no parent to bind up to
+    }
+    void this.setModel(parentRoot, parentProp, value, false);
   }
 
   /**
@@ -992,6 +1046,12 @@ export class LievitRuntime {
         this.deliverInboundEvent(target, route.event);
       }
     }
+    // Nested-component listeners (#69, ADR-0076): if THIS component is a child whose root carries a
+    // parent-declared `lievit:on:<event>` marker, route each matching dispatched event up to the
+    // parent's named action (the declarative `@event="action"` up-leg, the same DOM walk `$parent`
+    // uses). Independent of the `@LievitOn` bus above: that re-runs a listener method via `_events`,
+    // this invokes a regular parent action. A non-matching event name is left to the bus alone.
+    this.routeNestedListeners(state, effects.dispatch);
     // CSP-safe $js: invoke each named handler from the registry (never an eval, #131).
     if (effects.js != null) {
       this.js.applyEffect(effects.js, { root: state.root });
@@ -1002,6 +1062,43 @@ export class LievitRuntime {
         "release mismatch: a deploy moved on; a re-mount is expected on the next call",
         effects.release,
       );
+    }
+  }
+
+  /**
+   * Routes a child component's dispatched events to its parent's declared listener actions (#69,
+   * ADR-0076, the client half). The server stamps `lievit:on:<event>="<parentAction>"` on a child
+   * root for each `@event="action"` the parent declared on the child tag; when that child dispatches
+   * `<event>`, the parent's `<parentAction>` (a regular `@LievitAction`) must run. This is the
+   * declarative twin of `$parent.action()` (#67): the same up-the-DOM-tree parent resolution, but
+   * triggered by an emitted event rather than a click.
+   *
+   * It is independent of the `@LievitOn` event bus ({@link routeDispatchedEvents}): that delivers an
+   * event to a component's server listener methods via `_events`; this invokes a named parent action.
+   * A given dispatched event can drive both (parent listens via the tag AND via `@LievitOn`); the two
+   * paths do not interfere. The event name is matched verbatim against the marker suffix (the server
+   * keeps the authored kebab form, so no case-folding here).
+   *
+   * @param state the dispatching component's live state (its root carries any listener markers)
+   * @param events the events this component dispatched on this call (the `dispatch` effect)
+   */
+  private routeNestedListeners(
+    state: ComponentState,
+    events: readonly import("./effects.js").DispatchedEvent[] | undefined,
+  ): void {
+    if (events == null || events.length === 0) {
+      return;
+    }
+    // Resolve the parent ONCE: a child has a single enclosing component, shared by every listener.
+    const parent = this.parentObjectOf(state.root);
+    if (parent == null) {
+      return; // a top-level component (no parent) carries no nested listeners to honour
+    }
+    for (const event of events) {
+      const action = state.root.getAttribute(NESTED_LISTENER_ATTR_PREFIX + event.name);
+      if (action != null && action.length > 0) {
+        parent.$call(action);
+      }
     }
   }
 
