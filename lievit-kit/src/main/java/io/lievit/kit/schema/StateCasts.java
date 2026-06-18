@@ -6,6 +6,7 @@ package io.lievit.kit.schema;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.Objects;
 
@@ -127,6 +128,38 @@ public final class StateCasts {
 
             @Override
             public @Nullable Object dehydrate(@Nullable LocalDateTime value) {
+                return value == null ? null : value.toString();
+            }
+        };
+    }
+
+    /**
+     * An ISO {@link LocalTime} cast (the TimePicker cast): raw {@code "14:30"}/{@code "14:30:00"}
+     * hydrates to a {@code LocalTime}; dehydrates back to the ISO string. Blank/unparseable to
+     * {@code null}.
+     *
+     * @return the time cast
+     */
+    public static StateCast<LocalTime> time() {
+        return new StateCast<>() {
+            @Override
+            public @Nullable LocalTime hydrate(@Nullable Object raw) {
+                if (raw instanceof LocalTime t) {
+                    return t;
+                }
+                String s = raw == null ? "" : String.valueOf(raw).trim();
+                if (s.isEmpty()) {
+                    return null;
+                }
+                try {
+                    return LocalTime.parse(s);
+                } catch (DateTimeParseException e) {
+                    return null;
+                }
+            }
+
+            @Override
+            public @Nullable Object dehydrate(@Nullable LocalTime value) {
                 return value == null ? null : value.toString();
             }
         };
