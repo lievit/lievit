@@ -49,7 +49,7 @@ class LocalFileStoreTest {
         SignedTempPath signed = signer.sign("2026/06/abc.png", now);
         TemporaryUploadedFile file =
                 new TemporaryUploadedFile(signed.token(), "photo.png", 8, "image/png");
-        LocalFileStore store = new LocalFileStore(temp, signer, permanentRoot);
+        LocalFileStore store = new LocalFileStore(temp, signer, permanentRoot, () -> now);
 
         String stored = store.store(file, "avatars");
 
@@ -67,7 +67,7 @@ class LocalFileStoreTest {
     @Test
     void refuses_a_forged_token_before_reading_bytes(@TempDir Path tempRoot, @TempDir Path permRoot) {
         TempFileStorage temp = new TempFileStorage(tempRoot);
-        LocalFileStore store = new LocalFileStore(temp, signer, permRoot);
+        LocalFileStore store = new LocalFileStore(temp, signer, permRoot, () -> now);
         TemporaryUploadedFile file =
                 new TemporaryUploadedFile("forged.tok.signature", "x.png", 1, "image/png");
 
@@ -87,7 +87,7 @@ class LocalFileStoreTest {
         TempFileStorage temp = new TempFileStorage(tempRoot);
         temp.store("a.png", "A".getBytes(StandardCharsets.UTF_8));
         temp.store("b.png", "B".getBytes(StandardCharsets.UTF_8));
-        LocalFileStore store = new LocalFileStore(temp, signer, permRoot);
+        LocalFileStore store = new LocalFileStore(temp, signer, permRoot, () -> now);
         TemporaryUploadedFile first =
                 new TemporaryUploadedFile(signer.sign("a.png", now).token(), "photo.png", 1, "image/png");
         TemporaryUploadedFile second =
