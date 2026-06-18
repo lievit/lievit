@@ -87,6 +87,31 @@ JitPack). The version follows JitPack's rules: a tag, a commit, or `<branch>-SNA
 build of any new ref takes a minute while JitPack compiles the reactor; subsequent resolves are
 cached.
 
+### Maven Central (planned)
+
+On the first tagged release the modules will also publish to
+[Maven Central](https://central.sonatype.com) under the groupId **`io.github.lievit`** (the free,
+GitHub-org-verified namespace), so you can drop the JitPack repository and depend on the plain
+coordinate:
+
+```xml
+<!-- planned: available from the first tagged 0.1.0 on Maven Central -->
+<dependency>
+    <groupId>io.github.lievit</groupId>
+    <artifactId>lievit-spring-boot-starter</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+```kotlin
+// planned: available from the first tagged 0.1.0 on Maven Central
+implementation("io.github.lievit:lievit-spring-boot-starter:0.1.0")
+```
+
+The Java packages stay `io.lievit.*` (the groupId is the publish namespace, not the package). The
+release machinery (signed source + javadoc jars via the `release` Maven profile) is wired but not
+yet exercised; until the first release is observed live on Central, JitPack above is the path.
+
 ## The category
 
 lievit is **not** a library, **not** a framework alternative to Spring, and **not** a kit.
