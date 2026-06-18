@@ -278,12 +278,17 @@ public final class WireDispatcher {
             }
             runFinishes(renderFinishes);
             resolveAllComputed(metadata, instance, computedCache);
+            // with() extra view data (ADR-0041, #65): derived view variables for the first render,
+            // resolved after computed settled; empty when the mount skipped its render.
+            Map<String, @Nullable Object> viewData =
+                    ctx.skipRender() ? Map.of() : resolveViewData(instance);
 
             // Phase: DEHYDRATE (a listener seals the snapshot memo here).
             Map<String, Object> wire = readWire(metadata, instance);
             runFinishes(lifecycle.trigger(LifecyclePhase.DEHYDRATE, ctx));
             mergeMemo(wire, ctx);
-            return new WireCall(wire, effects, computedCache.snapshot(), children.declared());
+            return new WireCall(
+                    wire, effects, computedCache.snapshot(), children.declared(), false, viewData);
         } finally {
             runFinishes(lifecycle.trigger(LifecyclePhase.DESTROY, ctx));
             ComputedCache.clear();
@@ -419,6 +424,10 @@ public final class WireDispatcher {
             }
             runFinishes(renderFinishes);
             resolveAllComputed(metadata, instance, computedCache);
+            // with() extra view data (ADR-0041, #65): derived view variables, resolved after the
+            // action ran and computed settled, only when the render runs (skip-render = no view).
+            Map<String, @Nullable Object> viewData =
+                    ctx.skipRender() ? Map.of() : resolveViewData(instance);
             // After the new state settles, reflect any @LievitUrl fields into the url effect so the
             // client pushes/replaces the query string via the History API (ADR-0012, URL binding).
             effects.url(UrlQueryBinder.buildEffect(metadata, instance));
@@ -430,7 +439,8 @@ public final class WireDispatcher {
             // renderSkipped rides the result so the web layer sends no HTML patch (renderless /
             // redirect): the client leaves the DOM untouched (ADR-0030, ADR-0031).
             return new WireCall(
-                    wire, effects, computedCache.snapshot(), children.declared(), ctx.skipRender());
+                    wire, effects, computedCache.snapshot(), children.declared(), ctx.skipRender(),
+                    viewData);
         } finally {
             runFinishes(lifecycle.trigger(LifecyclePhase.DESTROY, ctx));
             ComputedCache.clear();
@@ -687,6 +697,15 @@ public final class WireDispatcher {
         if (hook != null) {
             invoke(hook, instance);
         }
+    }
+
+    /**
+     * Resolves the component's {@code with()} extra view data (ADR-0041, #65), empty when the
+     * component declares no {@code with()} method (the common case).
+     */
+    private static Map<String, @Nullable Object> resolveViewData(Object instance) {
+        WithMethodMetadata with = WithMethodMetadata.of(instance.getClass());
+        return with.isEmpty() ? Map.of() : with.resolve(instance);
     }
 
     private @Nullable Object invoke(Method method, Object instance) {

@@ -57,6 +57,8 @@ public final class LievitEffects {
     private @Nullable String release;
     /** The server-driven transition control for this update (ADR-0034 #113), or null when unused. */
     private @Nullable TransitionEffect transition;
+    /** The file the action returned as a download (issue #161), or null when none. */
+    private @Nullable DownloadEffect download;
 
     LievitEffects() {}
 
@@ -213,6 +215,32 @@ public final class LievitEffects {
      */
     public void skipTransition() {
         this.transition = TransitionEffect.skipped();
+    }
+
+    /**
+     * Queues a file download ({@code $this.download}, issue #161): the action hands the browser a
+     * file to save instead of swapping the page; the component still re-renders. The bytes ride the
+     * effects header base64-encoded; the client decodes them into a Blob and triggers the download.
+     * Last call wins (a single download per call, matching Livewire).
+     *
+     * @param download the file to download (name + base64 content + content type)
+     */
+    public void download(DownloadEffect download) {
+        if (download == null) {
+            throw new IllegalArgumentException("download effect must be non-null");
+        }
+        this.download = download;
+    }
+
+    /**
+     * Convenience: queue a download from raw bytes (base64-encoded for the wire).
+     *
+     * @param name the file name the browser saves it as
+     * @param bytes the file content
+     * @param contentType the MIME content type
+     */
+    public void download(String name, byte[] bytes, String contentType) {
+        download(DownloadEffect.of(name, bytes, contentType));
     }
 
     /** Captures an action's return value as the {@code returns} effect (set by the dispatcher). */
@@ -431,12 +459,20 @@ public final class LievitEffects {
     }
 
     /**
+     * @return the file download the action queued (issue #161), or {@code null} if none
+     */
+    public @Nullable DownloadEffect download() {
+        return download;
+    }
+
+    /**
      * @return true if no effect was produced (so the {@code Lievit-Effects} header is omitted)
      */
     public boolean isEmpty() {
         return redirect == null && dispatched.isEmpty() && returnValue == null
                 && validationErrors == null && validatedFields == null && url == null
-                && islands.isEmpty() && jsCalls.isEmpty() && release == null && transition == null;
+                && islands.isEmpty() && jsCalls.isEmpty() && release == null && transition == null
+                && download == null;
     }
 
     /**

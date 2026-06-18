@@ -5,8 +5,9 @@ protocol is stateless HTTP with a signed snapshot; this document is the *what* a
 the level of detail an implementation is built to. When the two disagree, ADR-0001 owns the
 decision and this document owns the mechanics.
 
-Status: spec-first. No runtime code exists yet, by intent. This is the contract the
-implementation will be built to.
+Status: implemented. The runtime ships across the lievit modules (core, compiler, the template
+adapters, the Spring Boot starter, and the lievit-ui client); this document is the normative
+contract that runtime is built to and is kept in step with it.
 
 ## 1. The snapshot lifecycle: mount, render, action, re-render
 

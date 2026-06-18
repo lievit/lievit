@@ -25,7 +25,11 @@ import io.lievit.kit.support.EvaluationContext;
  */
 public final class RuleSet {
 
-    private final List<Rule> rules = new ArrayList<>();
+    /** A rule paired with an optional stable key (the Filament rule name, for message overrides). */
+    private record Entry(@Nullable String key, Rule rule) {}
+
+    private final List<Entry> rules = new ArrayList<>();
+    private final java.util.Map<String, String> messages = new java.util.LinkedHashMap<>();
     private @Nullable String attribute;
     private UnaryOperator<@Nullable Object> mutateForValidation = UnaryOperator.identity();
 
@@ -43,7 +47,33 @@ public final class RuleSet {
      * @return this set
      */
     public RuleSet rule(Rule rule) {
-        rules.add(Objects.requireNonNull(rule, "rule"));
+        rules.add(new Entry(null, Objects.requireNonNull(rule, "rule")));
+        return this;
+    }
+
+    /**
+     * Adds a keyed rule to the set. The key is the Filament rule name (for example {@code "email"},
+     * {@code "min"}) a {@link #validationMessages(java.util.Map) custom message} can override.
+     *
+     * @param key the stable rule key (the Filament rule name)
+     * @param rule the rule
+     * @return this set
+     */
+    public RuleSet rule(String key, Rule rule) {
+        rules.add(new Entry(Objects.requireNonNull(key, "key"), Objects.requireNonNull(rule, "rule")));
+        return this;
+    }
+
+    /**
+     * Overrides the failure message of keyed rules by their rule key (the Filament
+     * {@code validationMessages([rule => message])}). A failing rule whose key is present uses the
+     * custom message instead of its default.
+     *
+     * @param overrides rule key to custom message
+     * @return this set
+     */
+    public RuleSet validationMessages(java.util.Map<String, String> overrides) {
+        messages.putAll(Objects.requireNonNull(overrides, "overrides"));
         return this;
     }
 
@@ -87,13 +117,14 @@ public final class RuleSet {
      * @return the rules in declaration order (unmodifiable)
      */
     public List<Rule> all() {
-        return List.copyOf(rules);
+        return rules.stream().map(Entry::rule).toList();
     }
 
     /**
      * Validates a value against every rule, short-circuiting at the first failure. The value is run
-     * through {@code mutateStateForValidation} first; a custom attribute name is substituted into
-     * the message when set.
+     * through {@code mutateStateForValidation} first; a {@linkplain #validationMessages custom
+     * message} for the failing rule's key wins, otherwise a custom attribute name is substituted into
+     * the default message when set.
      *
      * @param value the field's current value
      * @param context the live evaluation context
@@ -101,9 +132,13 @@ public final class RuleSet {
      */
     public Optional<String> validate(@Nullable Object value, EvaluationContext context) {
         @Nullable Object mutated = mutateForValidation.apply(value);
-        for (Rule rule : rules) {
-            @Nullable String message = rule.validate(mutated, context);
+        for (Entry entry : rules) {
+            @Nullable String message = entry.rule().validate(mutated, context);
             if (message != null) {
+                @Nullable String override = entry.key() == null ? null : messages.get(entry.key());
+                if (override != null) {
+                    return Optional.of(override);
+                }
                 return Optional.of(attribute == null ? message : withAttribute(message));
             }
         }

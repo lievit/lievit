@@ -391,6 +391,53 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * The default local-filesystem {@link io.lievit.upload.FileStore} (issue #189): moves a validated
+     * {@link io.lievit.upload.TemporaryUploadedFile} from the temp area to a permanent root. Conditional
+     * on a missing bean, so an adopter wiring object storage (GCS / S3) replaces it ("ship a default,
+     * adopter adapts").
+     *
+     * @param storage the temp storage holding the uploaded bytes
+     * @param signer the temp-path signer (verifies a token before its bytes are moved)
+     * @param properties the bound configuration (permanent root)
+     * @return the local file store, rooted at {@code lievit.upload-store-dir} or {@code ${tmp}/lievit-files}
+     */
+    @Bean
+    @ConditionalOnMissingBean(io.lievit.upload.FileStore.class)
+    public io.lievit.upload.FileStore lievitFileStore(
+            io.lievit.spring.upload.TempFileStorage storage,
+            io.lievit.upload.TempFileSigner signer,
+            LievitProperties properties) {
+        String dir = properties.getUploadStoreDir();
+        java.nio.file.Path root =
+                dir != null && !dir.isBlank()
+                        ? java.nio.file.Path.of(dir)
+                        : java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "lievit-files");
+        return new io.lievit.spring.upload.LocalFileStore(storage, signer, root);
+    }
+
+    /**
+     * The temp-upload cleanup reaper (issue #191): deletes orphaned temp uploads (uploaded but never
+     * stored) older than {@code lievit.upload-cleanup-max-age}. The bean self-schedules a fixed-rate
+     * reap on its own daemon thread when {@code lievit.upload-cleanup-interval} is positive; a
+     * non-positive interval leaves it idle (callable on demand). No dependency on Spring's
+     * {@code @EnableScheduling}, so the reaper runs whether or not the app enabled scheduling.
+     *
+     * @param storage the temp storage to reap
+     * @param properties the bound configuration (max age + interval)
+     * @return the cleanup reaper (started)
+     */
+    @Bean(destroyMethod = "stop")
+    @ConditionalOnMissingBean
+    public io.lievit.spring.upload.TempUploadCleanup lievitUploadCleanup(
+            io.lievit.spring.upload.TempFileStorage storage, LievitProperties properties) {
+        io.lievit.spring.upload.TempUploadCleanup cleanup =
+                new io.lievit.spring.upload.TempUploadCleanup(
+                        storage, properties.getUploadCleanupMaxAge());
+        cleanup.start(properties.getUploadCleanupInterval());
+        return cleanup;
+    }
+
+    /**
      * The SSE broadcast channel (issue #304 / #45): the server→client live-push port. Opt-in, mounted
      * only when {@code lievit.broadcast.enabled=true} so an app that does not push live notifications
      * never holds an open SSE connection. The channel reuses the wire effects mapper to serialize the

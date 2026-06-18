@@ -79,4 +79,33 @@ public final class ColorManager {
         String resolved = colors.containsKey(name) ? name : DEFAULT;
         return prefix + "-" + resolved;
     }
+
+    /**
+     * Emits every registered color as CSS custom properties the theme stylesheet consumes (the
+     * filament-support {@code componentCustomStyles} / theme-CSS-variable bridge). Each shade of
+     * each color becomes one declaration, {@code --lievit-{name}-{shade}: {value};}, so a generated
+     * or overridden ramp flows straight into the stylesheet without recompiling Tailwind.
+     *
+     * <p>This is the seam that closes the theming loop: an app registers a generated ramp (or
+     * overrides one shade), and the emitted block is dropped into a {@code :root} rule the theme
+     * binds its utility classes to.
+     *
+     * @return the CSS custom-property declarations, one per shade, in registration + shade order
+     */
+    public String cssVariables() {
+        StringBuilder out = new StringBuilder();
+        for (Map.Entry<String, Color> entry : colors.entrySet()) {
+            String name = entry.getKey();
+            for (Map.Entry<Integer, String> shade : entry.getValue().ramp().entrySet()) {
+                out.append("--lievit-")
+                        .append(name)
+                        .append('-')
+                        .append(shade.getKey())
+                        .append(": ")
+                        .append(shade.getValue())
+                        .append(";\n");
+            }
+        }
+        return out.toString();
+    }
 }

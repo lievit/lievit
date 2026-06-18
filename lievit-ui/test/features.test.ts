@@ -15,7 +15,11 @@ import { installPoll, type PollScheduler } from "../runtime/features/poll.js";
 import { installTransition } from "../runtime/features/transition.js";
 import { installLazy, type IntersectionObserverFactory } from "../runtime/features/lazy.js";
 import { installPagination } from "../runtime/features/pagination.js";
-import { installUploads, type UploadTransport } from "../runtime/features/uploads.js";
+import {
+  installUploads,
+  directUploadTransport,
+  type UploadTransport,
+} from "../runtime/features/uploads.js";
 
 /** A fetch that always replies 200 with the given body + a rotated snapshot header. */
 function okFetch(html: string, effects?: string): typeof fetch {
@@ -333,5 +337,42 @@ describe("file uploads (#159)", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(events).toEqual(["lievit:upload-start", "lievit:upload-finish"]);
+  });
+
+  it("directUploadTransport presigns then PUTs each file straight to storage (#191)", async () => {
+    const calls: { url: string; method: string }[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? "GET" });
+      if (url === "/lievit/upload/presign") {
+        return new Response(
+          JSON.stringify({
+            uploads: [
+              { url: "https://bucket/a.png?sig=1", method: "PUT", key: "uploads/a.png" },
+              { url: "https://bucket/b.png?sig=2", method: "PUT", key: "uploads/b.png" },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("", { status: 200 }); // the direct PUTs to object storage
+    }) as unknown as typeof fetch;
+    const original = globalThis.fetch;
+    globalThis.fetch = fetchImpl;
+    try {
+      const transport = directUploadTransport();
+      const files = [
+        new File(["a"], "a.png", { type: "image/png" }),
+        new File(["b"], "b.png", { type: "image/png" }),
+      ];
+      const refs = await transport.upload(files, () => {}, new AbortController().signal);
+
+      // One presign POST, then one direct PUT per file (the per-file multiple+direct constraint).
+      expect(calls[0]).toEqual({ url: "/lievit/upload/presign", method: "POST" });
+      expect(calls.filter((c) => c.method === "PUT")).toHaveLength(2);
+      // The recorded ref path is the storage key, not a temp token (bytes are already permanent).
+      expect(refs.map((r) => r.path)).toEqual(["uploads/a.png", "uploads/b.png"]);
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

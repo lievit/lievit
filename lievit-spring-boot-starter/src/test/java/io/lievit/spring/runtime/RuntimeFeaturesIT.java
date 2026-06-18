@@ -95,6 +95,32 @@ class RuntimeFeaturesIT {
     }
 
     /**
+     * @spec.given a mounted runtime component
+     * @spec.when  the downloadReport action queues a $this.download CSV
+     * @spec.then  the harness asserts the file download (name + content + type) over the wire
+     */
+    @Test
+    void an_action_downloads_a_file_the_harness_asserts() {
+        test(RuntimeComponent.class)
+                .mount()
+                .call("downloadReport")
+                .assertFileDownloaded("report.csv", "id,name\n1,a\n", "text/csv");
+    }
+
+    /**
+     * @spec.given a mounted runtime component
+     * @spec.when  a plain action runs (save returns nothing downloadable)
+     * @spec.then  no download is queued: the page just re-renders
+     */
+    @Test
+    void a_plain_action_queues_no_download() {
+        test(RuntimeComponent.class)
+                .mount()
+                .call("save")
+                .assertNoFileDownloaded();
+    }
+
+    /**
      * @spec.given a mounted runtime component whose boot()/rendered() hooks set wire flags
      * @spec.when  a wire call runs
      * @spec.then  the booted and rendered witnesses are true, proving the convention hooks fired
