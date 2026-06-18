@@ -83,7 +83,7 @@
         <jjwt.version>0.13.0</jjwt.version>
         <jspecify.version>1.0.0</jspecify.version>
         <jqwik.version>1.9.3</jqwik.version>
-        <archunit.version>1.3.2</archunit.version>
+        <archunit.version>1.4.2</archunit.version>
         <assertj.version>3.27.7</assertj.version>
 
         <!-- GraalVM Native Build Tools (ADR-0006). The native profile is declared here, not
