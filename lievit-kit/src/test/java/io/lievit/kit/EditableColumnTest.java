@@ -73,4 +73,44 @@ class EditableColumnTest {
         assertThat(col.validate("")).contains("required");
         assertThat(col.validate("ok")).isEmpty();
     }
+
+    /**
+     * @spec.given a select column over a closed option set
+     * @spec.when  an on-list value is edited in
+     * @spec.then  it produces a row carrying the chosen value
+     */
+    @Test
+    void select_column_edits_a_chosen_option_into_a_new_row() {
+        SelectColumn<Listing> col =
+                SelectColumn.make(
+                        "Status",
+                        Listing::title,
+                        java.util.List.of(SelectOption.of("draft", "Draft"), SelectOption.of("live", "Live")),
+                        (row, v) -> new Listing(row.id(), row.active(), v));
+
+        Listing edited = col.applyEdit(new Listing("1", true, "draft"), "live");
+
+        assertThat(edited.title()).isEqualTo("live");
+        assertThat(col.options()).hasSize(2);
+    }
+
+    /**
+     * @spec.given a select column over a closed option set
+     * @spec.when  an off-list value is validated and then applied
+     * @spec.then  validation rejects it and applyEdit refuses to smuggle it into the row
+     */
+    @Test
+    void select_column_rejects_an_off_list_value() {
+        SelectColumn<Listing> col =
+                SelectColumn.make(
+                        "Status",
+                        Listing::title,
+                        java.util.List.of(SelectOption.of("draft", "Draft")),
+                        (row, v) -> new Listing(row.id(), row.active(), v));
+
+        assertThat(col.validate("deleted")).isPresent();
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> col.applyEdit(new Listing("1", true, "draft"), "deleted"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
