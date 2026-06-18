@@ -23,13 +23,28 @@ import {
   builtinDirectives,
 } from "./directives.js";
 import {
+  type CallContext,
+  type CallMeta,
   type CallOutcome,
   type ComponentContext,
   LifecycleBus,
   type LifecycleHook,
 } from "./lifecycle.js";
-import { morph } from "./morph.js";
+import { type MorphHooks, type MorphMode, morph } from "./morph.js";
 import { type SendOptions, send } from "./wire.js";
+import {
+  type Interceptor,
+  type InterceptorOutcome,
+  type InterceptorRequest,
+  type InterceptorScope,
+  InterceptorChain,
+  actionScope,
+} from "./interceptors.js";
+import { type MergeIntent, type WireState, mergeNewSnapshot } from "./merge.js";
+import { morphIslands, parseIslands } from "./islands.js";
+import { JsRegistry } from "./js-registry.js";
+import { RefRegistry, registerV4Directives } from "./v4-directives.js";
+import { releaseMismatch } from "./release-token.js";
 
 /** The attribute the server renders on a component root carrying its current signed snapshot. */
 export const SNAPSHOT_ATTR = "data-lievit-snapshot";
@@ -44,12 +59,53 @@ interface ComponentState {
   readonly componentId: string;
   snapshot: string;
   readonly pendingUpdates: Record<string, unknown>;
+  /**
+   * The ephemeral client mirror of the component's `@Wire` state (ADR-0024 #87): seeded lazily,
+   * updated on every `l:model` input before any network call, so `$lievit.prop` is readable
+   * immediately and the surgical merge has a baseline to reconcile against.
+   */
+  readonly ephemeral: WireState;
+  /** The paths edited locally since the last commit (the surgical-merge pending set, #87). */
+  readonly pendingPaths: Set<string>;
+  /** A promise chain that serializes this component's commits (request bundling, #95). */
+  inFlight: Promise<void>;
+  /** True while a (non-async) call for this component is on the wire (disable-during-request, #125). */
+  busy: boolean;
 }
 
 /** Options for {@link LievitRuntime}: CSRF wiring, a custom fetch, an error reporter. */
 export interface RuntimeOptions extends SendOptions {
   /** Reporter for a transport error or an unexpected failure (defaults to `console.error`). */
   readonly onError?: (message: string, detail: unknown) => void;
+}
+
+/**
+ * An action interceptor: a feature-registered gate run BEFORE a wire call leaves the browser. It
+ * lets a feature (e.g. `wire:confirm`) veto or defer a call without editing the core. Each
+ * interceptor returns whether the call may proceed; returning `false` (or a promise of `false`)
+ * aborts the call silently (no network, no lifecycle phases). This is the seam ADR-0019 left open
+ * for `wire:confirm` ("intercepts the action, aborts on cancel").
+ */
+export interface ActionInterceptor {
+  /**
+   * @param ctx the call about to be sent (component, calls, updates, meta)
+   * @returns true to proceed, false to abort the call
+   */
+  (ctx: CallContext): boolean | Promise<boolean>;
+}
+
+/**
+ * A morph-hook provider: a feature returns the {@link MorphHooks} it wants applied to a given
+ * component root's morph (or `null` to opt out). The runtime composes every provider's hooks into
+ * one set per morph, so `l:ignore` (skip subtrees) and `l:transition` (defer removal) plug in
+ * WITHOUT editing the morph algorithm (ADR-0019 morph seam).
+ */
+export interface MorphHookProvider {
+  /**
+   * @param root the component root being morphed
+   * @returns the hooks to apply for this morph, or `null` to contribute none
+   */
+  (root: Element): MorphHooks | null;
 }
 
 /**
@@ -61,10 +117,19 @@ export class LievitRuntime {
   readonly directives = new DirectiveRegistry();
   /** The lifecycle hook bus (public extension point: `register` a {@link LifecycleHook}). */
   readonly lifecycle: LifecycleBus;
+  /** The interceptor chain (ADR-0024 #93): the *participating* request-lifecycle seam. */
+  readonly interceptors: InterceptorChain;
+  /** The named-ref registry (`l:ref`, #109). */
+  readonly refs = new RefRegistry();
+  /** The CSP-safe `$js` handler registry (#131): register named client functions here. */
+  readonly js = new JsRegistry();
 
   private readonly states = new WeakMap<Element, ComponentState>();
   private readonly options: RuntimeOptions;
   private readonly directiveRuntime: DirectiveRuntime;
+  private readonly morphHookProviders: MorphHookProvider[] = [];
+  /** Async veto decisions in flight for a given pre-flight request (the `intercept(fn)` form). */
+  private readonly vetoPending = new WeakMap<InterceptorRequest, Promise<void>[]>();
 
   /**
    * @param options CSRF token/header, an injectable fetch, and an error reporter
@@ -72,15 +137,34 @@ export class LievitRuntime {
   constructor(options: RuntimeOptions = {}) {
     this.options = options;
     this.lifecycle = new LifecycleBus();
+    this.interceptors = new InterceptorChain();
     for (const directive of builtinDirectives()) {
       this.directives.register(directive);
     }
     this.directiveRuntime = {
-      callAction: (element, action) => void this.callAction(element, action),
+      callAction: (element, action, meta) => void this.callAction(element, action, meta ?? {}),
       setModel: (element, field, value, sendNow) =>
         void this.setModel(element, field, value, sendNow),
     };
+    // The island directive (#89) lives here (the one built-in core touch, fenced) so it can route
+    // an action as island-targeted through `dispatch`; the rest of the v4 cluster is in
+    // v4-directives.ts. A sibling adding directives touches that file, not this fence.
+    this.directives.register(islandDirective(this));
+    // The async action directive (#97): `l:click.async` races instead of queueing.
+    this.directives.register(asyncActionDirective(this));
+    // Register the v4 directive cluster (#75/#77/#85/#97/#101/#109/#111/#125) through the seams.
+    registerV4Directives({
+      registerDirective: (d) => this.directives.register(d),
+      use: (hook) => this.use(hook),
+      ephemeral: (element, field) => this.readEphemeral(element, field),
+      inFlight: (element) => this.stateOf(element)?.busy === true,
+      refs: this.refs,
+      errorsFor: (root) => this.lastErrors.get(root) ?? {},
+    });
   }
+
+  /** The latest `errors` effect per component, captured pre-`afterCall` for the error directives. */
+  private readonly lastErrors = new WeakMap<Element, Record<string, readonly string[]>>();
 
   /**
    * Convenience to register a {@link LifecycleHook} (delegates to {@link LifecycleBus.register}).
@@ -90,6 +174,197 @@ export class LievitRuntime {
    */
   use(hook: LifecycleHook): () => void {
     return this.lifecycle.register(hook);
+  }
+
+  /**
+   * Registers an interceptor. Two forms unify onto the single {@link InterceptorChain} (#93):
+   *
+   * - **Veto form** `intercept(fn)` (ADR-0019): a function run pre-flight that returns `false` (or a
+   *   promise of `false`) to abort the call entirely (no network, no lifecycle phases). It reads the
+   *   call's {@link CallContext} (incl. `meta.trigger`); `l:confirm` registers one so a cancel stops
+   *   the action without touching the core loop. Implemented as an interceptor whose `onInit` runs
+   *   the gate and `cancel()`s on a falsy result (async gates resolve before `onSend`).
+   * - **Chain form** `intercept(obj, scope?)` (ADR-0024): a full {@link Interceptor} with phase
+   *   callbacks that may `cancel()`, mutate headers/updates, and block a redirect; global by default,
+   *   pass a {@link InterceptorScope} for per-action / per-component.
+   *
+   * @param interceptor the veto function OR the phase interceptor
+   * @param scope which calls a chain interceptor applies to (ignored for the veto form)
+   * @returns an unsubscribe function
+   */
+  intercept(
+    interceptor: ActionInterceptor | Interceptor,
+    scope?: InterceptorScope,
+  ): () => void {
+    if (typeof interceptor === "function") {
+      return this.interceptors.register(this.vetoInterceptor(interceptor));
+    }
+    return this.interceptors.register(interceptor, scope);
+  }
+
+  /**
+   * Adapts a veto {@link ActionInterceptor} (the `intercept(fn)` form) onto the unified chain: its
+   * `onInit` builds the {@link CallContext} from the pre-flight request and runs the gate; a falsy
+   * result (or an awaited falsy promise) `cancel()`s the request. A sync gate cancels synchronously
+   * (observed right after `onInit`); an async gate records its promise in {@link vetoPending} so
+   * `dispatch` awaits the decision before sending. A throwing gate is reported and fails soft (the
+   * call proceeds), matching ADR-0019's "a buggy interceptor must not block interactivity".
+   */
+  private vetoInterceptor(gate: ActionInterceptor): Interceptor {
+    return {
+      onInit: (request) => {
+        const ctx: CallContext = {
+          root: request.root,
+          componentId: request.componentId,
+          calls: request.calls,
+          updates: request.updates,
+          meta: request.meta as CallMeta,
+        };
+        let result: boolean | Promise<boolean>;
+        try {
+          result = gate(ctx);
+        } catch (error) {
+          this.reportError("action interceptor threw", error);
+          return; // fail-soft: proceed.
+        }
+        if (typeof result === "boolean") {
+          if (!result) {
+            request.cancel();
+          }
+          return;
+        }
+        // Async gate: record the decision so dispatch awaits it before `onSend`.
+        const pending = result
+          .then((proceed) => {
+            if (!proceed) {
+              request.cancel();
+            }
+          })
+          .catch((error) => {
+            this.reportError("action interceptor threw", error); // fail-soft: proceed.
+          });
+        const list = this.vetoPending.get(request) ?? [];
+        list.push(pending);
+        this.vetoPending.set(request, list);
+      },
+    };
+  }
+
+  /**
+   * Registers a per-action interceptor: it fires only for calls invoking `action` (#93).
+   *
+   * @param action the action name to scope to
+   * @param interceptor the interceptor
+   * @returns an unsubscribe function
+   */
+  interceptAction(action: string, interceptor: Interceptor): () => void {
+    return this.interceptors.register(interceptor, actionScope(action));
+  }
+
+  /**
+   * Registers a {@link MorphHookProvider}: every provider is asked for {@link MorphHooks} on each
+   * component morph and the results are composed into one set. `l:ignore` and `l:transition`
+   * register here so they shape the morph without editing it (ADR-0019 morph seam).
+   *
+   * @param provider the morph-hook provider to add
+   * @returns an unsubscribe function
+   */
+  morphWith(provider: MorphHookProvider): () => void {
+    this.morphHookProviders.push(provider);
+    return () => {
+      const i = this.morphHookProviders.indexOf(provider);
+      if (i >= 0) {
+        this.morphHookProviders.splice(i, 1);
+      }
+    };
+  }
+
+  /**
+   * Issues a wire call for the component owning `element`, invoking the named action (the public
+   * form of the directive seam: poll / navigate / init / confirm features call this). Bundles into
+   * the per-component commit queue (#95) and drains any pending deferred `l:model` updates.
+   *
+   * @param element any element inside the target component
+   * @param action the `@LievitAction` name to invoke
+   * @param meta coarse call metadata (e.g. `{ poll: true }`, the trigger element) for hooks/interceptors
+   */
+  async callAction(element: Element, action: string, meta: CallMeta = {}): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.enqueue(state, [action], meta);
+  }
+
+  /**
+   * The async action path (`l:click.async`, #97): issue the call concurrently, NOT through the
+   * per-component commit queue, so two `.async` actions run in parallel.
+   *
+   * @param element any element inside the component
+   * @param action the action to invoke
+   * @param meta coarse call metadata
+   */
+  async callActionAsync(element: Element, action: string, meta: CallMeta = {}): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.dispatch(state, [action], meta);
+  }
+
+  /**
+   * Routes an action as island-targeted (`l:island`, #89): the server skips the parent render and
+   * returns only the island fragment(s), morphed in place via the `islands` effect.
+   *
+   * @param element any element inside the component
+   * @param action the action to invoke
+   * @param island the island name to re-render
+   * @param meta coarse call metadata
+   */
+  async callIsland(
+    element: Element,
+    action: string,
+    island: string,
+    meta: CallMeta = {},
+  ): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.dispatch(state, [action], meta, island);
+  }
+
+  /**
+   * Refreshes the component owning `element` with no action call (drains pending updates + re-renders
+   * server-side). This is the `$refresh` / poll-tick primitive.
+   *
+   * @param element any element inside the target component
+   * @param meta coarse call metadata (e.g. `{ poll: true }`)
+   */
+  async refresh(element: Element, meta: CallMeta = {}): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.enqueue(state, [], meta);
+  }
+
+  /** Re-scans a subtree for `l:*` directives (a feature that injects DOM calls this to bind it). */
+  scan(root: Element): void {
+    this.directives.scan(root, this.directiveRuntime);
+  }
+
+  /** Reads a component's ephemeral `@Wire` value for `field` (the v4 `$lievit.prop`, #87). */
+  private readEphemeral(element: Element, field: string): unknown {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return undefined;
+    }
+    if (field in state.ephemeral) {
+      return state.ephemeral[field];
+    }
+    // Fall back to a pending edit not yet mirrored, else undefined.
+    return state.pendingUpdates[field];
   }
 
   /**
@@ -108,11 +383,16 @@ export class LievitRuntime {
   /** Registers a component root and binds its directives. Idempotent. */
   private bindComponent(rootEl: Element): void {
     if (!this.states.has(rootEl)) {
+      const snapshot = rootEl.getAttribute(SNAPSHOT_ATTR) ?? "";
       this.states.set(rootEl, {
         root: rootEl,
         componentId: rootEl.getAttribute(COMPONENT_ID_ATTR) ?? "",
-        snapshot: rootEl.getAttribute(SNAPSHOT_ATTR) ?? "",
+        snapshot,
         pendingUpdates: {},
+        ephemeral: decodeWire(snapshot),
+        pendingPaths: new Set(),
+        inFlight: Promise.resolve(),
+        busy: false,
       });
     }
     this.directives.scan(rootEl, this.directiveRuntime);
@@ -152,41 +432,113 @@ export class LievitRuntime {
       return;
     }
     state.pendingUpdates[field] = value;
+    // Update the ephemeral mirror immediately so `$lievit.prop` and l:bind/l:text read it before
+    // any network call, and record the path for the surgical merge (#87).
+    state.ephemeral[field] = value as never;
+    state.pendingPaths.add(field);
     this.lifecycle.modelChange(this.contextOf(state), field, value);
     if (sendNow) {
-      await this.dispatch(state, []);
+      await this.enqueue(state, []);
     }
-  }
-
-  /** Queues an action and issues the wire call, draining any pending deferred model updates. */
-  private async callAction(element: Element, action: string): Promise<void> {
-    const state = this.stateOf(element);
-    if (state == null) {
-      return;
-    }
-    await this.dispatch(state, [action]);
   }
 
   /**
-   * The core call loop: send the snapshot + drained pending updates + calls, then on a 200 morph
-   * the DOM, store the rotated snapshot, and apply effects; on a failure surface it fail-closed and
-   * re-mount (reload) for `409`/`410`.
+   * Bundles a commit into the component's serialized in-flight chain (#95 request bundling): the
+   * call waits for the previous one, so a burst of clicks/model commits collapses to one round-trip
+   * worth of ordering rather than racing. Returns the promise for this commit.
    */
-  private async dispatch(state: ComponentState, calls: readonly string[]): Promise<void> {
-    const updates = { ...state.pendingUpdates };
+  private enqueue(
+    state: ComponentState,
+    calls: readonly string[],
+    meta: CallMeta = {},
+  ): Promise<void> {
+    const next = state.inFlight.then(() => this.dispatch(state, calls, meta));
+    // Keep the chain alive even if a commit rejects (a failure must not freeze the queue).
+    state.inFlight = next.catch(() => {});
+    return next;
+  }
+
+  /**
+   * The core call loop (ADR-0019 + ADR-0024, unified): thread the single interceptor chain around
+   * the wire call. The veto form (`intercept(fn)`, e.g. `l:confirm`) rides the chain's `onInit` and
+   * aborts via `cancel()` before any network or `beforeCall`; the chain form participates through
+   * `onInit -> onSend -> onSuccess -> onSync -> onEffect -> onMorph -> onFinish -> onRender`
+   * (cancel / mutate headers / block redirect, #93). On a 200 we surgically merge the wire state
+   * (#87), morph the DOM (whole component, or only the named islands if the response carried an
+   * `islands` effect, #89, through the composed morph hooks for `l:ignore` / `l:transition`), store
+   * the rotated snapshot, and apply effects (`url` / `errors` / `dispatch` / `redirect` / the v4 `js`
+   * / `release` keys); on a failure surface it fail-closed and re-mount for `409`/`410`.
+   *
+   * @param state the component's live state
+   * @param calls the action names to invoke
+   * @param meta coarse call metadata (trigger element, poll flag) for hooks + veto interceptors
+   * @param island the island name this call targets (`l:island`), or `null` for a full call
+   */
+  private async dispatch(
+    state: ComponentState,
+    calls: readonly string[],
+    meta: CallMeta = {},
+    island: string | null = null,
+  ): Promise<void> {
+    const baseWire: WireState = { ...state.ephemeral };
+    const pendingPaths = Array.from(state.pendingPaths);
+    const updates: Record<string, unknown> = { ...state.pendingUpdates };
+    if (island != null) {
+      updates._island = island;
+    }
     const ctx = this.contextOf(state);
-    this.lifecycle.beforeCall({ ...ctx, calls, updates });
+
+    // --- Interceptors: onInit -> onSend (the pre-flight, participating phases, #93). A veto
+    // interceptor (the `intercept(fn)` form) runs in `onInit` and `cancel()`s on a falsy gate;
+    // an async gate is awaited here before `onSend`, so a cancel stops the call with no network
+    // and no `beforeCall` (ADR-0019). The request carries `meta` so the veto can read its trigger.
+    const { request, cancelled } = this.interceptors.buildRequest(
+      state.componentId,
+      state.root,
+      calls,
+      updates,
+      meta,
+    );
+    this.interceptors.init(request);
+    // A veto interceptor with an async gate records its pending decision here; await them all so an
+    // async cancel is observed before we send (a sync gate already flipped `cancelled()`).
+    const pendingVetoes = this.vetoPending.get(request);
+    if (pendingVetoes != null && pendingVetoes.length > 0) {
+      await Promise.all(pendingVetoes);
+      this.vetoPending.delete(request);
+    }
+    if (cancelled()) {
+      this.interceptors.cancelled(request);
+      return;
+    }
+    this.lifecycle.beforeCall({ ...ctx, calls, updates: request.updates, meta });
+    state.busy = true;
+    this.interceptors.send(request);
+    if (cancelled()) {
+      state.busy = false;
+      this.interceptors.cancelled(request);
+      return;
+    }
 
     let response;
     try {
-      response = await send(state.componentId, { snapshot: state.snapshot, updates, calls }, this.options);
+      response = await send(
+        state.componentId,
+        { snapshot: state.snapshot, updates: request.updates, calls },
+        { ...this.options, extraHeaders: request.headers },
+      );
     } catch (error) {
+      state.busy = false;
       this.reportError("wire call transport failed", error);
-      this.lifecycle.error({ ...ctx, status: 0, ok: false, reason: "transport-error" });
+      const out: CallOutcome = { ...ctx, status: 0, ok: false, reason: "transport-error" };
+      this.lifecycle.error(out);
+      this.interceptors.errored(out);
+      this.interceptors.finish(out);
       return;
     }
 
     if (!response.ok) {
+      state.busy = false;
       const outcome: CallOutcome = {
         ...ctx,
         status: response.status,
@@ -194,6 +546,8 @@ export class LievitRuntime {
         reason: response.reason,
       };
       this.lifecycle.error(outcome);
+      this.interceptors.errored(outcome);
+      this.interceptors.finish(outcome);
       if (response.remount) {
         // 409 (expired) / 410 (class gone): the snapshot no longer matches the server. The only
         // safe recovery is a fresh render of the host page (wire-protocol.md §4).
@@ -204,14 +558,51 @@ export class LievitRuntime {
       return;
     }
 
-    // Success: the deferred updates have been consumed by the server, clear them.
-    for (const key of Object.keys(state.pendingUpdates)) {
-      delete state.pendingUpdates[key];
-    }
+    const okOutcome: InterceptorOutcome = { ...ctx, status: 200, ok: true, reason: null };
+    this.interceptors.success(okOutcome);
 
-    morph(state.root, response.html);
+    // --- Surgical merge (#87): the server is authoritative, but a pending edit to a path the
+    // server did not change survives. Rebuild the ephemeral mirror from the merged state. ---------
+    const serverWire = decodeWire(response.snapshot);
+    if (Object.keys(serverWire).length > 0) {
+      const intent: MergeIntent = { pendingPaths };
+      const merged = mergeNewSnapshot(baseWire, serverWire, intent);
+      // The pending edits the server reconciled are now committed; drop them.
+      for (const key of Object.keys(state.pendingUpdates)) {
+        delete state.pendingUpdates[key];
+      }
+      state.pendingPaths.clear();
+      for (const key of Object.keys(state.ephemeral)) {
+        delete state.ephemeral[key];
+      }
+      Object.assign(state.ephemeral, merged);
+    } else {
+      for (const key of Object.keys(state.pendingUpdates)) {
+        delete state.pendingUpdates[key];
+      }
+      state.pendingPaths.clear();
+    }
+    this.interceptors.sync(okOutcome);
+
+    // Capture validation errors for the error directives before they fire on `afterCall` (#101).
+    this.lastErrors.set(state.root, response.effects?.errors ?? {});
+
+    // --- Apply non-DOM effects (dispatch / redirect blockable / url / js), then morph (#93 order)
+    this.applyNonDomEffects(state, response.effects, okOutcome);
+    this.interceptors.effect(okOutcome);
+
+    // --- Morph: only the named islands if the call was island-targeted (#89), else the whole root.
+    const islandNames = response.effects?.islands;
+    if (islandNames != null && islandNames.length > 0) {
+      const fragments = parseIslands(response.html).filter((f) => islandNames.includes(f.name));
+      morphIslands(state.root, fragments);
+    } else {
+      // Whole-component morph through the composed morph hooks so `l:ignore` (skip subtrees) and
+      // `l:transition` (defer removal) shape it without editing the morph algorithm (ADR-0019).
+      morph(state.root, response.html, this.composedMorphHooks(state.root));
+    }
     // Stash the rotated snapshot AFTER the morph: the server's re-rendered root carries no
-    // data-lievit-snapshot attribute (the snapshot rides the header, never the body), so morphing
+    // data-lievit-snapshot attribute (the snapshot rides the header, not the body), so morphing
     // first then writing the attribute keeps the live snapshot from being reconciled away.
     if (response.snapshot.length > 0) {
       state.snapshot = response.snapshot;
@@ -219,9 +610,101 @@ export class LievitRuntime {
     }
     // Re-scan: a morph may have introduced new `l:*` elements (idempotent on existing ones).
     this.directives.scan(state.root, this.directiveRuntime);
+    state.busy = false;
 
+    this.interceptors.morphed(okOutcome);
     this.lifecycle.afterCall({ ...ctx, status: 200, ok: true, reason: null });
-    applyEffects(response.effects);
+    this.interceptors.finish(okOutcome);
+    this.interceptors.render(okOutcome);
+  }
+
+  /**
+   * Applies the non-DOM effects of a successful call (ADR-0012 + ADR-0024 new keys): the dispatch
+   * events + URL (via {@link applyEffects}), a redirect (blockable by an `onRedirect` interceptor),
+   * the `js` named-handler calls (#131), and the `release`-token mismatch check (#105).
+   */
+  private applyNonDomEffects(
+    state: ComponentState,
+    effects: import("./effects.js").Effects | null,
+    outcome: InterceptorOutcome,
+  ): void {
+    if (effects == null) {
+      return;
+    }
+    // A redirect is offered to interceptors first; a blocked one is suppressed.
+    let navigate: ((url: string) => void) | undefined;
+    if (effects.redirect != null && this.interceptors.redirect(effects.redirect, outcome)) {
+      navigate = () => {}; // prevented: do not navigate
+    }
+    // dispatch + url + errors ride applyEffects (address-bar write + the `lievit:url` /
+    // `lievit:validation-errors` DOM events, wire-protocol.md §5b / ADR-0012); redirect navigation
+    // honors the interceptor decision. The v4 error directives read errors via the captured
+    // `lastErrors` snapshot, so surfacing the event here is purely additive.
+    applyEffects(
+      {
+        redirect: effects.redirect,
+        dispatch: effects.dispatch,
+        returns: effects.returns,
+        url: effects.url,
+        errors: effects.errors,
+      },
+      window,
+      navigate ?? ((url) => window.location.assign(url)),
+    );
+    // CSP-safe $js: invoke each named handler from the registry (never an eval, #131).
+    if (effects.js != null) {
+      this.js.applyEffect(effects.js, { root: state.root });
+    }
+    // Release-token mismatch (#105): a deploy moved on; the next stale-snapshot failure is expected.
+    if (releaseMismatch(effects.release)) {
+      this.reportError(
+        "release mismatch: a deploy moved on; a re-mount is expected on the next call",
+        effects.release,
+      );
+    }
+  }
+
+  /**
+   * Composes every {@link MorphHookProvider}'s hooks for `root` into one {@link MorphHooks} set: the
+   * first provider that returns a mode for an element wins (`l:ignore` before a no-op), and every
+   * provider's `beforeRemove` is offered the leftover node (a single claim suffices to defer
+   * removal). A provider that throws is reported and skipped (fail-soft).
+   */
+  private composedMorphHooks(root: Element): MorphHooks {
+    const hooks: MorphHooks[] = [];
+    for (const provider of [...this.morphHookProviders]) {
+      try {
+        const h = provider(root);
+        if (h != null) {
+          hooks.push(h);
+        }
+      } catch (error) {
+        this.reportError("morph-hook provider threw", error);
+      }
+    }
+    if (hooks.length === 0) {
+      return {};
+    }
+    return {
+      elementMode: (oldEl, newEl): MorphMode | undefined => {
+        for (const h of hooks) {
+          const mode = h.elementMode?.(oldEl, newEl);
+          if (mode != null && mode !== "morph") {
+            return mode;
+          }
+        }
+        return undefined;
+      },
+      beforeRemove: (node): boolean => {
+        let claimed = false;
+        for (const h of hooks) {
+          if (h.beforeRemove?.(node) === true) {
+            claimed = true;
+          }
+        }
+        return claimed;
+      },
+    };
   }
 
   /** Re-mount path for a stale snapshot (`409`/`410`): reload the host page. Overridable in tests. */
@@ -249,4 +732,78 @@ export function startLievit(options: RuntimeOptions = {}): LievitRuntime {
     runtime.start();
   }
   return runtime;
+}
+
+/**
+ * `l:island="action"` (with the island name in `l:island.<name>` or a sibling `data-lievit-island`
+ * attribute): routes the action as island-targeted, so only the named island re-renders (#89). The
+ * island name is the value of a `data-lievit-island` attribute on the same element (set by the
+ * server when it compiles the island button), falling back to the first directive modifier.
+ */
+function islandDirective(runtime: LievitRuntime) {
+  return {
+    name: "island",
+    bind(element: Element, attribute: string, action: string) {
+      const marker = `data-lievit-bound-${attribute.replace(/[^a-z]/gi, "-")}`;
+      if (element.hasAttribute(marker)) {
+        return;
+      }
+      element.setAttribute(marker, "");
+      const name =
+        element.getAttribute("data-lievit-island") ?? attribute.split(".").slice(1).join(".");
+      element.addEventListener("click", () => void runtime.callIsland(element, action, name));
+    },
+  };
+}
+
+/**
+ * `l:click.async="action"`: invoke an action concurrently, NOT through the per-component commit
+ * queue (#97), so two `.async` actions run in parallel. A `l:click` without `.async` is the default
+ * queued path (the built-in `click` directive).
+ */
+function asyncActionDirective(runtime: LievitRuntime) {
+  return {
+    name: "async",
+    bind(element: Element, attribute: string, action: string) {
+      const marker = `data-lievit-bound-${attribute.replace(/[^a-z]/gi, "-")}`;
+      if (element.hasAttribute(marker)) {
+        return;
+      }
+      element.setAttribute(marker, "");
+      element.addEventListener("click", () => void runtime.callActionAsync(element, action));
+    },
+  };
+}
+
+/**
+ * Decodes a signed snapshot's `wire` payload (the JWT-like middle segment, base64url JSON) into the
+ * client's ephemeral wire mirror (ADR-0024 #87). Returns an empty object for an empty/malformed
+ * token: the snapshot is signed (the client cannot forge it), so reading the *payload* client-side
+ * is safe (the payload is readable by design, wire-protocol.md §3); the client never trusts it for
+ * authorization, only mirrors it for ephemeral reads.
+ */
+function decodeWire(snapshot: string): WireState {
+  if (snapshot.length === 0) {
+    return {};
+  }
+  const parts = snapshot.split(".");
+  if (parts.length < 2) {
+    return {};
+  }
+  try {
+    const json = base64UrlDecode(parts[1]!);
+    const payload = JSON.parse(json) as { wire?: WireState };
+    return payload.wire ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Decodes a base64url string to UTF-8 text (CSP-safe, uses `atob`, no eval). */
+function base64UrlDecode(value: string): string {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }

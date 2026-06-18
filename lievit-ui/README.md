@@ -53,7 +53,10 @@ runtime/
                  #   l:model[.live|.lazy|.blur|.debounce.Nms])
   lifecycle.ts   # the lifecycle hook bus (beforeCall/afterCall/onError/onModelChange/onComponentInit)
   runtime.ts     # the orchestrator + startLievit(); owns per-component snapshot + pending updates
-  effects.ts     # the Lievit-Effects consumer (redirect / dispatch / returns)
+  effects.ts     # the Lievit-Effects consumer (redirect / dispatch / returns / url / errors)
+  features/      # the batch-2 client features (Epic #34), each plugs into the extension API:
+                 #   confirm, show, ignore, init, loading, dirty, poll, transition, lazy,
+                 #   stream, navigate, pagination, uploads (+ installAllFeatures)
   index.ts       # the public barrel
 ```
 
@@ -98,9 +101,47 @@ const off = lievit.use({
 off();                                                // unsubscribe on teardown
 ```
 
-The `DirectiveRuntime` passed to `bind` exposes `callAction(element, action)` and
+The `DirectiveRuntime` passed to `bind` exposes `callAction(element, action, meta?)` and
 `setModel(element, field, value, sendNow)` — the only two things a directive needs to drive the
 wire. The runtime owns snapshot rotation, morphing, and effect application.
+
+Two more seams (ADR-0019) let features that need to gate a call or reshape a morph plug in without
+editing the core:
+
+```ts
+// 3. Gate a call before it leaves the browser (wire:confirm aborts here). Return false to abort.
+lievit.intercept((ctx) => ctx.meta?.trigger?.hasAttribute("l:confirm") ? window.confirm("Sure?") : true);
+
+// 4. Shape the morph (l:ignore freezes subtrees, l:transition defers removal). Return MorphHooks.
+lievit.morphWith((root) => ({ elementMode: (el) => (el.hasAttribute("l:ignore") ? "skip" : undefined) }));
+```
+
+### The batch-2 features (Epic #34)
+
+Each feature in `runtime/features/` is built **on** the four seams above — none forks the core.
+Install the ones you need, or `installAllFeatures(runtime)`:
+
+```ts
+import { startLievit, installAllFeatures } from "@lievit/lievit-ui/runtime";
+const lievit = startLievit({ csrfToken, csrfHeader });
+installAllFeatures(lievit);
+```
+
+| Directive / feature | What |
+|---|---|
+| `l:confirm` / `.prompt` | native confirm/prompt before a destructive action; cancel aborts |
+| `l:show="expr"` | toggle `display` from a tiny CSP-safe grammar (no Alpine, no eval); `!`, `==`/`!=`, `.important` |
+| `l:ignore[.self\|.children]` | exclude a subtree from morphing (third-party DOM) |
+| `l:init="action"` | fire an action once on bind |
+| `l:loading` + `l:target[.except]` | in-flight indicators; `.class`/`.attr`/`.delay`; `data-loading`; skips polls |
+| `l:dirty` | unsaved-state indicator (set on model change, cleared on a successful call) |
+| `l:poll[.Ns]` | periodic refresh on a shared-interval scheduler; halts on 409/410 |
+| `l:transition[.fade\|.duration.Nms]` | animate in/out across a morph (WAAPI fade + deferred removal) |
+| `l:lazy="action"` | defer load until visible (IntersectionObserver) |
+| `l:stream="name"` | consume SSE envelopes into a target (append/replace); `openStream(root, url)` |
+| `l:navigate[.hover]` | SPA nav: fetch + body morph + history + events + hover prefetch + asset-diff reload |
+| `l:page="action"` | pagination link → page action + scroll-to-top (URL sync via the `url` effect) |
+| `l:upload="field"` | file upload → signed temp-path ref + lifecycle events (`installUploads`) |
 
 ## The tokens
 

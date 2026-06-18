@@ -15,6 +15,14 @@
  * registry IS the API (wire-protocol.md §5).
  */
 
+/** Coarse, per-call metadata a directive can attach (the trigger element, a poll flag, etc.). */
+export interface CallMetaInit {
+  /** The element that triggered the call (the clicked button, the submitted form). */
+  readonly trigger?: Element;
+  /** Open for features (e.g. poll) to stamp their own keys. */
+  readonly [key: string]: unknown;
+}
+
 /** The element-level API a directive uses to drive the runtime when its event fires. */
 export interface DirectiveRuntime {
   /**
@@ -22,8 +30,9 @@ export interface DirectiveRuntime {
    *
    * @param element any element inside the component (used to find the component root)
    * @param action the `@LievitAction` name to invoke
+   * @param meta optional call metadata (e.g. the trigger element) surfaced to interceptors/hooks
    */
-  readonly callAction: (element: Element, action: string) => void;
+  readonly callAction: (element: Element, action: string, meta?: CallMetaInit) => void;
   /**
    * Record a client-side `@Wire` field change for the component owning `element`. Whether it is
    * sent immediately or deferred to the next action is the directive's policy (the `l:model`
@@ -189,7 +198,7 @@ function actionDirective(name: string, eventType: string): Directive {
       if (!once(element, attribute)) {
         return;
       }
-      element.addEventListener(eventType, () => runtime.callAction(element, value));
+      element.addEventListener(eventType, () => runtime.callAction(element, value, { trigger: element }));
     },
   };
 }
@@ -204,7 +213,7 @@ function submitDirective(): Directive {
       }
       element.addEventListener("submit", (event) => {
         event.preventDefault();
-        runtime.callAction(element, value);
+        runtime.callAction(element, value, { trigger: element });
       });
     },
   };
@@ -223,7 +232,7 @@ function keydownDirective(): Directive {
       element.addEventListener("keydown", (event) => {
         const ke = event as KeyboardEvent;
         if (wantedKey == null || ke.key.toLowerCase() === wantedKey.toLowerCase()) {
-          runtime.callAction(element, value);
+          runtime.callAction(element, value, { trigger: element });
         }
       });
     },

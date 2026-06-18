@@ -41,6 +41,12 @@ public final class LievitEffects {
     /** Null means "validation did not run or produced no errors": the {@code errors} key is omitted. */
     private @Nullable Map<String, List<String>> validationErrors;
     private @Nullable UrlEffect url;
+    /** Island names this call re-rendered (ADR-0024 #89): the client morphs only these fragments. */
+    private final java.util.LinkedHashSet<String> islands = new java.util.LinkedHashSet<>();
+    /** Named CSP-safe {@code $js} handler calls (ADR-0024 #131): the client invokes each by name. */
+    private final List<JsCall> jsCalls = new ArrayList<>();
+    /** The active build release token (ADR-0024 #105), or null when the feature is unused. */
+    private @Nullable String release;
 
     LievitEffects() {}
 
@@ -138,6 +144,48 @@ public final class LievitEffects {
                 new DispatchedEvent(name, detail, DispatchedEvent.Target.TO_COMPONENT, component));
     }
 
+    /**
+     * Marks a named island as re-rendered by this call (ADR-0024 #89). The client morphs only the
+     * fragments named here, leaving the rest of the component DOM untouched. May be called more
+     * than once (multiple islands in one call); duplicate names render the island once.
+     *
+     * @param name the island name (must be non-blank)
+     */
+    public void island(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("an island needs a non-blank name");
+        }
+        islands.add(name);
+    }
+
+    /**
+     * Queues a CSP-safe {@code $js} handler call (ADR-0024 #131): the client invokes the handler
+     * registered under {@code name} (via {@code runtime.js.register(name, fn)}) with {@code args}.
+     * This is lievit's no-inline-script replacement for Livewire's {@code $js} / inline {@code @js}:
+     * the behavior lives in a client TS module, the server references it by name, never an eval.
+     *
+     * @param name the registered handler name
+     * @param args the call arguments (JSON-shaped); may be empty
+     */
+    public void js(String name, Object... args) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("a $js call needs a non-blank handler name");
+        }
+        jsCalls.add(new JsCall(name, List.of(args)));
+    }
+
+    /**
+     * Sets the active build release token (ADR-0024 #105): the client compares it to its stamped
+     * {@code data-lievit-release} and, on a mismatch (a deploy moved on), treats the next stale
+     * snapshot as an expected re-mount. Set by the starter from the build's release, not by a
+     * component author.
+     *
+     * @param releaseToken the active release token, or {@code null} to omit the {@code release} key
+     */
+    public void release(@Nullable String releaseToken) {
+        this.release = releaseToken;
+    }
+
     /** Captures an action's return value as the {@code returns} effect (set by the dispatcher). */
     void captureReturn(@Nullable Object value) {
         if (value != null) {
@@ -209,10 +257,54 @@ public final class LievitEffects {
     }
 
     /**
+     * @return the island names this call re-rendered, in insertion order (empty if none)
+     */
+    public List<String> islands() {
+        return List.copyOf(islands);
+    }
+
+    /**
+     * @return the queued {@code $js} handler calls in order (empty if none)
+     */
+    public List<JsCall> jsCalls() {
+        return List.copyOf(jsCalls);
+    }
+
+    /**
+     * @return the active build release token, or {@code null} if the feature is unused
+     */
+    public @Nullable String release() {
+        return release;
+    }
+
+    /**
      * @return true if no effect was produced (so the {@code Lievit-Effects} header is omitted)
      */
     public boolean isEmpty() {
         return redirect == null && dispatched.isEmpty() && returnValue == null
-                && validationErrors == null && url == null;
+                && validationErrors == null && url == null && islands.isEmpty()
+                && jsCalls.isEmpty() && release == null;
+    }
+
+    /**
+     * One CSP-safe {@code $js} handler call (ADR-0024 #131): the name the client registered the
+     * handler under, plus the call arguments. The client looks the name up in {@code runtime.js}
+     * and invokes it; an unknown name is a no-op, never an eval.
+     *
+     * @param name the registered handler name
+     * @param args the call arguments (JSON-shaped, possibly empty)
+     */
+    public record JsCall(String name, List<Object> args) {
+
+        /**
+         * @param name the handler name (must be non-blank)
+         * @param args the arguments (must be non-null)
+         */
+        public JsCall {
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("a $js call needs a non-blank handler name");
+            }
+            args = List.copyOf(args);
+        }
     }
 }
