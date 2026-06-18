@@ -47,6 +47,7 @@ question and is pending a final call.
 - [ADR-0037](0037-locale-pinning-memo.md): Locale pinning across the stateless round trip — a `LocaleListener` captures the active locale into the snapshot memo on dehydrate and restores it (`LocaleContextHolder`) on hydrate before render, so `MessageSource` resolves in the component's pinned locale on every wire update (#169, #143). **accepted**
 - [ADR-0038](0038-validation-depth.md): Validation depth — `validateOnly` real-time per-field validation, the imperative error bag (`addError` / `resetValidation` / `errorBagExcept`), `items.*.qty` array-element rules over Bean Validation's `@Valid` cascade, and a `validatedFields` client merge. No parallel engine (#185, #187). **accepted**
 - [ADR-0040](0040-realtime-broadcast-channel-sse.md): The realtime broadcast channel (server→client push over SSE) + broadcast notifications (#304) and the Echo-listener bridge (#45). Opt-in, per-user, `SseEmitter`-based. **accepted**
+- [ADR-0051](0051-request-interactions-and-error-ux.md): Request interactions, per-scope (component/island) cancel-vs-queue concurrency (#95) + the `onExpired` recovery hook and page-expired dialog (#103). Client-only, composes the interceptor seams. **accepted**
 
 ## How to add an ADR
 
