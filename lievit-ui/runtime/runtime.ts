@@ -65,6 +65,9 @@ export const COMPONENT_ID_ATTR = "data-lievit-id";
 /** The attribute marking a component root (its value is the FQN, for diagnostics). */
 export const COMPONENT_ATTR = "data-lievit-component";
 
+/** The prefix of a `$parent.action(...)` magic resolved client-side, not sent to the server (#67). */
+const PARENT_MAGIC_PREFIX = "$parent.";
+
 /** Per-component live state the runtime owns (snapshot + pending deferred model updates). */
 interface ComponentState {
   readonly root: Element;
@@ -455,6 +458,14 @@ export class LievitRuntime {
    * @param meta coarse call metadata (e.g. `{ poll: true }`, the trigger element) for hooks/interceptors
    */
   async callAction(element: Element, action: string, meta: CallMeta = {}): Promise<void> {
+    // `$parent.foo()` is resolved CLIENT-side (#67, ADR-0016): the server treats `$parent` as a
+    // no-op magic, so a child driving its parent must re-route the call up the DOM tree here. The
+    // bare name (no `(...)`) is a property read, meaningful only in JS via `$lievit.$parent.$get`,
+    // never as a click handler, so it is dropped rather than sent as a phantom action.
+    if (action.startsWith(PARENT_MAGIC_PREFIX)) {
+      this.callParent(element, action);
+      return;
+    }
     const state = this.stateOf(element);
     if (state == null) {
       return;
@@ -467,6 +478,35 @@ export class LievitRuntime {
       return;
     }
     await this.enqueue(state, [action], meta);
+  }
+
+  /**
+   * Routes a `$parent.action(...)` call from a child up to its enclosing component (#67, the
+   * client half of ADR-0016 `$parent`). Resolves the parent via the same DOM walk `$lievit.$parent`
+   * uses; a child at the root (no enclosing component) is a no-op (Livewire `$parent` is undefined
+   * at the top). A bare `$parent.prop` (no call parens) is a property read with no template meaning,
+   * so it is ignored here (it is reachable in JS via `$lievit.$parent.$get`).
+   */
+  private callParent(childElement: Element, action: string): void {
+    // Resolve the parent of the COMPONENT the clicked element belongs to, not of the clicked
+    // element: walking from the element would find its own component root as the "parent".
+    const childRoot = this.rootOf(childElement);
+    if (childRoot == null) {
+      return;
+    }
+    const parent = this.parentObjectOf(childRoot);
+    if (parent == null) {
+      return;
+    }
+    const expr = action.slice(PARENT_MAGIC_PREFIX.length);
+    const open = expr.indexOf("(");
+    if (open < 0) {
+      return; // a bare property read, no action to invoke
+    }
+    const method = expr.slice(0, open).trim();
+    if (method.length > 0) {
+      parent.$call(method);
+    }
   }
 
   /**
