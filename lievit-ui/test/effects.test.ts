@@ -62,4 +62,38 @@ describe("effects channel client (ADR-0012)", () => {
     expect(effects?.returns).toBe(42);
     expect(navigate).not.toHaveBeenCalled();
   });
+
+  it("triggers a browser download for the download effect, decoding name + content + type (#161)", () => {
+    const downloads: { name: string; content: string; type: string }[] = [];
+    const content = btoa("id,name\n1,a\n");
+    const effects = parseEffects(
+      JSON.stringify({ download: { name: "export.csv", content, type: "text/csv" } }),
+    );
+
+    applyEffects(effects, window, vi.fn(), (d) => downloads.push(d));
+
+    expect(downloads).toHaveLength(1);
+    expect(downloads[0].name).toBe("export.csv");
+    expect(downloads[0].type).toBe("text/csv");
+    expect(atob(downloads[0].content)).toBe("id,name\n1,a\n");
+  });
+
+  it("triggers the download before redirecting (download is additive, not a swap) (#161)", () => {
+    const order: string[] = [];
+    const navigate = vi.fn(() => order.push("navigated"));
+    applyEffects(
+      { download: { name: "a.txt", content: btoa("x"), type: "text/plain" }, redirect: "/done" },
+      window,
+      navigate,
+      () => order.push("downloaded"),
+    );
+
+    expect(order).toEqual(["downloaded", "navigated"]);
+  });
+
+  it("does not download when the action returned nothing (#161)", () => {
+    const trigger = vi.fn();
+    applyEffects(parseEffects('{"returns":1}'), window, vi.fn(), trigger);
+    expect(trigger).not.toHaveBeenCalled();
+  });
 });

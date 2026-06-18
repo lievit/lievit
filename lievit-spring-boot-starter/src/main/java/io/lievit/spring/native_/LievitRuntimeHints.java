@@ -67,5 +67,13 @@ public final class LievitRuntimeHints implements RuntimeHintsRegistrar {
                         MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                         MemberCategory.INVOKE_DECLARED_METHODS,
                         MemberCategory.DECLARED_FIELDS);
+        // The $this.download effect record (#161), serialized into the same header.
+        hints.serialization().registerType(TypeReference.of(WireEffects.Download.class));
+        hints.reflection()
+                .registerType(
+                        WireEffects.Download.class,
+                        MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                        MemberCategory.INVOKE_DECLARED_METHODS,
+                        MemberCategory.DECLARED_FIELDS);
     }
 }

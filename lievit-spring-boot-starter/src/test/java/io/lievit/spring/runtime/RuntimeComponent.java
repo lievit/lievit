@@ -47,6 +47,14 @@ public class RuntimeComponent {
     }
 
     @LievitAction
+    void downloadReport() {
+        LievitEffects.current()
+                .download(
+                        io.lievit.component.DownloadEffect.ofText(
+                                "report.csv", "id,name\n1,a\n", "text/csv"));
+    }
+
+    @LievitAction
     @LievitRenderless
     void track() {
         this.views++;
