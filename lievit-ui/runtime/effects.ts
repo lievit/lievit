@@ -31,6 +31,12 @@ export interface UrlEffect {
   readonly history: "PUSH" | "REPLACE";
 }
 
+/** One `js` effect call: a named CSP-safe `$js` handler to invoke (ADR-0024, #131). */
+export interface JsEffectCall {
+  readonly name: string;
+  readonly args?: readonly unknown[];
+}
+
 /** The decoded effects bag (the `Lievit-Effects` header JSON). Every key is optional. */
 export interface Effects {
   readonly redirect?: string;
@@ -40,6 +46,12 @@ export interface Effects {
   readonly errors?: Readonly<Record<string, readonly string[]>>;
   /** The `@LievitUrl` query-string reflection (history push/replace), wire-protocol.md §5b. */
   readonly url?: UrlEffect;
+  /** The island names a targeted call re-rendered (ADR-0024, #89): morph only these fragments. */
+  readonly islands?: readonly string[];
+  /** The server's active build release token (ADR-0024, #105): compare to the client's. */
+  readonly release?: string;
+  /** Named CSP-safe `$js` handlers to invoke (ADR-0024, #131). */
+  readonly js?: readonly JsEffectCall[];
 }
 
 /**

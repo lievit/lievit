@@ -93,6 +93,8 @@ export interface SendOptions {
   readonly csrfHeader?: string;
   /** Injectable fetch implementation (defaults to the global `fetch`); used in tests. */
   readonly fetchImpl?: typeof fetch;
+  /** Extra request headers an interceptor set (ADR-0024 #93); merged onto the call's headers. */
+  readonly extraHeaders?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -114,6 +116,10 @@ export async function send(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (options.csrfToken != null) {
     headers[options.csrfHeader ?? "X-CSRF-TOKEN"] = options.csrfToken;
+  }
+  // Interceptor-set headers (ADR-0024 #93) are merged last (the Content-Type stays unless overridden).
+  for (const [name, value] of Object.entries(options.extraHeaders ?? {})) {
+    headers[name] = value;
   }
 
   const response = await doFetch(wireEndpoint(componentId), {

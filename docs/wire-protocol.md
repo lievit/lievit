@@ -294,10 +294,18 @@ Lievit-Effects: {"redirect":"/done","dispatch":[{"name":"saved","detail":{"id":7
 | `dispatch` | array of `{name, detail?}` | events the action queued | re-emit each as a DOM `CustomEvent` on `window` (the cross-component bus) |
 | `returns` | any JSON | the action's return value | available to the caller / test API; no DOM effect by itself |
 | `url` | `{query, history}` | the `@LievitUrl` fields' new query string | update the address bar via the History API (see below); no navigation |
+| `errors` | `{field: [msg, ...]}` | real-time validation messages | render per-field inline; the `$errors` client accessor reads this (ADR-0012) |
+| `islands` | `string[]` | island names this call re-rendered (ADR-0024 #89) | morph only those island fragments, leave the rest of the component DOM untouched |
+| `js` | `[{name, args?}]` | named CSP-safe `$js` handler calls (ADR-0024 #131) | look each name up in `runtime.js` and invoke it (never an `eval`); an unknown name is a no-op |
+| `release` | `string` | the active build's release token (ADR-0024 #105) | compare to `data-lievit-release`; on a mismatch, expect a clean re-mount on the next stale-snapshot failure |
 
-Reserved for later (named so the channel leaves room, not implemented in v0.1 of the channel):
-`stream` (SSE/chunked), `js` (server-requested eval, security-sensitive, deferred), `download`
-(base64 ride-along). Each is a new key in the bag, never a new response shape.
+The `islands` / `js` / `release` keys (ADR-0024) are additive: a call producing none omits them, so a
+plain action stays byte-for-byte the ADR-0001 response. `js` is **not** Livewire's inline-eval `$js`;
+lievit's strict CSP refuses inline script, so the behavior is a name-registered client TS function
+the server triggers by name (the registry is the allowlist).
+
+Reserved for later (named so the channel leaves room, not implemented yet): `stream` (SSE/chunked),
+`download` (base64 ride-along). Each is a new key in the bag, never a new response shape.
 
 ### The `url` effect (`@LievitUrl` query-string binding)
 

@@ -50,6 +50,17 @@ class LievitEffectsTest {
             this.count += 10;
             return this.count;
         }
+
+        @LievitAction
+        void refreshCounter() {
+            this.count++;
+            LievitEffects.current().island("counter");
+        }
+
+        @LievitAction
+        void flash() {
+            LievitEffects.current().js("flash", "saved", 7);
+        }
     }
 
     /**
@@ -148,5 +159,57 @@ class LievitEffectsTest {
     @Test
     void current_outside_a_call_fails_fast() {
         assertThatThrownBy(LievitEffects::current).isInstanceOf(IllegalStateException.class);
+    }
+
+    /**
+     * @spec.given an action that targets a named island (ADR-0024 islands)
+     * @spec.when  the dispatcher runs it
+     * @spec.then  the call's effects carry the island name so the client morphs only that fragment
+     * @spec.adr   ADR-0024
+     */
+    @Test
+    void an_action_targets_an_island() {
+        ComponentMetadata meta = ComponentMetadata.of(Effectful.class);
+
+        WireCall call =
+                dispatcher.call(
+                        meta, new Effectful(), Map.of("count", 0), Map.of(), List.of("refreshCounter"));
+
+        assertThat(call.effects().islands()).containsExactly("counter");
+        assertThat(call.effects().isEmpty()).isFalse();
+    }
+
+    /**
+     * @spec.given an action that queues a CSP-safe $js handler call by name (ADR-0024 #131)
+     * @spec.when  the dispatcher runs it
+     * @spec.then  the call's effects carry the handler name and args (the client invokes it by name)
+     * @spec.adr   ADR-0024
+     */
+    @Test
+    void an_action_queues_a_named_js_call() {
+        ComponentMetadata meta = ComponentMetadata.of(Effectful.class);
+
+        WireCall call =
+                dispatcher.call(meta, new Effectful(), Map.of(), Map.of(), List.of("flash"));
+
+        assertThat(call.effects().jsCalls()).hasSize(1);
+        LievitEffects.JsCall js = call.effects().jsCalls().get(0);
+        assertThat(js.name()).isEqualTo("flash");
+        assertThat(js.args()).containsExactly("saved", 7);
+    }
+
+    /**
+     * @spec.given a capturing effects sink with the release token set (ADR-0024 #105)
+     * @spec.when  the release is read back
+     * @spec.then  it carries the token, and the sink is no longer empty (the release key is emitted)
+     * @spec.adr   ADR-0024
+     */
+    @Test
+    void the_release_token_rides_the_effects() {
+        LievitEffects effects = LievitEffects.capturing();
+        effects.release("build-42");
+
+        assertThat(effects.release()).isEqualTo("build-42");
+        assertThat(effects.isEmpty()).isFalse();
     }
 }

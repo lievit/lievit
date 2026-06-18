@@ -69,6 +69,7 @@ export {
   type Effects,
   type DispatchedEvent,
   type UrlEffect,
+  type JsEffectCall,
 } from "./effects.js";
 
 export {
@@ -93,3 +94,54 @@ export {
   openStream,
   pollIntervalMs,
 } from "./features/index.js";
+
+// --- Livewire v4 convergence surface (ADR-0024) ---------------------------------------------- //
+
+export {
+  InterceptorChain,
+  type Interceptor,
+  type InterceptorRequest,
+  type InterceptorOutcome,
+  type InterceptorScope,
+  type RedirectControl,
+  GLOBAL_SCOPE,
+  actionScope,
+  rootScope,
+} from "./interceptors.js";
+
+export {
+  mergeNewSnapshot,
+  readPath,
+  writePath,
+  removeIndices,
+  deepEqual,
+  type WireState,
+  type WireValue,
+  type MergeIntent,
+} from "./merge.js";
+
+export {
+  parseIslands,
+  morphIslands,
+  islandOpenMarker,
+  islandCloseMarker,
+  type IslandFragment,
+  type IslandMode,
+} from "./islands.js";
+
+export { JsRegistry, type JsHandler, type JsContext } from "./js-registry.js";
+
+export {
+  registerV4Directives,
+  RefRegistry,
+  DirtyTracker,
+  ErrorsStore,
+  type V4Deps,
+} from "./v4-directives.js";
+
+export {
+  clientRelease,
+  releaseMismatch,
+  disableBfcache,
+  RELEASE_ATTR,
+} from "./release-token.js";
