@@ -81,6 +81,9 @@ public class LievitProperties {
     /** Strict-CSP emission settings (issue #127): the server half of CSP-safe mode. */
     private final Csp csp = new Csp();
 
+    /** Client-directive validation settings: the unknown-{@code l:}-directive startup poka-yoke. */
+    private final Directives directives = new Directives();
+
     public @Nullable String getSigningKey() {
         return signingKey;
     }
@@ -203,6 +206,10 @@ public class LievitProperties {
 
     public Csp getCsp() {
         return csp;
+    }
+
+    public Directives getDirectives() {
+        return directives;
     }
 
     /**
@@ -381,6 +388,63 @@ public class LievitProperties {
 
         public void setTimeout(Duration timeout) {
             this.timeout = timeout;
+        }
+    }
+
+    /**
+     * Client-directive validation, bound from {@code lievit.directives.*}: the unknown-{@code l:}
+     * -directive poka-yoke. lievit's client runtime ignores an unknown {@code l:*} attribute
+     * (forward-compatible no-op), so a typo or a non-existent directive ({@code <button l:value=...>})
+     * binds nothing and fails <em>silently</em> in the browser. With {@code validate=true} (the
+     * default, "it just works") lievit scans the classpath templates at startup and fails fast on any
+     * unknown directive name, before a single request can hit the broken markup.
+     *
+     * <p>{@code extra} is the escape hatch for app-registered custom directives
+     * ({@code runtime.directives.register({name})}): a static scan cannot see those, so an app that
+     * ships its own {@code l:tooltip} directive allowlists it with
+     * {@code lievit.directives.extra=tooltip}. Default empty.
+     */
+    public static class Directives {
+
+        /** Whether lievit validates {@code l:} directive names in classpath templates at startup. */
+        private boolean validate = true;
+
+        /**
+         * The classpath location pattern of the templates to scan (Ant-style). Default scans every
+         * JTE template under {@code classpath*:jte/} (the lievit convention). An app using a
+         * different template root overrides this.
+         */
+        private String templateLocation = "classpath*:jte/**/*.jte";
+
+        /**
+         * Custom directive names (without the {@code l:} prefix) the app registers at runtime, to
+         * allowlist past the validator. Default empty: an app using only lievit's built-in directives
+         * needs none.
+         */
+        private java.util.List<String> extra = new java.util.ArrayList<>();
+
+        public boolean isValidate() {
+            return validate;
+        }
+
+        public void setValidate(boolean validate) {
+            this.validate = validate;
+        }
+
+        public String getTemplateLocation() {
+            return templateLocation;
+        }
+
+        public void setTemplateLocation(String templateLocation) {
+            this.templateLocation = templateLocation;
+        }
+
+        public java.util.List<String> getExtra() {
+            return extra;
+        }
+
+        public void setExtra(java.util.List<String> extra) {
+            this.extra = extra;
         }
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,7 @@ import gg.jte.TemplateEngine;
 import gg.jte.resolve.ResourceCodeResolver;
 import io.lievit.LievitComponent;
 import io.lievit.compiler.DeterministicKeys;
+import io.lievit.compiler.DirectiveValidator;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
 import io.lievit.component.IsolateListener;
@@ -287,6 +289,27 @@ public class LievitAutoConfiguration {
     public TemplateAdapter lievitTemplateAdapter(TemplateEngine engine) {
         return new DslOrEngineTemplateAdapter(
                 new DslTemplateAdapter(), new JteTemplateAdapter(engine));
+    }
+
+    /**
+     * The unknown-{@code l:}-directive startup poka-yoke (ADR-0082): scans the classpath templates
+     * for {@code l:<name>} directives whose name is not a known lievit directive and fails startup,
+     * so a typo or a non-existent directive ({@code <button l:value=...>}) is caught before any
+     * request instead of silently no-opping in the browser. Enabled by default ("it just works");
+     * {@code lievit.directives.validate=false} turns it off. The valid-directive set is shared with
+     * the compiler (the Spring-free {@link DirectiveValidator}); custom directives registered at
+     * runtime are allowlisted via {@code lievit.directives.extra}.
+     *
+     * @param properties the lievit config (directive validation location + allowlist)
+     * @return the startup validator bean (it validates in {@code afterPropertiesSet})
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "lievit.directives", name = "validate", matchIfMissing = true)
+    public DirectiveTemplateValidator lievitDirectiveTemplateValidator(LievitProperties properties) {
+        return new DirectiveTemplateValidator(
+                properties.getDirectives().getTemplateLocation(),
+                properties.getDirectives().getExtra());
     }
 
     /**
