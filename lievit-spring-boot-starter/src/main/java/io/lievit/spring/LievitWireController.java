@@ -47,6 +47,8 @@ public final class LievitWireController {
     static final String SNAPSHOT_HEADER = "Lievit-Snapshot";
     static final String EFFECTS_HEADER = "Lievit-Effects";
     static final String REASON_HEADER = "Lievit-Reason";
+    /** The wire-request marker the client bundle stamps on every wire request (issue #177). */
+    static final String WIRE_HEADER = "X-Lievit";
 
     private final LievitWireService service;
 
@@ -67,6 +69,47 @@ public final class LievitWireController {
      * @return 200 {@code text/html} (the patched markup) + the {@code Lievit-Snapshot} header, and
      *     the optional {@code Lievit-Effects} header when the action produced effects (ADR-0012)
      */
+    /**
+     * The batched update endpoint (issue #177): {@code POST /lievit/update}. The client posts an
+     * array of components ({@code {components:[{snapshot,updates,calls,events}]}}); each commits
+     * through its own stateless lifecycle and the response is a JSON body with one result per
+     * component (committed {@code {snapshot,effects,html}} or {@code {skip,id}}) plus a page-level
+     * {@code assets} block. A page with several islands commits them in one request instead of N.
+     *
+     * <p>Header guard: this endpoint is a wire-only surface. A non-wire request (no
+     * {@code X-Lievit} header) is rejected with 400 so a plain browser GET / form POST cannot reach
+     * it (Livewire's {@code RequireLivewireHeaders}). The session store is bound for the duration of
+     * the whole batch (every component in the batch shares the request's session).
+     *
+     * @param body the {@code {components:[...]}} batch payload
+     * @param wireHeader the {@code X-Lievit} marker the client bundle stamps on every wire request
+     * @param request the servlet request (for the session store + the rate-limit key)
+     * @return 200 {@code application/json}: the batch response
+     */
+    @PostMapping(
+            path = "/lievit/update",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BatchUpdateResponse> update(
+            @RequestBody BatchUpdateRequest body,
+            @org.springframework.web.bind.annotation.RequestHeader(value = WIRE_HEADER, required = false)
+                    String wireHeader,
+            HttpServletRequest request) {
+        if (wireHeader == null) {
+            // Non-wire hit (a browser navigating to the endpoint, a form POST): refuse it. The wire
+            // header is set by the client bundle on every wire request (Livewire RequireLivewireHeaders).
+            throw new WireException(WireError.MISSING_WIRE_HEADER, "missing X-Lievit wire header");
+        }
+        io.lievit.component.SessionListener.bind(new HttpSessionStore(request));
+        BatchUpdateResponse response;
+        try {
+            response = service.batch(body.components(), clientKey(request));
+        } finally {
+            io.lievit.component.SessionListener.clear();
+        }
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping(path = "/lievit/{componentId}/call", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> call(
             @PathVariable String componentId,

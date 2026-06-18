@@ -149,6 +149,46 @@ final class ChildRenderer {
      * Injects the client-glue markers onto the child's root element (its first {@code <tag>}). The
      * markers are added only if not already present, so a re-render is idempotent.
      */
+    /**
+     * Stamps the top-level wire markers ({@code data-lievit-id} + {@code data-lievit-snapshot}) on a
+     * component's root element, without a {@code lievit:key} (a page root has no morph key, unlike a
+     * child in a parent's render). Used by the full-page renderer (issue #63/#181) so the client can
+     * hydrate a route-target component the same way it hydrates an embedded one.
+     *
+     * @param html the component's rendered HTML
+     * @param cid the component instance id
+     * @param signedSnapshot the signed snapshot
+     * @return the HTML with the two markers on its root element
+     */
+    static String stampRoot(String html, String cid, String signedSnapshot) {
+        int tagStart = firstElement(html);
+        int tagEnd = html.indexOf('>', tagStart);
+        if (tagEnd < 0) {
+            throw new IllegalStateException("a full-page component's root element is malformed");
+        }
+        String markers =
+                " data-lievit-id=\""
+                        + escape(cid)
+                        + "\" data-lievit-snapshot=\""
+                        + escape(signedSnapshot)
+                        + "\"";
+        int insertAt = html.charAt(tagEnd - 1) == '/' ? tagEnd - 1 : tagEnd;
+        return html.substring(0, insertAt) + markers + html.substring(insertAt);
+    }
+
+    private static int firstElement(String html) {
+        int tagStart = html.indexOf('<');
+        while (tagStart >= 0
+                && tagStart + 1 < html.length()
+                && (html.charAt(tagStart + 1) == '!' || html.charAt(tagStart + 1) == '?')) {
+            tagStart = html.indexOf('<', html.indexOf('>', tagStart) + 1);
+        }
+        if (tagStart < 0) {
+            throw new IllegalStateException("a component rendered no root element to mark");
+        }
+        return tagStart;
+    }
+
     static String injectMarkers(String childHtml, String key, String cid, String signedSnapshot) {
         int tagStart = childHtml.indexOf('<');
         // Skip a leading comment / doctype to reach the first real element tag.

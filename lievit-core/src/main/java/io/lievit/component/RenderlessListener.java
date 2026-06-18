@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 
 import org.jspecify.annotations.Nullable;
 
+import io.lievit.LievitJson;
 import io.lievit.LievitRenderless;
 
 /**
@@ -19,6 +20,11 @@ import io.lievit.LievitRenderless;
  * {@link LifecyclePhase#RENDER} (it skips the render when every invoked action was renderless). A
  * magic action (a {@code $}-prefixed call) is not tallied: {@code $set} / {@code $refresh} re-render
  * normally. A call with no action at all (a pure {@code wire:model} update) also re-renders.
+ *
+ * <p>A {@code @LievitJson} action (issue #99, the typed JSON RPC the client calls as
+ * {@code $lievit.method()}) is also renderless: its return value rides the effects channel and the
+ * client never re-renders. It feeds the same tally here, so the render-skip decision stays in one
+ * place (no second listener mutating the per-call render state). Governed by ADR-0032.
  */
 public final class RenderlessListener implements LifecycleListener {
 
@@ -43,9 +49,13 @@ public final class RenderlessListener implements LifecycleListener {
                 if (call != null && !MagicAction.isMagic(call)) {
                     Method action = ctx.metadata().action(call);
                     // A real action: tally whether it is renderless. An unknown call name resolves
-                    // to no action (the dispatcher will reject it); do not tally it.
+                    // to no action (the dispatcher will reject it); do not tally it. A @LievitJson
+                    // RPC action (#99) counts as renderless: it returns data, never re-renders.
                     if (action != null) {
-                        ctx.recordAction(action.isAnnotationPresent(LievitRenderless.class));
+                        boolean renderless =
+                                action.isAnnotationPresent(LievitRenderless.class)
+                                        || action.isAnnotationPresent(LievitJson.class);
+                        ctx.recordAction(renderless);
                     }
                 }
                 yield null;
