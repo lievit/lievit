@@ -85,6 +85,18 @@ export interface InterceptorOutcome {
   readonly ok: boolean;
   /** The `Lievit-Reason` on a failure, else `null`. */
   readonly reason: string | null;
+  /**
+   * The page-level assets this update carried (the parsed `assets` key of the effects bag), or `null`
+   * when the call brought none / failed (#423, ADR-0081). The asset-injection interceptor
+   * (`installAssets`) reads this on the post-morph phase to apply the block once. Optional so existing
+   * hand-built outcomes (tests, the synthetic redirect/expired outcome) stay terse.
+   */
+  readonly assets?: import("./features/assets.js").AssetsBlock | null;
+  /**
+   * The page CSP nonce (`RuntimeOptions.nonce`, sourced from the page bootstrap, ADR-0039/0081) to
+   * stamp on assets injected by `installAssets`, or `undefined` when the page runs no nonce policy.
+   */
+  readonly nonce?: string;
 }
 
 /**
