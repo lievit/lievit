@@ -53,6 +53,9 @@ public class LievitProperties {
     /** Upload preview signed-token TTL (issue #159, the 30-min preview window). */
     private Duration uploadPreviewTtl = Duration.ofMinutes(30);
 
+    /** Broadcast (live server→client push over SSE) settings (issue #304). Opt-in, disabled by default. */
+    private final Broadcast broadcast = new Broadcast();
+
     public @Nullable String getSigningKey() {
         return signingKey;
     }
@@ -139,5 +142,41 @@ public class LievitProperties {
 
     public void setUploadPreviewTtl(Duration uploadPreviewTtl) {
         this.uploadPreviewTtl = uploadPreviewTtl;
+    }
+
+    public Broadcast getBroadcast() {
+        return broadcast;
+    }
+
+    /**
+     * Broadcast (live push over SSE) configuration, bound from {@code lievit.broadcast.*} (issue
+     * #304). Disabled by default: an app that does not push live notifications never opens a channel.
+     */
+    public static class Broadcast {
+
+        /** Whether the broadcast SSE channel is mounted. Opt-in (default {@code false}). */
+        private boolean enabled = false;
+
+        /**
+         * The SSE connection idle timeout (default 5 min). The browser {@code EventSource} reconnects
+         * after it, so the connection is bounded server-side rather than held forever.
+         */
+        private Duration timeout = Duration.ofMinutes(5);
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
     }
 }

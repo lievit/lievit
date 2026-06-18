@@ -78,6 +78,24 @@
  * {@link io.lievit.kit.StatWidget} (key-metric card with lazy value supplier),
  * {@link io.lievit.kit.WidgetPage} (dashboard page hosting widgets, registered on a
  * panel via {@link io.lievit.kit.Panel#page(WidgetPage)}).
+ *
+ * <p>Heavyweight subsystems (their own subpackages, all opt-in, built on the persistence-agnostic
+ * floor so they cost a non-user nothing):
+ *
+ * <ul>
+ *   <li>{@link io.lievit.kit.job} the chunked async-job primitive (runner port + chunked job +
+ *       progress/failed-rows + store) the import/export actions ride.
+ *   <li>{@link io.lievit.kit.importer} CSV import ({@code Importer} + {@code ImportAction}: upload,
+ *       header mapping, chunked validate/cast/persist, failed-rows report).
+ *   <li>{@link io.lievit.kit.exporter} CSV/XLSX export ({@code Exporter} + {@code ExportAction} /
+ *       {@code ExportBulkAction}: column selection, chunked write, download notification).
+ *   <li>{@link io.lievit.kit.tenancy} multi-tenancy (tenant model, per-resource query scoping,
+ *       {@code canAccessTenant}, tenant switcher), turned on per panel via
+ *       {@link io.lievit.kit.Panel#tenancy(io.lievit.kit.tenancy.Tenancy)}.
+ *   <li>{@link io.lievit.kit.cluster} clusters (group resources/pages under a shared prefix +
+ *       sub-navigation), registered via {@link io.lievit.kit.Panel#cluster(io.lievit.kit.cluster.Cluster)}.
+ *   <li>{@link io.lievit.kit.settings} schema-driven settings pages over a settings store.
+ * </ul>
  */
 @NullMarked
 package io.lievit.kit;

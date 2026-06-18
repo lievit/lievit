@@ -4,6 +4,8 @@
  */
 package io.lievit.kit.schema;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import org.jspecify.annotations.Nullable;
@@ -22,6 +24,8 @@ public final class Section extends Layout<Section> {
     private boolean collapsed;
     private boolean compact;
     private boolean aside;
+    private final List<SchemaAction> headerActions = new ArrayList<>();
+    private final List<SchemaAction> footerActions = new ArrayList<>();
 
     private Section(String heading) {
         this.heading = Objects.requireNonNull(heading, "heading");
@@ -127,5 +131,51 @@ public final class Section extends Layout<Section> {
      */
     public boolean isAside() {
         return aside;
+    }
+
+    // ── header / footer actions (filament HasHeaderActions / HasFooterActions) ──
+
+    /**
+     * Sets the actions shown in the section header, beside the heading (the filament
+     * {@code HasHeaderActions}): a section-level toolbar of {@link SchemaAction} buttons.
+     *
+     * @param actions the header actions, in display order
+     * @return this section
+     */
+    public Section headerActions(List<SchemaAction> actions) {
+        this.headerActions.clear();
+        for (SchemaAction a : actions) {
+            this.headerActions.add(Objects.requireNonNull(a, "action"));
+        }
+        return this;
+    }
+
+    /**
+     * @return the section header actions in display order (unmodifiable)
+     */
+    public List<SchemaAction> headerActions() {
+        return List.copyOf(headerActions);
+    }
+
+    /**
+     * Sets the actions shown in the section footer, beneath the body (the filament
+     * {@code HasFooterActions}).
+     *
+     * @param actions the footer actions, in display order
+     * @return this section
+     */
+    public Section footerActions(List<SchemaAction> actions) {
+        this.footerActions.clear();
+        for (SchemaAction a : actions) {
+            this.footerActions.add(Objects.requireNonNull(a, "action"));
+        }
+        return this;
+    }
+
+    /**
+     * @return the section footer actions in display order (unmodifiable)
+     */
+    public List<SchemaAction> footerActions() {
+        return List.copyOf(footerActions);
     }
 }
