@@ -21,7 +21,13 @@ you propose changes.
 ## What is out of scope (for now)
 
 - A replacement DI / routing / view-resolver / session / filter chain. lievit lives **inside**
-  Spring; it never reimplements what Spring already owns.
+  Spring; it never reimplements what Spring already owns. Authorization is the canonical example:
+  the starter now depends on Spring Security and evaluates `@LievitAuthorize` / `@PreAuthorize`
+  against Spring Security's own expression handler + `PermissionEvaluator` (ADR-0053 / ADR-0054,
+  superseding ADR-0014's earlier "no forced Spring Security dependency" stance); it does not
+  invent an authorization engine. The default posture stays permissive (an un-annotated action
+  runs; the starter ships a permit-all `SecurityFilterChain` an app overrides), so the dependency
+  is backward-compatible.
 - An eighth public annotation. The surface is hard-locked at seven (see `docs/adr/0002`).
 - A heavy `make:*` scaffold generator. Deferred / AI-replaced (see the entity and the CLI ADR).
 - A rich admin (Filament-for-Spring-Boot). Separate, opt-in, deferred to a later phase.

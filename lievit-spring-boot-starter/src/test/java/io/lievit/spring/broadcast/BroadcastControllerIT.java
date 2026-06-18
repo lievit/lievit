@@ -5,12 +5,12 @@
 package io.lievit.spring.broadcast;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.security.Principal;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * The broadcast SSE channel end-to-end (issue #304 / #45): a logged-in user subscribes to
- * {@code GET /lievit/broadcast} (an SSE stream keyed to their {@link Principal}), an out-of-band
+ * {@code GET /lievit/broadcast} (an SSE stream keyed to their security principal), an out-of-band
  * {@code push} reaches that user's connection, and an anonymous subscribe is refused with 401 (the
  * per-user channel has no anonymous bucket). Proves the additive controller + the opt-in
  * {@code SseBroadcastChannel} bean the autoconfiguration registers behind
@@ -52,9 +52,13 @@ class BroadcastControllerIT {
      */
     @Test
     void a_logged_in_user_subscribes_and_an_out_of_band_push_reaches_their_connection() throws Exception {
-        Principal user = () -> "agent-7";
-
-        mockMvc.perform(get("/lievit/broadcast").principal(user).accept(MediaType.TEXT_EVENT_STREAM))
+        // Authenticate via Spring Security's test support: with a SecurityFilterChain now active
+        // (ADR-0053), request.getUserPrincipal() reads the SecurityContext, so a raw .principal()
+        // would be stripped. user(...) populates the context the canonical way.
+        mockMvc.perform(
+                        get("/lievit/broadcast")
+                                .with(user("agent-7"))
+                                .accept(MediaType.TEXT_EVENT_STREAM))
                 .andExpect(request().asyncStarted())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM));
 

@@ -1,6 +1,7 @@
 # ADR-0002: The public API is exactly seven annotations
 
-- **Status:** accepted
+- **Status:** accepted; the annotation count amended by ADR-0053 (the eighth annotation,
+  `@LievitAuthorize`, admitted as the security-critical exception this ADR's own rule allows)
 - **Date:** 2026-06-17
 - **Deciders:** Francesco Bilotta
 

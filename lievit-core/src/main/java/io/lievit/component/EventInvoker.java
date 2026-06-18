@@ -39,6 +39,32 @@ public final class EventInvoker {
      */
     public static boolean invokeMatching(
             EventListenerMetadata metadata, Object instance, InboundEvent event) {
+        return invokeMatching(metadata, instance, event, handler -> true);
+    }
+
+    /**
+     * Invokes every matching handler, but only after {@code authorized} permits it (issue #57): the
+     * same {@code @LievitAuthorize} / {@code @PreAuthorize} check the {@code l:click} path runs is
+     * enforced on the {@code @LievitOn} event-listener path too. This closes the Livewire
+     * {@code SupportEvents} bypass the study flagged: a naive clone authorizes a directive-driven
+     * action but lets an event-triggered method run unauthorized. The dispatcher passes a gate that
+     * delegates to its {@link ActionAuthorizer}, throwing {@link io.lievit.wire.WireException} on a
+     * deny before the body runs (fail-closed).
+     *
+     * @param metadata the listening component's event metadata
+     * @param instance the component instance
+     * @param event the inbound event
+     * @param authorized the per-handler authorization gate; a class-level {@code $refresh} listener
+     *     (null handler) is never gated (it runs no method). A handler the gate rejects is skipped
+     *     and does NOT count as a match: it never ran, so it must not be observable or force a render.
+     * @return true if at least one listener matched (so the caller re-renders even with a null
+     *     handler, the class-level {@code $refresh} case); false if no listener matched
+     */
+    public static boolean invokeMatching(
+            EventListenerMetadata metadata,
+            Object instance,
+            InboundEvent event,
+            java.util.function.Predicate<Method> authorized) {
         if (metadata.isEmpty()) {
             return false;
         }
@@ -48,12 +74,16 @@ public final class EventInvoker {
             if (!entry.getKey().equals(event.name())) {
                 continue;
             }
-            matched = true;
             Method handler = entry.getValue();
             if (handler != null) {
+                if (!authorized.test(handler)) {
+                    // Denied: the handler never ran, so it is not a match (no re-render, no effect).
+                    continue;
+                }
                 invoke(handler, instance, event.detail());
             }
             // null handler = class-level $refresh listener: match (re-render), no method.
+            matched = true;
         }
         return matched;
     }
