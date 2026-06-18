@@ -109,6 +109,13 @@ public class ConvertCommand implements Callable<Integer> {
 
     private Integer toMultiFile(Path classFile, String classSource) throws IOException {
         ConvertResult result = converter.toMultiFile(classSource, name);
+        if (result.template().isEmpty()) {
+            System.err.println(
+                    "Error: '" + name + "' has no convertible root markup; nothing was written"
+                            + " (even with --force):");
+            printWarnings(result.warnings());
+            return 1;
+        }
         if (!gateLossy(result)) {
             return 1;
         }
@@ -137,6 +144,14 @@ public class ConvertCommand implements Callable<Integer> {
         }
         String templateSource = Files.readString(templateFile);
         ConvertResult result = converter.toSingleFile(classSource, templateSource);
+        // No convertible root means the class was not rewritten; never delete the template then.
+        if (result.classSource().equals(classSource)) {
+            System.err.println(
+                    "Error: template " + templateName + ".jte has no convertible root markup;"
+                            + " nothing was written (even with --force):");
+            printWarnings(result.warnings());
+            return 1;
+        }
         if (!gateLossy(result)) {
             return 1;
         }

@@ -225,9 +225,14 @@ public final class ViewConverter {
         return src.substring(0, lastBrace) + method + src.substring(lastBrace);
     }
 
-    /** Collapses 3+ consecutive blank lines left by import/method removal to a single blank line. */
+    /**
+     * Tidies the whitespace left where an import or the render method was removed: drops
+     * whitespace-only lines down to a single blank line, so the rewrite leaves no dangling indented
+     * blank line and never more than one consecutive blank line.
+     */
     private static String tidyBlankLines(String src) {
-        return src.replaceAll("\\n{3,}", "\n\n");
+        // collapse a run of (blank-or-whitespace-only) lines to a single empty line
+        return src.replaceAll("(?m)(\\n[ \\t]*){3,}", "\n\n");
     }
 
     /** PascalCase -&gt; kebab-case (Counter -&gt; counter, UserList -&gt; user-list). */

@@ -131,4 +131,25 @@ class ConvertCommandTest {
         assertThat(Files.readString(project.resolve("src/main/java/com/example/app/Counter.java")))
                 .contains("@LievitRender");
     }
+
+    /**
+     * @spec.given a single-file component with an unconvertible root, converted with --force
+     * @spec.when  convert --force is invoked
+     * @spec.then  it still exits 1 and writes no template, because there is no convertible root markup
+     *     to write at all (force converts the safe parts, it cannot invent a root)
+     */
+    @Test
+    void force_cannot_write_when_there_is_no_convertible_root(@TempDir Path project)
+            throws IOException {
+        String lossy =
+                SFC.replace(
+                        "return div(span(text(count)), button(text(\"+\")).wireClick(\"increment\"));",
+                        "return fragment(div(text(count)), div(text(count)));");
+        writeComponent(project, lossy);
+
+        int exit = new CommandLine(new ConvertCommand(project)).execute("Counter", "--force");
+
+        assertThat(exit).isEqualTo(1);
+        assertThat(project.resolve("src/main/jte/counter.jte")).doesNotExist();
+    }
 }

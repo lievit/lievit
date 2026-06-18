@@ -74,6 +74,9 @@ class ViewConverterTest {
         // the action and field survive untouched
         assertThat(result.classSource()).contains("void increment()");
         assertThat(result.classSource()).contains("@Wire int count;");
+        // no dangling whitespace-only line and no triple blank line left by the method removal
+        assertThat(result.classSource()).doesNotContain("\n    \n");
+        assertThat(result.classSource()).doesNotContain("\n\n\n");
         Optional<String> template = result.template();
         assertThat(template).isPresent();
         assertThat(template.orElseThrow()).contains("@param int count");
