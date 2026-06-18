@@ -114,6 +114,13 @@ export interface SendOptions {
   readonly fetchImpl?: typeof fetch;
   /** Extra request headers an interceptor set (ADR-0024 #93); merged onto the call's headers. */
   readonly extraHeaders?: Readonly<Record<string, string>>;
+  /**
+   * Abort signal for the fetch (#95, ADR-0051): when the per-scope concurrency engine supersedes an
+   * in-flight call (a user action arriving over an in-flight poll, a newer poll over an older one),
+   * it aborts the signal and the underlying fetch rejects with an `AbortError`. The caller treats
+   * that rejection as a silent supersede, not a transport failure.
+   */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -148,6 +155,8 @@ export async function send(
     // The endpoint inherits the page's auth context (wire-protocol.md §7); send credentials so
     // the session cookie rides with the call.
     credentials: "same-origin",
+    // The concurrency engine (#95) aborts this signal to drop a superseded in-flight call.
+    signal: options.signal,
   });
 
   if (!response.ok) {

@@ -43,6 +43,16 @@ describe("wire transport (wire-protocol §1/§4)", () => {
     expect((init.headers as Record<string, string>)["X-CSRF-TOKEN"]).toBe("tok");
   });
 
+  it("passes an abort signal to fetch so an in-flight call can be cancelled (#95)", async () => {
+    const fetchImpl = vi.fn(async () => okResponse("<div></div>", { "Lievit-Snapshot": "s2" }));
+    const controller = new AbortController();
+
+    await send("cid", { snapshot: "s1", updates: {}, calls: [] }, { fetchImpl, signal: controller.signal });
+
+    const init = (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(init.signal).toBe(controller.signal);
+  });
+
   it("encodes a large binary update as a base64 envelope, no overflow (#135)", async () => {
     const fetchImpl = vi.fn(async () => okResponse("<div></div>", { "Lievit-Snapshot": "s2" }));
     const blob = new Uint8Array(300 * 1024).fill(7);
