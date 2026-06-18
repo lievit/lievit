@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${form.heading()} + ' - lievit admin'">Product - lievit admin</title>
+    <style>
+        body { font-family: sans-serif; max-width: 520px; margin: 40px auto; padding: 0 20px; }
+        label { display: block; margin: 14px 0 4px; font-weight: 600; }
+        input, select { padding: 8px; width: 100%; box-sizing: border-box; }
+        .error { color: #b00; font-size: 0.9em; margin-top: 4px; }
+        .record-errors { color: #b00; }
+        button { padding: 8px 16px; margin-top: 18px; cursor: pointer; }
+        a { margin-left: 12px; }
+    </style>
+</head>
+<body>
+<h1 th:text="${form.heading()}">Product</h1>
+
+<ul class="record-errors" th:if="${!form.recordErrors().isEmpty()}">
+    <li th:each="msg : ${form.recordErrors()}" th:text="${msg}">error</li>
+</ul>
+
+<form method="post" th:action="${action}">
+    <div th:each="field : ${form.fields()}">
+        <label th:for="${field.name()}" th:text="${field.label()}">Field</label>
+
+        <!-- A select for the status field; a text input for everything else. The view-model
+             carries the field type tag, so the template picks the right control. -->
+        <select th:if="${field.type() == 'SelectField'}"
+                th:id="${field.name()}" th:name="${field.name()}">
+            <option value="draft" th:selected="${field.value() == 'draft'}">Draft</option>
+            <option value="active" th:selected="${field.value() == 'active'}">Active</option>
+            <option value="archived" th:selected="${field.value() == 'archived'}">Archived</option>
+        </select>
+
+        <input th:unless="${field.type() == 'SelectField'}"
+               type="text" th:id="${field.name()}" th:name="${field.name()}"
+               th:value="${field.value()}">
+
+        <div class="error" th:if="${field.hasErrors()}">
+            <div th:each="msg : ${field.errors()}" th:text="${msg}">error</div>
+        </div>
+    </div>
+
+    <button type="submit" th:text="${form.editing()} ? 'Save changes' : 'Create'">Save</button>
+    <a th:href="${routes.list()}">Cancel</a>
+</form>
+</body>
+</html>
