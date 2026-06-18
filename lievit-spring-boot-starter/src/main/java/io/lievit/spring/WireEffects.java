@@ -39,7 +39,8 @@ public record WireEffects(
         @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable Map<String, List<String>> errors,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> islands,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Js> js,
-        @Nullable String release) {
+        @Nullable String release,
+        @Nullable Transition transition) {
 
     /**
      * One queued browser event, the serialized {@link DispatchedEvent}. The {@code to} / {@code self}
@@ -69,6 +70,20 @@ public record WireEffects(
     public record Js(String name, @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Object> args) {}
 
     /**
+     * The serialized {@code transition} control ({@code @LievitTransition} / {@code l:transition},
+     * #113, ADR-0034): the client transition feature reads it for this update's morph. {@code skip}
+     * is omitted when false; {@code duration} / {@code name} are omitted when null. The shape matches
+     * the client's {@code TransitionEffect} ({@code {skip?, duration?, name?}}).
+     *
+     * @param skip {@code true} to suppress the transition for this update, else {@code null} (omitted)
+     * @param duration the override duration in ms, or {@code null} (omitted)
+     * @param name a named transition the client recognises, or {@code null} (omitted)
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Transition(
+            @Nullable Boolean skip, @Nullable Integer duration, @Nullable String name) {}
+
+    /**
      * Projects the core effects sink into its wire form.
      *
      * @param effects the per-call effects sink
@@ -92,7 +107,18 @@ public record WireEffects(
                 effects.validationErrors(),
                 effects.islands(),
                 jsCalls,
-                effects.release());
+                effects.release(),
+                toTransition(effects.transition()));
+    }
+
+    private static @Nullable Transition toTransition(
+            io.lievit.component.@Nullable TransitionEffect t) {
+        if (t == null) {
+            return null;
+        }
+        // Emit skip only when true (NON_NULL drops it otherwise), so a plain duration/name control
+        // does not carry a spurious skip:false the client would have to ignore.
+        return new Transition(t.skip() ? Boolean.TRUE : null, t.duration(), t.name());
     }
 
     private static Event toEvent(DispatchedEvent d) {

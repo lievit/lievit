@@ -255,7 +255,24 @@ export class LievitRuntime {
       refresh: (el) => void this.refresh(el),
       parent: (childRoot) => this.parentObjectOf(childRoot),
       watch: (watchRoot, field, listener) => this.addWatcher(watchRoot, field, listener),
+      snapshot: (snapRoot) => this.objectSnapshot(snapRoot),
     });
+  }
+
+  /**
+   * Builds the JSON-safe `{id, name, key, data}` snapshot for a component root (issue #133): the
+   * shape `$lievit.toJSON()` returns so `JSON.stringify($lievit)` yields a clean object without
+   * firing a phantom wire request (a proxy getter trap reading a non-field) or looping on a circular
+   * reference. `data` is a shallow copy of the ephemeral mirror, never the live object.
+   */
+  private objectSnapshot(root: Element): import("./lievit-object.js").LievitObjectSnapshot {
+    const state = this.states.get(root);
+    return {
+      id: root.getAttribute(COMPONENT_ID_ATTR) ?? "",
+      name: root.getAttribute(COMPONENT_ATTR) ?? "",
+      key: root.getAttribute("data-lievit-key") ?? root.getAttribute("wire:key"),
+      data: state == null ? {} : { ...state.ephemeral },
+    };
   }
 
   /** Resolves the `$lievit` object of the component ENCLOSING `childRoot`, or null at the top. */

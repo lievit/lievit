@@ -43,6 +43,21 @@ describe("wire transport (wire-protocol §1/§4)", () => {
     expect((init.headers as Record<string, string>)["X-CSRF-TOKEN"]).toBe("tok");
   });
 
+  it("encodes a large binary update as a base64 envelope, no overflow (#135)", async () => {
+    const fetchImpl = vi.fn(async () => okResponse("<div></div>", { "Lievit-Snapshot": "s2" }));
+    const blob = new Uint8Array(300 * 1024).fill(7);
+
+    await expect(
+      send("cid", { snapshot: "s1", updates: { blob }, calls: [] }, { fetchImpl }),
+    ).resolves.toBeTruthy();
+
+    const init = (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1];
+    const sent = JSON.parse(init.body as string) as { _updates: { blob: Record<string, string> } };
+    // The byte array rode as a tagged base64 string, not a lossy {"0":..} object.
+    expect(typeof sent._updates.blob.__lievit_b64).toBe("string");
+    expect(sent._updates.blob.__lievit_b64.length).toBeGreaterThan(0);
+  });
+
   it("decodes a 200 into html + snapshot + effects", async () => {
     const fetchImpl = vi.fn(async () =>
       okResponse("<div>1</div>", {

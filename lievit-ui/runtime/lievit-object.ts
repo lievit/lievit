@@ -44,6 +44,25 @@ export interface LievitObjectDeps {
   readonly parent: (root: Element) => LievitObject | null;
   /** Registers a `$watch` listener for a field; returns an unsubscribe. */
   readonly watch: (root: Element, field: string, listener: WatchListener) => () => void;
+  /** Returns the clean JSON snapshot for the component (`{id, name, key, data}`, issue #133). */
+  readonly snapshot: (root: Element) => LievitObjectSnapshot;
+}
+
+/**
+ * The plain, JSON-safe snapshot a `$lievit` proxy serializes to (issue #133): just identity + the
+ * ephemeral client-mirror data. It carries no functions, no DOM nodes, and no proxy, so
+ * `JSON.stringify` produces a clean object without tripping a getter trap (which would fire a phantom
+ * wire request) or a circular reference (the proxy would otherwise reference the runtime).
+ */
+export interface LievitObjectSnapshot {
+  /** The component instance id (`data-lievit-id`). */
+  readonly id: string;
+  /** The component name (`data-lievit-component`, the server class / alias). */
+  readonly name: string;
+  /** The component's `wire:key` if it has one, else `null`. */
+  readonly key: string | null;
+  /** The ephemeral `@Wire` state mirror (eventually consistent with the server). */
+  readonly data: Record<string, unknown>;
 }
 
 /** The `$lievit` component object handed to page JS for one component root. */
@@ -60,6 +79,12 @@ export interface LievitObject {
   $watch(field: string, listener: WatchListener): () => void;
   /** The nearest enclosing component's object, or null when this is a top-level component. */
   readonly $parent: LievitObject | null;
+  /**
+   * Returns the JSON-safe snapshot (`{id, name, key, data}`, issue #133). `JSON.stringify($lievit)`
+   * calls this, so stringifying the proxy yields a clean object instead of firing a phantom wire
+   * request (a getter trap reading a phantom field) or looping on a circular reference.
+   */
+  toJSON(): LievitObjectSnapshot;
 }
 
 /**
@@ -88,6 +113,9 @@ export function lievitObject(root: Element, deps: LievitObjectDeps): LievitObjec
     },
     get $parent() {
       return deps.parent(root);
+    },
+    toJSON() {
+      return deps.snapshot(root);
     },
   };
 }
