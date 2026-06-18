@@ -4,7 +4,9 @@
  */
 package io.lievit.kit;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -59,6 +61,7 @@ public final class AdminNotification {
     private final int duration;
     private final boolean persistent;
     private final String position;
+    private final List<NotificationAction> actions;
 
     private AdminNotification(
             Level level,
@@ -70,6 +73,20 @@ public final class AdminNotification {
             int duration,
             boolean persistent,
             String position) {
+        this(level, title, body, icon, iconColor, color, duration, persistent, position, List.of());
+    }
+
+    private AdminNotification(
+            Level level,
+            String title,
+            @Nullable String body,
+            @Nullable String icon,
+            @Nullable String iconColor,
+            @Nullable String color,
+            int duration,
+            boolean persistent,
+            String position,
+            List<NotificationAction> actions) {
         this.level = Objects.requireNonNull(level, "level");
         this.title = Objects.requireNonNull(title, "title");
         this.body = body;
@@ -79,6 +96,7 @@ public final class AdminNotification {
         this.duration = duration;
         this.persistent = persistent;
         this.position = position;
+        this.actions = List.copyOf(actions);
     }
 
     /**
@@ -188,6 +206,41 @@ public final class AdminNotification {
         return copy(level, title, body, icon, iconColor, color, duration, persistent, pos);
     }
 
+    /**
+     * Attaches action buttons to the notification (the Filament notifications {@code ->actions([...])}):
+     * "Undo", "View record", "Retry" affordances rendered inside the toast / persistent notification.
+     * The actions serialize into {@link #toMap()} so they survive a flash and a {@link #sendToDatabase}.
+     *
+     * @param notificationActions the actions, in render order
+     * @return a copy carrying the actions
+     */
+    public AdminNotification actions(NotificationAction... notificationActions) {
+        List<NotificationAction> list = new ArrayList<>(notificationActions.length);
+        for (NotificationAction a : notificationActions) {
+            list.add(Objects.requireNonNull(a, "action"));
+        }
+        return new AdminNotification(
+                level, title, body, icon, iconColor, color, duration, persistent, position, list);
+    }
+
+    /** @return the attached actions, in render order (empty if none) */
+    public List<NotificationAction> actions() {
+        return actions;
+    }
+
+    /**
+     * Persists this notification to a recipient through a {@link DatabaseNotificationStore} (the
+     * Filament {@code ->sendToDatabase($user)}): the durable counterpart of {@link #flashOnto}. The
+     * stored {@code data} is {@link #toMap()}, so the bell renders it identically to a flashed toast.
+     *
+     * @param store the notification store
+     * @param recipient the recipient user id
+     * @return the persisted notification
+     */
+    public DatabaseNotification sendToDatabase(DatabaseNotificationStore store, String recipient) {
+        return Objects.requireNonNull(store, "store").send(recipient, this);
+    }
+
     /** @return the severity */
     public Level level() {
         return level;
@@ -285,6 +338,11 @@ public final class AdminNotification {
         detail.put("duration", duration);
         detail.put("persistent", persistent);
         detail.put("position", position);
+        if (!actions.isEmpty()) {
+            detail.put(
+                    "actions",
+                    actions.stream().map(NotificationAction::toMap).collect(java.util.stream.Collectors.toList()));
+        }
         return detail;
     }
 
@@ -297,7 +355,7 @@ public final class AdminNotification {
         effects.dispatch(EVENT, toMap());
     }
 
-    private static AdminNotification copy(
+    private AdminNotification copy(
             Level level,
             String title,
             @Nullable String body,
@@ -308,6 +366,6 @@ public final class AdminNotification {
             boolean persistent,
             String position) {
         return new AdminNotification(
-                level, title, body, icon, iconColor, color, duration, persistent, position);
+                level, title, body, icon, iconColor, color, duration, persistent, position, actions);
     }
 }

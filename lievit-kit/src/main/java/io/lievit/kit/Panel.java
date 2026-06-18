@@ -58,6 +58,14 @@ public final class Panel {
     // Navigation override (issue #278): an explicit builder replaces the auto-derived tree.
     private @Nullable NavigationBuilder navigation;
 
+    // Database notifications bell (issue #300) — off by default (parity with Filament).
+    private boolean databaseNotifications;
+    private java.time.Duration databaseNotificationsPollInterval = NotificationBell.DEFAULT_POLL_INTERVAL;
+
+    // User menu + profile (issue #343).
+    private final List<MenuItem> userMenuItems = new ArrayList<>();
+    private boolean profilePage;
+
     private Panel(String id) {
         this.id = Objects.requireNonNull(id, "id");
         this.path = id;
@@ -491,5 +499,95 @@ public final class Panel {
         }
         groupsByLabel.values().forEach(builder::group);
         return builder;
+    }
+
+    // --- Database notifications bell (issue #300) ---
+
+    /**
+     * Enables the topbar notification bell backed by a {@link DatabaseNotificationStore} (the
+     * Filament {@code Panel::databaseNotifications()}). Off by default.
+     *
+     * @return this panel
+     */
+    public Panel databaseNotifications() {
+        this.databaseNotifications = true;
+        return this;
+    }
+
+    /**
+     * Sets the bell's polling refresh interval (the Filament
+     * {@code databaseNotificationsPolling}); enabling notifications implicitly.
+     *
+     * @param interval the polling interval
+     * @return this panel
+     */
+    public Panel databaseNotificationsPolling(java.time.Duration interval) {
+        this.databaseNotifications = true;
+        this.databaseNotificationsPollInterval = Objects.requireNonNull(interval, "interval");
+        return this;
+    }
+
+    /** @return whether the database-notification bell is enabled */
+    public boolean hasDatabaseNotifications() {
+        return databaseNotifications;
+    }
+
+    /** @return the bell's polling refresh interval */
+    public java.time.Duration databaseNotificationsPollInterval() {
+        return databaseNotificationsPollInterval;
+    }
+
+    /**
+     * Builds a {@link NotificationBell} for the current recipient over a store, honouring this
+     * panel's polling interval. The page wires the store bean + the authenticated user id.
+     *
+     * @param store the notification store
+     * @param recipient the authenticated user id
+     * @return the bell view-model
+     */
+    public NotificationBell notificationBell(DatabaseNotificationStore store, String recipient) {
+        return NotificationBell.of(store, recipient).pollInterval(databaseNotificationsPollInterval);
+    }
+
+    // --- User menu + profile (issue #343) ---
+
+    /**
+     * Adds an item to the topbar user menu (the avatar dropdown, the Filament
+     * {@code Panel::userMenuItems}). The logout item is always present; these are extras.
+     *
+     * @param items the menu items, in order
+     * @return this panel
+     */
+    public Panel userMenuItems(MenuItem... items) {
+        for (MenuItem item : items) {
+            userMenuItems.add(Objects.requireNonNull(item, "item"));
+        }
+        return this;
+    }
+
+    /** @return the configured user-menu items, in order (excludes the always-present logout) */
+    public List<MenuItem> userMenuItems() {
+        return Collections.unmodifiableList(userMenuItems);
+    }
+
+    /**
+     * Enables the edit-profile page routed under the panel (the Filament {@code EditProfile}). When
+     * on, the user menu carries a "profile" item and {@code <panel>/profile} resolves to the page.
+     *
+     * @return this panel
+     */
+    public Panel profile() {
+        this.profilePage = true;
+        return this;
+    }
+
+    /** @return whether the edit-profile page is enabled */
+    public boolean hasProfilePage() {
+        return profilePage;
+    }
+
+    /** @return the panel-relative route of the edit-profile page */
+    public String profilePath() {
+        return path + "/profile";
     }
 }
