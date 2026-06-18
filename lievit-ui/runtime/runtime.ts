@@ -184,6 +184,25 @@ export class LievitRuntime {
   /** The latest `errors` effect per component, captured pre-`afterCall` for the error directives. */
   private readonly lastErrors = new WeakMap<Element, Record<string, readonly string[]>>();
 
+  /** The latest `transition` effect per component (#113), read by the transition feature per morph. */
+  private readonly lastTransition = new WeakMap<
+    Element,
+    import("./effects.js").TransitionEffect | null
+  >();
+
+  /**
+   * Reads the server transition effect (`@LievitTransition`, #113) for a component root's current
+   * update, or `null` when the last call carried none (the static `l:transition` markup decides).
+   * The transition feature reads this across the morph rather than a DOM attribute the morph would
+   * reconcile away.
+   *
+   * @param root the component root
+   * @returns the transition effect for this update, or `null`
+   */
+  transitionFor(root: Element): import("./effects.js").TransitionEffect | null {
+    return this.lastTransition.get(root) ?? null;
+  }
+
   /**
    * Convenience to register a {@link LifecycleHook} (delegates to {@link LifecycleBus.register}).
    *
@@ -716,6 +735,10 @@ export class LievitRuntime {
 
     // Capture validation errors for the error directives before they fire on `afterCall` (#101).
     this.lastErrors.set(state.root, response.effects?.errors ?? {});
+    // Record the server transition control (#113, @LievitTransition) for THIS update so the
+    // transition feature reads it across the morph; a no-transition call clears it (the static
+    // `l:transition` markup then decides). A DOM stamp would be reconciled away by the morph.
+    this.lastTransition.set(state.root, response.effects?.transition ?? null);
 
     // --- Apply non-DOM effects (dispatch / redirect blockable / url / js), then morph (#93 order)
     this.applyNonDomEffects(state, response.effects, okOutcome);

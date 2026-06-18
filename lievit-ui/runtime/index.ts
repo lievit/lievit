@@ -87,6 +87,7 @@ export {
   type DispatchedEvent,
   type UrlEffect,
   type JsEffectCall,
+  type TransitionEffect,
 } from "./effects.js";
 
 export {
