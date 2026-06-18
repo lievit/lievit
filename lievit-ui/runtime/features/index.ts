@@ -19,6 +19,7 @@ import { installInit } from "./init.js";
 import { installLazy } from "./lazy.js";
 import { installLoading } from "./loading.js";
 import { installNavigate } from "./navigate.js";
+import { installPageExpired } from "./page-expired.js";
 import { installPagination } from "./pagination.js";
 import { installPoll } from "./poll.js";
 import { installPreserveScroll } from "./preserve-scroll.js";
@@ -64,6 +65,7 @@ export {
   type BroadcastOptions,
 } from "./broadcast.js";
 export { installNavigate, type NavigateOptions } from "./navigate.js";
+export { installPageExpired, isExpiredStatus, type PageExpiredOptions } from "./page-expired.js";
 export { installPagination, type ScrollToTop } from "./pagination.js";
 export { installPreserveScroll } from "./preserve-scroll.js";
 export { installScopedCss, scopeCss, scopeId } from "./scoped-css.js";
@@ -106,5 +108,6 @@ export function installAllFeatures(
   installCurrent(runtime);
   installScopedCss(runtime);
   installTeleport(runtime);
+  installPageExpired(runtime);
   installUploads(runtime, options.uploads);
 }
