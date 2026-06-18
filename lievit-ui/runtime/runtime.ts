@@ -22,6 +22,7 @@ import {
   type DirectiveRuntime,
   builtinDirectives,
 } from "./directives.js";
+import { ControlRegistry } from "./controls.js";
 import {
   type CallContext,
   type CallMeta,
@@ -153,6 +154,13 @@ export interface MorphHookProvider {
 export class LievitRuntime {
   /** The directive registry (public extension point: `register` an `l:*` directive). */
   readonly directives = new DirectiveRegistry();
+  /**
+   * The control-value registry (public extension point: `controls.register('wa-foo', {read, write})`
+   * to two-way-bind an exotic custom element with `l:model`). Custom elements that expose the
+   * `.value` / `.checked` property convention (Web Awesome, Shoelace, Lit form controls) work with
+   * zero config; only register an adapter to override the default for a non-conforming control.
+   */
+  readonly controls = new ControlRegistry();
   /** The lifecycle hook bus (public extension point: `register` a {@link LifecycleHook}). */
   readonly lifecycle: LifecycleBus;
   /** The interceptor chain (ADR-0024 #93): the *participating* request-lifecycle seam. */
@@ -185,7 +193,7 @@ export class LievitRuntime {
     this.options = options;
     this.lifecycle = new LifecycleBus();
     this.interceptors = new InterceptorChain();
-    for (const directive of builtinDirectives()) {
+    for (const directive of builtinDirectives(this.controls)) {
       this.directives.register(directive);
     }
     this.directiveRuntime = {

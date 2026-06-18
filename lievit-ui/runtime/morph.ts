@@ -34,6 +34,8 @@
  * node (the animate-out case) and report whether it has handled it.
  */
 
+import { defaultWriteControlValue } from "./controls.js";
+
 /** How an element is morphed (see {@link MorphHooks.elementMode}). */
 export type MorphMode = "morph" | "skip" | "self" | "children";
 
@@ -225,6 +227,32 @@ type LiveValue =
   | { readonly kind: "value"; readonly value: string }
   | { readonly kind: "checked"; readonly value: boolean };
 
+/**
+ * Whether `el` is a custom element (a hyphenated tag, the platform rule). Native controls keep
+ * their dedicated branch above; only a custom element falls through to the property convention so a
+ * Web Awesome `<wa-input>` / `<wa-select>` / `<wa-checkbox>` survives a re-render the same way a
+ * native control does.
+ */
+function isCustomElement(el: Element): boolean {
+  return el.tagName.includes("-");
+}
+
+/** Whether a custom element carries its state as a boolean `.checked` (checkbox / switch / radio). */
+function customElementIsChecked(el: Element): boolean {
+  if (!("checked" in el)) {
+    return false;
+  }
+  const role = el.getAttribute("role");
+  if (role === "checkbox" || role === "radio" || role === "switch") {
+    return true;
+  }
+  const type = (el as { type?: unknown }).type;
+  if (type === "checkbox" || type === "radio" || type === "switch") {
+    return true;
+  }
+  return typeof (el as { checked?: unknown }).checked === "boolean" && !("value" in el);
+}
+
 function uncontrolledValue(el: Element): LiveValue | null {
   if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) {
     return { kind: "checked", value: el.checked };
@@ -232,10 +260,25 @@ function uncontrolledValue(el: Element): LiveValue | null {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     return { kind: "value", value: el.value };
   }
+  // Custom-element form controls expose value/checked as a property, symmetric with the read side
+  // in directives.ts (the `l:model` value reader). Snapshot it so morph preserves user edits and
+  // restores server `@Wire` state on a wa-* control too.
+  if (isCustomElement(el)) {
+    if (customElementIsChecked(el)) {
+      return { kind: "checked", value: Boolean((el as unknown as { checked: unknown }).checked) };
+    }
+    if ("value" in el) {
+      return { kind: "value", value: String((el as unknown as { value: unknown }).value ?? "") };
+    }
+  }
   return null;
 }
 
-/** Whether the server's new markup explicitly sets the control's value/checked attribute. */
+/**
+ * Whether the server's new markup explicitly sets the control's value/checked. Web Awesome reflects
+ * `value` / `checked` as attributes, so the same attribute check serves custom elements; a control
+ * that exposes the state only as a property still re-asserts via that attribute when server-set.
+ */
 function serverAsserts(newEl: Element, kind: LiveValue["kind"]): boolean {
   return kind === "checked" ? newEl.hasAttribute("checked") : newEl.hasAttribute("value");
 }
@@ -248,6 +291,9 @@ function restoreUncontrolledValue(el: Element, live: LiveValue): void {
     (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
   ) {
     el.value = live.value;
+  } else if (isCustomElement(el)) {
+    // The property convention (shared with the read side), so the restore stays symmetric.
+    defaultWriteControlValue(el, live.value);
   }
 }
 

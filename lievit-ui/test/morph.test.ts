@@ -12,6 +12,39 @@ function root(html: string): HTMLElement {
   return el.firstElementChild as HTMLElement;
 }
 
+/** A value-bearing custom element (wa-input stand-in) that reflects `value` attribute -> property. */
+class MorphValueControl extends HTMLElement {
+  static get observedAttributes() {
+    return ["value"];
+  }
+  value = "";
+  attributeChangedCallback(_n: string, _o: string | null, next: string | null): void {
+    this.value = next ?? "";
+  }
+}
+
+/** A checkbox-like custom element (wa-checkbox stand-in) reflecting `checked` attribute -> property. */
+class MorphCheckControl extends HTMLElement {
+  static get observedAttributes() {
+    return ["checked"];
+  }
+  checked = false;
+  constructor() {
+    super();
+    this.setAttribute("role", "checkbox");
+  }
+  attributeChangedCallback(_n: string, _o: string | null, next: string | null): void {
+    this.checked = next != null;
+  }
+}
+
+if (!customElements.get("morph-value")) {
+  customElements.define("morph-value", MorphValueControl);
+}
+if (!customElements.get("morph-check")) {
+  customElements.define("morph-check", MorphCheckControl);
+}
+
 describe("morph (bespoke DOM patch, wire-protocol §5)", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -64,6 +97,47 @@ describe("morph (bespoke DOM patch, wire-protocol §5)", () => {
     const items = Array.from(el.querySelectorAll("li"));
     expect(items[0]).toBe(liB); // same DOM nodes, reordered
     expect(items[1]).toBe(liA);
+  });
+
+  it("preserves a custom element's .value edit when the server does not re-assert it", () => {
+    document.body.innerHTML =
+      '<div data-lievit-component="X"><morph-value name="q"></morph-value><span>0</span></div>';
+    const el = document.body.firstElementChild as HTMLElement;
+    const control = el.querySelector("morph-value") as MorphValueControl;
+    control.value = "typed"; // a wa-input edit lives as a property, not an attribute
+
+    morph(el, '<div data-lievit-component="X"><morph-value name="q"></morph-value><span>1</span></div>');
+
+    expect(el.querySelector("morph-value")).toBe(control); // same node
+    expect(control.value).toBe("typed"); // the edit survived the re-render
+    expect(el.querySelector("span")!.textContent).toBe("1");
+  });
+
+  it("lets the server re-assert a custom element's value via the reflected attribute", () => {
+    document.body.innerHTML =
+      '<div data-lievit-component="X"><morph-value name="q"></morph-value></div>';
+    const el = document.body.firstElementChild as HTMLElement;
+    const control = el.querySelector("morph-value") as MorphValueControl;
+    control.value = "stale";
+
+    // Server @Wire state re-renders with value="server": it must win over the stale local edit.
+    morph(el, '<div data-lievit-component="X"><morph-value name="q" value="server"></morph-value></div>');
+
+    expect(el.querySelector("morph-value")).toBe(control);
+    expect(control.value).toBe("server");
+  });
+
+  it("preserves a checkbox-like custom element's .checked edit across a re-render", () => {
+    document.body.innerHTML =
+      '<div data-lievit-component="X"><morph-check name="agree"></morph-check><span>0</span></div>';
+    const el = document.body.firstElementChild as HTMLElement;
+    const control = el.querySelector("morph-check") as MorphCheckControl;
+    control.checked = true; // the user ticked a wa-checkbox
+
+    morph(el, '<div data-lievit-component="X"><morph-check name="agree"></morph-check><span>1</span></div>');
+
+    expect(el.querySelector("morph-check")).toBe(control);
+    expect(control.checked).toBe(true); // boolean state survived
   });
 
   it("inserts new nodes and removes dropped ones", () => {

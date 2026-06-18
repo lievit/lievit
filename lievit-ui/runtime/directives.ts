@@ -3,6 +3,8 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 
+import { ControlRegistry } from "./controls.js";
+
 /**
  * The directive registry: the public extension point that lets later client features add new
  * `l:*` behaviors (e.g. `l:navigate`, `l:poll`, `l:ignore`) WITHOUT editing the core bundle. A
@@ -181,13 +183,24 @@ function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
 }
 
 /**
+ * A process-wide default {@link ControlRegistry} the built-in `l:model` uses when no registry is
+ * passed (keeps `builtinDirectives()` zero-arg for existing callers and tests). The runtime exposes
+ * its OWN registry instance as `runtime.controls` and passes it here, so an app registers exotic
+ * control adapters on `runtime.controls` and they take effect for `l:model`.
+ */
+const defaultControls = new ControlRegistry();
+
+/**
  * Builds the directive set lievit ships in v0.1 (wire-protocol.md §5): `l:click`, `l:submit`,
  * `l:keydown[.key]`, and `l:model[.live|.lazy|.blur|.debounce.Nms]`. Returned as a fresh array so a
  * caller can register them into a {@link DirectiveRegistry} (the runtime does this on start), and so
  * tests can register a subset.
+ *
+ * @param controls the control-value registry `l:model` reads through (custom-element support +
+ *   per-tag adapter seam); defaults to a shared process-wide registry.
  */
-export function builtinDirectives(): Directive[] {
-  return [actionDirective("click", "click"), submitDirective(), keydownDirective(), modelDirective()];
+export function builtinDirectives(controls: ControlRegistry = defaultControls): Directive[] {
+  return [actionDirective("click", "click"), submitDirective(), keydownDirective(), modelDirective(controls)];
 }
 
 /** A directive that invokes an action on a DOM event of the given type (`l:click`). */
@@ -247,8 +260,16 @@ function keydownDirective(): Directive {
  * - `.debounce.Nms` → on input, debounced N ms,
  * - `.lazy` → on `change`,
  * - `.blur` → on `blur`.
+ *
+ * The value is read through the {@link ControlRegistry} so the same modifiers work on a custom
+ * element (a Web Awesome `<wa-input>` / `<wa-select>` / `<wa-checkbox>`) that exposes `.value` /
+ * `.checked`, not only on the native controls. Web Awesome emits the native `input` / `change` /
+ * `blur`, so the listener wiring is unchanged; an exotic control that fires a different event
+ * declares it on its adapter and the registry resolves the right event name per modifier.
+ *
+ * @param controls the control-value registry to read through and resolve change events from
  */
-function modelDirective(): Directive {
+function modelDirective(controls: ControlRegistry): Directive {
   return {
     name: "model",
     bind(element, attribute, field, runtime) {
@@ -257,7 +278,7 @@ function modelDirective(): Directive {
       }
       const parsed = parseDirective(attribute);
       const modifiers = parsed?.modifiers ?? [];
-      const read = () => readControlValue(element);
+      const read = () => controls.read(element);
 
       const explicitDebounce = debounceMs(modifiers);
       const live = modifiers.includes("live") || explicitDebounce != null;
@@ -267,34 +288,25 @@ function modelDirective(): Directive {
       if (live) {
         const ms = explicitDebounce ?? LIVE_DEBOUNCE_MS;
         const onInput = debounce(() => runtime.setModel(element, field, read(), true), ms);
-        element.addEventListener("input", () => onInput());
+        element.addEventListener(controls.eventFor(element, "live"), () => onInput());
         return;
       }
       if (lazy) {
-        element.addEventListener("change", () => runtime.setModel(element, field, read(), true));
+        element.addEventListener(controls.eventFor(element, "lazy"), () =>
+          runtime.setModel(element, field, read(), true),
+        );
         return;
       }
       if (blur) {
-        element.addEventListener("blur", () => runtime.setModel(element, field, read(), true));
+        element.addEventListener(controls.eventFor(element, "blur"), () =>
+          runtime.setModel(element, field, read(), true),
+        );
         return;
       }
       // Deferred (default): store on input, never send on its own — rides the next action.
-      element.addEventListener("input", () => runtime.setModel(element, field, read(), false));
+      element.addEventListener(controls.eventFor(element, "live"), () =>
+        runtime.setModel(element, field, read(), false),
+      );
     },
   };
-}
-
-/** Reads the wire-relevant value of a bound control (checkbox → boolean, else the string value). */
-function readControlValue(element: Element): unknown {
-  if (element instanceof HTMLInputElement && element.type === "checkbox") {
-    return element.checked;
-  }
-  if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement
-  ) {
-    return element.value;
-  }
-  return (element as HTMLElement).textContent;
 }
