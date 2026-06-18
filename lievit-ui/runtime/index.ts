@@ -74,6 +74,16 @@ export {
   type WatchListener,
 } from "./lievit-object.js";
 
+export {
+  parseExpression,
+  evaluateExpression,
+  evaluate,
+  truthy,
+  ExpressionError,
+  type ParsedExpression,
+  type ExprScope,
+} from "./expression.js";
+
 export { morph, type MorphHooks, type MorphMode } from "./morph.js";
 
 export {
