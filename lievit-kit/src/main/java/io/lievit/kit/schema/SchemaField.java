@@ -38,6 +38,8 @@ public abstract class SchemaField<T extends @Nullable Object, SELF extends Schem
     private @Nullable String prefixIcon;
     private @Nullable String suffixIcon;
     private boolean required;
+    private @Nullable SchemaAction prefixAction;
+    private @Nullable SchemaAction suffixAction;
     private final RuleSet rules = RuleSet.create();
 
     /**
@@ -226,6 +228,47 @@ public abstract class SchemaField<T extends @Nullable Object, SELF extends Schem
      */
     public boolean isRequired() {
         return required;
+    }
+
+    // ── affix actions (filament HasAffixes: prefixAction / suffixAction) ──
+
+    /**
+     * Attaches a clickable action button as the field's prefix affix (the filament
+     * {@code prefixAction}): a small inline button before the input, for an inline "Generate" /
+     * "Verify" affordance whose closure mutates this or sibling fields.
+     *
+     * @param action the prefix action
+     * @return this field
+     */
+    public SELF prefixAction(SchemaAction action) {
+        this.prefixAction = Objects.requireNonNull(action, "action");
+        return self();
+    }
+
+    /**
+     * @return the prefix affix action, or {@code null}
+     */
+    public @Nullable SchemaAction prefixAction() {
+        return prefixAction;
+    }
+
+    /**
+     * Attaches a clickable action button as the field's suffix affix (the filament
+     * {@code suffixAction}): a small inline button after the input.
+     *
+     * @param action the suffix action
+     * @return this field
+     */
+    public SELF suffixAction(SchemaAction action) {
+        this.suffixAction = Objects.requireNonNull(action, "action");
+        return self();
+    }
+
+    /**
+     * @return the suffix affix action, or {@code null}
+     */
+    public @Nullable SchemaAction suffixAction() {
+        return suffixAction;
     }
 
     /**
