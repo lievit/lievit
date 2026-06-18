@@ -90,6 +90,31 @@ describe("client interceptors (ADR-0024 #93)", () => {
     expect(chain.redirect("/elsewhere", outcome(root))).toBe(false);
   });
 
+  it("blocks the default re-mount when an interceptor preventDefaults the expired recovery (#103)", () => {
+    const chain = new InterceptorChain();
+    chain.register({ onExpired: (control) => control.preventDefault() });
+    const root = document.createElement("div");
+    const failed = { componentId: "c1", root, status: 409, ok: false, reason: "snapshot-expired" };
+    expect(chain.expired(failed)).toBe(true); // prevented
+  });
+
+  it("lets the default re-mount proceed when no interceptor handles the expired failure (#103)", () => {
+    const chain = new InterceptorChain();
+    const root = document.createElement("div");
+    const failed = { componentId: "c1", root, status: 410, ok: false, reason: null };
+    expect(chain.expired(failed)).toBe(false);
+  });
+
+  it("exposes defaultPrevented so a later expired handler can defer to an earlier one (#103)", () => {
+    const chain = new InterceptorChain();
+    let sawPrevented: boolean | null = null;
+    chain.register({ onExpired: (control) => control.preventDefault() });
+    chain.register({ onExpired: (control) => (sawPrevented = control.defaultPrevented()) });
+    const root = document.createElement("div");
+    chain.expired({ componentId: "c1", root, status: 409, ok: false, reason: "snapshot-expired" });
+    expect(sawPrevented).toBe(true);
+  });
+
   it("scopes a per-action interceptor to calls invoking that action", () => {
     const chain = new InterceptorChain();
     const hit = vi.fn();

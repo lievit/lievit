@@ -55,6 +55,26 @@ export interface RedirectControl {
   readonly preventDefault: () => void;
 }
 
+/**
+ * The expired-recovery seam (#103, ADR-0051): a `409`/`410` failure whose default recovery is a hard
+ * re-mount (full page reload). An interceptor's `onExpired` may `preventDefault()` to suppress that
+ * default and take over the recovery itself (the page-expired feature shows a confirm dialog; an app
+ * may show its own UX). The `status` + `reason` let a handler tell snapshot-expired from class-gone.
+ */
+export interface ExpiredControl {
+  /** The HTTP status of the failure (`409` snapshot-expired, `410` class gone). */
+  readonly status: number;
+  /** The `Lievit-Reason` header value, or `null`. */
+  readonly reason: string | null;
+  /** Call to suppress the default hard re-mount; the handler owns the recovery. */
+  readonly preventDefault: () => void;
+  /**
+   * True once any (earlier-registered) handler already called `preventDefault()`. The built-in
+   * page-expired feature reads this to stay silent when an app's fail hook took over the recovery.
+   */
+  readonly defaultPrevented: () => boolean;
+}
+
 /** The outcome an interceptor reads in the success/error/finish phases. */
 export interface InterceptorOutcome {
   readonly componentId: string;
@@ -99,6 +119,12 @@ export interface Interceptor {
    * `control.preventDefault()` to block the navigation (the morph and other effects still apply).
    */
   readonly onRedirect?: (control: RedirectControl, outcome: InterceptorOutcome) => void;
+  /**
+   * Fired on a `409`/`410` failure before the default hard re-mount (#103). Call
+   * `control.preventDefault()` to suppress the reload and own the recovery (the page-expired
+   * feature's confirm dialog, or an app's custom UX).
+   */
+  readonly onExpired?: (control: ExpiredControl, outcome: InterceptorOutcome) => void;
 }
 
 /** A predicate selecting which calls an interceptor applies to (global / per-action / per-root). */
@@ -253,6 +279,34 @@ export class InterceptorChain {
         interceptor.onRedirect?.(control, outcome);
       } catch (error) {
         this.onChainError("onRedirect", error);
+      }
+    }
+    return prevented;
+  }
+
+  /**
+   * Offers a `409`/`410` expired failure to every matching interceptor; returns true if any called
+   * `preventDefault()`, so the runtime should NOT hard re-mount (the handler owns the recovery, #103).
+   *
+   * @param outcome the failure outcome (`status` 409/410, `reason`)
+   * @returns true when the default re-mount was prevented
+   */
+  expired(outcome: InterceptorOutcome): boolean {
+    let prevented = false;
+    const control: ExpiredControl = {
+      status: outcome.status,
+      reason: outcome.reason,
+      preventDefault: () => {
+        prevented = true;
+      },
+      defaultPrevented: () => prevented,
+    };
+    const request = this.requestFromOutcome(outcome);
+    for (const interceptor of this.matching(request)) {
+      try {
+        interceptor.onExpired?.(control, outcome);
+      } catch (error) {
+        this.onChainError("onExpired", error);
       }
     }
     return prevented;

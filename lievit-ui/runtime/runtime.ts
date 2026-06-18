@@ -790,9 +790,13 @@ export class LievitRuntime {
       this.interceptors.errored(outcome);
       this.interceptors.finish(outcome);
       if (response.remount) {
-        // 409 (expired) / 410 (class gone): the snapshot no longer matches the server. The only
-        // safe recovery is a fresh render of the host page (wire-protocol.md §4).
-        this.remount();
+        // 409 (expired) / 410 (class gone): the snapshot no longer matches the server. The default
+        // recovery is a fresh render of the host page (wire-protocol.md §4). An `onExpired`
+        // interceptor (the page-expired feature, #103, or an app's fail hook) may preventDefault to
+        // own the recovery (a "page expired, refresh?" dialog) instead of a hard reload.
+        if (!this.interceptors.expired(outcome)) {
+          this.remount();
+        }
       } else {
         this.reportError(`wire call failed: ${response.status} ${response.reason ?? ""}`, response);
       }
