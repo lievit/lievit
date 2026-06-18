@@ -5,6 +5,7 @@
 package io.lievit.kit.tenancy;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import org.jspecify.annotations.Nullable;
 
@@ -25,6 +26,8 @@ public final class Tenancy {
     private boolean registration;
     private boolean profile;
     private @Nullable String switcherLabel;
+    private @Nullable BillingProvider billingProvider;
+    private boolean requiresSubscription;
 
     private Tenancy(String routeParameter) {
         this.routeParameter = Objects.requireNonNull(routeParameter, "routeParameter");
@@ -100,6 +103,59 @@ public final class Tenancy {
     /** @return the configured switcher label, or {@code null} to default to the tenant name */
     public @Nullable String switcherLabel() {
         return switcherLabel;
+    }
+
+    /**
+     * Wires a billing provider for this panel (the Filament {@code tenantBillingProvider}). On its
+     * own it only makes the provider available; the subscription gate fires only once
+     * {@link #requiresSubscription()} is also declared.
+     *
+     * @param provider the adopter's billing provider
+     * @return this config
+     */
+    public Tenancy billingProvider(BillingProvider provider) {
+        this.billingProvider = Objects.requireNonNull(provider, "provider");
+        return this;
+    }
+
+    /**
+     * Declares that every tenant of this panel must hold an active subscription (the Filament
+     * {@code requiresTenantSubscription}). Enables the {@link #subscriptionGate(Tenant)}.
+     *
+     * @return this config
+     */
+    public Tenancy requiresSubscription() {
+        this.requiresSubscription = true;
+        return this;
+    }
+
+    /** @return the wired billing provider, empty if none */
+    public Optional<BillingProvider> billingProvider() {
+        return Optional.ofNullable(billingProvider);
+    }
+
+    /** @return whether the panel requires a tenant subscription */
+    public boolean isSubscriptionRequired() {
+        return requiresSubscription;
+    }
+
+    /**
+     * The subscription gate for a tenant: when the panel requires a subscription and a provider says
+     * the tenant is not subscribed, returns the billing route the tenant must be sent to; otherwise
+     * empty (the request proceeds). With no provider, or no subscription requirement, the gate never
+     * blocks, so billing costs a non-billing panel nothing.
+     *
+     * @param tenant the active tenant
+     * @return the billing route to redirect to, or empty to let the request through
+     */
+    public Optional<String> subscriptionGate(Tenant tenant) {
+        Objects.requireNonNull(tenant, "tenant");
+        if (!requiresSubscription || billingProvider == null) {
+            return Optional.empty();
+        }
+        return billingProvider.isSubscribed(tenant)
+                ? Optional.empty()
+                : Optional.of(billingProvider.routeAction());
     }
 
     /**
