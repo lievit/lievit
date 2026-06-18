@@ -71,7 +71,14 @@ public class LievitSecurityAutoConfiguration {
                 // No login page is imposed by the framework default: an app that wants auth declares
                 // its own chain. Disable the auto form login / basic so the default is genuinely open.
                 .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable);
+                .httpBasic(AbstractHttpConfigurer::disable)
+                // Spring Security stamps a blanket no-store Cache-Control on every response; that
+                // would defeat lievit's opt-in back-forward-cache model (issue #123, ADR-0051),
+                // where a plain page stays bfcache-eligible and only a component that calls
+                // disableBackButtonCache() opts out (via LievitBackButtonCacheFilter). In this
+                // permissive default chain lievit owns cache-control; an app that brings its own
+                // SecurityFilterChain keeps Spring Security's secure no-store default.
+                .headers(headers -> headers.cacheControl(cache -> cache.disable()));
         return http.build();
     }
 
