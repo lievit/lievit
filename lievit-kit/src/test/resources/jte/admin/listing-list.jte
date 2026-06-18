@@ -31,7 +31,11 @@
                         <button l:click="confirmDelete" data-admin-confirm-delete>Yes, delete</button>
                         <button l:click="cancelDelete" data-admin-cancel-delete>Cancel</button>
                     @else
-                        <button l:model="pendingDeleteId" l:value="${row.id()}" l:click="askDelete" data-admin-delete="${row.id()}">Delete</button>
+                        <%-- Arm the row via the $set magic (the Livewire wire:click="$set(...)" idiom):
+                             it mutates the @Wire field server-side and re-renders, showing the confirm.
+                             NB there is no l:value directive and l:model binds an INPUT listener a button
+                             never fires, so $set is the canonical row-arm, not l:model+l:value. --%>
+                        <button l:click="$set('pendingDeleteId', '${row.id()}')" data-admin-delete="${row.id()}">Delete</button>
                     @endif
                 </td>
             </tr>

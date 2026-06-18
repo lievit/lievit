@@ -6,8 +6,8 @@ package io.lievit.kit.hello;
 
 import io.lievit.LievitAction;
 import io.lievit.LievitComponent;
-import io.lievit.LievitMount;
 import io.lievit.LievitProperty;
+import io.lievit.LievitRender;
 import io.lievit.Wire;
 import io.lievit.component.LievitEffects;
 import io.lievit.kit.AdminAuthorizer;
@@ -43,35 +43,33 @@ public class ListingListComponent {
         this.createUrl = driver.routes().create();
     }
 
-    @LievitMount
-    void build() {
+    /**
+     * Rebuilds the derived list view on EVERY render (initial mount AND every wire call), the
+     * @LievitRender hook the dispatcher invokes at mount and before each call's re-render. NOT
+     * @LievitMount: a @LievitProperty(serialize=false) field resets to its constructor default on each
+     * stateless re-hydration, and @LievitMount runs ONLY on the first mount, so a re-render driven by
+     * anything other than a rebuilding action (e.g. a $set row-arm, which runs no @LievitAction) would
+     * render a stale view. Rebuilding here keeps it fresh; the actions only move page / arm the confirm.
+     */
+    @LievitRender
+    void render() {
         this.view = driver.view(page);
-        this.page = view.pagination().page();
+        this.page = view.pagination().page(); // AdminListView clamps page to a real one
     }
 
     @LievitAction
     void next() {
-        this.page = view.pagination().nextPage();
-        this.view = driver.view(page);
+        this.page = page + 1; // render() rebuilds the view; AdminListView clamps an over-run page
     }
 
     @LievitAction
     void prev() {
-        this.page = view.pagination().previousPage();
-        this.view = driver.view(page);
-    }
-
-    /** Arms the confirm affordance for the row whose id the client set via {@code l:model}. */
-    @LievitAction
-    void askDelete() {
-        // pendingDeleteId is already set by the row button via l:model; re-render shows the confirm.
-        this.view = driver.view(page);
+        this.page = page - 1;
     }
 
     @LievitAction
     void cancelDelete() {
         this.pendingDeleteId = "";
-        this.view = driver.view(page);
     }
 
     /** Runs the row delete against the armed id: flash + redirect to the list on success. */
@@ -79,7 +77,6 @@ public class ListingListComponent {
     void confirmDelete() {
         driver.delete(pendingDeleteId, LievitEffects.current());
         this.pendingDeleteId = "";
-        this.view = driver.view(page);
     }
 
     /**
