@@ -37,6 +37,12 @@ export interface InterceptorRequest {
   readonly updates: Record<string, unknown>;
   /** Extra request headers an interceptor may set (merged onto the wire call's headers). */
   readonly headers: Record<string, string>;
+  /**
+   * Coarse call metadata (trigger element, poll flag), the same bag the lifecycle hooks see. It lets
+   * a veto interceptor (the `intercept(fn)` form, e.g. `l:confirm`) read the trigger element to find
+   * its directive. Empty for a hand-built request.
+   */
+  readonly meta: Readonly<Record<string, unknown>>;
   /** Aborts the call: no request is sent (or the in-flight one is dropped), `onCancel` fires. */
   readonly cancel: () => void;
 }
@@ -167,6 +173,7 @@ export class InterceptorChain {
     root: Element,
     calls: readonly string[],
     updates: Record<string, unknown>,
+    meta: Readonly<Record<string, unknown>> = {},
   ): { request: InterceptorRequest; cancelled: () => boolean } {
     let cancelledFlag = false;
     const request: InterceptorRequest = {
@@ -175,6 +182,7 @@ export class InterceptorChain {
       calls,
       updates,
       headers: {},
+      meta,
       cancel: () => {
         cancelledFlag = true;
       },
@@ -257,6 +265,7 @@ export class InterceptorChain {
       calls: [],
       updates: {},
       headers: {},
+      meta: {},
       cancel: () => {},
     };
   }

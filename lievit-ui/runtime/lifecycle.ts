@@ -22,12 +22,31 @@ export interface ComponentContext {
   readonly componentId: string;
 }
 
+/**
+ * Coarse, feature-set metadata about a wire call, so hooks can scope their behavior (e.g. a loading
+ * indicator must NOT stamp `data-loading` for a poll; a navigate call should not show loading). Keys
+ * are open: a feature reads the ones it cares about and ignores the rest.
+ */
+export interface CallMeta {
+  /** True when the call originates from a poll tick (loading features skip it). */
+  readonly poll?: boolean;
+  /** The DOM element that triggered the call (the clicked button, the submitted form), if any. */
+  readonly trigger?: Element;
+  /** Open for features to stamp their own keys without a core edit. */
+  readonly [key: string]: unknown;
+}
+
 /** A wire call about to be sent (the request side of the lifecycle). */
 export interface CallContext extends ComponentContext {
   /** The action names this call will invoke. */
   readonly calls: readonly string[];
   /** The field updates this call will send. */
   readonly updates: Readonly<Record<string, unknown>>;
+  /**
+   * Coarse metadata about the call (poll flag, trigger element). The runtime always supplies it
+   * (empty for a plain call); optional in the type so hand-built contexts in tests stay terse.
+   */
+  readonly meta?: CallMeta;
 }
 
 /** The outcome handed to {@link LifecycleHook.afterCall} / {@link LifecycleHook.onError}. */

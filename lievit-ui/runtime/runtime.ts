@@ -23,16 +23,19 @@ import {
   builtinDirectives,
 } from "./directives.js";
 import {
+  type CallContext,
+  type CallMeta,
   type CallOutcome,
   type ComponentContext,
   LifecycleBus,
   type LifecycleHook,
 } from "./lifecycle.js";
-import { morph } from "./morph.js";
+import { type MorphHooks, type MorphMode, morph } from "./morph.js";
 import { type SendOptions, send } from "./wire.js";
 import {
   type Interceptor,
   type InterceptorOutcome,
+  type InterceptorRequest,
   type InterceptorScope,
   InterceptorChain,
   actionScope,
@@ -77,6 +80,35 @@ export interface RuntimeOptions extends SendOptions {
 }
 
 /**
+ * An action interceptor: a feature-registered gate run BEFORE a wire call leaves the browser. It
+ * lets a feature (e.g. `wire:confirm`) veto or defer a call without editing the core. Each
+ * interceptor returns whether the call may proceed; returning `false` (or a promise of `false`)
+ * aborts the call silently (no network, no lifecycle phases). This is the seam ADR-0019 left open
+ * for `wire:confirm` ("intercepts the action, aborts on cancel").
+ */
+export interface ActionInterceptor {
+  /**
+   * @param ctx the call about to be sent (component, calls, updates, meta)
+   * @returns true to proceed, false to abort the call
+   */
+  (ctx: CallContext): boolean | Promise<boolean>;
+}
+
+/**
+ * A morph-hook provider: a feature returns the {@link MorphHooks} it wants applied to a given
+ * component root's morph (or `null` to opt out). The runtime composes every provider's hooks into
+ * one set per morph, so `l:ignore` (skip subtrees) and `l:transition` (defer removal) plug in
+ * WITHOUT editing the morph algorithm (ADR-0019 morph seam).
+ */
+export interface MorphHookProvider {
+  /**
+   * @param root the component root being morphed
+   * @returns the hooks to apply for this morph, or `null` to contribute none
+   */
+  (root: Element): MorphHooks | null;
+}
+
+/**
  * The client runtime. Construct once, call {@link start} to bind every component on the page, then
  * {@link directives} and {@link lifecycle} are the public extension points for later features.
  */
@@ -95,6 +127,9 @@ export class LievitRuntime {
   private readonly states = new WeakMap<Element, ComponentState>();
   private readonly options: RuntimeOptions;
   private readonly directiveRuntime: DirectiveRuntime;
+  private readonly morphHookProviders: MorphHookProvider[] = [];
+  /** Async veto decisions in flight for a given pre-flight request (the `intercept(fn)` form). */
+  private readonly vetoPending = new WeakMap<InterceptorRequest, Promise<void>[]>();
 
   /**
    * @param options CSRF token/header, an injectable fetch, and an error reporter
@@ -107,7 +142,7 @@ export class LievitRuntime {
       this.directives.register(directive);
     }
     this.directiveRuntime = {
-      callAction: (element, action) => void this.callAction(element, action),
+      callAction: (element, action, meta) => void this.callAction(element, action, meta ?? {}),
       setModel: (element, field, value, sendNow) =>
         void this.setModel(element, field, value, sendNow),
     };
@@ -142,16 +177,77 @@ export class LievitRuntime {
   }
 
   /**
-   * Registers a client interceptor (ADR-0024 #93). Global by default; pass a scope for per-action
-   * or per-component. The interceptor may `cancel()` a call, mutate its headers, and block a
-   * redirect.
+   * Registers an interceptor. Two forms unify onto the single {@link InterceptorChain} (#93):
    *
-   * @param interceptor the interceptor
-   * @param scope which calls it applies to (defaults to global)
+   * - **Veto form** `intercept(fn)` (ADR-0019): a function run pre-flight that returns `false` (or a
+   *   promise of `false`) to abort the call entirely (no network, no lifecycle phases). It reads the
+   *   call's {@link CallContext} (incl. `meta.trigger`); `l:confirm` registers one so a cancel stops
+   *   the action without touching the core loop. Implemented as an interceptor whose `onInit` runs
+   *   the gate and `cancel()`s on a falsy result (async gates resolve before `onSend`).
+   * - **Chain form** `intercept(obj, scope?)` (ADR-0024): a full {@link Interceptor} with phase
+   *   callbacks that may `cancel()`, mutate headers/updates, and block a redirect; global by default,
+   *   pass a {@link InterceptorScope} for per-action / per-component.
+   *
+   * @param interceptor the veto function OR the phase interceptor
+   * @param scope which calls a chain interceptor applies to (ignored for the veto form)
    * @returns an unsubscribe function
    */
-  intercept(interceptor: Interceptor, scope?: InterceptorScope): () => void {
+  intercept(
+    interceptor: ActionInterceptor | Interceptor,
+    scope?: InterceptorScope,
+  ): () => void {
+    if (typeof interceptor === "function") {
+      return this.interceptors.register(this.vetoInterceptor(interceptor));
+    }
     return this.interceptors.register(interceptor, scope);
+  }
+
+  /**
+   * Adapts a veto {@link ActionInterceptor} (the `intercept(fn)` form) onto the unified chain: its
+   * `onInit` builds the {@link CallContext} from the pre-flight request and runs the gate; a falsy
+   * result (or an awaited falsy promise) `cancel()`s the request. A sync gate cancels synchronously
+   * (observed right after `onInit`); an async gate records its promise in {@link vetoPending} so
+   * `dispatch` awaits the decision before sending. A throwing gate is reported and fails soft (the
+   * call proceeds), matching ADR-0019's "a buggy interceptor must not block interactivity".
+   */
+  private vetoInterceptor(gate: ActionInterceptor): Interceptor {
+    return {
+      onInit: (request) => {
+        const ctx: CallContext = {
+          root: request.root,
+          componentId: request.componentId,
+          calls: request.calls,
+          updates: request.updates,
+          meta: request.meta as CallMeta,
+        };
+        let result: boolean | Promise<boolean>;
+        try {
+          result = gate(ctx);
+        } catch (error) {
+          this.reportError("action interceptor threw", error);
+          return; // fail-soft: proceed.
+        }
+        if (typeof result === "boolean") {
+          if (!result) {
+            request.cancel();
+          }
+          return;
+        }
+        // Async gate: record the decision so dispatch awaits it before `onSend`.
+        const pending = result
+          .then((proceed) => {
+            if (!proceed) {
+              request.cancel();
+            }
+          })
+          .catch((error) => {
+            this.reportError("action interceptor threw", error); // fail-soft: proceed.
+          });
+        const list = this.vetoPending.get(request) ?? [];
+        list.push(pending);
+        this.vetoPending.set(request, list);
+      },
+    };
   }
 
   /**
@@ -163,6 +259,99 @@ export class LievitRuntime {
    */
   interceptAction(action: string, interceptor: Interceptor): () => void {
     return this.interceptors.register(interceptor, actionScope(action));
+  }
+
+  /**
+   * Registers a {@link MorphHookProvider}: every provider is asked for {@link MorphHooks} on each
+   * component morph and the results are composed into one set. `l:ignore` and `l:transition`
+   * register here so they shape the morph without editing it (ADR-0019 morph seam).
+   *
+   * @param provider the morph-hook provider to add
+   * @returns an unsubscribe function
+   */
+  morphWith(provider: MorphHookProvider): () => void {
+    this.morphHookProviders.push(provider);
+    return () => {
+      const i = this.morphHookProviders.indexOf(provider);
+      if (i >= 0) {
+        this.morphHookProviders.splice(i, 1);
+      }
+    };
+  }
+
+  /**
+   * Issues a wire call for the component owning `element`, invoking the named action (the public
+   * form of the directive seam: poll / navigate / init / confirm features call this). Bundles into
+   * the per-component commit queue (#95) and drains any pending deferred `l:model` updates.
+   *
+   * @param element any element inside the target component
+   * @param action the `@LievitAction` name to invoke
+   * @param meta coarse call metadata (e.g. `{ poll: true }`, the trigger element) for hooks/interceptors
+   */
+  async callAction(element: Element, action: string, meta: CallMeta = {}): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.enqueue(state, [action], meta);
+  }
+
+  /**
+   * The async action path (`l:click.async`, #97): issue the call concurrently, NOT through the
+   * per-component commit queue, so two `.async` actions run in parallel.
+   *
+   * @param element any element inside the component
+   * @param action the action to invoke
+   * @param meta coarse call metadata
+   */
+  async callActionAsync(element: Element, action: string, meta: CallMeta = {}): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.dispatch(state, [action], meta);
+  }
+
+  /**
+   * Routes an action as island-targeted (`l:island`, #89): the server skips the parent render and
+   * returns only the island fragment(s), morphed in place via the `islands` effect.
+   *
+   * @param element any element inside the component
+   * @param action the action to invoke
+   * @param island the island name to re-render
+   * @param meta coarse call metadata
+   */
+  async callIsland(
+    element: Element,
+    action: string,
+    island: string,
+    meta: CallMeta = {},
+  ): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.dispatch(state, [action], meta, island);
+  }
+
+  /**
+   * Refreshes the component owning `element` with no action call (drains pending updates + re-renders
+   * server-side). This is the `$refresh` / poll-tick primitive.
+   *
+   * @param element any element inside the target component
+   * @param meta coarse call metadata (e.g. `{ poll: true }`)
+   */
+  async refresh(element: Element, meta: CallMeta = {}): Promise<void> {
+    const state = this.stateOf(element);
+    if (state == null) {
+      return;
+    }
+    await this.enqueue(state, [], meta);
+  }
+
+  /** Re-scans a subtree for `l:*` directives (a feature that injects DOM calls this to bind it). */
+  scan(root: Element): void {
+    this.directives.scan(root, this.directiveRuntime);
   }
 
   /** Reads a component's ephemeral `@Wire` value for `field` (the v4 `$lievit.prop`, #87). */
@@ -254,75 +443,41 @@ export class LievitRuntime {
   }
 
   /**
-   * Queues an action and issues the wire call, draining any pending deferred model updates. By
-   * default the call is *bundled* into the per-component commit queue (#95): a burst of clicks
-   * sends one round-trip. An async action ({@link callActionAsync}) races instead.
-   */
-  private async callAction(element: Element, action: string): Promise<void> {
-    const state = this.stateOf(element);
-    if (state == null) {
-      return;
-    }
-    await this.enqueue(state, [action]);
-  }
-
-  /**
-   * The async action path (`l:click.async`, #97): issue the call concurrently, NOT through the
-   * per-component commit queue, so two `.async` actions run in parallel.
-   *
-   * @param element any element inside the component
-   * @param action the action to invoke
-   */
-  async callActionAsync(element: Element, action: string): Promise<void> {
-    const state = this.stateOf(element);
-    if (state == null) {
-      return;
-    }
-    await this.dispatch(state, [action]);
-  }
-
-  /**
-   * Routes an action as island-targeted (`l:island`, #89): the server skips the parent render and
-   * returns only the island fragment(s), morphed in place via the `islands` effect.
-   *
-   * @param element any element inside the component
-   * @param action the action to invoke
-   * @param island the island name to re-render
-   */
-  async callIsland(element: Element, action: string, island: string): Promise<void> {
-    const state = this.stateOf(element);
-    if (state == null) {
-      return;
-    }
-    await this.dispatch(state, [action], island);
-  }
-
-  /**
    * Bundles a commit into the component's serialized in-flight chain (#95 request bundling): the
    * call waits for the previous one, so a burst of clicks/model commits collapses to one round-trip
    * worth of ordering rather than racing. Returns the promise for this commit.
    */
-  private enqueue(state: ComponentState, calls: readonly string[]): Promise<void> {
-    const next = state.inFlight.then(() => this.dispatch(state, calls));
+  private enqueue(
+    state: ComponentState,
+    calls: readonly string[],
+    meta: CallMeta = {},
+  ): Promise<void> {
+    const next = state.inFlight.then(() => this.dispatch(state, calls, meta));
     // Keep the chain alive even if a commit rejects (a failure must not freeze the queue).
     state.inFlight = next.catch(() => {});
     return next;
   }
 
   /**
-   * The core call loop (ADR-0024): thread the interceptor chain (cancel / mutate headers / block
-   * redirect, #93) around the wire call; on a 200 surgically merge the wire state (#87), morph the
-   * DOM (whole component, or only the named islands if the response carried an `islands` effect,
-   * #89), store the rotated snapshot, and apply effects (including the new `js` / `release` keys);
-   * on a failure surface it fail-closed and re-mount for `409`/`410`.
+   * The core call loop (ADR-0019 + ADR-0024, unified): thread the single interceptor chain around
+   * the wire call. The veto form (`intercept(fn)`, e.g. `l:confirm`) rides the chain's `onInit` and
+   * aborts via `cancel()` before any network or `beforeCall`; the chain form participates through
+   * `onInit -> onSend -> onSuccess -> onSync -> onEffect -> onMorph -> onFinish -> onRender`
+   * (cancel / mutate headers / block redirect, #93). On a 200 we surgically merge the wire state
+   * (#87), morph the DOM (whole component, or only the named islands if the response carried an
+   * `islands` effect, #89, through the composed morph hooks for `l:ignore` / `l:transition`), store
+   * the rotated snapshot, and apply effects (`url` / `errors` / `dispatch` / `redirect` / the v4 `js`
+   * / `release` keys); on a failure surface it fail-closed and re-mount for `409`/`410`.
    *
    * @param state the component's live state
    * @param calls the action names to invoke
+   * @param meta coarse call metadata (trigger element, poll flag) for hooks + veto interceptors
    * @param island the island name this call targets (`l:island`), or `null` for a full call
    */
   private async dispatch(
     state: ComponentState,
     calls: readonly string[],
+    meta: CallMeta = {},
     island: string | null = null,
   ): Promise<void> {
     const baseWire: WireState = { ...state.ephemeral };
@@ -333,19 +488,30 @@ export class LievitRuntime {
     }
     const ctx = this.contextOf(state);
 
-    // --- Interceptors: onInit -> onSend (the pre-flight, participating phases, #93) -------------
+    // --- Interceptors: onInit -> onSend (the pre-flight, participating phases, #93). A veto
+    // interceptor (the `intercept(fn)` form) runs in `onInit` and `cancel()`s on a falsy gate;
+    // an async gate is awaited here before `onSend`, so a cancel stops the call with no network
+    // and no `beforeCall` (ADR-0019). The request carries `meta` so the veto can read its trigger.
     const { request, cancelled } = this.interceptors.buildRequest(
       state.componentId,
       state.root,
       calls,
       updates,
+      meta,
     );
     this.interceptors.init(request);
+    // A veto interceptor with an async gate records its pending decision here; await them all so an
+    // async cancel is observed before we send (a sync gate already flipped `cancelled()`).
+    const pendingVetoes = this.vetoPending.get(request);
+    if (pendingVetoes != null && pendingVetoes.length > 0) {
+      await Promise.all(pendingVetoes);
+      this.vetoPending.delete(request);
+    }
     if (cancelled()) {
       this.interceptors.cancelled(request);
       return;
     }
-    this.lifecycle.beforeCall({ ...ctx, calls, updates: request.updates });
+    this.lifecycle.beforeCall({ ...ctx, calls, updates: request.updates, meta });
     state.busy = true;
     this.interceptors.send(request);
     if (cancelled()) {
@@ -431,9 +597,13 @@ export class LievitRuntime {
       const fragments = parseIslands(response.html).filter((f) => islandNames.includes(f.name));
       morphIslands(state.root, fragments);
     } else {
-      morph(state.root, response.html);
+      // Whole-component morph through the composed morph hooks so `l:ignore` (skip subtrees) and
+      // `l:transition` (defer removal) shape it without editing the morph algorithm (ADR-0019).
+      morph(state.root, response.html, this.composedMorphHooks(state.root));
     }
-    // Stash the rotated snapshot AFTER the morph (the snapshot rides the header, not the body).
+    // Stash the rotated snapshot AFTER the morph: the server's re-rendered root carries no
+    // data-lievit-snapshot attribute (the snapshot rides the header, not the body), so morphing
+    // first then writing the attribute keeps the live snapshot from being reconciled away.
     if (response.snapshot.length > 0) {
       state.snapshot = response.snapshot;
       state.root.setAttribute(SNAPSHOT_ATTR, response.snapshot);
@@ -466,9 +636,18 @@ export class LievitRuntime {
     if (effects.redirect != null && this.interceptors.redirect(effects.redirect, outcome)) {
       navigate = () => {}; // prevented: do not navigate
     }
-    // dispatch + url ride applyEffects; redirect navigation honors the interceptor decision.
+    // dispatch + url + errors ride applyEffects (address-bar write + the `lievit:url` /
+    // `lievit:validation-errors` DOM events, wire-protocol.md §5b / ADR-0012); redirect navigation
+    // honors the interceptor decision. The v4 error directives read errors via the captured
+    // `lastErrors` snapshot, so surfacing the event here is purely additive.
     applyEffects(
-      { redirect: effects.redirect, dispatch: effects.dispatch, returns: effects.returns },
+      {
+        redirect: effects.redirect,
+        dispatch: effects.dispatch,
+        returns: effects.returns,
+        url: effects.url,
+        errors: effects.errors,
+      },
       window,
       navigate ?? ((url) => window.location.assign(url)),
     );
@@ -483,6 +662,49 @@ export class LievitRuntime {
         effects.release,
       );
     }
+  }
+
+  /**
+   * Composes every {@link MorphHookProvider}'s hooks for `root` into one {@link MorphHooks} set: the
+   * first provider that returns a mode for an element wins (`l:ignore` before a no-op), and every
+   * provider's `beforeRemove` is offered the leftover node (a single claim suffices to defer
+   * removal). A provider that throws is reported and skipped (fail-soft).
+   */
+  private composedMorphHooks(root: Element): MorphHooks {
+    const hooks: MorphHooks[] = [];
+    for (const provider of [...this.morphHookProviders]) {
+      try {
+        const h = provider(root);
+        if (h != null) {
+          hooks.push(h);
+        }
+      } catch (error) {
+        this.reportError("morph-hook provider threw", error);
+      }
+    }
+    if (hooks.length === 0) {
+      return {};
+    }
+    return {
+      elementMode: (oldEl, newEl): MorphMode | undefined => {
+        for (const h of hooks) {
+          const mode = h.elementMode?.(oldEl, newEl);
+          if (mode != null && mode !== "morph") {
+            return mode;
+          }
+        }
+        return undefined;
+      },
+      beforeRemove: (node): boolean => {
+        let claimed = false;
+        for (const h of hooks) {
+          if (h.beforeRemove?.(node) === true) {
+            claimed = true;
+          }
+        }
+        return claimed;
+      },
+    };
   }
 
   /** Re-mount path for a stale snapshot (`409`/`410`): reload the host page. Overridable in tests. */
