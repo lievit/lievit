@@ -19,11 +19,13 @@ For the *why* behind a decision, follow the ADR links: the guides describe behav
    convention-named hooks, the lifecycle bus.
 6. [Forms and validation](forms-and-validation.md) — Jakarta Bean Validation on `@Wire`, form
    objects, the `FieldValidator` SPI.
-7. [Nested components](nested-components.md) — keyed children, reactive props, modelable two-way bind.
-8. [Islands](islands.md) — re-render a named region without touching the rest of the component.
-9. [The single-file DSL](single-file-dsl.md) — type-safe HTML in Java, no separate template.
-10. [The lievit-kit admin](kit-admin.md) — Resource / Form / Table / Action / Panel.
-11. [The lievit-ui registry](lievit-ui.md) — the copy-in component layer.
+7. [Authorization](authorization.md) — `@LievitAuthorize` / `@PreAuthorize` on actions, the
+   `PermissionEvaluator`, per-request re-authorization (the Spring Security backbone).
+8. [Nested components](nested-components.md) — keyed children, reactive props, modelable two-way bind.
+9. [Islands](islands.md) — re-render a named region without touching the rest of the component.
+10. [The single-file DSL](single-file-dsl.md) — type-safe HTML in Java, no separate template.
+11. [The lievit-kit admin](kit-admin.md) — Resource / Form / Table / Action / Panel.
+12. [The lievit-ui registry](lievit-ui.md) — the copy-in component layer.
 
 ## The five concepts
 

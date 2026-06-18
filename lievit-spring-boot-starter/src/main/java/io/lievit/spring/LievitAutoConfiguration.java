@@ -214,16 +214,28 @@ public class LievitAutoConfiguration {
             PayloadGuard payloadGuard,
             ObjectProvider<FieldValidator> fieldValidator,
             SynthesizerRegistry synthesizers,
-            LifecycleBus lifecycle) {
+            LifecycleBus lifecycle,
+            ObjectProvider<io.lievit.component.ActionAuthorizer> actionAuthorizer) {
         FieldValidator validator =
                 fieldValidator.getIfAvailable(() -> NoOpFieldValidator.INSTANCE);
+        // The authorization seam (issue #57, ADR-0053): the Spring-Security-backed authorizer is
+        // wired by LievitSecurityAutoConfiguration when spring-security is present; absent it, the
+        // dispatcher falls back to permitAll (the permissive default keeps every existing test green).
+        io.lievit.component.ActionAuthorizer authorizer =
+                actionAuthorizer.getIfAvailable(io.lievit.component.ActionAuthorizer::permitAll);
         // Union of all dispatcher collaborators: the typed-state synthesizer registry (ADR-0020) and
         // the lifecycle interceptor bus (ADR-0022), plus the v4 compiler's deterministic-key generator
         // (lw-<crc32(template)>-<counter>, ADR-0023). The key generator gives a child declared without
         // an explicit @key a key stable for its template position across re-renders (the morph anchor
         // for keyed lists/tables).
-        return new WireDispatcher(
-                payloadGuard, validator, synthesizers, lifecycle, DeterministicKeys.GENERATOR);
+        return WireDispatcher.builder()
+                .payloadGuard(payloadGuard)
+                .fieldValidator(validator)
+                .synthesizers(synthesizers)
+                .lifecycle(lifecycle)
+                .keyGenerator(DeterministicKeys.GENERATOR)
+                .actionAuthorizer(authorizer)
+                .build();
     }
 
     /**

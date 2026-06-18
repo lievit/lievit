@@ -67,6 +67,7 @@ public final class WireDispatcher {
     private final SynthesizerRegistry synthesizers;
     private final LifecycleBus lifecycle;
     private final java.util.function.BiFunction<String, Integer, String> keyGenerator;
+    private final ActionAuthorizer actionAuthorizer;
 
     /**
      * Uses the protocol-default {@link PayloadGuard}, the no-op {@link FieldValidator}, the default
@@ -167,11 +168,104 @@ public final class WireDispatcher {
             SynthesizerRegistry synthesizers,
             LifecycleBus lifecycle,
             java.util.function.BiFunction<String, Integer, String> keyGenerator) {
+        this(payloadGuard, fieldValidator, synthesizers, lifecycle, keyGenerator,
+                ActionAuthorizer.permitAll());
+    }
+
+    /**
+     * The full collaborator set including the authorization seam (issue #57). Package-private: the
+     * public entry point for wiring an {@link ActionAuthorizer} is {@link #builder()} (the
+     * five-and-six-arg constructors stay source-compatible). The default everywhere else is
+     * {@link ActionAuthorizer#permitAll()} (backward compatible: no authorization unless wired).
+     *
+     * @param actionAuthorizer the authorization seam consulted before each {@code @LievitAction} and
+     *     each matched {@code @LievitOn} listener (ADR-0053); {@link ActionAuthorizer#permitAll()} to
+     *     keep the permissive default
+     */
+    WireDispatcher(
+            PayloadGuard payloadGuard,
+            FieldValidator fieldValidator,
+            SynthesizerRegistry synthesizers,
+            LifecycleBus lifecycle,
+            java.util.function.BiFunction<String, Integer, String> keyGenerator,
+            ActionAuthorizer actionAuthorizer) {
         this.payloadGuard = payloadGuard;
         this.fieldValidator = fieldValidator;
         this.synthesizers = synthesizers;
         this.lifecycle = lifecycle;
         this.keyGenerator = keyGenerator;
+        this.actionAuthorizer = actionAuthorizer;
+    }
+
+    /**
+     * @return a builder that starts from the protocol defaults (the {@link #WireDispatcher() no-arg}
+     *     collaborator set) and lets the host override any collaborator, including the
+     *     {@link ActionAuthorizer} (issue #57). The five-arg constructors remain for the existing
+     *     callers; the builder is the additive seam for the new authorization collaborator.
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * A fluent builder for {@link WireDispatcher}, so a new collaborator (the {@link ActionAuthorizer},
+     * issue #57) is added without an N+1-arg constructor. Every unset collaborator falls back to the
+     * same default as the {@link #WireDispatcher() no-arg constructor}.
+     */
+    public static final class Builder {
+        private PayloadGuard payloadGuard = new PayloadGuard();
+        private FieldValidator fieldValidator = NoOpFieldValidator.INSTANCE;
+        private SynthesizerRegistry synthesizers = new SynthesizerRegistry();
+        private LifecycleBus lifecycle = new LifecycleBus();
+        private java.util.function.BiFunction<String, Integer, String> keyGenerator =
+                DeterministicKeyScope.POSITIONAL;
+        private ActionAuthorizer actionAuthorizer = ActionAuthorizer.permitAll();
+
+        private Builder() {}
+
+        /** @param payloadGuard the structural-cap / deserialization-allowlist guard (ADR-0013) */
+        public Builder payloadGuard(PayloadGuard payloadGuard) {
+            this.payloadGuard = payloadGuard;
+            return this;
+        }
+
+        /** @param fieldValidator the field validator (use {@link NoOpFieldValidator#INSTANCE} to skip) */
+        public Builder fieldValidator(FieldValidator fieldValidator) {
+            this.fieldValidator = fieldValidator;
+            return this;
+        }
+
+        /** @param synthesizers the typed-state synthesizer registry (ADR-0020) */
+        public Builder synthesizers(SynthesizerRegistry synthesizers) {
+            this.synthesizers = synthesizers;
+            return this;
+        }
+
+        /** @param lifecycle the lifecycle interceptor bus (ADR-0022) */
+        public Builder lifecycle(LifecycleBus lifecycle) {
+            this.lifecycle = lifecycle;
+            return this;
+        }
+
+        /** @param keyGenerator the deterministic {@code @key} generator for keyless children (ADR-0023) */
+        public Builder keyGenerator(
+                java.util.function.BiFunction<String, Integer, String> keyGenerator) {
+            this.keyGenerator = keyGenerator;
+            return this;
+        }
+
+        /** @param actionAuthorizer the authorization seam consulted before each action (issue #57) */
+        public Builder actionAuthorizer(ActionAuthorizer actionAuthorizer) {
+            this.actionAuthorizer = actionAuthorizer;
+            return this;
+        }
+
+        /** @return the configured dispatcher */
+        public WireDispatcher build() {
+            return new WireDispatcher(
+                    payloadGuard, fieldValidator, synthesizers, lifecycle, keyGenerator,
+                    actionAuthorizer);
+        }
     }
 
     /**
@@ -652,7 +746,35 @@ public final class WireDispatcher {
             throw new WireException(
                     WireError.UNKNOWN_COMPONENT, "no @LievitAction matches the requested call");
         }
+        // Authorization runs BEFORE the body (fail-closed, issue #57): a denied action never
+        // executes and never mutates state. Re-checked on every wire call, never cached from mount
+        // (issue #179, the persistent-middleware analog for explicit per-action authorization).
+        authorize(instance, action);
         return invoke(action, instance);
+    }
+
+    /**
+     * Consults the {@link ActionAuthorizer} for one action and raises a fail-closed
+     * {@link WireError#FORBIDDEN_ACTION} on a deny (issue #57). The body never runs on a deny, so no
+     * state is mutated. The default authorizer is {@link ActionAuthorizer#permitAll()} (no wiring =
+     * no authorization, the backward-compatible posture).
+     */
+    private void authorize(Object instance, Method action) {
+        if (!actionAuthorizer.authorize(instance, action)) {
+            throw new WireException(
+                    WireError.FORBIDDEN_ACTION, "authorization denied for the requested action");
+        }
+    }
+
+    /**
+     * The boolean gate the {@code @LievitOn} path uses: consult the authorizer and, on a deny, raise
+     * the same {@link WireError#FORBIDDEN_ACTION} as the {@code @LievitAction} path. Never returns
+     * {@code false} (a deny throws); returning {@code true} on allow keeps the
+     * {@link EventInvoker#invokeMatching} predicate contract simple.
+     */
+    private boolean authorizeHandler(Object instance, Method handler) {
+        authorize(instance, handler);
+        return true;
     }
 
     /**
@@ -671,7 +793,10 @@ public final class WireDispatcher {
         }
         EventListenerMetadata listeners = EventListenerMetadata.of(metadata.type());
         for (InboundEvent event : inboundEvents) {
-            if (EventInvoker.invokeMatching(listeners, instance, event)) {
+            // The same authorization gate the @LievitAction path uses, applied per matched listener
+            // (issue #57): the @LievitOn path must not be a bypass. A denied handler throws.
+            if (EventInvoker.invokeMatching(
+                    listeners, instance, event, handler -> authorizeHandler(instance, handler))) {
                 ctx.recordAction(false); // a received event re-renders by default
             }
         }

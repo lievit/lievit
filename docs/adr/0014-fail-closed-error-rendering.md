@@ -1,6 +1,8 @@
 # ADR-0014: Fail-closed, leak-free error rendering + the wire endpoint's security context
 
-- **Status:** accepted
+- **Status:** accepted; the "no forced Spring Security dependency" stance superseded by ADR-0053
+  (the starter now depends on Spring Security as its authorization backbone). The leak-free
+  error-rendering decision and the filter-chain contract below stand unchanged.
 - **Date:** 2026-06-17
 - **Deciders:** Francesco Bilotta
 

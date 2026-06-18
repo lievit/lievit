@@ -13,7 +13,7 @@ they are `accepted`. Each entry's status is shown in the index below.
 ## Index
 
 - [ADR-0001](0001-wire-protocol-v0.1.md): Wire protocol v0.1 (stateless HTTP + HMAC-signed snapshot). **accepted**
-- [ADR-0002](0002-seven-annotation-api-surface.md): The public API is exactly seven annotations. **accepted**
+- [ADR-0002](0002-seven-annotation-api-surface.md): The public API is exactly seven annotations. **accepted** (count amended by ADR-0053: `@LievitAuthorize` is the security-critical eighth)
 - [ADR-0003](0003-single-file-multi-file-dual-mode.md): Single-file and multi-file authoring, both type-safe. **accepted**
 - [ADR-0004](0004-template-adapter-strategy.md): Engine-agnostic template adapters, JTE canonical primary. **accepted**
 - [ADR-0005](0005-theming-zero-css-default.md): Zero-CSS default, opt-in theme package. **accepted**
@@ -25,7 +25,7 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0011](0011-lievit-ui-v0.1-registry-decisions.md): lievit-ui v0.1 registry decisions. **accepted**
 - [ADR-0012](0012-effects-channel.md): The effects channel (HTML body + `Lievit-Effects` header). **accepted**
 - [ADR-0013](0013-payload-hardening.md): Payload hardening — settable/callable allowlist, deserialization allowlist, structural caps. **accepted**
-- [ADR-0014](0014-fail-closed-error-rendering.md): Fail-closed, leak-free error rendering + the wire endpoint's security context. **accepted**
+- [ADR-0014](0014-fail-closed-error-rendering.md): Fail-closed, leak-free error rendering + the wire endpoint's security context. **accepted** (the "no forced Spring Security dependency" half superseded by ADR-0053)
 - [ADR-0015](0015-computed-properties.md): `@LievitComputed` — computed properties with per-request memoization. **accepted (supersedes ADR-0002 on the seven-annotation cap)**
 - [ADR-0016](0016-nested-components.md): Nested components (keyed children, reactive props, modelable two-way bind). **accepted**
 - [ADR-0017](0017-form-objects.md): Form objects — grouped fields with co-located validation. **accepted**
@@ -54,6 +54,8 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0050](0050-navigate-depth-head-merge-persist-progress-scroll.md): Navigate depth (head merge, `l:persist`, progress bar, scroll opt-in) (#193, #195). Extends the navigate feature, no core edit. **accepted**
 - [ADR-0051](0051-request-interactions-and-error-ux.md): Request interactions, per-scope (component/island) cancel-vs-queue concurrency (#95) + the `onExpired` recovery hook and page-expired dialog (#103). Client-only, composes the interceptor seams. **accepted**
 - [ADR-0052](0052-teleport-placeholder-relocation.md): `l:teleport` placeholder-in-place DOM relocation, client-only (#115). **accepted**
+- [ADR-0053](0053-spring-security-authorization-backbone.md): Spring Security is lievit's authorization backbone; `@LievitAuthorize` (the eighth annotation) + the `ActionAuthorizer` seam + the `PermissionEvaluator` Policy analog (#57). Supersedes ADR-0014's "no forced dependency", amends ADR-0002's count. **accepted**
+- [ADR-0054](0054-persistent-middleware-per-request-reauthorization.md): Persistent middleware / per-request re-authorization on the wire endpoint; Spring's URL-matched filter chain + the per-update `@LievitAuthorize` re-check (#179). **accepted**
 
 ## How to add an ADR
 
