@@ -38,11 +38,24 @@ class FakeCheckControl extends HTMLElement {
   }
 }
 
+/**
+ * A fake wa-checkbox stand-in with NO role/type signal but a boolean `.checked` AND a default
+ * `.value` of "on" (Web Awesome's real shape). The `.value` presence used to wrongly exclude it from
+ * checkbox-like, so l:model read the "on" string instead of the boolean (housetree #132).
+ */
+class FakeCheckWithValueControl extends HTMLElement {
+  checked = false;
+  value = "on";
+}
+
 if (!customElements.get("fake-value")) {
   customElements.define("fake-value", FakeValueControl);
 }
 if (!customElements.get("fake-check")) {
   customElements.define("fake-check", FakeCheckControl);
+}
+if (!customElements.get("fake-check-value")) {
+  customElements.define("fake-check-value", FakeCheckWithValueControl);
 }
 
 function fakeRuntime(): DirectiveRuntime & {
@@ -183,6 +196,18 @@ describe("directive registry (extension point, wire-protocol §5)", () => {
     el.dispatchEvent(new Event("change"));
 
     expect(rt.models).toEqual([["agree", true, true]]); // boolean, not the string value
+  });
+
+  it("l:model reads .checked (not .value) from a checkbox-like element that also exposes .value (wa-checkbox)", () => {
+    document.body.innerHTML = '<fake-check-value l:model.lazy="agree"></fake-check-value>';
+    const el = document.querySelector("fake-check-value") as FakeCheckWithValueControl;
+    const rt = fakeRuntime();
+    registry().scan(document.body, rt);
+
+    el.checked = true;
+    el.dispatchEvent(new Event("change"));
+
+    expect(rt.models).toEqual([["agree", true, true]]); // boolean, never the default .value "on"
   });
 
   it("l:model.live debounces a custom element on its input event", () => {

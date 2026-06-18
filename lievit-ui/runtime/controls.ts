@@ -63,9 +63,11 @@ function isNativeControl(element: Element): boolean {
 
 /**
  * Whether `element` is checkbox-like: a control whose state is a boolean carried on `.checked`.
- * Detected by a `checked` property plus a checkbox/radio/switch signal (native `type`, the WAI-ARIA
- * `role`, or a custom-element `type` reflecting the same), so a Web Awesome `<wa-checkbox>` /
- * `<wa-switch>` binds a boolean exactly like a native checkbox does.
+ * Detected by a checkbox/radio/switch signal (native `type`, the WAI-ARIA `role`, or a custom-element
+ * `type`), OR simply by exposing a boolean `.checked` property. A boolean `.checked` is authoritative
+ * even when the element ALSO exposes a `.value`: a Web Awesome `<wa-checkbox>` / `<wa-switch>` carries
+ * both `.checked` and a default `.value` of `"on"`, and its meaningful state is the boolean, so it
+ * binds a boolean exactly like a native checkbox (zero-config, no per-tag adapter needed).
  */
 function isCheckboxLike(element: Element): boolean {
   if (element instanceof HTMLInputElement) {
@@ -83,8 +85,10 @@ function isCheckboxLike(element: Element): boolean {
   if (type === "checkbox" || type === "radio" || type === "switch") {
     return true;
   }
-  // The element exposes a boolean `checked` and no `value` to bind instead: a plain toggle.
-  return typeof (element as { checked?: unknown }).checked === "boolean" && !("value" in element);
+  // The element exposes a boolean `checked`: a toggle whose state is that boolean, even if it also
+  // carries a `value` (a Web Awesome <wa-checkbox>/<wa-switch> exposes both .checked and .value="on";
+  // the checked state is authoritative, so bind the boolean, not the "on" string).
+  return typeof (element as { checked?: unknown }).checked === "boolean";
 }
 
 /**
