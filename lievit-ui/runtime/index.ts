@@ -102,6 +102,8 @@ export {
   installLazy,
   installNavigate,
   installPreserveScroll,
+  installCurrent,
+  isCurrentPath,
   installPagination,
   installUploads,
   parseShowExpression,

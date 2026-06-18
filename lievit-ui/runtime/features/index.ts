@@ -12,6 +12,7 @@
 
 import type { LievitRuntime } from "../runtime.js";
 import { installConfirm } from "./confirm.js";
+import { installCurrent } from "./current.js";
 import { installDirty } from "./dirty.js";
 import { installIgnore } from "./ignore.js";
 import { installInit } from "./init.js";
@@ -26,6 +27,7 @@ import { installTransition } from "./transition.js";
 import { installUploads } from "./uploads.js";
 
 export { installConfirm, type ConfirmDialogs } from "./confirm.js";
+export { installCurrent, isCurrentPath } from "./current.js";
 export { installShow } from "./show.js";
 export {
   parseShowExpression,
@@ -82,5 +84,6 @@ export function installAllFeatures(
   installNavigate(runtime);
   installPagination(runtime);
   installPreserveScroll(runtime);
+  installCurrent(runtime);
   installUploads(runtime, options.uploads);
 }
