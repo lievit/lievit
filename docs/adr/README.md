@@ -63,6 +63,11 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0064](0064-client-assets-consumer-seam.md): Client `applyAssets` consumer as a self-contained, opt-in feature (#171/#119/#129). **accepted**
 - [ADR-0065](0065-dynamic-object-property.md): A schemaless dynamic-object `@Wire` property (the stdClass analogue) — `DynamicObject` + deep dotted-set create-missing-keys binding (#137). **accepted**
 - [ADR-0066](0066-custom-type-roundtrip-and-validation.md): Custom serializable property types — round-trip closure (nested `Wireable`), hydrate type-check, nested-path validation (#139). **accepted**
+- [ADR-0070](0070-convert-dsl-view-parser-writer.md): The single-file DSL view parser/writer for the SFC<->MFC convert (#141). **accepted**
+- [ADR-0071](0071-convert-jte-view-parser-writer.md): The JTE template view parser/writer for the SFC<->MFC convert (#141). **accepted**
+- [ADR-0072](0072-convert-neutral-view-ast.md): A neutral view AST + the `ViewConverter` facade; round-trip idempotent (#141). **accepted**
+- [ADR-0073](0073-cli-scaffolding-formats-and-siblings.md): CLI scaffolding formats (`--sfc`/`--mfc`/`--class`) + colocated siblings, `make:form`/`make:layout` (#141). **accepted**
+- [ADR-0074](0074-convert-command-refuses-lossy-by-default.md): The `convert` command auto-detects direction and refuses a lossy convert by default (`--force` to override) (#141). **accepted**
 
 ## How to add an ADR
 

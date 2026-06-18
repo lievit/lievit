@@ -32,6 +32,17 @@
             <version>${picocli.version}</version>
         </dependency>
 
+        <!--
+            The SFC<->MFC convert (issue #141) drives the compiler's engine-neutral view AST + the
+            parsers/writers (io.lievit.compiler.convert): the CLI rewrites source text, the compiler
+            owns the markup transform. The compiler is pure Java, zero Spring (ArchUnit-enforced), so
+            the CLI stays a thin standalone fat-jar.
+        -->
+        <dependency>
+            <groupId>io.github.lievit</groupId>
+            <artifactId>lievit-compiler</artifactId>
+        </dependency>
+
         <!-- Tests. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
