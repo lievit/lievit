@@ -47,6 +47,8 @@ public final class LievitEffects {
     private final List<JsCall> jsCalls = new ArrayList<>();
     /** The active build release token (ADR-0024 #105), or null when the feature is unused. */
     private @Nullable String release;
+    /** The server-driven transition control for this update (ADR-0034 #113), or null when unused. */
+    private @Nullable TransitionEffect transition;
 
     LievitEffects() {}
 
@@ -186,6 +188,25 @@ public final class LievitEffects {
         this.release = releaseToken;
     }
 
+    /**
+     * Sets the server-driven transition control for this update (ADR-0034 #113): the client
+     * transition feature reads it for this morph rather than only the static {@code l:transition}
+     * markup. The imperative form of {@code @LievitTransition}; an action that decides the control at
+     * runtime calls this. Last call wins (a terminal control, matching {@link #redirect}).
+     *
+     * @param effect the transition control, or {@code null} to clear (fall back to static markup)
+     */
+    public void transition(@Nullable TransitionEffect effect) {
+        this.transition = effect;
+    }
+
+    /**
+     * Convenience: suppress any transition for this update (the imperative {@code skip:true}).
+     */
+    public void skipTransition() {
+        this.transition = TransitionEffect.skipped();
+    }
+
     /** Captures an action's return value as the {@code returns} effect (set by the dispatcher). */
     void captureReturn(@Nullable Object value) {
         if (value != null) {
@@ -278,12 +299,20 @@ public final class LievitEffects {
     }
 
     /**
+     * @return the server-driven transition control for this update (ADR-0034 #113), or {@code null}
+     *     if the feature is unused (the client falls back to the static {@code l:transition} markup)
+     */
+    public @Nullable TransitionEffect transition() {
+        return transition;
+    }
+
+    /**
      * @return true if no effect was produced (so the {@code Lievit-Effects} header is omitted)
      */
     public boolean isEmpty() {
         return redirect == null && dispatched.isEmpty() && returnValue == null
                 && validationErrors == null && url == null && islands.isEmpty()
-                && jsCalls.isEmpty() && release == null;
+                && jsCalls.isEmpty() && release == null && transition == null;
     }
 
     /**

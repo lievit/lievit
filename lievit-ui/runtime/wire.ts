@@ -14,6 +14,7 @@
  */
 
 import { type Effects, parseEffects } from "./effects.js";
+import { toWireValue } from "./encode.js";
 
 /** One inbound event the client routed to this component's `@LievitOn` listeners (ADR-0030, #43). */
 export interface InboundWireEvent {
@@ -86,7 +87,10 @@ function isRemount(status: number): boolean {
 function body(call: WireCall): string {
   const payload: Record<string, unknown> = { _snapshot: call.snapshot };
   if (Object.keys(call.updates).length > 0) {
-    payload._updates = call.updates;
+    // Normalize each update value (issue #135): a large binary update (Uint8Array/ArrayBuffer) is
+    // base64-encoded in chunks here, so a 300KB+ payload serializes without a call-stack overflow
+    // and round-trips intact instead of becoming a lossy `{"0":..}` object under plain JSON.
+    payload._updates = toWireValue(call.updates);
   }
   if (call.calls.length > 0) {
     payload._calls = call.calls;

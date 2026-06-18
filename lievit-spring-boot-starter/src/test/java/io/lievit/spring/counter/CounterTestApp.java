@@ -34,4 +34,22 @@ public class CounterTestApp {
     EffectfulComponent effectfulComponent() {
         return new EffectfulComponent();
     }
+
+    /**
+     * @return a fresh streaming component per wire call (exercises the SSE stream endpoint, #153)
+     */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    StreamingComponent streamingComponent() {
+        return new StreamingComponent();
+    }
+
+    /**
+     * @return a fresh lazy component per wire call (exercises lazy loading, #147)
+     */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    LazyChartComponent lazyChartComponent() {
+        return new LazyChartComponent();
+    }
 }

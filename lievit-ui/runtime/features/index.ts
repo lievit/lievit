@@ -48,8 +48,11 @@ export {
   applyStreamEnvelope,
   consumeStream,
   openStream,
+  openStreamCall,
+  parseSseFrames,
   type StreamEnvelope,
   type StreamSource,
+  type StreamCallOptions,
 } from "./stream.js";
 export {
   installBroadcast,

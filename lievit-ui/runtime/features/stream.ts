@@ -114,3 +114,101 @@ export function openStream(root: ParentNode, url: string): () => void {
   };
   return consumeStream(root, source);
 }
+
+/** Options for {@link openStreamCall}: the snapshot to POST, the CSRF token/header, an injectable fetch. */
+export interface StreamCallOptions {
+  /** The signed snapshot to carry into the streaming call (the `_snapshot`). */
+  readonly snapshot: string;
+  /** The action names to invoke (the `_calls`; the streaming action). */
+  readonly calls: readonly string[];
+  /** The CSRF token value, sent as a header. */
+  readonly csrfToken?: string;
+  /** The CSRF header name (defaults to `X-CSRF-TOKEN`). */
+  readonly csrfHeader?: string;
+  /** Injectable fetch (defaults to the global `fetch`); used in tests. */
+  readonly fetchImpl?: typeof fetch;
+}
+
+/**
+ * Parses a raw SSE text buffer into complete `data:` payloads, returning the payloads plus the
+ * unconsumed tail (a partial frame at the buffer's end). Frames are separated by a blank line; each
+ * frame's `data:` lines are joined. This is the wire-format reader the POST stream uses, exposed so
+ * tests can drive it without a real connection.
+ *
+ * @param buffer the accumulated SSE text
+ * @returns the complete `data:` payloads and the leftover tail to keep buffering
+ */
+export function parseSseFrames(buffer: string): { payloads: string[]; rest: string } {
+  const payloads: string[] = [];
+  let rest = buffer;
+  let sep = rest.indexOf("\n\n");
+  while (sep >= 0) {
+    const frame = rest.slice(0, sep);
+    rest = rest.slice(sep + 2);
+    const data = frame
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).replace(/^ /, ""))
+      .join("\n");
+    if (data.length > 0) {
+      payloads.push(data);
+    }
+    sep = rest.indexOf("\n\n");
+  }
+  return { payloads, rest };
+}
+
+/**
+ * Opens a streaming wire call: POSTs the snapshot + action to `POST /lievit/{id}/stream` and consumes
+ * the SSE `text/event-stream` response body, writing each envelope into its `l:stream` target under
+ * `root` (issue #153). Unlike {@link openStream} (an `EventSource`, GET-only), this carries the signed
+ * snapshot in a POST body, so it matches the server's wire-guarded streaming endpoint and stamps the
+ * `X-Lievit` header. Returns a promise that resolves when the stream completes.
+ *
+ * @param root the component root the stream writes into
+ * @param componentId the component instance id (the `{id}` path segment)
+ * @param options the snapshot + calls + CSRF + injectable fetch
+ * @returns a promise resolving when the server closes the stream
+ */
+export async function openStreamCall(
+  root: ParentNode,
+  componentId: string,
+  options: StreamCallOptions,
+): Promise<void> {
+  const doFetch = options.fetchImpl ?? fetch;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    "X-Lievit": "1",
+  };
+  if (options.csrfToken != null) {
+    headers[options.csrfHeader ?? "X-CSRF-TOKEN"] = options.csrfToken;
+  }
+  const response = await doFetch(`/lievit/${encodeURIComponent(componentId)}/stream`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ _snapshot: options.snapshot, _calls: options.calls }),
+    credentials: "same-origin",
+  });
+  if (!response.ok || response.body == null) {
+    return;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    const { payloads, rest } = parseSseFrames(buffer);
+    buffer = rest;
+    for (const payload of payloads) {
+      const envelope = parseStreamEnvelope(payload);
+      if (envelope != null) {
+        applyStreamEnvelope(root, envelope);
+      }
+    }
+  }
+}

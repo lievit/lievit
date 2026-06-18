@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 import io.lievit.wire.WireError;
 import io.lievit.wire.WireException;
 import io.lievit.wire.synth.builtin.BigDecimalSynthesizer;
+import io.lievit.wire.synth.builtin.ByteArraySynthesizer;
 import io.lievit.wire.synth.builtin.BigIntegerSynthesizer;
 import io.lievit.wire.synth.builtin.CollectionSynthesizer;
 import io.lievit.wire.synth.builtin.EnumSynthesizer;
@@ -77,6 +78,7 @@ public final class SynthesizerRegistry {
         list.add(new BigDecimalSynthesizer());
         list.add(new BigIntegerSynthesizer());
         list.add(new UuidSynthesizer());
+        list.add(new ByteArraySynthesizer());
         list.add(new CollectionSynthesizer());
         list.add(new MapSynthesizer());
         list.add(new RecordSynthesizer());

@@ -22,6 +22,7 @@ describe("$lievit object unit (ADR-0030 magic actions, client half)", () => {
         calls.push(`watch:${field}`);
         return () => calls.push(`unwatch:${field}`);
       },
+      snapshot: () => ({ id: "cid", name: "Counter", key: null, data: { count: 1 } }),
     });
 
     expect(obj.$get("count")).toBe("value-of-count");
@@ -116,5 +117,44 @@ describe("$lievit object integration on the runtime", () => {
     runtime.start();
 
     expect(runtime.$lievit(orphan)).toBeNull();
+  });
+
+  it("toJSON yields {id,name,key,data} and JSON.stringify fires no wire request (#133)", () => {
+    document.body.innerHTML =
+      '<div data-lievit-component="com.example.Counter" data-lievit-id="cid" ' +
+      `data-lievit-key="row-7" data-lievit-snapshot="${snapshotWith({ count: 3, name: "ada" })}">` +
+      "<span>x</span></div>";
+    const root = document.body.firstElementChild as HTMLElement;
+    const fetchImpl = vi.fn(async () => new Response("", { status: 200 }));
+    const runtime = new LievitRuntime({ fetchImpl });
+    runtime.start();
+
+    const $c = runtime.$lievit(root)!;
+
+    // toJSON returns the clean identity + data snapshot.
+    expect($c.toJSON()).toEqual({
+      id: "cid",
+      name: "com.example.Counter",
+      key: "row-7",
+      data: { count: 3, name: "ada" },
+    });
+
+    // JSON.stringify uses toJSON: a clean object, no circular-reference throw, no phantom request.
+    const json = JSON.parse(JSON.stringify($c)) as Record<string, unknown>;
+    expect(json).toEqual({
+      id: "cid",
+      name: "com.example.Counter",
+      key: "row-7",
+      data: { count: 3, name: "ada" },
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("toJSON key is null when the component carries no wire:key (#133)", () => {
+    const root = mountCounter(snapshotWith({ count: 0 }));
+    const runtime = new LievitRuntime();
+    runtime.start();
+
+    expect(runtime.$lievit(root)!.toJSON().key).toBeNull();
   });
 });

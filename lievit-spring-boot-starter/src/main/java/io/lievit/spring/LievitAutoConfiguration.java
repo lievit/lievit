@@ -28,6 +28,7 @@ import io.lievit.component.MagicActionListener;
 import io.lievit.component.NoOpFieldValidator;
 import io.lievit.component.RedirectListener;
 import io.lievit.component.RenderlessListener;
+import io.lievit.component.TransitionListener;
 import io.lievit.component.SessionListener;
 import io.lievit.compiler.DeterministicKeys;
 import io.lievit.component.WireDispatcher;
@@ -187,6 +188,9 @@ public class LievitAutoConfiguration {
         // @LievitJson RPC actions (#99): both return without re-rendering.
         RenderlessListener.registerOn(bus);
         RedirectListener.registerOn(bus);
+        // @LievitTransition (#113): seed the transition effect on CALL before the action body runs,
+        // so an imperative LievitEffects.current().transition(...) inside the action overrides it.
+        TransitionListener.registerOn(bus);
         return bus;
     }
 
