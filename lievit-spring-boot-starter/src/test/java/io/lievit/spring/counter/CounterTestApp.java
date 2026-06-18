@@ -43,4 +43,13 @@ public class CounterTestApp {
     StreamingComponent streamingComponent() {
         return new StreamingComponent();
     }
+
+    /**
+     * @return a fresh lazy component per wire call (exercises lazy loading, #147)
+     */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    LazyChartComponent lazyChartComponent() {
+        return new LazyChartComponent();
+    }
 }

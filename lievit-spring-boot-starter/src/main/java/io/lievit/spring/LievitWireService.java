@@ -100,17 +100,48 @@ public final class LievitWireService {
 
         WireCall mounted = dispatcher.mount(metadata, instance);
         Map<String, Object> wire = mounted.wire();
+
+        Instant now = Instant.now();
+        String cid = componentIds.next();
+        Snapshot snapshot = Snapshot.fresh(cid, className, wire, now, codec.ttl());
+        String signed = codec.sign(snapshot);
+
+        // @LievitLazy (#147): render a placeholder + the load trigger instead of the real body on the
+        // first load. The snapshot still carries the real @Wire state, so the follow-up $refresh
+        // re-renders the full component (mount params / props survive across the load).
+        io.lievit.component.LazyComponent lazy =
+                io.lievit.component.LazyComponent.of(instance.getClass());
+        if (lazy.isLazy()) {
+            String placeholder = lazyPlaceholderRoot(metadata, lazy.placeholderHtml(instance), lazy.defersOnInit());
+            return WireCallResult.of(ChildRenderer.stampRoot(placeholder, cid, signed), signed);
+        }
+
         // Pass the wire state + any computed values to the template adapter as a merged model.
         // Computed values are NOT serialized into the snapshot (ADR-0015).
         String html = templateAdapter.render(metadata, instance, mergeModel(wire, mounted));
         // Mount and inline any child components the parent declared (ADR-0016); a leaf is unchanged.
         html = childRenderer.substitute(html, mounted.children());
-
-        Instant now = Instant.now();
-        Snapshot snapshot =
-                Snapshot.fresh(componentIds.next(), className, wire, now, codec.ttl());
         // Mount runs no action, so it can produce no effects (ADR-0012): no Lievit-Effects header.
-        return WireCallResult.of(html, codec.sign(snapshot));
+        return WireCallResult.of(html, signed);
+    }
+
+    /**
+     * Wraps a lazy component's placeholder HTML in a component root carrying the trigger the client
+     * fires to load the real body (issue #147): {@code l:lazy="$refresh"} (load on intersection) or
+     * {@code l:init="$refresh"} (load on init, the defer mode). The {@code data-lievit-component}
+     * marker lets the client treat it as a real component root; {@link ChildRenderer#stampRoot} then
+     * adds the id + snapshot. The trigger calls {@code $refresh}, which re-renders the full component
+     * from the carried snapshot — no bespoke load action is needed.
+     */
+    private String lazyPlaceholderRoot(ComponentMetadata metadata, String placeholderHtml, boolean defer) {
+        String trigger = defer ? "l:init" : "l:lazy";
+        return "<div data-lievit-component=\""
+                + metadata.className()
+                + "\" "
+                + trigger
+                + "=\"$refresh\">"
+                + placeholderHtml
+                + "</div>";
     }
 
     /**
