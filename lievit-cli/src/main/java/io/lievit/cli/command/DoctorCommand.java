@@ -1,15 +1,15 @@
 package io.lievit.cli.command;
 
-import io.lievit.cli.env.CliEnvironment;
-import io.lievit.cli.env.DefaultCliEnvironment;
-import picocli.CommandLine.Command;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+
+import io.lievit.cli.env.CliEnvironment;
+import io.lievit.cli.env.DefaultCliEnvironment;
+import picocli.CommandLine.Command;
 
 /**
  * {@code lievit doctor}

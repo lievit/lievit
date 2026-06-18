@@ -6,16 +6,17 @@ package io.lievit.example;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.ActiveProfiles;
+
 import io.lievit.example.auth.RegisterComponent;
 import io.lievit.example.notes.NoteListComponent;
 import io.lievit.spring.ComponentRegistry;
 import io.lievit.spring.LievitWireService;
 import io.lievit.spring.WireCallResult;
 import io.lievit.test.LievitTest;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Smoke tests: the app boots, the lievit runtime is wired correctly, and the expected beans are

@@ -4,13 +4,15 @@
  */
 package io.lievit.kit.component;
 
-import io.lievit.kit.support.ColorManager;
-import io.lievit.kit.support.IconManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
 import org.jspecify.annotations.Nullable;
+
+import io.lievit.kit.support.ColorManager;
+import io.lievit.kit.support.IconManager;
 
 /**
  * The link view-model (the Filament {@code LinkComponent} carried over): a text link with a target

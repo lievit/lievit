@@ -13,11 +13,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.junit.jupiter.api.Test;
 
+import io.lievit.component.LievitEffects;
 import io.lievit.kit.RecordRepository;
 import io.lievit.kit.job.InMemoryJobStore;
 import io.lievit.kit.job.JobRun;
 import io.lievit.kit.job.SynchronousJobRunner;
-import io.lievit.component.LievitEffects;
 
 /**
  * Specifies the export actions (the Filament {@code ExportAction} / {@code ExportBulkAction} +

@@ -11,8 +11,8 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 import io.lievit.compiler.AssetManifest;
-import io.lievit.compiler.ComponentCompiler;
 import io.lievit.compiler.CompiledComponent;
+import io.lievit.compiler.ComponentCompiler;
 
 /**
  * Derives the page-level {@link WireEffects.Assets} a component type brings (issue #171/#119/#129): the

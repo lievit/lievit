@@ -10,13 +10,12 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import io.lievit.LievitComponent;
-import io.lievit.Wire;
-import io.lievit.component.ComponentMetadata;
-
 import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
 import gg.jte.resolve.ResourceCodeResolver;
+import io.lievit.LievitComponent;
+import io.lievit.Wire;
+import io.lievit.component.ComponentMetadata;
 
 /**
  * Specifies the JTE adapter: it renders the named template with the {@code @Wire} state as the

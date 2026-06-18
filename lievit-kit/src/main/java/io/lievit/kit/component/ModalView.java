@@ -4,9 +4,9 @@
  */
 package io.lievit.kit.component;
 
-import io.lievit.kit.support.Width;
 import java.util.Objects;
-import org.jspecify.annotations.Nullable;
+
+import io.lievit.kit.support.Width;
 
 /**
  * The modal view-model (the Filament {@code ModalComponent} carried over): the shared modal shell

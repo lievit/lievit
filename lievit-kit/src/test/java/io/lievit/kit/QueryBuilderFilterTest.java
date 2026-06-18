@@ -6,6 +6,10 @@ package io.lievit.kit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+
 import io.lievit.kit.querybuilder.BooleanConstraint;
 import io.lievit.kit.querybuilder.Constraint;
 import io.lievit.kit.querybuilder.DateConstraint;
@@ -15,8 +19,6 @@ import io.lievit.kit.querybuilder.QueryBuilder;
 import io.lievit.kit.querybuilder.RelationshipConstraint;
 import io.lievit.kit.querybuilder.SelectConstraint;
 import io.lievit.kit.querybuilder.TextConstraint;
-import java.util.List;
-import org.junit.jupiter.api.Test;
 
 /**
  * Specifies the {@link QueryBuilder} table filter: a user-built set of constraints, each exposing

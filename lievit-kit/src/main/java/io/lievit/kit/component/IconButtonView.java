@@ -4,12 +4,13 @@
  */
 package io.lievit.kit.component;
 
-import io.lievit.kit.support.ColorManager;
-import io.lievit.kit.support.IconManager;
-import io.lievit.kit.support.Size;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import io.lievit.kit.support.ColorManager;
+import io.lievit.kit.support.IconManager;
+import io.lievit.kit.support.Size;
 
 /**
  * The icon-button view-model (the Filament {@code IconButtonComponent} carried over): an icon-only

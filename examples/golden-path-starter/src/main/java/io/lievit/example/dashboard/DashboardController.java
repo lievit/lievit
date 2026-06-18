@@ -4,14 +4,15 @@
  */
 package io.lievit.example.dashboard;
 
-import io.lievit.spring.LievitWireService;
-import io.lievit.spring.WireCallResult;
-import io.lievit.example.notes.NoteListComponent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import io.lievit.example.notes.NoteListComponent;
+import io.lievit.spring.LievitWireService;
+import io.lievit.spring.WireCallResult;
 
 /**
  * Serves the dashboard page (GET /dashboard). Mounts the NoteListComponent server-side and

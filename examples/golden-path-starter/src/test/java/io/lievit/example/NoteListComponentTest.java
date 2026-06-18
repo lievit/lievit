@@ -6,10 +6,11 @@ package io.lievit.example;
 
 import static io.lievit.test.Lievit.test;
 
-import io.lievit.example.notes.NoteListComponent;
-import io.lievit.test.LievitTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.ActiveProfiles;
+
+import io.lievit.example.notes.NoteListComponent;
+import io.lievit.test.LievitTest;
 
 /**
  * Component tests for {@link NoteListComponent}: the full lievit wire pipeline via

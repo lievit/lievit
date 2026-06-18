@@ -4,12 +4,13 @@
  */
 package io.lievit.dsl;
 
+import org.junit.jupiter.api.Test;
+
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
-import org.junit.jupiter.api.Test;
 
 /**
  * The module-boundary invariants for {@code lievit-dsl} (ADR-0004/0006/0007): it depends only on the

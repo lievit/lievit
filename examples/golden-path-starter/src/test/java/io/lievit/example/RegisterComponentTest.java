@@ -6,11 +6,12 @@ package io.lievit.example;
 
 import static io.lievit.test.Lievit.test;
 
+import org.junit.jupiter.api.Test;
+import org.springframework.test.context.ActiveProfiles;
+
 import io.lievit.example.auth.RegisterComponent;
 import io.lievit.test.LievitTest;
 import io.lievit.test.Rejections.LockedProperty;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Component tests for {@link RegisterComponent}: validates the registration form

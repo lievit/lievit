@@ -7,11 +7,10 @@ package io.lievit.jte;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import io.lievit.component.ComponentMetadata;
-import io.lievit.render.TemplateAdapter;
-
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
+import io.lievit.component.ComponentMetadata;
+import io.lievit.render.TemplateAdapter;
 
 /**
  * The JTE template adapter: the canonical primary engine (ADR-0004). Renders a component's bound

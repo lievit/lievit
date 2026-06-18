@@ -9,10 +9,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.Test;
-
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+
+import org.junit.jupiter.api.Test;
 
 import io.lievit.example.admin.product.InMemoryProductRepository;
 import io.lievit.example.admin.product.Product;

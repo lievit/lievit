@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.lievit.compiler.AssetManifest;
-import io.lievit.compiler.ComponentCompiler;
 import io.lievit.compiler.CompiledComponent;
+import io.lievit.compiler.ComponentCompiler;
 import io.lievit.component.ComponentMetadata;
 
 /**

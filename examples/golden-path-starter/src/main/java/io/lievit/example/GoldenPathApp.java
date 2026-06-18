@@ -4,9 +4,6 @@
  */
 package io.lievit.example;
 
-import io.lievit.EnableLievit;
-import io.lievit.example.auth.RegisterComponent;
-import io.lievit.example.notes.NoteListComponent;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -14,6 +11,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import io.lievit.EnableLievit;
+import io.lievit.example.auth.RegisterComponent;
+import io.lievit.example.notes.NoteListComponent;
 
 /**
  * Golden-path example: demonstrates register, login, dashboard, and a notes CRUD component.

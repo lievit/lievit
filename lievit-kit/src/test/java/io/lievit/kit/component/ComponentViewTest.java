@@ -6,13 +6,14 @@ package io.lievit.kit.component;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Test;
+
 import io.lievit.kit.AdminAction;
 import io.lievit.kit.AdminNotification;
 import io.lievit.kit.ViewAction;
 import io.lievit.kit.support.ColorManager;
 import io.lievit.kit.support.IconManager;
 import io.lievit.kit.support.Size;
-import org.junit.jupiter.api.Test;
 
 /**
  * Specifies the design-system component view-models (the kit-level seam for issue #317): the shared

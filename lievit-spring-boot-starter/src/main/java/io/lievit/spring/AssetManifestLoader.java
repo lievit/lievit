@@ -11,7 +11,6 @@ import java.util.Map;
 import org.springframework.core.io.ClassPathResource;
 
 import io.lievit.compiler.AssetManifest;
-
 import tools.jackson.databind.ObjectMapper;
 
 /**

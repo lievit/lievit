@@ -1,9 +1,10 @@
 package io.lievit.cli;
 
-import org.junit.jupiter.api.Test;
-import picocli.CommandLine;
-
 import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+
+import picocli.CommandLine;
 
 /**
  * @spec.given the lievit CLI entry point

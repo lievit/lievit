@@ -7,9 +7,9 @@ package io.lievit.example.admin.product;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.stereotype.Component;
-
 import jakarta.validation.Validator;
+
+import org.springframework.stereotype.Component;
 
 import io.lievit.kit.BadgeColumn;
 import io.lievit.kit.Form;

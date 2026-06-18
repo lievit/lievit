@@ -1,19 +1,20 @@
 package io.lievit.cli;
 
-import io.lievit.cli.command.DoctorCommand;
-import io.lievit.cli.env.CliEnvironment;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+import java.nio.file.Path;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import io.lievit.cli.command.DoctorCommand;
+import io.lievit.cli.env.CliEnvironment;
 import picocli.CommandLine;
-
-import java.nio.file.Path;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@code lievit doctor}.

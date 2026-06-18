@@ -1,12 +1,5 @@
 package io.lievit.cli.command;
 
-import io.lievit.compiler.convert.ConversionWarning;
-import io.lievit.compiler.convert.ConvertResult;
-import io.lievit.compiler.convert.ViewConverter;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +7,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
+
+import io.lievit.compiler.convert.ConversionWarning;
+import io.lievit.compiler.convert.ConvertResult;
+import io.lievit.compiler.convert.ViewConverter;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * {@code lievit convert <Component>} (Livewire {@code livewire:convert} parity, issue #141).

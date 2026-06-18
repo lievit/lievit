@@ -4,11 +4,12 @@
  */
 package io.lievit.example.auth;
 
-import io.lievit.spring.LievitWireService;
-import io.lievit.spring.WireCallResult;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import io.lievit.spring.LievitWireService;
+import io.lievit.spring.WireCallResult;
 
 /**
  * Serves the Thymeleaf page that hosts the lievit RegisterComponent (GET /register).

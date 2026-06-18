@@ -4,11 +4,12 @@
  */
 package io.lievit.example.notes;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import io.lievit.LievitAction;
 import io.lievit.LievitComponent;
 import io.lievit.Wire;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Ephemeral in-memory note list: demonstrates stateful list mutations entirely via the wire

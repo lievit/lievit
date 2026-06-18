@@ -4,12 +4,13 @@
  */
 package io.lievit.example.auth;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import io.lievit.LievitAction;
 import io.lievit.LievitComponent;
 import io.lievit.LievitProperty;
 import io.lievit.Wire;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * Registration form component: binds username + password inputs, validates them, persists a new

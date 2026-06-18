@@ -13,10 +13,10 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
+import io.lievit.component.LievitEffects;
 import io.lievit.kit.job.InMemoryJobStore;
 import io.lievit.kit.job.JobRun;
 import io.lievit.kit.job.SynchronousJobRunner;
-import io.lievit.component.LievitEffects;
 
 /**
  * Specifies the CSV import action (the Filament {@code ImportAction} + {@code Importer}): header→

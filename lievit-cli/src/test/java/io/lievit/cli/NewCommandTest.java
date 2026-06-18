@@ -1,15 +1,16 @@
 package io.lievit.cli;
 
-import io.lievit.cli.command.NewCommand;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import picocli.CommandLine;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.lievit.cli.command.NewCommand;
+import picocli.CommandLine;
 
 /**
  * Unit tests for {@code lievit new <name>}.
