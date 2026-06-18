@@ -101,10 +101,12 @@ public final class LievitWireController {
             throw new WireException(WireError.MISSING_WIRE_HEADER, "missing X-Lievit wire header");
         }
         io.lievit.component.SessionListener.bind(new HttpSessionStore(request));
+        io.lievit.component.LocaleListener.bind(SpringLocaleSource.INSTANCE);
         BatchUpdateResponse response;
         try {
             response = service.batch(body.components(), clientKey(request));
         } finally {
+            io.lievit.component.LocaleListener.clear();
             io.lievit.component.SessionListener.clear();
         }
         return ResponseEntity.ok(response);
@@ -119,6 +121,9 @@ public final class LievitWireController {
         // (ADR-0031). Cleared in the finally so nothing leaks across calls; without a session in
         // play the listener simply no-ops (the field keeps its mount default).
         io.lievit.component.SessionListener.bind(new HttpSessionStore(request));
+        // Pin the request's resolved locale across this component's round trip (ADR-0037): the
+        // listener restores the memo'd locale onto LocaleContextHolder before the render.
+        io.lievit.component.LocaleListener.bind(SpringLocaleSource.INSTANCE);
         WireCallResult result;
         try {
             result =
@@ -129,6 +134,7 @@ public final class LievitWireController {
                             body.inboundEvents(),
                             clientKey(request));
         } finally {
+            io.lievit.component.LocaleListener.clear();
             io.lievit.component.SessionListener.clear();
         }
 
@@ -189,6 +195,7 @@ public final class LievitWireController {
                             }
                         });
         io.lievit.component.SessionListener.bind(new HttpSessionStore(request));
+        io.lievit.component.LocaleListener.bind(SpringLocaleSource.INSTANCE);
         io.lievit.component.LievitStream.bind(stream);
         try {
             service.call(
@@ -203,6 +210,7 @@ public final class LievitWireController {
             throw e;
         } finally {
             io.lievit.component.LievitStream.clear();
+            io.lievit.component.LocaleListener.clear();
             io.lievit.component.SessionListener.clear();
         }
         return emitter;

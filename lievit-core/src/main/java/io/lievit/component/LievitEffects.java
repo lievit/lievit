@@ -5,6 +5,7 @@
 package io.lievit.component;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +41,13 @@ public final class LievitEffects {
     private @Nullable Object returnValue;
     /** Null means "validation did not run or produced no errors": the {@code errors} key is omitted. */
     private @Nullable Map<String, List<String>> validationErrors;
+    /**
+     * The field names a live {@code validateOnly} update (re)validated this call (ADR-0038), or null
+     * on a full {@code validate}/submit. The client merges a live update's errors into its existing
+     * bag, clearing exactly these fields and leaving untouched fields' errors in place; a null means
+     * "full replace" (the submit path). Carried as the {@code validatedFields} effect key.
+     */
+    private @Nullable List<String> validatedFields;
     private @Nullable UrlEffect url;
     /** Island names this call re-rendered (ADR-0024 #89): the client morphs only these fragments. */
     private final java.util.LinkedHashSet<String> islands = new java.util.LinkedHashSet<>();
@@ -49,6 +57,8 @@ public final class LievitEffects {
     private @Nullable String release;
     /** The server-driven transition control for this update (ADR-0034 #113), or null when unused. */
     private @Nullable TransitionEffect transition;
+    /** The file the action returned as a download (issue #161), or null when none. */
+    private @Nullable DownloadEffect download;
 
     LievitEffects() {}
 
@@ -207,6 +217,32 @@ public final class LievitEffects {
         this.transition = TransitionEffect.skipped();
     }
 
+    /**
+     * Queues a file download ({@code $this.download}, issue #161): the action hands the browser a
+     * file to save instead of swapping the page; the component still re-renders. The bytes ride the
+     * effects header base64-encoded; the client decodes them into a Blob and triggers the download.
+     * Last call wins (a single download per call, matching Livewire).
+     *
+     * @param download the file to download (name + base64 content + content type)
+     */
+    public void download(DownloadEffect download) {
+        if (download == null) {
+            throw new IllegalArgumentException("download effect must be non-null");
+        }
+        this.download = download;
+    }
+
+    /**
+     * Convenience: queue a download from raw bytes (base64-encoded for the wire).
+     *
+     * @param name the file name the browser saves it as
+     * @param bytes the file content
+     * @param contentType the MIME content type
+     */
+    public void download(String name, byte[] bytes, String contentType) {
+        download(DownloadEffect.of(name, bytes, contentType));
+    }
+
     /** Captures an action's return value as the {@code returns} effect (set by the dispatcher). */
     void captureReturn(@Nullable Object value) {
         if (value != null) {
@@ -227,6 +263,122 @@ public final class LievitEffects {
      */
     void setValidationErrors(Map<String, List<String>> errors) {
         this.validationErrors = Map.copyOf(errors);
+    }
+
+    /**
+     * Records which fields a live {@code validateOnly} update (re)validated this call (ADR-0038), so
+     * the client merges rather than replaces its error bag. Set by the {@link WireDispatcher} only on
+     * the live per-field path; left null on the full {@code validate}/submit path (the client then
+     * full-replaces). Called even when those fields are now valid (so the client clears stale errors).
+     *
+     * @param fields the validated field names (the update keys); may be empty
+     */
+    void setValidatedFields(List<String> fields) {
+        this.validatedFields = List.copyOf(fields);
+    }
+
+    /**
+     * @return the fields a live {@code validateOnly} update revalidated (so the client merges), or
+     *     {@code null} on a full {@code validate}/submit (the client full-replaces)
+     */
+    public @Nullable List<String> validatedFields() {
+        return validatedFields;
+    }
+
+    /**
+     * Adds a custom validation error for a field to the error bag, from inside an action (Livewire
+     * {@code $this->addError($field, $message)} parity, ADR-0038). Use it for cross-field or
+     * business-rule errors that Bean Validation cannot express (e.g. "password and confirmation must
+     * match", "this email is already registered"). The error rides the same {@code errors} effect +
+     * {@code _errors} model the auto-validation uses, so the template / client render it identically.
+     *
+     * <p>Additive: multiple messages may accumulate on one field, and an {@code addError} merges with
+     * any errors the automatic {@link FieldValidator} already produced this call.
+     *
+     * @param field the field name (or dotted form-object path) the error attaches to
+     * @param message the human-readable message (must be non-blank)
+     */
+    public void addError(String field, String message) {
+        if (field == null || field.isBlank()) {
+            throw new IllegalArgumentException("error field must be non-blank");
+        }
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("error message must be non-blank");
+        }
+        Map<String, List<String>> bag = mutableErrorBag();
+        bag.computeIfAbsent(field, k -> new ArrayList<>()).add(message);
+        sealErrorBag(bag);
+    }
+
+    /**
+     * Clears the entire validation error bag (Livewire {@code $this->resetValidation()} parity,
+     * ADR-0038): after this the {@code errors} effect is omitted and {@code _errors} is empty. Use it
+     * when an action has recovered from an earlier invalid state and wants to drop stale messages.
+     */
+    public void resetValidation() {
+        this.validationErrors = null;
+    }
+
+    /**
+     * Clears the validation errors of a single field (Livewire {@code resetValidation($field)}
+     * parity, ADR-0038), leaving the other fields' errors intact.
+     *
+     * @param field the field whose errors to drop
+     */
+    public void resetValidation(String field) {
+        if (validationErrors == null || !validationErrors.containsKey(field)) {
+            return;
+        }
+        Map<String, List<String>> bag = mutableErrorBag();
+        bag.remove(field);
+        sealErrorBag(bag);
+    }
+
+    /**
+     * Returns the error bag with the named fields removed (Livewire {@code errorBagExcept} parity,
+     * ADR-0038): a read-only view a caller (or a sub-component) uses to surface every error except a
+     * few it owns elsewhere. Does not mutate the sink; use {@link #resetValidation(String)} to drop
+     * a field's errors for real.
+     *
+     * @param fields the field names to exclude from the returned bag
+     * @return the per-field error bag without the excluded fields (empty if validation passed)
+     */
+    public Map<String, List<String>> errorBagExcept(String... fields) {
+        if (validationErrors == null || validationErrors.isEmpty()) {
+            return Map.of();
+        }
+        java.util.Set<String> excluded = java.util.Set.of(fields);
+        Map<String, List<String>> kept = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : validationErrors.entrySet()) {
+            if (!excluded.contains(entry.getKey())) {
+                kept.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return Map.copyOf(kept);
+    }
+
+    /** A deep-mutable copy of the current bag (or a fresh one) so an imperative edit is isolated. */
+    private Map<String, List<String>> mutableErrorBag() {
+        Map<String, List<String>> bag = new LinkedHashMap<>();
+        if (validationErrors != null) {
+            for (Map.Entry<String, List<String>> entry : validationErrors.entrySet()) {
+                bag.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+            }
+        }
+        return bag;
+    }
+
+    /** Seals a mutable bag back into the immutable {@link #validationErrors} (or clears it if empty). */
+    private void sealErrorBag(Map<String, List<String>> bag) {
+        if (bag.isEmpty()) {
+            this.validationErrors = null;
+            return;
+        }
+        Map<String, List<String>> immutable = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : bag.entrySet()) {
+            immutable.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        this.validationErrors = Map.copyOf(immutable);
     }
 
     /**
@@ -307,12 +459,20 @@ public final class LievitEffects {
     }
 
     /**
+     * @return the file download the action queued (issue #161), or {@code null} if none
+     */
+    public @Nullable DownloadEffect download() {
+        return download;
+    }
+
+    /**
      * @return true if no effect was produced (so the {@code Lievit-Effects} header is omitted)
      */
     public boolean isEmpty() {
         return redirect == null && dispatched.isEmpty() && returnValue == null
-                && validationErrors == null && url == null && islands.isEmpty()
-                && jsCalls.isEmpty() && release == null && transition == null;
+                && validationErrors == null && validatedFields == null && url == null
+                && islands.isEmpty() && jsCalls.isEmpty() && release == null && transition == null
+                && download == null;
     }
 
     /**

@@ -278,12 +278,17 @@ public final class WireDispatcher {
             }
             runFinishes(renderFinishes);
             resolveAllComputed(metadata, instance, computedCache);
+            // with() extra view data (ADR-0041, #65): derived view variables for the first render,
+            // resolved after computed settled; empty when the mount skipped its render.
+            Map<String, @Nullable Object> viewData =
+                    ctx.skipRender() ? Map.of() : resolveViewData(instance);
 
             // Phase: DEHYDRATE (a listener seals the snapshot memo here).
             Map<String, Object> wire = readWire(metadata, instance);
             runFinishes(lifecycle.trigger(LifecyclePhase.DEHYDRATE, ctx));
             mergeMemo(wire, ctx);
-            return new WireCall(wire, effects, computedCache.snapshot(), children.declared());
+            return new WireCall(
+                    wire, effects, computedCache.snapshot(), children.declared(), false, viewData);
         } finally {
             runFinishes(lifecycle.trigger(LifecyclePhase.DESTROY, ctx));
             ComputedCache.clear();
@@ -375,7 +380,21 @@ public final class WireDispatcher {
             // Validate after updates are applied; if errors exist write them to the effects sink
             // and skip the actions for this call. The re-render still runs so the template can
             // read the (unchanged) wire state and render the errors from the model.
-            Map<String, List<String>> errors = fieldValidator.validate(instance);
+            //
+            // Real-time per-field validation (ADR-0038, Livewire validateOnly parity): a live
+            // wire:model update with no action surfaces ONLY the updated fields' errors, never the
+            // still-untouched neighbours' errors (the user has not reached them yet). A submit (a
+            // call) validates everything. The submit path keeps the full bag; the live path filters.
+            boolean liveUpdate = calls.isEmpty() && !updates.isEmpty();
+            Map<String, List<String>> errors =
+                    liveUpdate
+                            ? validateUpdatedFields(instance, updates)
+                            : fieldValidator.validate(instance);
+            if (liveUpdate) {
+                // Tell the client exactly which fields this live update revalidated, so it merges:
+                // it clears these fields' prior errors and keeps untouched fields' errors (ADR-0038).
+                effects.setValidatedFields(new ArrayList<>(updates.keySet()));
+            }
             if (errors != null && !errors.isEmpty()) {
                 effects.setValidationErrors(errors);
             } else {
@@ -405,6 +424,10 @@ public final class WireDispatcher {
             }
             runFinishes(renderFinishes);
             resolveAllComputed(metadata, instance, computedCache);
+            // with() extra view data (ADR-0041, #65): derived view variables, resolved after the
+            // action ran and computed settled, only when the render runs (skip-render = no view).
+            Map<String, @Nullable Object> viewData =
+                    ctx.skipRender() ? Map.of() : resolveViewData(instance);
             // After the new state settles, reflect any @LievitUrl fields into the url effect so the
             // client pushes/replaces the query string via the History API (ADR-0012, URL binding).
             effects.url(UrlQueryBinder.buildEffect(metadata, instance));
@@ -416,7 +439,8 @@ public final class WireDispatcher {
             // renderSkipped rides the result so the web layer sends no HTML patch (renderless /
             // redirect): the client leaves the DOM untouched (ADR-0030, ADR-0031).
             return new WireCall(
-                    wire, effects, computedCache.snapshot(), children.declared(), ctx.skipRender());
+                    wire, effects, computedCache.snapshot(), children.declared(), ctx.skipRender(),
+                    viewData);
         } finally {
             runFinishes(lifecycle.trigger(LifecyclePhase.DESTROY, ctx));
             ComputedCache.clear();
@@ -653,10 +677,35 @@ public final class WireDispatcher {
         }
     }
 
+    /**
+     * Validates the instance but surfaces only the violations of the fields the client just updated
+     * (ADR-0038): the real-time per-field path. The union of each updated key's
+     * {@link FieldValidator#validateOnly} keeps a live {@code wire:model} update from surfacing a
+     * still-empty neighbour's error. An update key may be a top-level field ({@code "email"}) or a
+     * dotted form-object field ({@code "form.email"}); both pass through {@code validateOnly} as-is.
+     */
+    private Map<String, List<String>> validateUpdatedFields(
+            Object instance, Map<String, Object> updates) {
+        Map<String, List<String>> merged = new LinkedHashMap<>();
+        for (String field : updates.keySet()) {
+            merged.putAll(fieldValidator.validateOnly(instance, field));
+        }
+        return merged;
+    }
+
     private void invokeHook(@Nullable Method hook, Object instance) {
         if (hook != null) {
             invoke(hook, instance);
         }
+    }
+
+    /**
+     * Resolves the component's {@code with()} extra view data (ADR-0041, #65), empty when the
+     * component declares no {@code with()} method (the common case).
+     */
+    private static Map<String, @Nullable Object> resolveViewData(Object instance) {
+        WithMethodMetadata with = WithMethodMetadata.of(instance.getClass());
+        return with.isEmpty() ? Map.of() : with.resolve(instance);
     }
 
     private @Nullable Object invoke(Method method, Object instance) {

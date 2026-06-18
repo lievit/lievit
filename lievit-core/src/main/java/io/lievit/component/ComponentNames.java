@@ -18,27 +18,27 @@ import java.util.Locale;
  * dot-to-slash conversion; lievit mirrors it so {@code <lievit:admin.users.table>} resolves to the
  * {@code admin/users/table} template by convention, with no per-component configuration.
  *
- * <p>When a component declares no template, its name is derived from the simple class name: a
- * trailing {@code Component} suffix is dropped and the head is decapitalised
- * ({@code UserTableComponent -> userTable}). A declared template wins: its slashes become the dots of
- * the name, so {@code @LievitComponent(template = "admin/users")} has the name {@code admin.users}.
+ * <p>A component's <em>name</em> is derived from its simple class name: a trailing {@code Component}
+ * suffix is dropped and the head is decapitalised ({@code UserTableComponent -> userTable}). The name
+ * is the component's identity and must be unique. The <em>template</em> is a separate concern (the
+ * view path): a component may declare one with {@code @LievitComponent(template = ...)}, and TWO
+ * components are allowed to share the same template (e.g. create + edit rendering one form view),
+ * because identity comes from the class, not the view. This mirrors Livewire, where the component
+ * name comes from the class and {@code render()} returns a view independently.
  */
 public final class ComponentNames {
 
     private ComponentNames() {}
 
     /**
-     * The default dotted name for a component class: its declared template (slashes lowered to dots),
-     * or the decapitalised simple class name with a {@code Component} suffix stripped.
+     * The dotted name for a component class: the decapitalised simple class name with a
+     * {@code Component} suffix stripped. Independent of any declared template, so two components that
+     * share a template still get distinct names.
      *
      * @param type the component class
-     * @param declaredTemplate the {@code @LievitComponent(template)} value (may be empty)
      * @return the dotted component name (never blank)
      */
-    public static String nameFor(Class<?> type, String declaredTemplate) {
-        if (declaredTemplate != null && !declaredTemplate.isBlank()) {
-            return pathToName(declaredTemplate);
-        }
+    public static String nameFor(Class<?> type) {
         String simple = type.getSimpleName();
         if (simple.endsWith("Component") && simple.length() > "Component".length()) {
             simple = simple.substring(0, simple.length() - "Component".length());

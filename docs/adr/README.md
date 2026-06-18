@@ -36,6 +36,16 @@ question and is pending a final call.
 - [ADR-0021](0021-class-instantiation-guard.md): Class-instantiation guard for the synthesizer hydrate path (default-deny by gadget-prone root, under the ADR-0013 allowlist). **accepted**
 - [ADR-0022](0022-request-lifecycle-bus.md): Request lifecycle — ordered phases + a `trigger()` interceptor bus (updated-after-all, early-return, render-skippable, dehydrate memo). **accepted**
 - [ADR-0023](0023-v4-compiler-and-deterministic-keys.md): The v4 compiler layer (single-file compilation, `<lievit:...>` tag compilation, deterministic keys). **accepted**
+- [ADR-0024](0024-v4-client-convergence.md): Livewire v4 client convergence — interceptors, surgical merge, islands, v4 directives. **accepted**
+- [ADR-0030](0030-runtime-parity-events-lifecycle-magic-redirects.md): Runtime parity — events, full lifecycle hooks, magic actions, redirects. **accepted**
+- [ADR-0031](0031-renderless-session-page-components.md): `@LievitRenderless`, `@LievitSession`, and full-page components (`@LievitLayout` / `@LievitTitle`). **accepted**
+- [ADR-0032](0032-batch-update-endpoint-and-json-rpc.md): Batched update endpoint + `@LievitJson` JSON RPC endpoints. **accepted**
+- [ADR-0033](0033-full-page-routing-and-slots.md): Full-page routing + layout wrapping, server-side slots, and island fragment compilation. **accepted**
+- [ADR-0034](0034-transition-effect-and-large-payload-encoding.md): `@LievitTransition` server effect + large-payload binary encoding. **accepted**
+- [ADR-0035](0035-streaming-sse-endpoint.md): Streaming server half — a live `LievitStream` sink + an SSE endpoint. **accepted**
+- [ADR-0036](0036-lazy-deferred-components.md): Lazy / deferred components — `@LievitLazy`, placeholder mount, `$refresh` load. **accepted**
+- [ADR-0037](0037-locale-pinning-memo.md): Locale pinning across the stateless round trip — a `LocaleListener` captures the active locale into the snapshot memo on dehydrate and restores it (`LocaleContextHolder`) on hydrate before render, so `MessageSource` resolves in the component's pinned locale on every wire update (#169, #143). **accepted**
+- [ADR-0038](0038-validation-depth.md): Validation depth — `validateOnly` real-time per-field validation, the imperative error bag (`addError` / `resetValidation` / `errorBagExcept`), `items.*.qty` array-element rules over Bean Validation's `@Valid` cascade, and a `validatedFields` client merge. No parallel engine (#185, #187). **accepted**
 - [ADR-0040](0040-realtime-broadcast-channel-sse.md): The realtime broadcast channel (server→client push over SSE) + broadcast notifications (#304) and the Echo-listener bridge (#45). Opt-in, per-user, `SseEmitter`-based. **accepted**
 
 ## How to add an ADR

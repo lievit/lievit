@@ -167,6 +167,18 @@ public final class LievitTester<T> {
     }
 
     /**
+     * Syncs the staged {@link #model} updates with <em>no</em> action: a live {@code wire:model.live}
+     * / {@code .blur} round trip (ADR-0038). This is the real-time per-field validation path: the
+     * server validates only the updated fields and surfaces only their errors, never the still-empty
+     * neighbours' errors. Pairs with {@link #assertHasError} / {@link #assertNoErrors}.
+     *
+     * @return this tester
+     */
+    public LievitTester<T> update() {
+        return perform(List.of());
+    }
+
+    /**
      * Runs a wire call with <em>no</em> action, expected to be rejected before any action would run
      * (the rate-limit / forged-snapshot probe). Equivalent to {@code call} with an empty
      * {@code _calls} list; reads clearly in a brute-force loop.
@@ -1011,7 +1023,7 @@ public final class LievitTester<T> {
     }
 
     /**
-     * Asserts the last call queued NO {@code js} effect at all, or none for the named handler
+     * Asserts the last call queued NO {@code js} effect for the named handler
      * (issue #73, the {@code assertNoJs} harness assertion).
      *
      * @param handler the handler name that must NOT have been queued
@@ -1027,6 +1039,46 @@ public final class LievitTester<T> {
     }
 
     /**
+     * Asserts the last call queued a {@code download} effect ({@code $this.download}, issue #161)
+     * with the given file name, exact (UTF-8) content, and content type (Livewire
+     * {@code assertFileDownloaded}). The content is decoded from the base64 the effect carries.
+     *
+     * @param name the expected file name
+     * @param content the expected file content (compared as a UTF-8 string)
+     * @param contentType the expected content type
+     * @return this tester
+     */
+    public LievitTester<T> assertFileDownloaded(String name, String content, String contentType) {
+        requireNotRejected("assertFileDownloaded(\"" + name + "\")");
+        JsonNode download = lastEffects == null ? null : lastEffects.get("download");
+        if (download == null || download.isNull()) {
+            throw new AssertionError("expected a file download '" + name + "', but none was queued");
+        }
+        String actualName = downloadText(download, "name");
+        if (!name.equals(actualName)) {
+            throw new AssertionError(
+                    "expected a download named '" + name + "', but it was '" + actualName + "'");
+        }
+        String actualType = downloadText(download, "type");
+        if (!contentType.equals(actualType)) {
+            throw new AssertionError(
+                    "expected download content type '" + contentType + "', but it was '" + actualType + "'");
+        }
+        String base64 = downloadText(download, "content");
+        String actualContent =
+                base64 == null
+                        ? ""
+                        : new String(
+                                java.util.Base64.getDecoder().decode(base64),
+                                java.nio.charset.StandardCharsets.UTF_8);
+        if (!content.equals(actualContent)) {
+            throw new AssertionError(
+                    "expected download content '" + content + "', but it was '" + actualContent + "'");
+        }
+        return this;
+    }
+
+    /**
      * Asserts the last call queued NO {@code js} effects whatsoever (issue #73).
      *
      * @return this tester
@@ -1036,6 +1088,22 @@ public final class LievitTester<T> {
         List<String> queued = jsHandlerNames();
         if (!queued.isEmpty()) {
             throw new AssertionError("expected NO queued $js effects, but the call queued " + queued);
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last call queued NO {@code download} effect (issue #161): the action returned
+     * nothing downloadable, so the page simply re-rendered.
+     *
+     * @return this tester
+     */
+    public LievitTester<T> assertNoFileDownloaded() {
+        requireNotRejected("assertNoFileDownloaded()");
+        JsonNode download = lastEffects == null ? null : lastEffects.get("download");
+        if (download != null && !download.isNull()) {
+            throw new AssertionError(
+                    "expected NO file download, but one was queued: '" + downloadText(download, "name") + "'");
         }
         return this;
     }
@@ -1063,6 +1131,11 @@ public final class LievitTester<T> {
             out.add(a == null ? "null" : a instanceof String s ? '"' + s + '"' : String.valueOf(a));
         }
         return out;
+    }
+
+    private static @Nullable String downloadText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : value.asText();
     }
 
     private List<String> dispatchedNames() {

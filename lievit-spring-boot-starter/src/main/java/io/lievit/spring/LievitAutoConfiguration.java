@@ -24,6 +24,7 @@ import io.lievit.component.FieldValidator;
 import io.lievit.component.LifecycleBus;
 import io.lievit.component.LifecycleHooksListener;
 import io.lievit.component.LifecyclePhase;
+import io.lievit.component.LocaleListener;
 import io.lievit.component.MagicActionListener;
 import io.lievit.component.NoOpFieldValidator;
 import io.lievit.component.RedirectListener;
@@ -183,6 +184,10 @@ public class LievitAutoConfiguration {
         // first so boot/hydrate/updating run before the framework listeners.
         LifecycleHooksListener.registerOn(bus);
         SessionListener.registerOn(bus);
+        // Locale pinning (ADR-0037): capture the active locale into the snapshot memo on dehydrate,
+        // restore it on hydrate before render, so a wire update keeps the component's pinned locale
+        // instead of reverting to the fresh request default. No-ops when no LocaleSource is bound.
+        LocaleListener.registerOn(bus);
         bus.on(LifecyclePhase.CALL, new MagicActionListener(synthesizers));
         // RenderlessListener owns the render-skip tally for both @LievitRenderless and the
         // @LievitJson RPC actions (#99): both return without re-rendering.
@@ -383,6 +388,53 @@ public class LievitAutoConfiguration {
         io.lievit.upload.UploadConstraints constraints =
                 new io.lievit.upload.UploadConstraints(properties.getUploadMaxBytes(), java.util.Set.of());
         return new io.lievit.spring.upload.LievitUploadController(storage, signer, constraints);
+    }
+
+    /**
+     * The default local-filesystem {@link io.lievit.upload.FileStore} (issue #189): moves a validated
+     * {@link io.lievit.upload.TemporaryUploadedFile} from the temp area to a permanent root. Conditional
+     * on a missing bean, so an adopter wiring object storage (GCS / S3) replaces it ("ship a default,
+     * adopter adapts").
+     *
+     * @param storage the temp storage holding the uploaded bytes
+     * @param signer the temp-path signer (verifies a token before its bytes are moved)
+     * @param properties the bound configuration (permanent root)
+     * @return the local file store, rooted at {@code lievit.upload-store-dir} or {@code ${tmp}/lievit-files}
+     */
+    @Bean
+    @ConditionalOnMissingBean(io.lievit.upload.FileStore.class)
+    public io.lievit.upload.FileStore lievitFileStore(
+            io.lievit.spring.upload.TempFileStorage storage,
+            io.lievit.upload.TempFileSigner signer,
+            LievitProperties properties) {
+        String dir = properties.getUploadStoreDir();
+        java.nio.file.Path root =
+                dir != null && !dir.isBlank()
+                        ? java.nio.file.Path.of(dir)
+                        : java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "lievit-files");
+        return new io.lievit.spring.upload.LocalFileStore(storage, signer, root);
+    }
+
+    /**
+     * The temp-upload cleanup reaper (issue #191): deletes orphaned temp uploads (uploaded but never
+     * stored) older than {@code lievit.upload-cleanup-max-age}. The bean self-schedules a fixed-rate
+     * reap on its own daemon thread when {@code lievit.upload-cleanup-interval} is positive; a
+     * non-positive interval leaves it idle (callable on demand). No dependency on Spring's
+     * {@code @EnableScheduling}, so the reaper runs whether or not the app enabled scheduling.
+     *
+     * @param storage the temp storage to reap
+     * @param properties the bound configuration (max age + interval)
+     * @return the cleanup reaper (started)
+     */
+    @Bean(destroyMethod = "stop")
+    @ConditionalOnMissingBean
+    public io.lievit.spring.upload.TempUploadCleanup lievitUploadCleanup(
+            io.lievit.spring.upload.TempFileStorage storage, LievitProperties properties) {
+        io.lievit.spring.upload.TempUploadCleanup cleanup =
+                new io.lievit.spring.upload.TempUploadCleanup(
+                        storage, properties.getUploadCleanupMaxAge());
+        cleanup.start(properties.getUploadCleanupInterval());
+        return cleanup;
     }
 
     /**

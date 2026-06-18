@@ -51,15 +51,17 @@ public final class ComponentRegistry {
             ComponentMetadata metadata = ComponentMetadata.of(type);
             byClassName.put(type.getName(), metadata);
             beanNameByClassName.put(type.getName(), entry.getKey());
-            String name = ComponentNames.nameFor(type, metadata.template());
+            String name = ComponentNames.nameFor(type);
             String existing = classNameByName.putIfAbsent(name, type.getName());
             if (existing != null && !existing.equals(type.getName())) {
-                // Two components resolve to the same dotted name: the resolution would be ambiguous,
-                // so fail at startup rather than silently mounting whichever won the map race.
+                // Two components resolve to the same dotted name (same simple class name): the
+                // resolution would be ambiguous, so fail at startup rather than silently mounting
+                // whichever won the map race. Names come from the class, not the template, so two
+                // components may share a template but must not share a simple class name.
                 throw new IllegalStateException(
                         "two @LievitComponent classes resolve to the same name '" + name + "': "
                                 + existing + " and " + type.getName()
-                                + " (give one an explicit @LievitComponent(template=...))");
+                                + " (rename one class so their simple names differ)");
             }
         }
     }
@@ -142,7 +144,7 @@ public final class ComponentRegistry {
      */
     public String nameOf(String className) {
         ComponentMetadata metadata = metadata(className);
-        return ComponentNames.nameFor(metadata.type(), metadata.template());
+        return ComponentNames.nameFor(metadata.type());
     }
 
     /**
@@ -159,7 +161,7 @@ public final class ComponentRegistry {
         if (declared != null && !declared.isBlank()) {
             return ComponentNames.nameToPath(ComponentNames.pathToName(declared));
         }
-        return ComponentNames.nameToPath(ComponentNames.nameFor(metadata.type(), declared));
+        return ComponentNames.nameToPath(ComponentNames.nameFor(metadata.type()));
     }
 
     /**

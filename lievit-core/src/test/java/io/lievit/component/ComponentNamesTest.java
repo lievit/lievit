@@ -35,30 +35,29 @@ class ComponentNamesTest {
     }
 
     /**
-     * @spec.given a component class with a declared template "admin/users"
-     * @spec.when  its default name is derived
-     * @spec.then  the declared template wins, its slashes lowered to the name's dots
+     * @spec.given a component class that declares a template "admin/users"
+     * @spec.when  its name is derived
+     * @spec.then  the name comes from the CLASS, not the template, so a declared template does not
+     *     change the name (two components may share a template but keep distinct class-derived names)
      * @spec.adr   ADR-0023
      * @spec.us    US-183-component-finder
      */
     @Test
-    void declared_template_drives_the_name() {
-        assertThat(ComponentNames.nameFor(UserTableComponent.class, "admin/users"))
-                .isEqualTo("admin.users");
+    void name_comes_from_the_class_not_the_declared_template() {
+        assertThat(ComponentNames.nameFor(UserTableComponent.class)).isEqualTo("userTable");
     }
 
     /**
-     * @spec.given a component class with no declared template
-     * @spec.when  its default name is derived
+     * @spec.given a component class
+     * @spec.when  its name is derived
      * @spec.then  the simple class name is decapitalised and a trailing "Component" suffix dropped
      *     (UserTableComponent -> userTable, Plain -> plain)
      * @spec.adr   ADR-0023
      * @spec.us    US-183-component-finder
      */
     @Test
-    void name_falls_back_to_the_decapitalised_class_name_without_component_suffix() {
-        assertThat(ComponentNames.nameFor(UserTableComponent.class, "")).isEqualTo("userTable");
-        assertThat(ComponentNames.nameFor(Plain.class, "")).isEqualTo("plain");
-        assertThat(ComponentNames.nameFor(Plain.class, null)).isEqualTo("plain");
+    void name_is_the_decapitalised_class_name_without_component_suffix() {
+        assertThat(ComponentNames.nameFor(UserTableComponent.class)).isEqualTo("userTable");
+        assertThat(ComponentNames.nameFor(Plain.class)).isEqualTo("plain");
     }
 }

@@ -76,7 +76,17 @@ public final class LievitPageRenderer {
             @Nullable String csrfToken,
             @Nullable String nonce) {
         PageComponent page = PageComponent.of(componentType);
-        WireCallResult mounted = wireService.mountStamped(componentType.getName(), props);
+        // Bind the request's resolved locale (ADR-0037) so the mount captures it into the snapshot
+        // memo; the first wire update then restores it instead of reverting to the request default.
+        // LocaleContextHolder is already populated by Spring for this MVC request.
+        io.lievit.component.LocaleListener.bind(SpringLocaleSource.INSTANCE);
+        WireCallResult mounted;
+        try {
+            mounted = wireService.mountStamped(componentType.getName(), props);
+        } finally {
+            io.lievit.component.LocaleListener.clear();
+        }
+        // Auto-inject the runtime assets when an injector is configured (issue #121).
         String html = layoutRenderer.render(page.layout(), page.title(), mounted.html());
         if (assetInjector == null) {
             return html;

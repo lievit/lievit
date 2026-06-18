@@ -69,6 +69,14 @@ export interface Effects {
   readonly returns?: unknown;
   /** Per-field validation errors (`{field: [message, ...]}`) when real-time validation failed. */
   readonly errors?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * The field names a live `validateOnly` update revalidated (ADR-0038). When present, the runtime
+   * MERGES `errors` into the component's existing error bag: it clears exactly these fields, then
+   * applies `errors`, leaving untouched fields' errors in place. Absent on a full submit (the
+   * runtime then full-replaces the bag). This keeps a live edit to one field from wiping the error
+   * already shown on another field the user has not corrected yet.
+   */
+  readonly validatedFields?: readonly string[];
   /** The `@LievitUrl` query-string reflection (history push/replace), wire-protocol.md §5b. */
   readonly url?: UrlEffect;
   /** The island names a targeted call re-rendered (ADR-0024, #89): morph only these fragments. */
@@ -79,6 +87,22 @@ export interface Effects {
   readonly js?: readonly JsEffectCall[];
   /** The server-driven transition control for this update (`@LievitTransition`, #113). */
   readonly transition?: TransitionEffect;
+  /** A file the action returned for the browser to download (`$this.download`, #161). */
+  readonly download?: DownloadEffect;
+}
+
+/**
+ * The `download` effect (`$this.download`, #161): a file the action returned for the browser to
+ * save. The client decodes `content` (base64) into a Blob stamped with `type` and triggers a
+ * download named `name`; the HTML body still morphs (the download is additive, not a redirect).
+ */
+export interface DownloadEffect {
+  /** The file name the browser saves it as (may be a UTF-8 name). */
+  readonly name: string;
+  /** The file content, base64-encoded. */
+  readonly content: string;
+  /** The MIME content type stamped on the Blob. */
+  readonly type: string;
 }
 
 /**
@@ -121,12 +145,47 @@ export function applyUrlEffect(
   }
 }
 
+/** Triggers a browser download of a file (the `download` effect side-effect). Injectable for tests. */
+export type DownloadTrigger = (download: DownloadEffect) => void;
+
+/** Decodes a base64 string into bytes (browser `atob` is byte-per-char; map to a Uint8Array). */
+function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(base64);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * The default download trigger (`$this.download`, #161): decode the base64 content into a Blob
+ * stamped with the content type, then click a transient `<a download>` pointing at an object URL.
+ * Strict-CSP-safe (no inline script, a real anchor click). The object URL is revoked after the click.
+ *
+ * @param download the decoded download effect (name + base64 content + type)
+ */
+export const defaultDownloadTrigger: DownloadTrigger = (download) => {
+  const blob = new Blob([base64ToBytes(download.content)], { type: download.type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = download.name;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
+
 /**
  * Applies a decoded effects bag to the browser:
  * - `dispatch` events are re-emitted as DOM `CustomEvent`s on `window` (the cross-component bus);
  * - `errors` is surfaced as a `lievit:validation-errors` event (a validation feature renders them);
  * - `url` updates the address bar via the History API (no navigation), and is surfaced as a
  *   `lievit:url` event so the navigate feature can sync;
+ * - `download` triggers a browser download (the HTML body still morphs), before any redirect;
  * - `redirect` navigates last (it ends the page), applied after the dispatches so listeners react
  *   before navigation.
  *
@@ -135,11 +194,13 @@ export function applyUrlEffect(
  * @param effects the decoded bag, or `null` (a no-effects call: this is a no-op)
  * @param target the event target to dispatch on (defaults to `window`); injectable for tests
  * @param navigate the navigation function (defaults to `window.location.assign`); injectable
+ * @param triggerDownload the download trigger (defaults to {@link defaultDownloadTrigger}); injectable
  */
 export function applyEffects(
   effects: Effects | null,
   target: EventTarget = window,
   navigate: (url: string) => void = (url) => window.location.assign(url),
+  triggerDownload: DownloadTrigger = defaultDownloadTrigger,
 ): void {
   if (effects == null) {
     return;
@@ -153,6 +214,9 @@ export function applyEffects(
   if (effects.url != null) {
     applyUrlEffect(effects.url);
     target.dispatchEvent(new CustomEvent(URL_EFFECT_EVENT, { detail: effects.url }));
+  }
+  if (effects.download != null) {
+    triggerDownload(effects.download);
   }
   if (effects.redirect != null) {
     navigate(effects.redirect);

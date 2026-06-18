@@ -53,6 +53,25 @@ public class LievitProperties {
     /** Upload preview signed-token TTL (issue #159, the 30-min preview window). */
     private Duration uploadPreviewTtl = Duration.ofMinutes(30);
 
+    /**
+     * Permanent root the default local {@code FileStore} moves stored uploads under (issue #189).
+     * Default: {@code ${java.io.tmpdir}/lievit-files}. An adopter using object storage replaces the
+     * {@code FileStore} bean and ignores this.
+     */
+    private @Nullable String uploadStoreDir;
+
+    /**
+     * Max age a temp upload may reach before the cleanup reaper deletes it (issue #191). Default 24h;
+     * an orphaned temp file (uploaded but never stored) expires after this.
+     */
+    private Duration uploadCleanupMaxAge = Duration.ofHours(24);
+
+    /**
+     * How often the temp-upload cleanup reaper runs (issue #191). Default 1h. Set to {@code 0} (or a
+     * non-positive duration) to disable the scheduled reaper entirely.
+     */
+    private Duration uploadCleanupInterval = Duration.ofHours(1);
+
     /** Broadcast (live server→client push over SSE) settings (issue #304). Opt-in, disabled by default. */
     private final Broadcast broadcast = new Broadcast();
 
@@ -145,6 +164,30 @@ public class LievitProperties {
 
     public void setUploadPreviewTtl(Duration uploadPreviewTtl) {
         this.uploadPreviewTtl = uploadPreviewTtl;
+    }
+
+    public @Nullable String getUploadStoreDir() {
+        return uploadStoreDir;
+    }
+
+    public void setUploadStoreDir(@Nullable String uploadStoreDir) {
+        this.uploadStoreDir = uploadStoreDir;
+    }
+
+    public Duration getUploadCleanupMaxAge() {
+        return uploadCleanupMaxAge;
+    }
+
+    public void setUploadCleanupMaxAge(Duration uploadCleanupMaxAge) {
+        this.uploadCleanupMaxAge = uploadCleanupMaxAge;
+    }
+
+    public Duration getUploadCleanupInterval() {
+        return uploadCleanupInterval;
+    }
+
+    public void setUploadCleanupInterval(Duration uploadCleanupInterval) {
+        this.uploadCleanupInterval = uploadCleanupInterval;
     }
 
     public Broadcast getBroadcast() {
