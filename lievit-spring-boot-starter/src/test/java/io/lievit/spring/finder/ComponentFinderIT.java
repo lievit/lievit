@@ -31,28 +31,28 @@ class ComponentFinderIT {
     @Autowired LievitWireService wireService;
 
     /**
-     * @spec.given a component declared with template "finder/parent"
-     * @spec.when  its dotted name "finder.parent" is resolved through the registry
-     * @spec.then  it resolves to the component's FQN and maps to the "finder/parent" template path
-     *     (the Finder dotted-name convention)
+     * @spec.given a component class ParentBoxComponent declared with template "finder/parent"
+     * @spec.when  its class-derived name "parentBox" is resolved through the registry
+     * @spec.then  it resolves to the component's FQN and maps to its declared "finder/parent" template
+     *     path (the name comes from the class; the declared template stays the view path)
      * @spec.adr   ADR-0023
      * @spec.us    US-183-component-finder
      */
     @Test
     void a_dotted_name_resolves_to_the_component_and_its_template_path() {
-        assertThat(registry.resolveName("finder.parent"))
+        assertThat(registry.resolveName("parentBox"))
                 .isEqualTo(ParentBoxComponent.class.getName());
-        assertThat(registry.metadataByName("finder.parent").type())
+        assertThat(registry.metadataByName("parentBox").type())
                 .isEqualTo(ParentBoxComponent.class);
-        assertThat(registry.templatePath("finder.parent")).isEqualTo("finder/parent");
-        // The inverse: the FQN maps back to the dotted name (used to label a stack frame).
-        assertThat(registry.nameOf(ParentBoxComponent.class.getName())).isEqualTo("finder.parent");
+        assertThat(registry.templatePath("parentBox")).isEqualTo("finder/parent");
+        // The inverse: the FQN maps back to the class-derived name (used to label a stack frame).
+        assertThat(registry.nameOf(ParentBoxComponent.class.getName())).isEqualTo("parentBox");
     }
 
     /**
      * @spec.given a parent component that mounts one child
      * @spec.when  the parent is mounted (the child mounts nested inside it)
-     * @spec.then  the child recorded its parent's dotted name ("finder.parent") off the component
+     * @spec.then  the child recorded its parent's class-derived name ("parentBox") off the component
      *     stack during its own mount: the nested mount tracked the parent (the $parent foundation)
      * @spec.adr   ADR-0023
      * @spec.us    US-183-component-finder
@@ -61,6 +61,6 @@ class ComponentFinderIT {
     void a_nested_mount_records_its_parent_on_the_component_stack() {
         WireCallResult mounted = wireService.mount(ParentBoxComponent.class.getName());
 
-        assertThat(mounted.html()).contains("data-parent=\"finder.parent\"");
+        assertThat(mounted.html()).contains("data-parent=\"parentBox\"");
     }
 }
