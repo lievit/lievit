@@ -69,6 +69,14 @@ export interface Effects {
   readonly returns?: unknown;
   /** Per-field validation errors (`{field: [message, ...]}`) when real-time validation failed. */
   readonly errors?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * The field names a live `validateOnly` update revalidated (ADR-0038). When present, the runtime
+   * MERGES `errors` into the component's existing error bag: it clears exactly these fields, then
+   * applies `errors`, leaving untouched fields' errors in place. Absent on a full submit (the
+   * runtime then full-replaces the bag). This keeps a live edit to one field from wiping the error
+   * already shown on another field the user has not corrected yet.
+   */
+  readonly validatedFields?: readonly string[];
   /** The `@LievitUrl` query-string reflection (history push/replace), wire-protocol.md §5b. */
   readonly url?: UrlEffect;
   /** The island names a targeted call re-rendered (ADR-0024, #89): morph only these fragments. */

@@ -780,7 +780,24 @@ export class LievitRuntime {
     this.interceptors.sync(okOutcome);
 
     // Capture validation errors for the error directives before they fire on `afterCall` (#101).
-    this.lastErrors.set(state.root, response.effects?.errors ?? {});
+    // A live `validateOnly` update (ADR-0038) carries `validatedFields`: merge so editing one field
+    // does not wipe another field's still-shown error (clear the revalidated fields, then apply the
+    // new errors, keeping untouched fields). A submit has no `validatedFields`: full replace (the
+    // whole returned bag is authoritative).
+    const newErrors = response.effects?.errors ?? {};
+    const validatedFields = response.effects?.validatedFields;
+    if (validatedFields != null) {
+      const merged: Record<string, readonly string[]> = { ...(this.lastErrors.get(state.root) ?? {}) };
+      for (const field of validatedFields) {
+        delete merged[field];
+      }
+      for (const [field, messages] of Object.entries(newErrors)) {
+        merged[field] = messages;
+      }
+      this.lastErrors.set(state.root, merged);
+    } else {
+      this.lastErrors.set(state.root, newErrors);
+    }
     // Record the server transition control (#113, @LievitTransition) for THIS update so the
     // transition feature reads it across the morph; a no-transition call clears it (the static
     // `l:transition` markup then decides). A DOM stamp would be reconciled away by the morph.

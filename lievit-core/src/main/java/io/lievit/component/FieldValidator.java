@@ -4,8 +4,10 @@
  */
 package io.lievit.component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * SPI: validates a component instance after client updates have been applied and before any
@@ -37,4 +39,75 @@ public interface FieldValidator {
      *     {@code null} if the instance is valid
      */
     Map<String, List<String>> validate(Object instance);
+
+    /**
+     * Validates {@code instance} but surfaces only the violations of the field named {@code field}
+     * (Livewire {@code validateOnly($field)} parity, ADR-0038). This is the seam that powers
+     * real-time per-field validation on a {@code wire:model} update: when the user edits one field,
+     * the dispatcher validates and surfaces only that field's error, never the still-invalid
+     * neighbours' errors (which the user has not touched yet).
+     *
+     * <p>The default implementation runs the full {@link #validate(Object)} and filters the bag, so
+     * it works for any implementation, including a non-Bean-Validation custom validator. Matching
+     * rules (Livewire's dot/star convention):
+     *
+     * <ul>
+     *   <li><b>Exact</b>: a plain name ({@code "email"}) or a dotted form-object field
+     *       ({@code "form.email"}) matches the same key.
+     *   <li><b>Star</b>: a rule key containing {@code .*.} ({@code "items.*.qty"}) matches every
+     *       indexed array-element path Bean Validation produced ({@code "items[0].qty"},
+     *       {@code "items[1].qty"}), so one rule validates all elements of a {@code @Valid} collection.
+     * </ul>
+     *
+     * @param instance the rehydrated + updated component instance to validate
+     * @param field the field name (or dotted path, or {@code items.*.qty} star rule) to surface
+     * @return the violations for the matched field(s) only; empty when the field is valid
+     */
+    default Map<String, List<String>> validateOnly(Object instance, String field) {
+        Map<String, List<String>> all = validate(instance);
+        if (all == null || all.isEmpty()) {
+            return Map.of();
+        }
+        Pattern star = starPattern(field);
+        Map<String, List<String>> only = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : all.entrySet()) {
+            String key = entry.getKey();
+            boolean matches = star != null ? star.matcher(key).matches() : key.equals(field);
+            if (matches) {
+                only.put(key, entry.getValue());
+            }
+        }
+        return only;
+    }
+
+    /**
+     * Compiles a star rule key ({@code items.*.qty}) into a regex matching the indexed paths Bean
+     * Validation emits ({@code items[0].qty}). Returns {@code null} when {@code field} carries no
+     * {@code .*.} segment (an exact match is used instead). The {@code *} matches a single path
+     * segment's index; literal segments are quoted so a {@code .} matches only a dot.
+     */
+    private static Pattern starPattern(String field) {
+        if (!field.contains(".*.")) {
+            return null;
+        }
+        // Map the Livewire star convention onto Bean Validation's indexed container-element paths:
+        //   items.*.qty  ->  items[0].qty / items[1].qty / ...
+        // The ".*." before a property becomes "[<index>]." (the dot is kept, only the index varies).
+        StringBuilder regex = new StringBuilder();
+        String[] segments = field.split("\\.", -1);
+        boolean first = true;
+        for (String segment : segments) {
+            if (segment.equals("*")) {
+                // No separator dot before an index: it attaches to the preceding container segment.
+                regex.append("\\[\\d+\\]");
+            } else {
+                if (!first) {
+                    regex.append("\\.");
+                }
+                regex.append(Pattern.quote(segment));
+            }
+            first = false;
+        }
+        return Pattern.compile(regex.toString());
+    }
 }
