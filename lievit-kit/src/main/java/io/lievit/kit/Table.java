@@ -33,6 +33,9 @@ public final class Table<T> extends Schema<T, Table<T>> {
     private boolean striped;
     private String emptyStateHeading = "No records";
     private @Nullable String emptyStateDescription;
+    private final List<Group<T>> groups = new ArrayList<>();
+    private @Nullable String defaultGroup;
+    private @Nullable String reorderColumn;
 
     private Table() {}
 
@@ -160,6 +163,84 @@ public final class Table<T> extends Schema<T, Table<T>> {
         this.emptyStateHeading = Objects.requireNonNull(heading, "heading");
         this.emptyStateDescription = description;
         return this;
+    }
+
+    /**
+     * Registers the groupings the user can pick from (the Filament {@code Table::groups}). The first
+     * group becomes the {@link #defaultGroup() default} unless one is set explicitly.
+     *
+     * @param gs the groups
+     * @return this builder
+     */
+    @SafeVarargs
+    public final Table<T> groups(Group<T>... gs) {
+        for (Group<T> g : gs) {
+            groups.add(Objects.requireNonNull(g, "group"));
+        }
+        if (defaultGroup == null && !groups.isEmpty()) {
+            defaultGroup = groups.get(0).id();
+        }
+        return this;
+    }
+
+    /**
+     * Sets the grouping applied initially (the Filament {@code Table::defaultGroup}). Must match a
+     * registered group id.
+     *
+     * @param groupId the default group id
+     * @return this builder
+     */
+    public Table<T> defaultGroup(String groupId) {
+        this.defaultGroup = Objects.requireNonNull(groupId, "groupId");
+        return this;
+    }
+
+    /**
+     * Enables drag-to-reorder, persisting the new order to the given column (the Filament
+     * {@code Table::reorderable}). While reorder mode is active the conflicting sort is disabled;
+     * the page reads {@link #reorderColumn()} to know which column to write the new positions to.
+     *
+     * @param orderColumn the order column the new positions persist to
+     * @return this builder
+     */
+    public Table<T> reorderable(String orderColumn) {
+        this.reorderColumn = Objects.requireNonNull(orderColumn, "orderColumn");
+        return this;
+    }
+
+    /** @return the registered groups, in declaration order */
+    public List<Group<T>> groups() {
+        return Collections.unmodifiableList(groups);
+    }
+
+    /** @return the default group id, or {@code null} if grouping is off */
+    public @Nullable String defaultGroup() {
+        return defaultGroup;
+    }
+
+    /**
+     * Looks up a registered group by id.
+     *
+     * @param groupId the group id
+     * @return the group, or {@code null} if none matches
+     */
+    public @Nullable Group<T> group(String groupId) {
+        return groups.stream().filter(g -> g.id().equals(groupId)).findFirst().orElse(null);
+    }
+
+    /** @return whether any grouping is registered */
+    public boolean isGroupable() {
+        return !groups.isEmpty();
+    }
+
+    /** @return whether drag-to-reorder is enabled */
+    public boolean isReorderable() {
+        return reorderColumn != null;
+    }
+
+    /** @return the order column the reorder persists to, or {@code null} if reorder is off */
+    public @Nullable String reorderColumn() {
+        return reorderColumn;
     }
 
     /**

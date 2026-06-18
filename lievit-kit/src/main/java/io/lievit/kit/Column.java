@@ -4,9 +4,13 @@
  */
 package io.lievit.kit;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
 
@@ -33,6 +37,7 @@ public class Column<T> {
     private boolean toggledHiddenByDefault;
     private @Nullable String sortKey;
     private @Nullable String hiddenFrom;
+    private final List<Summarizer> summarizers = new ArrayList<>();
 
     /**
      * @param label the column header
@@ -152,6 +157,44 @@ public class Column<T> {
      */
     void setHiddenFrom(@Nullable String breakpoint) {
         this.hiddenFrom = breakpoint;
+    }
+
+    /**
+     * Attaches a footer/group summary to this column (the Filament {@code CanBeSummarized}). A
+     * column may carry several summarizers (e.g. a {@link Summarizer#sum()} and a
+     * {@link Summarizer#count()}); they render in declaration order under the column.
+     *
+     * @param summarizer the aggregate, must not be null
+     * @return this column
+     */
+    public Column<T> summarize(Summarizer summarizer) {
+        summarizers.add(Objects.requireNonNull(summarizer, "summarizer"));
+        return this;
+    }
+
+    /** @return the attached summarizers, in declaration order, as an unmodifiable snapshot */
+    public List<Summarizer> summarizers() {
+        return Collections.unmodifiableList(summarizers);
+    }
+
+    /** @return whether this column carries any summary */
+    public boolean isSummarized() {
+        return !summarizers.isEmpty();
+    }
+
+    /**
+     * Computes this column's summaries over a set of in-scope rows (the active page or all matching
+     * rows). Each summarizer folds the column's {@linkplain #rawValue(Object) raw cell values}.
+     *
+     * @param rows the in-scope rows
+     * @return the rendered {@code label -> value} summaries, in summarizer-declaration order
+     */
+    public List<ColumnSummary> summaries(List<? extends T> rows) {
+        List<@Nullable Object> values =
+                rows.stream().map(this::rawValue).collect(Collectors.toCollection(ArrayList::new));
+        return summarizers.stream()
+                .map(s -> new ColumnSummary(s.label(), s.summarize(values)))
+                .collect(Collectors.toUnmodifiableList());
     }
 
     /**
