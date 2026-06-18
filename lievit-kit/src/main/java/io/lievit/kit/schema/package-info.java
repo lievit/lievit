@@ -27,10 +27,26 @@
  * gate).
  *
  * <p><strong>Fields</strong>: {@link io.lievit.kit.schema.SchemaField} (the input base: label,
- * helper-text/hint/affixes, rule set), {@link io.lievit.kit.schema.TextInput},
- * {@link io.lievit.kit.schema.Checkbox}, {@link io.lievit.kit.schema.Radio},
- * {@link io.lievit.kit.schema.CheckboxList}, {@link io.lievit.kit.schema.Select} (searchable /
- * multiple / reactive options), {@link io.lievit.kit.schema.FileUpload}.
+ * helper-text/hint/affixes, rule set), {@link io.lievit.kit.schema.TextInput} (type / length / mask
+ * / datalist / revealable / icon affixes), {@link io.lievit.kit.schema.Checkbox},
+ * {@link io.lievit.kit.schema.Radio}, {@link io.lievit.kit.schema.CheckboxList},
+ * {@link io.lievit.kit.schema.Select} (searchable / multiple / reactive options),
+ * {@link io.lievit.kit.schema.FileUpload}, {@link io.lievit.kit.schema.KeyValue} (ordered map),
+ * {@link io.lievit.kit.schema.Repeater} (a repeated sub-schema with indexed per-item validation),
+ * {@link io.lievit.kit.schema.RichEditor} / {@link io.lievit.kit.schema.MarkdownEditor}, and the
+ * specialized inputs {@link io.lievit.kit.schema.DateTimePicker},
+ * {@link io.lievit.kit.schema.TimePicker}, {@link io.lievit.kit.schema.ColorPicker},
+ * {@link io.lievit.kit.schema.TagsInput}, {@link io.lievit.kit.schema.Slider},
+ * {@link io.lievit.kit.schema.ToggleButtons}, {@link io.lievit.kit.schema.Hidden},
+ * {@link io.lievit.kit.schema.OneTimeCodeInput}.
+ *
+ * <p><strong>Static display</strong> (non-input, never dehydrated, never validated):
+ * {@link io.lievit.kit.schema.Placeholder} (computed read-only value),
+ * {@link io.lievit.kit.schema.Text}, {@link io.lievit.kit.schema.Html},
+ * {@link io.lievit.kit.schema.Callout}.
+ *
+ * <p><strong>Infolists</strong>: the read-only View-page surface lives in the
+ * {@link io.lievit.kit.schema.infolist} subpackage.
  *
  * <p><strong>Validation</strong>: {@link io.lievit.kit.schema.Rule} +
  * {@link io.lievit.kit.schema.Rules} (the {@code CanBeValidated} surface decomposed: the conditional
