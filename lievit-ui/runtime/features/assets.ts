@@ -25,9 +25,16 @@
  *
  * This module is **self-contained** (no edit to the shared effects/runtime core): an app applies the
  * block by passing the parsed `assets` to {@link applyAssets} (e.g. from an `afterCall`/effects hook),
- * and a CSP nonce is threaded through when the page runs a nonce-based policy. Wiring it into the
- * global effect-apply loop is a one-line call the client owns.
+ * and a CSP nonce is threaded through when the page runs a nonce-based policy.
+ *
+ * {@link installAssets} wires {@link applyAssets} into the runtime's post-morph (afterCall) phase
+ * (#423, ADR-0081), mirroring `installScopedCss`: a registered interceptor calls
+ * `applyAssets(outcome.assets, document, outcome.nonce)` after every successful update, so per-update
+ * asset injection is on by default in `installAllFeatures`. The dedup state lives in the document (the
+ * injected markers), so a repeated block loads each asset exactly once.
  */
+
+import type { LievitRuntime } from "../runtime.js";
 
 /** One scoped-CSS style module (issue #129): the component, the CSS route href, and its content hash. */
 export interface StyleModuleAsset {
@@ -155,4 +162,24 @@ function hashString(value: string): string {
 /** Escapes a value for a CSS attribute selector (the dedup lookups). */
 function cssEscape(value: string): string {
   return value.replace(/["\\]/g, "\\$&");
+}
+
+/**
+ * Wires {@link applyAssets} into the runtime's post-morph (afterCall) phase (#423, ADR-0081). It
+ * registers a global interceptor whose `onMorph` runs `applyAssets(outcome.assets, document,
+ * outcome.nonce)` after every successful update, so a late-rendered component's scripts / head tags /
+ * scoped-CSS links load automatically, once per asset, under the strict CSP. The block and the page
+ * nonce ride the {@link import("../interceptors.js").InterceptorOutcome} the runtime builds. Mirrors
+ * `installScopedCss`; {@link applyAssets} itself is unchanged.
+ *
+ * @param runtime the started runtime to extend
+ * @param doc the document to inject into (defaults to `document`; injectable for tests)
+ * @returns an unsubscribe function removing the interceptor
+ */
+export function installAssets(runtime: LievitRuntime, doc: Document = document): () => void {
+  return runtime.intercept({
+    onMorph(outcome) {
+      applyAssets(outcome.assets, doc, outcome.nonce);
+    },
+  });
 }

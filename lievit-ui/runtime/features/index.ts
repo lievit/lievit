@@ -11,6 +11,7 @@
  */
 
 import type { LievitRuntime } from "../runtime.js";
+import { installAssets } from "./assets.js";
 import { installConfirm } from "./confirm.js";
 import { installCurrent } from "./current.js";
 import { installDirty } from "./dirty.js";
@@ -29,6 +30,12 @@ import { installTeleport } from "./teleport.js";
 import { installTransition } from "./transition.js";
 import { installUploads } from "./uploads.js";
 
+export {
+  installAssets,
+  applyAssets,
+  type AssetsBlock,
+  type StyleModuleAsset,
+} from "./assets.js";
 export { installConfirm, type ConfirmDialogs } from "./confirm.js";
 export { installCurrent, isCurrentPath } from "./current.js";
 export { installShow } from "./show.js";
@@ -93,6 +100,7 @@ export function installAllFeatures(
   runtime: LievitRuntime,
   options: { readonly uploads?: Parameters<typeof installUploads>[1] } = {},
 ): void {
+  installAssets(runtime);
   installConfirm(runtime);
   installShow(runtime);
   installIgnore(runtime);
