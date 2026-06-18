@@ -77,6 +77,58 @@ public final class Rules {
     }
 
     /**
+     * The {@code requiredWith} rule: required when any of the named sibling fields is present
+     * (non-blank). Reads the live state, so it has no Jakarta equivalent.
+     *
+     * @param otherPaths the sibling fields whose presence makes this field required
+     * @return the conditional-required rule
+     */
+    public static Rule requiredWith(String... otherPaths) {
+        String[] paths = otherPaths.clone();
+        return (value, ctx) -> {
+            for (String path : paths) {
+                if (!ctx.getString(path).isBlank()) {
+                    return isBlank(value) ? "This field is required." : null;
+                }
+            }
+            return null;
+        };
+    }
+
+    /**
+     * The {@code requiredWithout} rule: required when any of the named sibling fields is absent
+     * (blank). Reads the live state, so it has no Jakarta equivalent.
+     *
+     * @param otherPaths the sibling fields whose absence makes this field required
+     * @return the conditional-required rule
+     */
+    public static Rule requiredWithout(String... otherPaths) {
+        String[] paths = otherPaths.clone();
+        return (value, ctx) -> {
+            for (String path : paths) {
+                if (ctx.getString(path).isBlank()) {
+                    return isBlank(value) ? "This field is required." : null;
+                }
+            }
+            return null;
+        };
+    }
+
+    /**
+     * The {@code confirmed} rule: this field's value must equal its conventional confirmation sibling
+     * {@code <statePath>_confirmation} (the password-confirmation convention; cross-field, no Jakarta
+     * equivalent).
+     *
+     * @param statePath this field's own state path (its confirmation sibling is
+     *     {@code statePath + "_confirmation"})
+     * @return the confirmation rule
+     */
+    public static Rule confirmed(String statePath) {
+        Objects.requireNonNull(statePath, "statePath");
+        return same(statePath + "_confirmation");
+    }
+
+    /**
      * The {@code prohibitedIf} rule: must be empty when a sibling equals an expected value.
      *
      * @param otherPath the sibling field's state path
@@ -166,6 +218,45 @@ public final class Rules {
                         : "Must start with \"" + prefix + "\".";
     }
 
+    /**
+     * The {@code numeric} rule: the value must parse as a number (JSR-380 has no single equivalent;
+     * closest is a typed field). Blank passes (use {@code required} to forbid blank).
+     *
+     * @return the numeric-format rule
+     */
+    public static Rule numeric() {
+        return (value, ctx) -> {
+            if (isBlank(value)) {
+                return null;
+            }
+            try {
+                Double.parseDouble(String.valueOf(value).trim());
+                return null;
+            } catch (NumberFormatException e) {
+                return "Must be a number.";
+            }
+        };
+    }
+
+    /**
+     * The {@code integer} rule: the value must parse as a whole number (no fractional part).
+     *
+     * @return the integer-format rule
+     */
+    public static Rule integer() {
+        return (value, ctx) -> {
+            if (isBlank(value)) {
+                return null;
+            }
+            try {
+                Long.parseLong(String.valueOf(value).trim());
+                return null;
+            } catch (NumberFormatException e) {
+                return "Must be an integer.";
+            }
+        };
+    }
+
     // ── numeric / size ───────────────────────────────────────────────────────────
 
     /**
@@ -218,6 +309,79 @@ public final class Rules {
         };
     }
 
+    /**
+     * The field-aware {@code gt} rule: strictly greater than a sibling field's live numeric value
+     * (cross-field, no Jakarta equivalent).
+     *
+     * @param otherPath the sibling field's state path
+     * @return the cross-field comparison rule
+     */
+    public static Rule gt(String otherPath) {
+        Objects.requireNonNull(otherPath, "otherPath");
+        return (value, ctx) -> {
+            if (isBlank(value)) {
+                return null;
+            }
+            return toNumber(value) <= toNumber(ctx.get(otherPath))
+                    ? "Must be greater than " + otherPath + "."
+                    : null;
+        };
+    }
+
+    /**
+     * The field-aware {@code lt} rule: strictly less than a sibling field's live numeric value.
+     *
+     * @param otherPath the sibling field's state path
+     * @return the cross-field comparison rule
+     */
+    public static Rule lt(String otherPath) {
+        Objects.requireNonNull(otherPath, "otherPath");
+        return (value, ctx) -> {
+            if (isBlank(value)) {
+                return null;
+            }
+            return toNumber(value) >= toNumber(ctx.get(otherPath))
+                    ? "Must be less than " + otherPath + "."
+                    : null;
+        };
+    }
+
+    /**
+     * The field-aware {@code lte} rule: less than or equal to a sibling field's live numeric value.
+     *
+     * @param otherPath the sibling field's state path
+     * @return the cross-field comparison rule
+     */
+    public static Rule lte(String otherPath) {
+        Objects.requireNonNull(otherPath, "otherPath");
+        return (value, ctx) -> {
+            if (isBlank(value)) {
+                return null;
+            }
+            return toNumber(value) > toNumber(ctx.get(otherPath))
+                    ? "Must be less than or equal to " + otherPath + "."
+                    : null;
+        };
+    }
+
+    /**
+     * The {@code between} rule: a string's length or a number's value is within an inclusive range
+     * (JSR-380 {@code @Size(min,max)} / {@code @Min}+{@code @Max}).
+     *
+     * @param min the inclusive lower bound
+     * @param max the inclusive upper bound
+     * @return the range rule
+     */
+    public static Rule between(long min, long max) {
+        return (value, ctx) -> {
+            if (isBlank(value)) {
+                return null;
+            }
+            long size = sizeOf(value);
+            return size < min || size > max ? "Must be between " + min + " and " + max + "." : null;
+        };
+    }
+
     // ── set membership ───────────────────────────────────────────────────────────
 
     /**
@@ -235,6 +399,20 @@ public final class Rules {
     }
 
     /**
+     * The {@code notIn} rule: the value must NOT be one of a disallowed set.
+     *
+     * @param disallowed the disallowed values
+     * @return the exclusion rule
+     */
+    public static Rule notIn(Collection<?> disallowed) {
+        Set<String> set = Set.copyOf(disallowed.stream().map(String::valueOf).toList());
+        return (value, ctx) ->
+                isBlank(value) || !set.contains(String.valueOf(value))
+                        ? null
+                        : "The selected value is invalid.";
+    }
+
+    /**
      * The {@code same} rule: this field's value must equal a sibling field's value (the
      * password-confirmation pattern; cross-field, no Jakarta equivalent).
      *
@@ -247,6 +425,21 @@ public final class Rules {
                 Objects.equals(String.valueOf(value), ctx.getString(otherPath))
                         ? null
                         : "Must match " + otherPath + ".";
+    }
+
+    /**
+     * The {@code different} rule: this field's value must differ from a sibling field's value
+     * (cross-field, no Jakarta equivalent).
+     *
+     * @param otherPath the sibling field's state path
+     * @return the inequality rule
+     */
+    public static Rule different(String otherPath) {
+        Objects.requireNonNull(otherPath, "otherPath");
+        return (value, ctx) ->
+                Objects.equals(String.valueOf(value), ctx.getString(otherPath))
+                        ? "Must be different from " + otherPath + "."
+                        : null;
     }
 
     // ── db-backed ──────────────────────────────────────────────────────────────────
