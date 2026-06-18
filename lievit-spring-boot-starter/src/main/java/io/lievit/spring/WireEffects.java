@@ -11,6 +11,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.lievit.component.DispatchedEvent;
+import io.lievit.component.DownloadEffect;
 import io.lievit.component.LievitEffects;
 
 /**
@@ -40,7 +41,8 @@ public record WireEffects(
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> islands,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Js> js,
         @Nullable String release,
-        @Nullable Transition transition) {
+        @Nullable Transition transition,
+        @Nullable Download download) {
 
     /**
      * One queued browser event, the serialized {@link DispatchedEvent}. The {@code to} / {@code self}
@@ -84,6 +86,19 @@ public record WireEffects(
             @Nullable Boolean skip, @Nullable Integer duration, @Nullable String name) {}
 
     /**
+     * The serialized {@code download} effect ({@code $this.download}, issue #161): the file name, its
+     * base64 content, and the content type. The client decodes {@code content} into a Blob stamped
+     * with {@code type} and triggers a browser download named {@code name}; the HTML body still
+     * morphs. The reserved {@code download} key of wire-protocol.md §5b.
+     *
+     * @param name the download file name
+     * @param content the file content, base64-encoded
+     * @param type the MIME content type
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Download(String name, String content, String type) {}
+
+    /**
      * Projects the core effects sink into its wire form.
      *
      * @param effects the per-call effects sink
@@ -108,7 +123,15 @@ public record WireEffects(
                 effects.islands(),
                 jsCalls,
                 effects.release(),
-                toTransition(effects.transition()));
+                toTransition(effects.transition()),
+                toDownload(effects.download()));
+    }
+
+    private static @Nullable Download toDownload(@Nullable DownloadEffect d) {
+        if (d == null) {
+            return null;
+        }
+        return new Download(d.name(), d.base64(), d.contentType());
     }
 
     private static @Nullable Transition toTransition(

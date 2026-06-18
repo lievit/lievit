@@ -86,6 +86,80 @@ function fetchTransport(options: UploadOptions): UploadTransport {
   };
 }
 
+/** One presigned direct-upload descriptor, the client mirror of the server `DirectUpload` (#191). */
+export interface DirectUploadDescriptor {
+  /** The presigned URL to PUT the bytes to (single object). */
+  readonly url: string;
+  /** The HTTP method to use (typically `PUT`). */
+  readonly method: string;
+  /** Headers the PUT must carry (e.g. a bound `Content-Type`). */
+  readonly headers?: Record<string, string>;
+  /** The object key the component records once the PUT succeeds. */
+  readonly key: string;
+}
+
+/** Options for {@link directUploadTransport}: the presign endpoint + CSRF (for the presign POST). */
+export interface DirectUploadOptions {
+  readonly presignEndpoint?: string;
+  readonly csrfToken?: string;
+  readonly csrfHeader?: string;
+}
+
+/**
+ * A {@link UploadTransport} that uploads <strong>directly to object storage</strong> (#191): it asks
+ * the server's presign endpoint for one presigned descriptor per file, PUTs each file straight to
+ * its presigned URL (the bytes never proxy through the app), and returns refs whose `path` is the
+ * recorded object key. The multiple+direct constraint holds per-file: one presigned PUT per file
+ * (Livewire's `S3DoesntSupportMultipleFileUploads`), issued here as N sequential PUTs.
+ *
+ * @param options the presign endpoint + CSRF for the presign POST
+ * @returns a transport that presigns then PUTs each file directly
+ */
+export function directUploadTransport(options: DirectUploadOptions = {}): UploadTransport {
+  const presignEndpoint = options.presignEndpoint ?? "/lievit/upload/presign";
+  return {
+    upload: async (files, onProgress, signal) => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (options.csrfToken != null) {
+        headers[options.csrfHeader ?? "X-CSRF-TOKEN"] = options.csrfToken;
+      }
+      onProgress(0);
+      const presignResponse = await fetch(presignEndpoint, {
+        method: "POST",
+        headers,
+        credentials: "same-origin",
+        signal,
+        body: JSON.stringify({
+          files: files.map((f) => ({ name: f.name, contentType: f.type })),
+        }),
+      });
+      if (!presignResponse.ok) {
+        throw new Error(`presign failed: ${presignResponse.status}`);
+      }
+      const { uploads } = (await presignResponse.json()) as { uploads: DirectUploadDescriptor[] };
+
+      const refs: TempFileRef[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const descriptor = uploads[i];
+        const putResponse = await fetch(descriptor.url, {
+          method: descriptor.method,
+          headers: descriptor.headers ?? {},
+          body: file,
+          signal,
+        });
+        if (!putResponse.ok) {
+          throw new Error(`direct upload failed: ${putResponse.status}`);
+        }
+        // The component records the storage key; no temp token, the bytes are already permanent.
+        refs.push({ path: descriptor.key, name: file.name, size: file.size, mime: file.type });
+        onProgress((i + 1) / files.length);
+      }
+      return refs;
+    },
+  };
+}
+
 /**
  * Installs file-upload handling on a runtime: a directive bound to file inputs carrying `l:model`.
  * (It registers under the `model` name but only acts on `<input type=file>`, delegating non-file
