@@ -18,6 +18,7 @@ import io.lievit.wire.synth.builtin.BigDecimalSynthesizer;
 import io.lievit.wire.synth.builtin.BigIntegerSynthesizer;
 import io.lievit.wire.synth.builtin.ByteArraySynthesizer;
 import io.lievit.wire.synth.builtin.CollectionSynthesizer;
+import io.lievit.wire.synth.builtin.DynamicObjectSynthesizer;
 import io.lievit.wire.synth.builtin.EnumSynthesizer;
 import io.lievit.wire.synth.builtin.MapSynthesizer;
 import io.lievit.wire.synth.builtin.RecordSynthesizer;
@@ -33,7 +34,9 @@ import io.lievit.wire.synth.builtin.WireableSynthesizer;
  * backward compatible (the Counter snapshot is byte-for-byte identical).
  *
  * <p>The default registry ships the JVM analogues of Livewire's synth set, most-specific-first:
- * {@link WireableSynthesizer} (a user opt-in type wins over reflection), {@link TemporalSynthesizer}
+ * {@link WireableSynthesizer} (a user opt-in type wins over reflection),
+ * {@link io.lievit.wire.synth.builtin.DynamicObjectSynthesizer} (the schemaless {@link DynamicObject}
+ * stdClass analogue, issue #137), {@link TemporalSynthesizer}
  * (date / time), {@link EnumSynthesizer} (incl. update-from-string), {@link BigDecimalSynthesizer},
  * {@link BigIntegerSynthesizer}, {@link UuidSynthesizer}, {@link CollectionSynthesizer}
  * (List / Set), {@link MapSynthesizer} (non-String-keyed maps), and {@link RecordSynthesizer} (the
@@ -73,6 +76,7 @@ public final class SynthesizerRegistry {
     private static List<Synthesizer<?>> defaultSynthesizers() {
         List<Synthesizer<?>> list = new ArrayList<>();
         list.add(new WireableSynthesizer());
+        list.add(new DynamicObjectSynthesizer());
         list.add(new TemporalSynthesizer());
         list.add(new EnumSynthesizer());
         list.add(new BigDecimalSynthesizer());
