@@ -25,6 +25,18 @@ describe("isCurrentPath (#81)", () => {
   it("ignores a trailing slash difference", () => {
     expect(isCurrentPath("/about/", "/about", true)).toBe(true);
   });
+
+  it("strict mode treats a trailing-slash difference as a non-match", () => {
+    // .strict (#81): /about/ and /about are NOT the same path when strict trailing-slash is on.
+    expect(isCurrentPath("/about/", "/about", true, true)).toBe(false);
+    expect(isCurrentPath("/about", "/about", true, true)).toBe(true);
+  });
+
+  it("strict section match still requires an exact trailing slash on the boundary", () => {
+    // Section + strict: /posts marks /posts/3 active, but /posts/ vs /posts no longer collapses.
+    expect(isCurrentPath("/posts", "/posts/3", false, true)).toBe(true);
+    expect(isCurrentPath("/posts/", "/posts", false, true)).toBe(false);
+  });
 });
 
 /** A minimal fake window with a settable pathname + an event target for navigation events. */
@@ -55,8 +67,40 @@ describe("l:current directive (#81)", () => {
     const [posts, users] = Array.from(document.querySelectorAll("a"));
     expect(posts.classList.contains("active")).toBe(true);
     expect(posts.getAttribute("aria-current")).toBe("page");
+    expect(posts.getAttribute("data-current")).toBe("");
     expect(users.classList.contains("active")).toBe(false);
     expect(users.hasAttribute("aria-current")).toBe(false);
+    expect(users.hasAttribute("data-current")).toBe(false);
+  });
+
+  it("stamps data-current as a parity flag and drops it when no longer current", () => {
+    const win = fakeWin("/posts");
+    document.body.innerHTML =
+      '<div data-lievit-component="Nav" data-lievit-id="n" data-lievit-snapshot="s">' +
+      '<a href="https://app.test/posts" l:current>Posts</a></div>';
+    const rt = new LievitRuntime();
+    installCurrent(rt, win);
+    rt.start();
+
+    const a = document.querySelector("a")!;
+    expect(a.getAttribute("data-current")).toBe("");
+
+    (win.location as { pathname: string }).pathname = "/users";
+    win.dispatchEvent(new CustomEvent("lievit:navigated"));
+    expect(a.hasAttribute("data-current")).toBe(false);
+  });
+
+  it("honors the .strict modifier on the directive", () => {
+    document.body.innerHTML =
+      '<div data-lievit-component="Nav" data-lievit-id="n" data-lievit-snapshot="s">' +
+      '<a href="https://app.test/about/" l:current.exact.strict>About</a></div>';
+    const rt = new LievitRuntime();
+    installCurrent(rt, fakeWin("/about"));
+    rt.start();
+
+    const a = document.querySelector("a")!;
+    // /about/ vs /about: a trailing-slash difference is NOT a match under .strict.
+    expect(a.classList.contains("active")).toBe(false);
   });
 
   it("applies a custom class list from the directive value", () => {

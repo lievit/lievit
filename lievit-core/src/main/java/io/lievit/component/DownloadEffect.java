@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- * The {@code download} effect ({@code $this.download}, issue #161, ADR-0037): an action returns a
+ * The {@code download} effect ({@code $this.download}, issue #161, ADR-0044): an action returns a
  * file to the browser as a download instead of a page swap. The bytes ride the {@code Lievit-Effects}
  * header base64-encoded, with the file name + content type; the client decodes them into a Blob and
  * triggers a browser download, while the component still re-renders (the HTML body morphs as usual).

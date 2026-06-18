@@ -77,4 +77,28 @@ describe("installScopedCss integration (#129)", () => {
       Array.from(document.querySelectorAll("[data-lievit-scope]")).map((e) => e.getAttribute("data-lievit-id")),
     ).toEqual(["a", "b"]);
   });
+
+  it("scopes a deeply-namespaced component so its rule cannot leak to a sibling component", () => {
+    // The issue's core AC: scoped style applies ONLY to the component subtree; a namespaced name
+    // resolves. A foreign component carrying the same class must NOT pick up the scoped selector.
+    document.body.innerHTML =
+      '<div data-lievit-component="com.acme.ui.deep.Modal" data-lievit-id="m" data-lievit-snapshot="s">' +
+      "<style l:scope>.box { color: red; }</style><div class=\"box\">owned</div></div>" +
+      '<div data-lievit-component="Other" data-lievit-id="o" data-lievit-snapshot="s">' +
+      '<div class="box">foreign</div></div>';
+    const rt = new LievitRuntime();
+    installScopedCss(rt);
+    rt.start();
+
+    const sheet = document.head.querySelector("style[data-lievit-scoped-style]")!;
+    // The selector is namespaced-name-scoped and only the Modal root is stamped with it.
+    expect(sheet.textContent).toBe('[data-lievit-scope="com-acme-ui-deep-Modal"] .box { color: red; }');
+    const modal = document.querySelector('[data-lievit-component="com.acme.ui.deep.Modal"]')!;
+    const other = document.querySelector('[data-lievit-component="Other"]')!;
+    expect(modal.getAttribute("data-lievit-scope")).toBe("com-acme-ui-deep-Modal");
+    // The foreign component carries its OWN scope, never the Modal's, so the scoped `.box` rule
+    // (which requires `[data-lievit-scope="com-acme-ui-deep-Modal"]`) cannot match it.
+    expect(other.getAttribute("data-lievit-scope")).toBe("Other");
+    expect(other.getAttribute("data-lievit-scope")).not.toBe("com-acme-ui-deep-Modal");
+  });
 });

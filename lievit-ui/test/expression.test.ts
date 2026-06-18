@@ -63,5 +63,21 @@ describe("CSP-safe expression evaluation (#127)", () => {
     it("rejects an unterminated string", () => {
       expect(() => parseExpression("x == 'oops")).toThrow(ExpressionError);
     });
+    it("rejects an arrow function (the canonical inline-JS attack, #127)", () => {
+      expect(() => parseExpression("() => fetch('/x')")).toThrow(ExpressionError);
+      expect(() => parseExpression("x => x.evil")).toThrow(ExpressionError);
+    });
+    it("rejects an IIFE (#127)", () => {
+      expect(() => parseExpression("(function(){return 1})()")).toThrow(ExpressionError);
+    });
+    it("rejects member access into a global (no escape to window/document, #127)", () => {
+      expect(() => parseExpression("document.cookie")).not.toThrow();
+      // a dotted path is a *scope* read, never a global: it resolves against the flat scope only.
+      expect(evaluate("document.cookie", {})).toBeUndefined();
+    });
+    it("rejects assignment / sequence operators (#127)", () => {
+      expect(() => parseExpression("x = 1")).toThrow(ExpressionError);
+      expect(() => parseExpression("a, b")).toThrow(ExpressionError);
+    });
   });
 });
