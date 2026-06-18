@@ -8,7 +8,9 @@
  * {@link io.lievit.wire.synth.SynthesizerRegistry} that dehydrates a non-primitive {@code @Wire}
  * value to a {@code {@literal @}w}-tagged tuple and hydrates it back to the exact Java type
  * (ADR-0020). A {@link io.lievit.wire.synth.Wireable} user type opts into round-trip without a
- * bespoke synth. The {@link io.lievit.wire.synth.ClassInstantiationGuard} gates reflective
+ * bespoke synth. A {@link io.lievit.wire.synth.DynamicObject} is a schemaless, open-shape property
+ * (the stdClass analogue) whose dotted-path keys are created on set and round-trip as plain JSON
+ * (ADR-0065). The {@link io.lievit.wire.synth.ClassInstantiationGuard} gates reflective
  * instantiation on the hydrate path (ADR-0021). Pure Java, zero Spring (ADR-0007).
  */
 @NullMarked
