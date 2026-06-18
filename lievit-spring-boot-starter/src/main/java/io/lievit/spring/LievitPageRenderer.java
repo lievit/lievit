@@ -21,7 +21,7 @@ import io.lievit.component.PageComponent;
  * client hydrates the page-level component and drives its wire calls (the per-component endpoint).
  * The layout / title declarations are reflected once and cached by {@link PageComponent}.
  *
- * <p>When an {@link LievitAssetInjector} is configured (issue #121, ADR-0037), the runtime assets are
+ * <p>When an {@link LievitAssetInjector} is configured (issue #121, ADR-0039), the runtime assets are
  * injected into the rendered page so a host needs no manual script/style tags. The page renderer is
  * always invoked from a mounted {@code @LievitPage} component, so "a component rendered" is true by
  * construction here; non-lievit routes never reach this renderer and stay clean. Injection is skipped

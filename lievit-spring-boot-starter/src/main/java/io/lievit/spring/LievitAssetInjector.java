@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Injects lievit's runtime {@code <style>} (before {@code </head>}) and {@code <script>} (before
  * {@code </body>}) into a full-page HTML document so a host app gets the client runtime with zero
- * manual tags (issue #121, ADR-0037; Livewire's {@code SupportAutoInjectedAssets}). It is the
+ * manual tags (issue #121, ADR-0039; Livewire's {@code SupportAutoInjectedAssets}). It is the
  * deterministic string surgery only: the decision of <em>whether</em> a lievit component rendered on
  * the page (so non-lievit pages stay clean) is the caller's (the {@link LievitPageRenderer} only
  * ever produces a page from a mounted component, so injection there is unconditional; a future MVC

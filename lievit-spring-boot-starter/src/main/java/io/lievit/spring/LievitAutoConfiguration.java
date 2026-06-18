@@ -490,7 +490,7 @@ public class LievitAutoConfiguration {
     }
 
     /**
-     * The runtime-asset injector (issue #121, ADR-0037): auto-injects lievit's runtime
+     * The runtime-asset injector (issue #121, ADR-0039): auto-injects lievit's runtime
      * {@code <script>} / {@code <style>} into full-page responses so a host app gets the client
      * runtime with no manual tags. Enabled by default; turn it off with
      * {@code lievit.assets.enabled=false} for an app that wires the runtime itself.

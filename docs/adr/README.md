@@ -8,8 +8,7 @@ The point is honesty: a future contributor (or future me) can re-evaluate a deci
 full context that produced it, instead of guessing from the code.
 
 Most of these foundational ADRs are transcribed from the project's locked design decisions, so
-they are `accepted`. The module-packaging ADR (0008) is `proposed`: it records a genuinely open
-question and is pending a final call.
+they are `accepted`. Each entry's status is shown in the index below.
 
 ## Index
 
@@ -20,21 +19,21 @@ question and is pending a final call.
 - [ADR-0005](0005-theming-zero-css-default.md): Zero-CSS default, opt-in theme package. **accepted**
 - [ADR-0006](0006-graalvm-native-day-one.md): GraalVM native day one, zero runtime reflection. **accepted**
 - [ADR-0007](0007-quality-gates.md): No-compromise quality gates. **accepted**
-- [ADR-0008](0008-module-packaging.md): Module packaging (one starter, modular internals). **proposed (DECISION PENDING)**
+- [ADR-0008](0008-module-packaging.md): Module packaging (one starter, modular internals). **accepted (amended 2026-06-17, admin moved in-monorepo)**
 - [ADR-0009](0009-lievit-ui-copy-in-registry.md): lievit-ui is a copy-in component registry, not a Maven artifact. **accepted**
-- [ADR-0010](0010-dev-test-harness.md): `Lievit.test()` — the developer-facing component test harness. **proposed**
-- [ADR-0011](0011-lievit-ui-v0.1-registry-decisions.md): lievit-ui v0.1 registry decisions (manifest, config, tokens, light-DOM). **accepted**
-- [ADR-0012](0012-effects-channel.md): The effects channel (HTML body + `Lievit-Effects` header). Amends ADR-0001's response shape. **accepted**
+- [ADR-0010](0010-dev-test-harness.md): `Lievit.test()` — the developer-facing component test harness. **accepted**
+- [ADR-0011](0011-lievit-ui-v0.1-registry-decisions.md): lievit-ui v0.1 registry decisions. **accepted**
+- [ADR-0012](0012-effects-channel.md): The effects channel (HTML body + `Lievit-Effects` header). **accepted**
 - [ADR-0013](0013-payload-hardening.md): Payload hardening — settable/callable allowlist, deserialization allowlist, structural caps. **accepted**
 - [ADR-0014](0014-fail-closed-error-rendering.md): Fail-closed, leak-free error rendering + the wire endpoint's security context. **accepted**
-- [ADR-0015](0015-computed-properties.md): `@LievitComputed` per-request computed properties (memoized per wire call, not serialized). **accepted**
-- [ADR-0016](0016-nested-components.md): Nested components (keyed children, reactive props, modelable two-way bind). Closes ADR-0001's open `children` carve-out. **accepted**
+- [ADR-0015](0015-computed-properties.md): `@LievitComputed` — computed properties with per-request memoization. **accepted (supersedes ADR-0002 on the seven-annotation cap)**
+- [ADR-0016](0016-nested-components.md): Nested components (keyed children, reactive props, modelable two-way bind). **accepted**
 - [ADR-0017](0017-form-objects.md): Form objects — grouped fields with co-located validation. **accepted**
 - [ADR-0018](0018-single-file-dsl.md): The single-file DSL render path (a type-safe HTML builder + a TemplateAdapter). **accepted**
-- [ADR-0019](0019-client-runtime-bundle.md): The client runtime bundle (wire glue, bespoke morph, directive + lifecycle extension points). **accepted**
-- [ADR-0020](0020-typed-state-synthesizers.md): Typed-state round-trip — a synthesizer registry + `Wireable` SPI (a non-primitive `@Wire` value dehydrates to a `{d,s,t}` tuple and hydrates to the exact type). **accepted**
-- [ADR-0021](0021-class-instantiation-guard.md): Class-instantiation guard for the synthesizer hydrate path (default-deny by gadget-prone root, under the ADR-0013 allowlist). **accepted**
-- [ADR-0022](0022-request-lifecycle-bus.md): Request lifecycle — ordered phases + a `trigger()` interceptor bus (updated-after-all, early-return, render-skippable, dehydrate memo). **accepted**
+- [ADR-0019](0019-client-runtime-bundle.md): The client runtime bundle (wire glue, bespoke morph, extension points). **accepted**
+- [ADR-0020](0020-typed-state-synthesizers.md): Typed-state round-trip — a synthesizer registry + Wireable SPI. **accepted**
+- [ADR-0021](0021-class-instantiation-guard.md): Class-instantiation guard for the synthesizer path. **accepted**
+- [ADR-0022](0022-request-lifecycle-bus.md): Request lifecycle — ordered phases + a trigger() interceptor bus. **accepted**
 - [ADR-0023](0023-v4-compiler-and-deterministic-keys.md): The v4 compiler layer (single-file compilation, `<lievit:...>` tag compilation, deterministic keys). **accepted**
 - [ADR-0024](0024-v4-client-convergence.md): Livewire v4 client convergence — interceptors, surgical merge, islands, v4 directives. **accepted**
 - [ADR-0030](0030-runtime-parity-events-lifecycle-magic-redirects.md): Runtime parity — events, full lifecycle hooks, magic actions, redirects. **accepted**
@@ -44,9 +43,14 @@ question and is pending a final call.
 - [ADR-0034](0034-transition-effect-and-large-payload-encoding.md): `@LievitTransition` server effect + large-payload binary encoding. **accepted**
 - [ADR-0035](0035-streaming-sse-endpoint.md): Streaming server half — a live `LievitStream` sink + an SSE endpoint. **accepted**
 - [ADR-0036](0036-lazy-deferred-components.md): Lazy / deferred components — `@LievitLazy`, placeholder mount, `$refresh` load. **accepted**
-- [ADR-0037](0037-locale-pinning-memo.md): Locale pinning across the stateless round trip — a `LocaleListener` captures the active locale into the snapshot memo on dehydrate and restores it (`LocaleContextHolder`) on hydrate before render, so `MessageSource` resolves in the component's pinned locale on every wire update (#169, #143). **accepted**
-- [ADR-0038](0038-validation-depth.md): Validation depth — `validateOnly` real-time per-field validation, the imperative error bag (`addError` / `resetValidation` / `errorBagExcept`), `items.*.qty` array-element rules over Bean Validation's `@Valid` cascade, and a `validatedFields` client merge. No parallel engine (#185, #187). **accepted**
-- [ADR-0040](0040-realtime-broadcast-channel-sse.md): The realtime broadcast channel (server→client push over SSE) + broadcast notifications (#304) and the Echo-listener bridge (#45). Opt-in, per-user, `SseEmitter`-based. **accepted**
+- [ADR-0037](0037-locale-pinning-memo.md): Locale pinning across the stateless round trip (MessageSource + memo). **accepted**
+- [ADR-0038](0038-validation-depth.md): Validation depth — validateOnly, the imperative error bag, array-element rules. **accepted**
+- [ADR-0039](0039-auto-injected-runtime-assets.md): Auto-injected runtime assets on full-page responses. **accepted**
+- [ADR-0040](0040-realtime-broadcast-channel-sse.md): The realtime broadcast channel (server→client push over SSE). **accepted**
+- [ADR-0041](0041-with-method-extra-view-data.md): `with()` extra view data (a convention-named render contribution). **accepted**
+- [ADR-0042](0042-component-finder-factory-naming.md): Component discovery, factory, and naming (Finder / Factory / component stack). **accepted**
+- [ADR-0043](0043-kit-actions-and-validation-view-models.md): Custom actions, bulk action grouping/selection, and the field validation builder. **accepted**
+- [ADR-0044](0044-uploads-and-download-effect.md): File uploads (signed temp files + direct upload) and the `download` effect. **accepted**
 
 ## How to add an ADR
 

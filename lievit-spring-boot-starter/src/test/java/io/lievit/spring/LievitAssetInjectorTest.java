@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit-level pin of the auto-injected-assets string surgery (issue #121, ADR-0037): the
+ * Unit-level pin of the auto-injected-assets string surgery (issue #121, ADR-0039): the
  * {@link LievitAssetInjector} injects the runtime script before {@code </body>} and the style before
  * {@code </head>}, is robust to malformed / oddly-cased markup, is idempotent (never double-loads),
  * and stamps the CSRF token + CSP nonce onto the injected tags. Pure logic, no Spring context.
@@ -25,7 +25,7 @@ class LievitAssetInjectorTest {
      * @spec.when  the assets are injected with no csrf and no nonce
      * @spec.then  the stylesheet lands before {@code </head>}, the script before {@code </body>} with
      *     the {@code data-update-uri} bootstrap attribute, and the original body markup is preserved
-     * @spec.adr   ADR-0037
+     * @spec.adr   ADR-0039
      * @spec.us    US-121-auto-inject-assets
      */
     @Test
@@ -46,7 +46,7 @@ class LievitAssetInjectorTest {
      * @spec.when  the injector runs again over it
      * @spec.then  it is left byte-for-byte unchanged: an explicit include plus the fallback cannot
      *     load the runtime twice
-     * @spec.adr   ADR-0037
+     * @spec.adr   ADR-0039
      */
     @Test
     void is_idempotent_when_the_runtime_is_already_present() {
@@ -61,7 +61,7 @@ class LievitAssetInjectorTest {
      * @spec.then  the script still lands before the uppercase {@code </BODY>} (case-insensitive
      *     match) and the style is prepended when no {@code </head>} exists, so a malformed page still
      *     ships the runtime rather than silently dropping it
-     * @spec.adr   ADR-0037
+     * @spec.adr   ADR-0039
      */
     @Test
     void handles_malformed_and_oddly_cased_html() {
@@ -82,7 +82,7 @@ class LievitAssetInjectorTest {
      * @spec.then  the injected script carries the nonce (authorising the external module load on a
      *     nonce policy) and the {@code data-csrf} the client runtime reads, with attribute values
      *     escaped
-     * @spec.adr   ADR-0037
+     * @spec.adr   ADR-0039
      * @spec.us    US-121-auto-inject-assets
      */
     @Test
@@ -99,7 +99,7 @@ class LievitAssetInjectorTest {
      * @spec.given an injector configured with no stylesheet (the zero-CSS default, ADR-0005)
      * @spec.when  the assets are injected
      * @spec.then  no {@code <link>} is emitted; only the runtime script is injected
-     * @spec.adr   ADR-0037
+     * @spec.adr   ADR-0039
      */
     @Test
     void emits_no_stylesheet_when_none_is_configured() {
@@ -117,7 +117,7 @@ class LievitAssetInjectorTest {
      * @spec.when  a blank script src or a blank update-uri is passed
      * @spec.then  the constructor rejects it (the injector cannot ship a runtime with no source or
      *     no wire endpoint)
-     * @spec.adr   ADR-0037
+     * @spec.adr   ADR-0039
      */
     @Test
     void rejects_a_blank_script_src_or_update_uri() {
