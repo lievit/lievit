@@ -341,4 +341,25 @@ public final class LievitWireService {
             throw new IllegalStateException("could not encode the Lievit-Effects header", e);
         }
     }
+
+    /**
+     * Encodes one streamed chunk into the JSON envelope {@code {target, content, replace}} the
+     * client's {@code parseStreamEnvelope} reads off the SSE response (issue #153). Called by the
+     * streaming controller per chunk; the content is a plain string (a falsy {@code ""} / {@code "0"}
+     * streams as-is) so the client never has to skip an envelope.
+     *
+     * @param chunk the chunk an action streamed
+     * @return the JSON envelope string
+     */
+    public String encodeStreamChunk(io.lievit.component.StreamChunk chunk) {
+        try {
+            return json.writeValueAsString(
+                    java.util.Map.of(
+                            "target", chunk.target(),
+                            "content", chunk.content(),
+                            "replace", chunk.replace()));
+        } catch (JacksonException e) {
+            throw new IllegalStateException("could not encode a stream envelope", e);
+        }
+    }
 }

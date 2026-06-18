@@ -126,6 +126,8 @@ export {
   applyStreamEnvelope,
   consumeStream,
   openStream,
+  openStreamCall,
+  parseSseFrames,
   pollIntervalMs,
 } from "./features/index.js";
 

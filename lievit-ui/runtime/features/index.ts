@@ -48,8 +48,11 @@ export {
   applyStreamEnvelope,
   consumeStream,
   openStream,
+  openStreamCall,
+  parseSseFrames,
   type StreamEnvelope,
   type StreamSource,
+  type StreamCallOptions,
 } from "./stream.js";
 export { installNavigate, type NavigateOptions } from "./navigate.js";
 export { installPagination, type ScrollToTop } from "./pagination.js";

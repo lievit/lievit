@@ -143,6 +143,72 @@ public final class LievitWireController {
     }
 
     /**
+     * The streaming endpoint (issue #153): {@code POST /lievit/{componentId}/stream}. The client
+     * opens a Server-Sent-Events connection here for an action that streams progressive output (an AI
+     * token stream, a long job). A live {@link io.lievit.component.LievitStream} is bound for the
+     * duration of the call; every {@code $this.stream(...)} the action makes is written immediately as
+     * a flushed JSON envelope {@code {target, content, replace}} (the shape the client's
+     * {@code parseStreamEnvelope} reads), then the SSE stream completes when the action returns.
+     *
+     * <p>Header guard like the batch endpoint: a non-wire request (no {@code X-Lievit}) is refused so a
+     * plain browser GET cannot open the stream. The component is rehydrated from the signed snapshot
+     * and the named action invoked through the normal lifecycle, so the action sees current state and
+     * the {@code @LievitAction} allowlist still applies.
+     *
+     * @param componentId the component instance id (audited; the snapshot's {@code cid} is authoritative)
+     * @param body the {@code { _snapshot, _updates, _calls }} payload (the action to stream is in
+     *     {@code _calls})
+     * @param wireHeader the {@code X-Lievit} marker the client stamps on every wire request
+     * @param request the servlet request (session store + rate-limit key)
+     * @return an {@link SseEmitter} the streamed chunks flush over as {@code text/event-stream}
+     */
+    @PostMapping(path = "/lievit/{componentId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter stream(
+            @PathVariable String componentId,
+            @RequestBody WireCallRequest body,
+            @org.springframework.web.bind.annotation.RequestHeader(value = WIRE_HEADER, required = false)
+                    String wireHeader,
+            HttpServletRequest request) {
+        if (wireHeader == null) {
+            throw new WireException(WireError.MISSING_WIRE_HEADER, "missing X-Lievit wire header");
+        }
+        var emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(0L);
+        // Bind a live stream sink that flushes each chunk as an SSE envelope the moment the action
+        // streams it. A null/undefined content is never produced (StreamChunk forbids null), so the
+        // client never has to skip an envelope; falsy strings ("", "0") flush correctly.
+        io.lievit.component.LievitStream stream =
+                io.lievit.component.LievitStream.live(
+                        chunk -> {
+                            try {
+                                emitter.send(
+                                        org.springframework.web.servlet.mvc.method.annotation.SseEmitter
+                                                .event()
+                                                .data(service.encodeStreamChunk(chunk)));
+                            } catch (java.io.IOException e) {
+                                emitter.completeWithError(e);
+                            }
+                        });
+        io.lievit.component.SessionListener.bind(new HttpSessionStore(request));
+        io.lievit.component.LievitStream.bind(stream);
+        try {
+            service.call(
+                    body.snapshot(),
+                    body.updatesOrEmpty(),
+                    body.callsOrEmpty(),
+                    body.inboundEvents(),
+                    clientKey(request));
+            emitter.complete();
+        } catch (RuntimeException e) {
+            emitter.completeWithError(e);
+            throw e;
+        } finally {
+            io.lievit.component.LievitStream.clear();
+            io.lievit.component.SessionListener.clear();
+        }
+        return emitter;
+    }
+
+    /**
      * Maps a {@link WireException} to its terminal HTTP status and the {@code Lievit-Reason} header
      * (wire-protocol.md §4). The body is never the exception message (the privacy rule keeps
      * snapshot / token / payload contents out of responses).

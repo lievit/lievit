@@ -32,7 +32,7 @@ class LargePayloadBindingTest {
      * @spec.given a large byte[] sent as a {@code {__lievit_b64}} envelope in {@code _updates}
      * @spec.when  the wire call applies the update
      * @spec.then  the field holds the decoded bytes, full and byte-for-byte intact
-     * @spec.adr   ADR-0035
+     * @spec.adr   ADR-0034
      */
     @Test
     void decodes_a_base64_byte_array_update_full_and_intact() {

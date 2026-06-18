@@ -9,6 +9,8 @@ import { installNavigate } from "../runtime/features/navigate.js";
 import {
   applyStreamEnvelope,
   consumeStream,
+  openStreamCall,
+  parseSseFrames,
   parseStreamEnvelope,
   type StreamSource,
 } from "../runtime/features/stream.js";
@@ -79,6 +81,38 @@ describe("streaming (#153)", () => {
     handler?.('{"target":"out","content":"He"}');
     handler?.('{"target":"out","content":"llo"}');
     expect(document.querySelector("span")!.textContent).toBe("Hello");
+  });
+
+  it("parseSseFrames extracts complete data: payloads and keeps a partial tail", () => {
+    const first = parseSseFrames('data:{"a":1}\n\ndata:{"b":2}\n\ndata:{"c":3}');
+    expect(first.payloads).toEqual(['{"a":1}', '{"b":2}']);
+    expect(first.rest).toBe('data:{"c":3}'); // partial frame, not yet terminated
+
+    const second = parseSseFrames(first.rest + "\n\n");
+    expect(second.payloads).toEqual(['{"c":3}']);
+    expect(second.rest).toBe("");
+  });
+
+  it("openStreamCall POSTs the snapshot and writes the streamed SSE body into l:stream (#153)", async () => {
+    document.body.innerHTML =
+      '<div><span l:stream="out"></span><span l:stream="status"></span></div>';
+    const sse =
+      'data:{"target":"out","content":"Hello "}\n\n' +
+      'data:{"target":"out","content":"world"}\n\n' +
+      'data:{"target":"status","content":"done","replace":true}\n\n';
+    const fetchImpl = vi.fn(async () => new Response(sse, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    }));
+
+    await openStreamCall(document.body, "cid", { snapshot: "s1", calls: ["generate"], fetchImpl });
+
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/lievit/cid/stream");
+    expect((init.headers as Record<string, string>)["X-Lievit"]).toBe("1");
+    expect(JSON.parse(init.body as string)).toEqual({ _snapshot: "s1", _calls: ["generate"] });
+    expect(document.querySelector('[l\\:stream="out"]')!.textContent).toBe("Hello world");
+    expect(document.querySelector('[l\\:stream="status"]')!.textContent).toBe("done");
   });
 });
 
