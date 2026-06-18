@@ -149,9 +149,32 @@ public final class TextColumn<T> extends Column<T> {
                     }
                     java.text.NumberFormat nf = java.text.NumberFormat.getCurrencyInstance();
                     nf.setCurrency(currency);
-                    return nf.format(((Number) v).doubleValue());
+                    return nf.format(toAmount(v));
                 };
         return this;
+    }
+
+    /**
+     * Coerces a raw cell value to a numeric amount for {@link #money(String)}. Accepts any
+     * {@link Number} directly and a numeric {@link String} by parsing it. Any other type, or a
+     * String that is not a number, yields a clear {@link IllegalArgumentException} instead of the
+     * raw {@link ClassCastException} a blind {@code (Number) v} cast would throw at render time.
+     */
+    private static double toAmount(Object v) {
+        if (v instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (v instanceof String s) {
+            try {
+                return Double.parseDouble(s.trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(
+                        "money() column value is not a number: \"" + s + "\"", e);
+            }
+        }
+        throw new IllegalArgumentException(
+                "money() column value must be a Number or a numeric String, got "
+                        + v.getClass().getName());
     }
 
     /**

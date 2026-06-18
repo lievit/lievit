@@ -69,6 +69,67 @@ class ColumnTypesTest {
         assertThat(col.sortable()).isFalse();
     }
 
+    // ── TextColumn.money ──────────────────────────────────────────────────────
+
+    record Priced(String name, Object price) {}
+
+    /**
+     * @spec.given a TextColumn.money column over a numeric (Number) price accessor
+     * @spec.when  cell() is called
+     * @spec.then  the value is formatted as a currency amount in the declared currency
+     */
+    @Test
+    void money_column_formats_a_numeric_value_as_currency() {
+        TextColumn<Priced> col = TextColumn.<Priced>make("Price", Priced::price).money("EUR");
+
+        // Locale-independent: assert the euro symbol and the significant digits are present,
+        // not the locale's grouping/decimal separators.
+        assertThat(col.cell(new Priced("Widget", 1234.5)))
+                .contains("€")
+                .containsPattern("1.?234.?50");
+    }
+
+    /**
+     * @spec.given a TextColumn.money column over a String price accessor holding a numeric string
+     * @spec.when  cell() is called
+     * @spec.then  the numeric string is parsed and formatted as currency, not a ClassCastException
+     */
+    @Test
+    void money_column_parses_a_numeric_string_accessor() {
+        TextColumn<Priced> col = TextColumn.<Priced>make("Price", Priced::price).money("EUR");
+
+        assertThat(col.cell(new Priced("Widget", "1234.5")))
+                .contains("€")
+                .containsPattern("1.?234.?50");
+    }
+
+    /**
+     * @spec.given a TextColumn.money column over a null price accessor
+     * @spec.when  cell() is called
+     * @spec.then  it renders the empty string
+     */
+    @Test
+    void money_column_renders_empty_for_null_value() {
+        TextColumn<Priced> col = TextColumn.<Priced>make("Price", Priced::price).money("EUR");
+
+        assertThat(col.cell(new Priced("Widget", null))).isEmpty();
+    }
+
+    /**
+     * @spec.given a TextColumn.money column over a non-numeric String accessor
+     * @spec.when  cell() is called
+     * @spec.then  it throws a clear IllegalArgumentException, never a raw ClassCastException
+     */
+    @Test
+    void money_column_rejects_a_non_numeric_value_with_a_clear_error() {
+        TextColumn<Priced> col = TextColumn.<Priced>make("Price", Priced::price).money("EUR");
+
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> col.cell(new Priced("Widget", "not-a-price")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not-a-price");
+    }
+
     // ── BadgeColumn ───────────────────────────────────────────────────────────
 
     /**

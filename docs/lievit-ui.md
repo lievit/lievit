@@ -6,8 +6,9 @@ seven artifacts (ADR-0008); it is a **copy-in registry** of owned source, distri
 this document specifies the *shape*: the registry layout, the design-token system, and the source
 shape of a couple of example primitives.
 
-Status: spec-first. No code exists yet (Maven and the CLI are deferred by intent). This is the
-contract the registry and the `lievit add` command will be built to.
+Status: implemented. The registry and the `lievit add` command have shipped (the `lievit-ui`
+module carries the components, the client runtime, and their test suite); this document specifies
+the shape that registry follows.
 
 ## The model in one paragraph
 
@@ -129,7 +130,7 @@ Principles:
 ## Example primitive: `button`
 
 The source shape of a copy-in primitive. A Lit component, light-DOM rendered, token-styled, owned by
-the adopter the moment it lands. (Spec-first; illustrative of the shape, not final code.)
+the adopter the moment it lands. (Illustrative of the shape; the shipped registry is the source of truth.)
 
 ```ts
 // src/components/ui/button.ts   (copied in by `lievit add button`)
