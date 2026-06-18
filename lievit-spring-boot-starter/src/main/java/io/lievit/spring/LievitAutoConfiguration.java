@@ -24,6 +24,7 @@ import io.lievit.component.FieldValidator;
 import io.lievit.component.LifecycleBus;
 import io.lievit.component.LifecycleHooksListener;
 import io.lievit.component.LifecyclePhase;
+import io.lievit.component.LocaleListener;
 import io.lievit.component.MagicActionListener;
 import io.lievit.component.NoOpFieldValidator;
 import io.lievit.component.RedirectListener;
@@ -183,6 +184,10 @@ public class LievitAutoConfiguration {
         // first so boot/hydrate/updating run before the framework listeners.
         LifecycleHooksListener.registerOn(bus);
         SessionListener.registerOn(bus);
+        // Locale pinning (ADR-0037): capture the active locale into the snapshot memo on dehydrate,
+        // restore it on hydrate before render, so a wire update keeps the component's pinned locale
+        // instead of reverting to the fresh request default. No-ops when no LocaleSource is bound.
+        LocaleListener.registerOn(bus);
         bus.on(LifecyclePhase.CALL, new MagicActionListener(synthesizers));
         // RenderlessListener owns the render-skip tally for both @LievitRenderless and the
         // @LievitJson RPC actions (#99): both return without re-rendering.

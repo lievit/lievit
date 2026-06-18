@@ -375,7 +375,21 @@ public final class WireDispatcher {
             // Validate after updates are applied; if errors exist write them to the effects sink
             // and skip the actions for this call. The re-render still runs so the template can
             // read the (unchanged) wire state and render the errors from the model.
-            Map<String, List<String>> errors = fieldValidator.validate(instance);
+            //
+            // Real-time per-field validation (ADR-0038, Livewire validateOnly parity): a live
+            // wire:model update with no action surfaces ONLY the updated fields' errors, never the
+            // still-untouched neighbours' errors (the user has not reached them yet). A submit (a
+            // call) validates everything. The submit path keeps the full bag; the live path filters.
+            boolean liveUpdate = calls.isEmpty() && !updates.isEmpty();
+            Map<String, List<String>> errors =
+                    liveUpdate
+                            ? validateUpdatedFields(instance, updates)
+                            : fieldValidator.validate(instance);
+            if (liveUpdate) {
+                // Tell the client exactly which fields this live update revalidated, so it merges:
+                // it clears these fields' prior errors and keeps untouched fields' errors (ADR-0038).
+                effects.setValidatedFields(new ArrayList<>(updates.keySet()));
+            }
             if (errors != null && !errors.isEmpty()) {
                 effects.setValidationErrors(errors);
             } else {
@@ -651,6 +665,22 @@ public final class WireDispatcher {
                 ctx.recordAction(false); // a received event re-renders by default
             }
         }
+    }
+
+    /**
+     * Validates the instance but surfaces only the violations of the fields the client just updated
+     * (ADR-0038): the real-time per-field path. The union of each updated key's
+     * {@link FieldValidator#validateOnly} keeps a live {@code wire:model} update from surfacing a
+     * still-empty neighbour's error. An update key may be a top-level field ({@code "email"}) or a
+     * dotted form-object field ({@code "form.email"}); both pass through {@code validateOnly} as-is.
+     */
+    private Map<String, List<String>> validateUpdatedFields(
+            Object instance, Map<String, Object> updates) {
+        Map<String, List<String>> merged = new LinkedHashMap<>();
+        for (String field : updates.keySet()) {
+            merged.putAll(fieldValidator.validateOnly(instance, field));
+        }
+        return merged;
     }
 
     private void invokeHook(@Nullable Method hook, Object instance) {

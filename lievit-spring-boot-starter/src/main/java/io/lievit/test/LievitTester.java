@@ -167,6 +167,18 @@ public final class LievitTester<T> {
     }
 
     /**
+     * Syncs the staged {@link #model} updates with <em>no</em> action: a live {@code wire:model.live}
+     * / {@code .blur} round trip (ADR-0038). This is the real-time per-field validation path: the
+     * server validates only the updated fields and surfaces only their errors, never the still-empty
+     * neighbours' errors. Pairs with {@link #assertHasError} / {@link #assertNoErrors}.
+     *
+     * @return this tester
+     */
+    public LievitTester<T> update() {
+        return perform(List.of());
+    }
+
+    /**
      * Runs a wire call with <em>no</em> action, expected to be rejected before any action would run
      * (the rate-limit / forged-snapshot probe). Equivalent to {@code call} with an empty
      * {@code _calls} list; reads clearly in a brute-force loop.

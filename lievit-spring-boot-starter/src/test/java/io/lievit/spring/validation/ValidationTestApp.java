@@ -26,4 +26,14 @@ public class ValidationTestApp {
     RegistrationComponent registrationComponent() {
         return new RegistrationComponent();
     }
+
+    /**
+     * @return a fresh signup component per wire call (validation-depth test: imperative error bag +
+     *     real-time per-field validation)
+     */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    SignupComponent signupComponent() {
+        return new SignupComponent();
+    }
 }

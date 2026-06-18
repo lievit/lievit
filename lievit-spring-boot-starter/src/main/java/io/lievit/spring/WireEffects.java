@@ -30,6 +30,9 @@ import io.lievit.component.LievitEffects;
  * @param errors per-field validation errors ({@code {fieldName: ["message", ...]}}) set when the
  *     {@link io.lievit.component.FieldValidator} found constraint violations; absent
  *     when validation passed or no validator is configured
+ * @param validatedFields the field names a live {@code validateOnly} update revalidated (ADR-0038),
+ *     so the client merges the errors into its bag (clearing exactly these fields, keeping the
+ *     rest); {@code null} on a full {@code validate}/submit (the client then full-replaces)
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record WireEffects(
@@ -37,6 +40,7 @@ public record WireEffects(
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Event> dispatch,
         @Nullable Object returns,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable Map<String, List<String>> errors,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable List<String> validatedFields,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> islands,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Js> js,
         @Nullable String release,
@@ -105,6 +109,7 @@ public record WireEffects(
                 events,
                 effects.returnValue(),
                 effects.validationErrors(),
+                effects.validatedFields(),
                 effects.islands(),
                 jsCalls,
                 effects.release(),
