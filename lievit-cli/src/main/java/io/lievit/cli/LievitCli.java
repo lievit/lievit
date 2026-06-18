@@ -1,8 +1,11 @@
 package io.lievit.cli;
 
+import io.lievit.cli.command.ConvertCommand;
 import io.lievit.cli.command.DevCommand;
 import io.lievit.cli.command.DoctorCommand;
 import io.lievit.cli.command.MakeComponentCommand;
+import io.lievit.cli.command.MakeFormCommand;
+import io.lievit.cli.command.MakeLayoutCommand;
 import io.lievit.cli.command.NewCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -33,6 +36,9 @@ import picocli.CommandLine.Command;
     subcommands = {
         NewCommand.class,
         MakeComponentCommand.class,
+        MakeFormCommand.class,
+        MakeLayoutCommand.class,
+        ConvertCommand.class,
         DevCommand.class,
         DoctorCommand.class,
         CommandLine.HelpCommand.class
