@@ -13,6 +13,14 @@
  * It re-evaluates on every SPA navigation (`lievit:navigated`, the `l:navigate` feature) and on
  * `popstate`, so a link stays correctly marked as the URL changes without a full reload. Pure
  * client directive: no wire call, no server hook, strict-CSP-safe (no inline handler, no eval).
+ *
+ * Modifiers (#81): `l:current.exact` requires the full path to be equal (no section-parent match);
+ * `l:current.strict` makes a trailing-slash difference significant (`/about/` is not `/about`), the
+ * opposite of the default trailing-slash-insensitive comparison.
+ *
+ * An active link also carries the bare `data-current` attribute (a presence flag, Livewire
+ * `wire:current` parity) so a stylesheet or sibling feature can target it without depending on the
+ * configurable class list.
  */
 
 import type { LievitRuntime } from "../runtime.js";
@@ -20,19 +28,32 @@ import type { LievitRuntime } from "../runtime.js";
 const NAME = "current";
 const DEFAULT_CLASS = "active";
 const BOUND_ATTR = "data-lievit-current-bound";
+const CURRENT_ATTR = "data-current";
 
-/** Normalizes a path for comparison: strips a trailing slash (except root), lowercases nothing. */
-function normalize(path: string): string {
-  if (path.length > 1 && path.endsWith("/")) {
+/** Normalizes a path for comparison: strips a trailing slash (except root) unless `strict` keeps it. */
+function normalize(path: string, strict: boolean): string {
+  if (!strict && path.length > 1 && path.endsWith("/")) {
     return path.slice(0, -1);
   }
   return path;
 }
 
-/** True when `linkPath` is current relative to `here` (exact equality, or a prefix section match). */
-export function isCurrentPath(linkPath: string, here: string, exact: boolean): boolean {
-  const a = normalize(linkPath);
-  const b = normalize(here);
+/**
+ * True when `linkPath` is current relative to `here`.
+ *
+ * @param linkPath the link's pathname
+ * @param here the current page pathname
+ * @param exact require full path equality (no section-parent prefix match)
+ * @param strict treat a trailing-slash difference as significant (default: insensitive)
+ */
+export function isCurrentPath(
+  linkPath: string,
+  here: string,
+  exact: boolean,
+  strict = false,
+): boolean {
+  const a = normalize(linkPath, strict);
+  const b = normalize(here, strict);
   if (exact) {
     return a === b;
   }
@@ -55,7 +76,12 @@ export function installCurrent(
   win: Window = window,
 ): () => void {
   // Every bound link, re-evaluated whenever the URL changes (the directive only records them).
-  const links = new Set<{ el: HTMLAnchorElement; classes: string[]; exact: boolean }>();
+  const links = new Set<{
+    el: HTMLAnchorElement;
+    classes: string[];
+    exact: boolean;
+    strict: boolean;
+  }>();
 
   function evaluate(): void {
     const here = win.location.pathname;
@@ -65,14 +91,18 @@ export function installCurrent(
         continue;
       }
       const url = new URL(link.el.href, win.location.href);
-      const active = url.origin === win.location.origin && isCurrentPath(url.pathname, here, link.exact);
+      const active =
+        url.origin === win.location.origin &&
+        isCurrentPath(url.pathname, here, link.exact, link.strict);
       for (const cls of link.classes) {
         link.el.classList.toggle(cls, active);
       }
       if (active) {
         link.el.setAttribute("aria-current", "page");
+        link.el.setAttribute(CURRENT_ATTR, "");
       } else {
         link.el.removeAttribute("aria-current");
+        link.el.removeAttribute(CURRENT_ATTR);
       }
     }
   }
@@ -85,8 +115,10 @@ export function installCurrent(
       }
       element.setAttribute(BOUND_ATTR, "");
       const classes = (value.trim().length > 0 ? value.trim() : DEFAULT_CLASS).split(/\s+/);
-      const exact = attribute.split(".").includes("exact");
-      links.add({ el: element, classes, exact });
+      const modifiers = attribute.split(".");
+      const exact = modifiers.includes("exact");
+      const strict = modifiers.includes("strict");
+      links.add({ el: element, classes, exact, strict });
       evaluate();
     },
   });
