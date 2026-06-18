@@ -72,12 +72,22 @@ public final class LievitWireController {
             @PathVariable String componentId,
             @RequestBody WireCallRequest body,
             HttpServletRequest request) {
-        WireCallResult result =
-                service.call(
-                        body.snapshot(),
-                        body.updatesOrEmpty(),
-                        body.callsOrEmpty(),
-                        clientKey(request));
+        // Bind an HttpSession-backed store for @LievitSession fields for the duration of the call
+        // (ADR-0031). Cleared in the finally so nothing leaks across calls; without a session in
+        // play the listener simply no-ops (the field keeps its mount default).
+        io.lievit.component.SessionListener.bind(new HttpSessionStore(request));
+        WireCallResult result;
+        try {
+            result =
+                    service.call(
+                            body.snapshot(),
+                            body.updatesOrEmpty(),
+                            body.callsOrEmpty(),
+                            body.inboundEvents(),
+                            clientKey(request));
+        } finally {
+            io.lievit.component.SessionListener.clear();
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.add(SNAPSHOT_HEADER, result.snapshot());

@@ -22,7 +22,13 @@ import io.lievit.LievitComponent;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
 import io.lievit.component.LifecycleBus;
+import io.lievit.component.LifecycleHooksListener;
+import io.lievit.component.LifecyclePhase;
+import io.lievit.component.MagicActionListener;
 import io.lievit.component.NoOpFieldValidator;
+import io.lievit.component.RedirectListener;
+import io.lievit.component.RenderlessListener;
+import io.lievit.component.SessionListener;
 import io.lievit.compiler.DeterministicKeys;
 import io.lievit.component.WireDispatcher;
 import io.lievit.wire.synth.SynthesizerRegistry;
@@ -154,17 +160,32 @@ public class LievitAutoConfiguration {
     }
 
     /**
-     * The lifecycle interceptor bus (ADR-0022): a cross-cutting feature registers a listener on a
-     * named phase (hydrate / update / call / render / dehydrate / destroy) instead of editing the
-     * dispatcher. The default bus is empty (behavior-neutral); an application or a feature module
-     * contributes listeners by declaring its own {@code LifecycleBus} bean.
+     * The lifecycle interceptor bus (ADR-0022) with lievit's built-in server-side runtime-parity
+     * listeners registered (Epic #34, ADR-0030 / ADR-0031): the convention-named lifecycle hooks
+     * (boot/booted, hydrate/dehydrate, updating/updated, rendering/rendered), the magic actions
+     * ({@code $set} / {@code $toggle} / {@code $refresh} / ...), {@code @LievitRenderless}, the
+     * server-driven redirect render-skip, and {@code @LievitSession} persistence.
      *
-     * @return the default (empty) lifecycle bus
+     * <p>Each listener no-ops for a component that does not use its feature, so the bus stays
+     * behavior-neutral for a plain component (the Counter is unchanged). An application can replace
+     * the whole bus by declaring its own {@code LifecycleBus} bean.
+     *
+     * @param synthesizers the typed-state registry the magic {@code $set} uses to coerce a value to
+     *     the field type (ADR-0020)
+     * @return the built-in lifecycle bus
      */
     @Bean
     @ConditionalOnMissingBean
-    public LifecycleBus lievitLifecycleBus() {
-        return new LifecycleBus();
+    public LifecycleBus lievitLifecycleBus(SynthesizerRegistry synthesizers) {
+        LifecycleBus bus = new LifecycleBus();
+        // Registration order = trigger order within a phase: the user lifecycle hooks register
+        // first so boot/hydrate/updating run before the framework listeners.
+        LifecycleHooksListener.registerOn(bus);
+        SessionListener.registerOn(bus);
+        bus.on(LifecyclePhase.CALL, new MagicActionListener(synthesizers));
+        RenderlessListener.registerOn(bus);
+        RedirectListener.registerOn(bus);
+        return bus;
     }
 
     /**

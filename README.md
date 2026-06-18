@@ -130,11 +130,12 @@ A developer only ever thinks about five things:
 | **Mount** | The lifecycle hook that runs after construction, before the first render. |
 | **Render** | The render step (template + checksum + signed snapshot). |
 
-## The public API (nine annotations)
+## The public API (annotations)
 
-The public surface is nine annotations (ADR-0002's seven-annotation cap superseded by ADR-0015 for
-`@LievitComputed` — see [`docs/adr/0015`](docs/adr/0015-computed-properties.md) — and by the
-URL-binding feature for `@LievitUrl`):
+The core surface began as nine annotations (ADR-0002's seven-annotation cap superseded by ADR-0015
+for `@LievitComputed` — see [`docs/adr/0015`](docs/adr/0015-computed-properties.md) — and by the
+URL-binding feature for `@LievitUrl`). The Livewire runtime-parity epic (Epic #34, ADR-0030 /
+ADR-0031) adds the parity surface below the line:
 
 | Annotation | Purpose |
 |---|---|
@@ -147,6 +148,38 @@ URL-binding feature for `@LievitUrl`):
 | `@LievitProperty` | Optional: extended metadata on a `@Wire` field (serialize, locked, modelable two-way bind). |
 | `@LievitComputed` | Marks a no-arg method as a per-request computed property (memoized once per wire call, not serialized into the snapshot). |
 | `@LievitUrl` | Optional: reflects a `@Wire` field into the URL query string (mount-from-query + `url` effect on change). |
+| `@LievitOn` | Event listener: a method (or class-level `$refresh`) that fires when a dispatched event arrives; dynamic `{placeholder}` names, repeatable (ADR-0030). |
+| `@LievitRenderless` | Marks an action as renderless: no HTML patch after it runs (ADR-0031). |
+| `@LievitSession` | Persists a `@Wire` field into the HTTP session (the deliberate, opt-in exception to statelessness; prefer `@LievitUrl` for shareable state) (ADR-0031). |
+| `@LievitLayout` / `@LievitTitle` | Full-page component: the layout it renders inside and its `<title>` when used as a route target (ADR-0031). |
+
+### Runtime parity: events, lifecycle, magic actions, redirects (Epic #34)
+
+Beyond `mount`/`render`, a component can declare the full **lifecycle hooks** by convention —
+`boot`/`booted`, `hydrate`/`dehydrate`, `updating`/`updated` (and per-property `updating{Prop}` /
+`updated{Prop}`), `rendering`/`rendered` — dispatched through the lifecycle bus at the matching
+phase (`updating` sees the old value, `updated` the new). None is reachable as a frontend action.
+
+**Magic actions** work in a template expression with no method on the component:
+`l:click="$set('open', true)"`, `$toggle('open')`, `$refresh`, `$get('x')`, `$parent`. The server
+resolves them and applies the same settable allowlist a `wire:model` update obeys (a `$set` on a
+locked or unknown field is silently dropped).
+
+**Events.** An action dispatches with `LievitEffects.current().dispatch("saved", detail)` (or
+`dispatchSelf` / `dispatchTo(component, ...)`); a listener receives it via `@LievitOn("saved")`.
+
+**Redirects.** `LievitEffects.current().redirect("/done")` queues the redirect and skips the
+re-render by default (no wasted HTML the client is about to discard).
+
+**Client contract for cross-component events (the server↔client interface, ADR-0030).** The
+`Lievit-Effects` response header's `dispatch` array carries `{name, detail, to?, self?}`. The
+client runtime re-emits each as a DOM `CustomEvent(name, {detail})` on `window`, then — respecting
+`to` (deliver only to components of that name) and `self` (only the dispatching component) — issues
+a wire call to each listening component with the request field `_events: [{name, detail}]`. The
+server runs that component's matching `@LievitOn` listeners (binding the detail to the handler's
+parameters by name) and re-renders it. `$dispatch(name, detail)` in an `l:*` expression is a global
+dispatch. The `_events` field and the `to`/`self` keys are additive: absent, the response and
+request are exactly the pre-#34 shape.
 
 ## Hello component (API-first sketch)
 

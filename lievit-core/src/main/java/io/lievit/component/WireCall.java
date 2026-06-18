@@ -38,7 +38,8 @@ public record WireCall(
         Map<String, Object> wire,
         LievitEffects effects,
         Map<String, @Nullable Object> computed,
-        List<ChildComponent> children) {
+        List<ChildComponent> children,
+        boolean renderSkipped) {
 
     /**
      * Defensive copy of the children list (the wire state and effects are already owned by the
@@ -46,5 +47,22 @@ public record WireCall(
      */
     public WireCall {
         children = List.copyOf(children);
+    }
+
+    /**
+     * The common constructor (render not skipped): keeps the four-argument call sites and golden
+     * tests intact. {@code renderSkipped} defaults to {@code false}.
+     *
+     * @param wire the serialized new {@code @Wire} state
+     * @param effects the side effects the call produced
+     * @param computed the memoized computed values resolved this call
+     * @param children the child components declared in the render
+     */
+    public WireCall(
+            Map<String, Object> wire,
+            LievitEffects effects,
+            Map<String, @Nullable Object> computed,
+            List<ChildComponent> children) {
+        this(wire, effects, computed, children, false);
     }
 }

@@ -42,13 +42,22 @@ public record WireEffects(
         @Nullable String release) {
 
     /**
-     * One queued browser event, the serialized {@link DispatchedEvent}.
+     * One queued browser event, the serialized {@link DispatchedEvent}. The {@code to} / {@code self}
+     * keys carry the routing target so the client runtime delivers the event to the right listeners
+     * (ADR-0030): {@code self=true} for {@code dispatchSelf}, {@code to="component-name"} for
+     * {@code dispatchTo}; both absent for a global {@code dispatch}.
      *
      * @param name the event name (the {@code CustomEvent} type)
      * @param detail the event payload, or {@code null} for a bare signal
+     * @param to the target component name for {@code dispatchTo}, else {@code null}
+     * @param self {@code true} for {@code dispatchSelf}, else {@code null} (omitted)
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record Event(String name, @Nullable Map<String, Object> detail) {}
+    public record Event(
+            String name,
+            @Nullable Map<String, Object> detail,
+            @Nullable String to,
+            @Nullable Boolean self) {}
 
     /**
      * One serialized CSP-safe {@code $js} call (ADR-0024 #131): the registered handler name + args.
@@ -72,7 +81,7 @@ public record WireEffects(
         }
         List<Event> events =
                 effects.dispatched().stream()
-                        .map(d -> new Event(d.name(), d.detail()))
+                        .map(WireEffects::toEvent)
                         .toList();
         List<Js> jsCalls =
                 effects.jsCalls().stream().map(c -> new Js(c.name(), c.args())).toList();
@@ -84,5 +93,13 @@ public record WireEffects(
                 effects.islands(),
                 jsCalls,
                 effects.release());
+    }
+
+    private static Event toEvent(DispatchedEvent d) {
+        return new Event(
+                d.name(),
+                d.detail(),
+                d.target() == DispatchedEvent.Target.TO_COMPONENT ? d.targetName() : null,
+                d.target() == DispatchedEvent.Target.SELF ? Boolean.TRUE : null);
     }
 }

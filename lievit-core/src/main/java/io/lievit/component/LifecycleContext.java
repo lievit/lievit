@@ -41,6 +41,8 @@ public final class LifecycleContext {
     private @Nullable String callName;
     private boolean earlyReturn;
     private boolean skipRender;
+    private int renderingActions;
+    private int renderlessActions;
 
     /**
      * @param metadata the component metadata
@@ -147,6 +149,31 @@ public final class LifecycleContext {
      */
     public boolean skipRender() {
         return skipRender;
+    }
+
+    /**
+     * Records that the action invoked this call renders (the default) or is renderless
+     * ({@code @LievitRenderless}). The renderless listener reads the tally on RENDER: it skips the
+     * render only when at least one renderless action ran and no rendering action did, matching
+     * Livewire's "skip render when no rendering action ran" rule (ADR-0031).
+     *
+     * @param renderless true if the invoked action is {@code @LievitRenderless}
+     */
+    public void recordAction(boolean renderless) {
+        if (renderless) {
+            renderlessActions++;
+        } else {
+            renderingActions++;
+        }
+    }
+
+    /**
+     * @return true if at least one renderless action ran and no rendering action did (so the render
+     *     can be skipped). False when no action ran at all (e.g. a pure {@code wire:model} update),
+     *     which still renders.
+     */
+    public boolean allActionsRenderless() {
+        return renderlessActions > 0 && renderingActions == 0;
     }
 
     /**

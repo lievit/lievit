@@ -317,6 +317,34 @@ public final class WireDispatcher {
             Map<String, Object> snapshotWire,
             Map<String, Object> updates,
             List<String> calls) {
+        return call(metadata, instance, snapshotWire, updates, calls, List.of());
+    }
+
+    /**
+     * Runs one wire call that also carries inbound events the client routed to this component (the
+     * receiving half of {@code dispatch}, ADR-0030). After the {@code _calls} actions run, every
+     * matching {@code @LievitOn} listener is invoked with the event payload; a class-level
+     * {@code $refresh} listener matches with no handler (it only triggers the re-render). Inbound
+     * events are tallied as rendering actions, so a component re-renders when an event it listens for
+     * arrives.
+     *
+     * @param metadata the component metadata
+     * @param instance a fresh component instance to rehydrate onto
+     * @param snapshotWire the {@code @Wire} state decoded from the verified snapshot
+     * @param updates the client-supplied field updates ({@code _updates})
+     * @param calls the action names to invoke, in order ({@code _calls})
+     * @param inboundEvents the events the client routed to this component's {@code @LievitOn}
+     *     listeners ({@code _events}), in order; empty for a plain action call
+     * @return the new {@code @Wire} state plus any {@link LievitEffects} produced
+     * @throws WireException one of the terminal {@link WireError} states (see wire-protocol §4)
+     */
+    public WireCall call(
+            ComponentMetadata metadata,
+            Object instance,
+            Map<String, Object> snapshotWire,
+            Map<String, Object> updates,
+            List<String> calls,
+            List<InboundEvent> inboundEvents) {
         ComputedCache computedCache = new ComputedCache();
         ComputedCache.bind(computedCache);
         LievitEffects effects = new LievitEffects();
@@ -362,6 +390,9 @@ public final class WireDispatcher {
                     }
                     runFinishes(finishes);
                 }
+                // Inbound events (ADR-0030): invoke every matching @LievitOn listener with its
+                // payload. A matched event counts as a rendering action so the component re-renders.
+                invokeInboundEvents(metadata, instance, inboundEvents, ctx);
             }
 
             // Phase: RENDER (skippable). A listener may requestSkipRender() (the renderless seam);
@@ -382,7 +413,10 @@ public final class WireDispatcher {
             Map<String, Object> wire = readWire(metadata, instance);
             runFinishes(lifecycle.trigger(LifecyclePhase.DEHYDRATE, ctx));
             mergeMemo(wire, ctx);
-            return new WireCall(wire, effects, computedCache.snapshot(), children.declared());
+            // renderSkipped rides the result so the web layer sends no HTML patch (renderless /
+            // redirect): the client leaves the DOM untouched (ADR-0030, ADR-0031).
+            return new WireCall(
+                    wire, effects, computedCache.snapshot(), children.declared(), ctx.skipRender());
         } finally {
             runFinishes(lifecycle.trigger(LifecyclePhase.DESTROY, ctx));
             ComputedCache.clear();
@@ -595,6 +629,28 @@ public final class WireDispatcher {
                     WireError.UNKNOWN_COMPONENT, "no @LievitAction matches the requested call");
         }
         return invoke(action, instance);
+    }
+
+    /**
+     * Invokes every {@code @LievitOn} listener that matches an inbound event (ADR-0030). A matched
+     * event is tallied as a rendering action so the renderless listener does not suppress the render
+     * for a component that just received an event it listens for. Unmatched events are ignored (the
+     * client should only route an event to a component that listens, but a stale route is harmless).
+     */
+    private void invokeInboundEvents(
+            ComponentMetadata metadata,
+            Object instance,
+            List<InboundEvent> inboundEvents,
+            LifecycleContext ctx) {
+        if (inboundEvents.isEmpty()) {
+            return;
+        }
+        EventListenerMetadata listeners = EventListenerMetadata.of(metadata.type());
+        for (InboundEvent event : inboundEvents) {
+            if (EventInvoker.invokeMatching(listeners, instance, event)) {
+                ctx.recordAction(false); // a received event re-renders by default
+            }
+        }
     }
 
     private void invokeHook(@Nullable Method hook, Object instance) {
