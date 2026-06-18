@@ -1,1 +1,2 @@
 io.lievit.spring.LievitAutoConfiguration
+io.lievit.spring.security.LievitSecurityAutoConfiguration

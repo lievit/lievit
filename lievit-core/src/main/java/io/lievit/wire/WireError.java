@@ -68,6 +68,16 @@ public enum WireError {
     ACTION_TIMEOUT(504, "timeout"),
 
     /**
+     * An {@code @LievitAuthorize} / {@code @PreAuthorize} check on a {@code @LievitAction} (or a
+     * matched {@code @LievitOn} listener) denied the current principal (issue #57). Maps to
+     * {@code 403}: the authorization runs <em>before</em> the action body, so a denied action never
+     * executes and never mutates state (fail-closed). Like every wire error the response is
+     * leak-free (ADR-0014): the client learns only the {@code forbidden-action} reason, never which
+     * expression failed or against what.
+     */
+    FORBIDDEN_ACTION(403, "forbidden-action"),
+
+    /**
      * A wire request reached a wire-only endpoint without the {@code X-Lievit} header the client
      * bundle stamps on every wire request (issue #177, Livewire {@code RequireLivewireHeaders}).
      * Maps to {@code 400}: a plain browser navigation or a non-wire form POST cannot drive the

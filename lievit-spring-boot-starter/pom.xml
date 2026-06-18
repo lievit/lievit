@@ -64,6 +64,20 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
+        <!--
+            Spring Security is lievit's authorization backbone (ADR-0053, supersedes ADR-0014's
+            "no forced dependency"): @LievitAuthorize / @PreAuthorize on a @LievitAction are evaluated
+            against Spring Security, and the wire endpoint (/lievit/**) sits inside the app's
+            SecurityFilterChain (ADR-0054, issue #179). To keep this backward-compatible the starter
+            ships a PERMISSIVE default chain (LievitSecurityAutoConfiguration) that neutralizes Spring
+            Boot's default lock-down: an app that declares no SecurityFilterChain keeps the pre-security
+            allow-behavior; an app that declares its own chain (the secure convention, documented)
+            fully overrides it. NOT optional: it is the framework's security spine, present by default.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
 
         <!-- JTE engine for the adapter bean. -->
         <dependency>
@@ -115,6 +129,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Tests: @WithMockUser / SecurityMockMvcRequestPostProcessors for the authz ITs (ADR-0053). -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
