@@ -75,5 +75,21 @@ public final class LievitRuntimeHints implements RuntimeHintsRegistrar {
                         MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                         MemberCategory.INVOKE_DECLARED_METHODS,
                         MemberCategory.DECLARED_FIELDS);
+        // The page-level assets block + scoped-CSS styleModule (issue #171/#129), serialized into the
+        // same header (single endpoint) and the batch JSON body.
+        hints.serialization().registerType(TypeReference.of(WireEffects.Assets.class));
+        hints.serialization().registerType(TypeReference.of(WireEffects.StyleModule.class));
+        hints.reflection()
+                .registerType(
+                        WireEffects.Assets.class,
+                        MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                        MemberCategory.INVOKE_DECLARED_METHODS,
+                        MemberCategory.DECLARED_FIELDS);
+        hints.reflection()
+                .registerType(
+                        WireEffects.StyleModule.class,
+                        MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                        MemberCategory.INVOKE_DECLARED_METHODS,
+                        MemberCategory.DECLARED_FIELDS);
     }
 }

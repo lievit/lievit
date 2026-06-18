@@ -41,9 +41,27 @@ public final class DeterministicKeys {
      * @return {@code lw-<crc32(templateId)>-<counter>}
      */
     public static String of(String templateId, int counter) {
+        return PREFIX + crc(templateId) + "-" + counter;
+    }
+
+    /**
+     * Builds a deterministic key for a named, once-per-template artifact (the {@code @assets} /
+     * scoped-style dedup key, issue #119/#129): {@code lw-<crc32(templateId)>-<suffix>}. Same identity
+     * hash as the positional form, so an artifact key is stable across re-renders and distinct per
+     * component, but suffixed by role ({@code assets} / {@code style}) rather than a sibling counter.
+     *
+     * @param templateId the render/template identity hashed into the key
+     * @param suffix the role suffix (e.g. {@code assets}, {@code style})
+     * @return {@code lw-<crc32(templateId)>-<suffix>}
+     */
+    public static String of(String templateId, String suffix) {
+        return PREFIX + crc(templateId) + "-" + suffix;
+    }
+
+    private static String crc(String templateId) {
         CRC32 crc = new CRC32();
         crc.update((templateId == null ? "" : templateId).getBytes(StandardCharsets.UTF_8));
-        return PREFIX + Long.toHexString(crc.getValue()) + "-" + counter;
+        return Long.toHexString(crc.getValue());
     }
 
     /**
