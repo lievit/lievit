@@ -52,4 +52,31 @@ class FullPageRoutingIT {
                 // The component root is stamped so the client hydrates the page-level component.
                 .andExpect(content().string(Matchers.containsString("data-lievit-snapshot")));
     }
+
+    /**
+     * @spec.given a full-page component reached at /post/{slug} with asset auto-injection at its
+     *     default (enabled), issue #121
+     * @spec.when  GET /post/hello-world is requested
+     * @spec.then  the runtime {@code <script src=/lievit/lievit.js>} is auto-injected before the
+     *     {@code </body>} with the {@code data-update-uri} bootstrap attribute, exactly once: a
+     *     full-page app gets the runtime with zero manual tags
+     * @spec.adr   ADR-0037
+     * @spec.us    US-121-auto-inject-assets
+     */
+    @Test
+    void the_runtime_script_is_auto_injected_once_on_a_full_page_response() throws Exception {
+        org.springframework.test.web.servlet.MvcResult result =
+                mvc.perform(get("/post/hello-world")).andExpect(status().isOk()).andReturn();
+        String html = result.getResponse().getContentAsString();
+
+        org.assertj.core.api.Assertions.assertThat(html)
+                .contains("src=\"/lievit/lievit.js\"")
+                .contains("data-update-uri=\"/lievit/update\"");
+        // injected before the body close, exactly once.
+        org.assertj.core.api.Assertions.assertThat(
+                        html.split("/lievit/lievit\\.js", -1).length - 1)
+                .isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(html.indexOf("/lievit/lievit.js"))
+                .isLessThan(html.toLowerCase(java.util.Locale.ROOT).lastIndexOf("</body>"));
+    }
 }

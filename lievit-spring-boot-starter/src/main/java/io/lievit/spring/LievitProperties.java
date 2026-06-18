@@ -56,6 +56,9 @@ public class LievitProperties {
     /** Broadcast (live server→client push over SSE) settings (issue #304). Opt-in, disabled by default. */
     private final Broadcast broadcast = new Broadcast();
 
+    /** Auto-injection of the runtime assets on full-page responses (issue #121). */
+    private final Assets assets = new Assets();
+
     public @Nullable String getSigningKey() {
         return signingKey;
     }
@@ -146,6 +149,69 @@ public class LievitProperties {
 
     public Broadcast getBroadcast() {
         return broadcast;
+    }
+
+    public Assets getAssets() {
+        return assets;
+    }
+
+    /**
+     * Auto-injected-assets configuration, bound from {@code lievit.assets.*} (issue #121, ADR-0037).
+     * The runtime {@code <style>}/{@code <script>} are injected into full-page responses produced
+     * from a mounted component, so a host app gets the client runtime with no manual tags. Enabled by
+     * default ("it just works"); {@code enabled=false} turns it off for an app that wires the runtime
+     * itself, and {@code force=true} keeps it on even for a page that already includes a (different)
+     * runtime tag. The bundle URLs default to lievit's served paths; the build/version story is the
+     * asset-pipeline concern (issue #171).
+     */
+    public static class Assets {
+
+        /** Whether the runtime assets are auto-injected into full-page responses. Default true. */
+        private boolean enabled = true;
+
+        /**
+         * Force injection even when the page already references a runtime script. Default false (the
+         * injector is otherwise idempotent and skips a page that already carries the runtime).
+         */
+        private boolean force = false;
+
+        /** The runtime bundle URL injected as the {@code <script src>}. */
+        private String scriptUrl = "/lievit/lievit.js";
+
+        /** The runtime stylesheet URL, or empty for the zero-CSS default (ADR-0005): no stylesheet. */
+        private String styleUrl = "";
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public boolean isForce() {
+            return force;
+        }
+
+        public void setForce(boolean force) {
+            this.force = force;
+        }
+
+        public String getScriptUrl() {
+            return scriptUrl;
+        }
+
+        public void setScriptUrl(String scriptUrl) {
+            this.scriptUrl = scriptUrl;
+        }
+
+        public String getStyleUrl() {
+            return styleUrl;
+        }
+
+        public void setStyleUrl(String styleUrl) {
+            this.styleUrl = styleUrl;
+        }
     }
 
     /**

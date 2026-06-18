@@ -120,7 +120,17 @@ public final class LievitWireService {
         // Computed values are NOT serialized into the snapshot (ADR-0015).
         String html = templateAdapter.render(metadata, instance, mergeModel(wire, mounted));
         // Mount and inline any child components the parent declared (ADR-0016); a leaf is unchanged.
-        html = childRenderer.substitute(html, mounted.children());
+        // The root frame is on the stack while children mount so a nested mount records this parent
+        // (issue #183, the $parent / nesting tracking). Bound here, cleared in the finally; nothing
+        // survives the call (ADR-0001 statelessness).
+        io.lievit.component.ComponentStack stack = new io.lievit.component.ComponentStack();
+        io.lievit.component.ComponentStack.bind(stack);
+        try {
+            stack.push(registry.nameOf(className), cid);
+            html = childRenderer.substitute(html, mounted.children());
+        } finally {
+            io.lievit.component.ComponentStack.clear();
+        }
         // Mount runs no action, so it can produce no effects (ADR-0012): no Lievit-Effects header.
         return WireCallResult.of(html, signed);
     }
@@ -163,10 +173,20 @@ public final class LievitWireService {
         WireCall mounted = dispatcher.mount(metadata, instance, props);
         Map<String, Object> wire = mounted.wire();
         String html = templateAdapter.render(metadata, instance, mergeModel(wire, mounted));
-        html = childRenderer.substitute(html, mounted.children());
 
         Instant now = Instant.now();
         String cid = componentIds.next();
+        // Push the page root onto the component stack while its children mount (issue #183), so a
+        // nested mount on a full page also records its parent. Cleared in the finally.
+        io.lievit.component.ComponentStack stack = new io.lievit.component.ComponentStack();
+        io.lievit.component.ComponentStack.bind(stack);
+        try {
+            stack.push(registry.nameOf(className), cid);
+            html = childRenderer.substitute(html, mounted.children());
+        } finally {
+            io.lievit.component.ComponentStack.clear();
+        }
+
         Snapshot snapshot = Snapshot.fresh(cid, className, wire, now, codec.ttl());
         String signed = codec.sign(snapshot);
         // Stamp the top-level wire markers on the component root so the client hydrates it (the

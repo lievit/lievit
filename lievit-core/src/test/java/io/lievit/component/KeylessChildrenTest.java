@@ -123,4 +123,34 @@ class KeylessChildrenTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("duplicate child @key");
     }
+
+    /**
+     * @spec.given a single scope used across two different template ids (the nested / sibling-loop
+     *     case of #107: a loop inside one template and a loop inside another, or two sibling loops in
+     *     different templates)
+     * @spec.when  keys are pulled while entered in template A, then template B, then back in A
+     * @spec.then  each template keeps its OWN counter (A: 0,1 ; B: 0 ; A resumes at 2): two templates
+     *     never collide and re-entering a template resumes its own namespace, so a child's morph
+     *     identity is stable per template position across single / nested / sibling loops
+     * @spec.adr   ADR-0023
+     * @spec.us    US-107-smart-wire-keys
+     */
+    @Test
+    void counters_are_namespaced_per_template_for_nested_and_sibling_loops() {
+        DeterministicKeyScope scope =
+                new DeterministicKeyScope((templateId, counter) -> templateId + "#" + counter);
+
+        scope.enter("outer");
+        String a0 = scope.nextKey();
+        String a1 = scope.nextKey();
+        scope.enter("inner");
+        String b0 = scope.nextKey();
+        scope.enter("outer"); // re-enter: outer resumes its own counter, not reset
+        String a2 = scope.nextKey();
+
+        assertThat(a0).isEqualTo("outer#0");
+        assertThat(a1).isEqualTo("outer#1");
+        assertThat(b0).isEqualTo("inner#0");
+        assertThat(a2).isEqualTo("outer#2");
+    }
 }

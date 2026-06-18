@@ -140,6 +140,33 @@ class EffectsChannelIT {
         assertThat(effects.get("returns").asInt()).isEqualTo(100);
     }
 
+    /**
+     * @spec.given a mounted Effectful component and an action that calls js("highlight", count)
+     * @spec.when  the snapshot is POSTed with the flash action (issue #73, ADR-0024 #131)
+     * @spec.then  the Lievit-Effects header carries a js[] entry naming the handler + args the client
+     *     invokes by name from its runtime.js registry, never an eval
+     * @spec.adr   ADR-0024
+     * @spec.us    US-073-server-driven-client-js
+     */
+    @Test
+    void an_action_queues_a_csp_safe_js_effect() throws Exception {
+        WireCallResult mounted = wireService.mount(EffectfulComponent.class.getName());
+
+        MvcResult result =
+                mvc.perform(
+                                post("/lievit/{id}/call", "cid")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(call(mounted.snapshot(), List.of("flash"))))
+                        .andExpect(status().isOk())
+                        .andExpect(header().exists("Lievit-Effects"))
+                        .andReturn();
+
+        JsonNode js = json.readTree(result.getResponse().getHeader("Lievit-Effects")).get("js");
+        assertThat(js).hasSize(1);
+        assertThat(js.get(0).get("name").asText()).isEqualTo("highlight");
+        assertThat(js.get(0).get("args").get(0).asInt()).isEqualTo(1);
+    }
+
     private String call(String snapshot, List<String> calls) throws Exception {
         return json.writeValueAsString(
                 Map.of("_snapshot", snapshot, "_updates", Map.of(), "_calls", calls));

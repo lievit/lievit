@@ -155,4 +155,41 @@ class LievitTesterIT {
                 .hasMessageContaining("no calls yet, after mount");
         assertThat(tester).isNotNull();
     }
+
+    /**
+     * @spec.given a mounted greeter whose {@code wave} action queues a CSP-safe {@code $js} effect
+     *     (issue #73, ADR-0024 #131)
+     * @spec.when  wave is called, then the harness asserts the queued js handler by name and by
+     *     name+args
+     * @spec.then  assertJs("highlight") and assertJs("highlight", ["world"]) hold; assertNoJs for an
+     *     un-queued handler holds; both fail loudly on the wrong expectation
+     * @spec.adr   ADR-0010
+     * @spec.us    US-073-server-driven-client-js
+     */
+    @Test
+    void assert_js_pins_a_queued_csp_safe_js_effect() {
+        var tester = test(GreeterComponent.class).mount().call("wave");
+        tester.assertJs("highlight")
+                .assertJs("highlight", java.util.List.of("world"))
+                .assertNoJs("nope");
+
+        assertThatThrownBy(() -> tester.assertJs("nope"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("expected a queued $js handler 'nope'");
+        assertThatThrownBy(() -> tester.assertNoJs("highlight"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("expected NO queued $js handler 'highlight'");
+    }
+
+    /**
+     * @spec.given a mounted greeter whose {@code greet} action queues no {@code js} effect
+     * @spec.when  greet is called and assertNoJs() asserts the empty js channel
+     * @spec.then  assertNoJs() holds (a non-js action leaves the js effect bag empty)
+     * @spec.adr   ADR-0010
+     * @spec.us    US-073-server-driven-client-js
+     */
+    @Test
+    void assert_no_js_holds_when_no_js_effect_was_queued() {
+        test(GreeterComponent.class).mount().call("greet").assertNoJs();
+    }
 }

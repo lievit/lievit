@@ -438,18 +438,43 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * The runtime-asset injector (issue #121, ADR-0037): auto-injects lievit's runtime
+     * {@code <script>} / {@code <style>} into full-page responses so a host app gets the client
+     * runtime with no manual tags. Enabled by default; turn it off with
+     * {@code lievit.assets.enabled=false} for an app that wires the runtime itself.
+     *
+     * @param properties the bound {@code lievit.*} config (asset URLs + flags)
+     * @return the injector bean (only present when auto-injection is enabled)
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            prefix = "lievit.assets",
+            name = "enabled",
+            matchIfMissing = true)
+    public LievitAssetInjector lievitAssetInjector(LievitProperties properties) {
+        LievitProperties.Assets assets = properties.getAssets();
+        return new LievitAssetInjector(assets.getScriptUrl(), assets.getStyleUrl(), "/lievit/update");
+    }
+
+    /**
      * The full-page renderer (issue #63/#181): mounts a route-target component, resolves its
-     * {@code @LievitLayout}/{@code @LievitTitle}, and wraps it in the layout.
+     * {@code @LievitLayout}/{@code @LievitTitle}, and wraps it in the layout. When an
+     * {@link LievitAssetInjector} bean is present (auto-injection enabled, issue #121), the renderer
+     * injects the runtime assets into the page.
      *
      * @param service the wire orchestrator
      * @param layoutRenderer the layout wrapper
+     * @param assetInjector the runtime-asset injector when enabled (absent when disabled)
      * @return the page renderer
      */
     @Bean
     @ConditionalOnMissingBean
     public LievitPageRenderer lievitPageRenderer(
-            LievitWireService service, LayoutRenderer layoutRenderer) {
-        return new LievitPageRenderer(service, layoutRenderer);
+            LievitWireService service,
+            LayoutRenderer layoutRenderer,
+            ObjectProvider<LievitAssetInjector> assetInjector) {
+        return new LievitPageRenderer(service, layoutRenderer, assetInjector.getIfAvailable());
     }
 
     /**

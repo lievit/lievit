@@ -106,6 +106,17 @@ final class ChildRenderer {
         ComponentMetadata metadata = registry.metadata(child.className());
         Object instance = registry.freshInstance(child.className());
 
+        // The child's instance id, generated up front so the child can be on the component stack
+        // BEFORE its mount/render hooks run: during the child's own mount, ComponentStack.parent()
+        // is the parent that declared it (issue #183, $parent / nesting). The push is a no-op when no
+        // stack is bound (a child rendered outside a stack-bound mount still works); popped in the
+        // finally so a sibling child sees the right parent.
+        String cid = componentIds.next();
+        io.lievit.component.ComponentStack stack = io.lievit.component.ComponentStack.current();
+        if (stack != null) {
+            stack.push(registry.nameOf(child.className()), cid);
+        }
+
         // Bind the parent-rendered slot content (issue #91) for the duration of the child's mount, so
         // the child's render reads LievitSlots.current() and emits slot placeholders. Cleared in the
         // finally so nothing leaks to a sibling child; a slotless child binds an empty proxy.
@@ -115,22 +126,24 @@ final class ChildRenderer {
         try {
             mounted = dispatcher.mount(metadata, instance, child.props());
             childHtml = templateAdapter.render(metadata, instance, mounted.wire());
+            // Substitute the slot placeholders the child emitted with the parent-rendered slot HTML.
+            // The content runs in the parent's scope (its events/state belong to the parent); the
+            // child only positioned it. An absent slot's placeholder substitutes to nothing.
+            childHtml = substituteSlots(childHtml, child.slots());
+            // Recurse into the child's own children, so the inner HTML is complete before this child's
+            // root markers are injected; the child stays on the stack as their parent.
+            childHtml = substitute(childHtml, mounted.children(), depth + 1);
         } finally {
             io.lievit.component.LievitSlots.clearFor();
+            if (stack != null) {
+                stack.pop();
+            }
         }
-        // Substitute the slot placeholders the child emitted with the parent-rendered slot HTML. The
-        // content runs in the parent's scope (its events/state belong to the parent); the child only
-        // positioned it. An absent slot's placeholder substitutes to nothing.
-        childHtml = substituteSlots(childHtml, child.slots());
-
-        // Recurse into the child's own children first, so the inner HTML is complete before this
-        // child's root markers are injected.
-        childHtml = substitute(childHtml, mounted.children(), depth + 1);
 
         Instant now = Instant.now();
         Snapshot snapshot =
-                Snapshot.fresh(componentIds.next(), child.className(), mounted.wire(), now,
-                        codec.ttl());
+                Snapshot.fresh(cid, child.className(), mounted.wire(), now, codec.ttl());
+
         childHtml = injectMarkers(childHtml, child.key(), snapshot.cid(), codec.sign(snapshot));
         return injectModelable(childHtml, metadata, child);
     }

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.function.RouterFunction;
@@ -82,7 +83,9 @@ final class LievitPageRoutes {
                             props.put(name, value);
                         }
                     }
-                    String html = renderer.renderPage(type, props);
+                    String html =
+                            renderer.renderPage(
+                                    type, props, csrfToken(request), cspNonce(request));
                     return ServerResponse.ok().contentType(MediaType.TEXT_HTML).body(html);
                 });
     }
@@ -94,5 +97,47 @@ final class LievitPageRoutes {
             names.add(m.group(1));
         }
         return names;
+    }
+
+    /**
+     * Reads the Spring Security CSRF token (issue #121) off the request without a hard dependency on
+     * spring-security: the token is exposed as a request attribute under the well-known
+     * {@code org.springframework.security.web.csrf.CsrfToken} name, and its value carries a
+     * {@code getToken()} accessor read reflectively. Returns {@code null} when the app runs without
+     * CSRF (no such attribute), so the runtime simply ships without a {@code data-csrf}.
+     */
+    private static @Nullable String csrfToken(
+            org.springframework.web.servlet.function.ServerRequest request) {
+        Object token =
+                request
+                        .servletRequest()
+                        .getAttribute("org.springframework.security.web.csrf.CsrfToken");
+        if (token == null) {
+            return null;
+        }
+        try {
+            Object value = token.getClass().getMethod("getToken").invoke(token);
+            return value == null ? null : value.toString();
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Reads a CSP nonce off the request (issue #121, the strict-CSP posture of ADR-0019): a host
+     * using a nonce-based CSP exposes it as the {@code lievit.csp-nonce} request attribute (or
+     * Spring Security 6.2+ {@code org.springframework.security.web.csp.nonce}). Returns {@code null}
+     * when no nonce is in play, so the injected tag carries no spurious nonce attribute.
+     */
+    private static @Nullable String cspNonce(
+            org.springframework.web.servlet.function.ServerRequest request) {
+        Object nonce = request.servletRequest().getAttribute("lievit.csp-nonce");
+        if (nonce == null) {
+            nonce =
+                    request
+                            .servletRequest()
+                            .getAttribute("org.springframework.security.web.csp.nonce");
+        }
+        return nonce == null ? null : nonce.toString();
     }
 }
