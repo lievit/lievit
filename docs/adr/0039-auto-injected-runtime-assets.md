@@ -1,4 +1,4 @@
-# ADR-0037: Auto-injected runtime assets on full-page responses
+# ADR-0039: Auto-injected runtime assets on full-page responses
 
 - **Status:** accepted
 - **Date:** 2026-06-18

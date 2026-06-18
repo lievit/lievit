@@ -1,4 +1,4 @@
-# ADR-0038: Component discovery, factory, and naming (Finder / Factory / component stack)
+# ADR-0042: Component discovery, factory, and naming (Finder / Factory / component stack)
 
 - **Status:** accepted
 - **Date:** 2026-06-18

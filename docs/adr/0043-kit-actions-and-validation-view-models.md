@@ -1,4 +1,4 @@
-# ADR-0041: Custom actions, bulk action grouping/selection, and the field validation builder
+# ADR-0043: Custom actions, bulk action grouping/selection, and the field validation builder
 
 - **Status:** accepted
 - **Date:** 2026-06-18

@@ -199,7 +199,7 @@ public class LievitProperties {
     }
 
     /**
-     * Auto-injected-assets configuration, bound from {@code lievit.assets.*} (issue #121, ADR-0037).
+     * Auto-injected-assets configuration, bound from {@code lievit.assets.*} (issue #121, ADR-0039).
      * The runtime {@code <style>}/{@code <script>} are injected into full-page responses produced
      * from a mounted component, so a host app gets the client runtime with no manual tags. Enabled by
      * default ("it just works"); {@code enabled=false} turns it off for an app that wires the runtime

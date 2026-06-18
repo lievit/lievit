@@ -60,7 +60,7 @@ class FullPageRoutingIT {
      * @spec.then  the runtime {@code <script src=/lievit/lievit.js>} is auto-injected before the
      *     {@code </body>} with the {@code data-update-uri} bootstrap attribute, exactly once: a
      *     full-page app gets the runtime with zero manual tags
-     * @spec.adr   ADR-0037
+     * @spec.adr   ADR-0039
      * @spec.us    US-121-auto-inject-assets
      */
     @Test
