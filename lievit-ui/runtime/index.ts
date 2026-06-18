@@ -127,7 +127,13 @@ export {
   consumeStream,
   openStream,
   pollIntervalMs,
+  installBroadcast,
+  openBroadcastSource,
+  parseBroadcastEvent,
+  DEFAULT_BROADCAST_URL,
 } from "./features/index.js";
+
+export type { BroadcastSource, BroadcastOptions } from "./features/broadcast.js";
 
 // --- Livewire v4 convergence surface (ADR-0024) ---------------------------------------------- //
 
