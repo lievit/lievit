@@ -530,6 +530,21 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * Binds the per-request {@link io.lievit.component.LievitResponse} sink around every request and
+     * stamps the no-store headers on a page whose component opted out of the browser back-forward
+     * cache (issue #123, Livewire {@code SupportDisablingBackButtonCache} parity). The filter is a
+     * no-op for a request where no component called {@code disableBackButtonCache()}, so a plain page
+     * stays bfcache-eligible.
+     *
+     * @return the back-button-cache filter
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LievitBackButtonCacheFilter lievitBackButtonCacheFilter() {
+        return new LievitBackButtonCacheFilter();
+    }
+
+    /**
      * Maps every {@code @LievitPage} component to a route on a single shared page handler (issue
      * #181, Livewire {@code Route::livewire} + {@code LivewirePageController} parity). The route's
      * path variables are bound to the component's same-named {@code @Wire} fields (props seeded before

@@ -19,4 +19,11 @@ public class PageTestApp {
     PostPageComponent postPageComponent() {
         return new PostPageComponent();
     }
+
+    /** @return a fresh sensitive page component (opts out of bfcache, issue #123) per request. */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    SensitivePageComponent sensitivePageComponent() {
+        return new SensitivePageComponent();
+    }
 }
