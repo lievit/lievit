@@ -332,13 +332,16 @@ public final class LievitWireService {
             String cid, WireCallResult result, @Nullable WireEffects effects) {}
 
     /**
-     * Merges the snapshot-bound {@code @Wire} state with the per-call computed values into one flat
-     * model map for the template adapter. Wire fields take precedence in insertion order; computed
-     * values follow. The returned map is used ONLY for rendering, not for signing (ADR-0015).
+     * Merges the snapshot-bound {@code @Wire} state with the per-call computed values and the
+     * {@code with()} extra view data into one flat model map for the template adapter. Order of
+     * precedence (last wins): {@code @Wire} fields, then computed values (ADR-0015), then
+     * {@code with()} view data (ADR-0041, #65) so a {@code with()} entry overrides a same-named
+     * property. The returned map is used ONLY for rendering, not for signing.
      */
     private static Map<String, Object> mergeModel(Map<String, Object> wire, WireCall call) {
         Map<String, Object> model = new LinkedHashMap<>(wire);
         model.putAll(call.computed());
+        model.putAll(call.viewData());
         return model;
     }
 
