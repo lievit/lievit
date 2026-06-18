@@ -54,6 +54,8 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0050](0050-navigate-depth-head-merge-persist-progress-scroll.md): Navigate depth (head merge, `l:persist`, progress bar, scroll opt-in) (#193, #195). Extends the navigate feature, no core edit. **accepted**
 - [ADR-0051](0051-request-interactions-and-error-ux.md): Request interactions, per-scope (component/island) cancel-vs-queue concurrency (#95) + the `onExpired` recovery hook and page-expired dialog (#103). Client-only, composes the interceptor seams. **accepted**
 - [ADR-0052](0052-teleport-placeholder-relocation.md): `l:teleport` placeholder-in-place DOM relocation, client-only (#115). **accepted**
+- [ADR-0065](0065-dynamic-object-property.md): A schemaless dynamic-object `@Wire` property (the stdClass analogue) — `DynamicObject` + deep dotted-set create-missing-keys binding (#137). **accepted**
+- [ADR-0066](0066-custom-type-roundtrip-and-validation.md): Custom serializable property types — round-trip closure (nested `Wireable`), hydrate type-check, nested-path validation (#139). **accepted**
 
 ## How to add an ADR
 
