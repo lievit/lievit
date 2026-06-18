@@ -373,9 +373,16 @@ These are protocol-level limits, enforced server-side and surfaced through the e
 | **Checksum-failure budget** | 10 failures / 600 s per client | server (per-IP) | `429 too-many-failures` once the budget is exceeded |
 
 Deferred to v0.2 (recorded here so v0.1 leaves room for them): a **server-side snapshot store**
-(removes the 16 kb / 64 kb pressure for large-state components), **WebSocket / SSE transports**
-(opt-in, not the default), and **UUID v7** component IDs (time-ordered). None of these change the
-v0.1 contract above; they extend it.
+(removes the 16 kb / 64 kb pressure for large-state components) and **UUID v7** component IDs
+(time-ordered). None of these change the v0.1 contract above; they extend it.
+
+The **opt-in realtime push channel** (the WebSocket/SSE transport this section reserved) shipped as
+**SSE** (ADR-0040, #304/#45): a separate, long-lived `GET /lievit/broadcast` stream the server
+pushes events into, out-of-band of the request/response wire loop above. It is gated behind
+`lievit.broadcast.enabled` (default off), per-user (keyed on the request `Principal`), and does **not**
+change the wire contract: it carries server-pushed *events* (the same `{name, detail?, to?}` envelope
+as a `dispatch` effect), never component state, so the snapshot stays the only state carrier and the
+stateless posture (ADR-0001) holds. A pushed event is routed client-side exactly as a dispatched one.
 
 ## 7. The wire endpoint inherits the page's security context (ADR-0014)
 

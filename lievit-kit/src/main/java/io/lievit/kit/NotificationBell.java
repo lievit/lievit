@@ -16,8 +16,10 @@ import java.util.Objects;
  * read/mutation it issues carries that recipient, so the bell can only ever touch its own user's
  * notifications.
  *
- * <p>The bell refreshes by {@linkplain #pollInterval() polling} (default 30s, the Filament default);
- * a websocket broadcast accelerator is a separate, deferred concern (issue #304).
+ * <p>The bell refreshes by {@linkplain #pollInterval() polling} (default 30s, the Filament default).
+ * For live refresh, {@link BroadcastNotification} pushes a {@code lievit-notifications-refresh} event
+ * to the bell over the opt-in SSE broadcast channel (issue #304, ADR-0040), so a new notification
+ * lands without waiting for the poll; polling stays the fallback for apps that do not enable broadcast.
  */
 public final class NotificationBell {
 

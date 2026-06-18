@@ -406,6 +406,49 @@ void valid_form_submits() {
 }
 ```
 
+## Real-time broadcast (live server→client push)
+
+The wire loop is request/response. For the cases that need the server to push *to* a client
+out-of-band of a request — a toast the moment someone assigns you a task, a notification bell that
+refreshes live instead of on its 30 s poll — lievit ships an **opt-in realtime channel over
+Server-Sent Events** (ADR-0040). SSE, not WebSocket: it keeps the stateless, scale-to-zero posture
+(no sticky sessions, no server-held state), needs no extra dependency, and rides the page's existing
+same-origin CSP. The channel carries server-pushed *events*, never component state, so the snapshot
+stays the only state carrier.
+
+It is **off by default**. Turn it on with one property; an app that does not push never opens a
+connection:
+
+```properties
+lievit.broadcast.enabled=true
+# lievit.broadcast.timeout=5m   # SSE idle timeout; the browser EventSource reconnects after it
+```
+
+The server mounts `GET /lievit/broadcast`, an SSE stream **keyed to the request `Principal`**: a
+client can only ever subscribe to its own user's channel (anonymous → `401`). Push from anywhere
+(an action, a scheduled job) through the `BroadcastChannel` bean:
+
+```java
+// kit: a live toast + a bell refresh to one recipient, plus the durable persisted copy
+broadcastNotification.sendAndBroadcast(store, "agent-7", AdminNotification.success("New lead"));
+```
+
+A pushed event is the same `{name, detail?, to?}` envelope as a `dispatch` effect, so the client
+routes it **exactly as a dispatched one**: re-emit on `window`, fire `runtime.on` listeners, and
+deliver to matching `@LievitOn` components (`to` targets a component, e.g. the bell; absent is a
+global fan-out — the Echo-listener bridge). Wire the client once:
+
+```ts
+import { startLievit, installBroadcast } from "@lievit/lievit-ui";
+
+const lievit = startLievit({ csrfToken, csrfHeader });
+installBroadcast(lievit);   // opens the SSE channel; closes it on l:navigate
+```
+
+Live push is best-effort (a recipient with no open client receives nothing live); the durable
+persisted notification is the fallback the bell shows on next load, which is why `sendAndBroadcast`
+persists too.
+
 ## Testing your components (`Lievit.test()`)
 
 Full design in [`docs/adr/0010`](docs/adr/0010-dev-test-harness.md). lievit ships a developer-facing
