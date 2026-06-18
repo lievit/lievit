@@ -966,6 +966,79 @@ public final class LievitTester<T> {
     }
 
     /**
+     * Asserts the last call queued a CSP-safe {@code js} effect for the named handler (issue #73,
+     * ADR-0024 #131): the server-side {@code LievitEffects.js(name, args...)} pushed a {@code js}
+     * effect the client invokes by looking {@code name} up in its {@code runtime.js} registry. The
+     * args are not checked (use {@link #assertJs(String, java.util.List)} for that); order-independent.
+     *
+     * @param handler the registered handler name carried in the effect's {@code js[].name} key
+     * @return this tester
+     */
+    public LievitTester<T> assertJs(String handler) {
+        requireNotRejected("assertJs(\"" + handler + "\")");
+        if (!jsHandlerNames().contains(handler)) {
+            throw new AssertionError(
+                    "expected a queued $js handler '" + handler + "', but the last call queued "
+                            + jsHandlerNames());
+        }
+        return this;
+    }
+
+    /**
+     * Asserts the last call queued a CSP-safe {@code js} effect for the named handler with exactly
+     * the given args (issue #73). Order of the args matters; the comparison is by JSON text so an
+     * integer {@code 1} matches a queued {@code 1}.
+     *
+     * @param handler the registered handler name
+     * @param args the expected call arguments, in order
+     * @return this tester
+     */
+    public LievitTester<T> assertJs(String handler, List<?> args) {
+        requireNotRejected("assertJs(\"" + handler + "\", args)");
+        if (lastEffects != null) {
+            JsonNode js = lastEffects.get("js");
+            if (js != null && js.isArray()) {
+                for (JsonNode call : js) {
+                    JsonNode name = call.get("name");
+                    if (name == null || !handler.equals(name.asText())) {
+                        continue;
+                    }
+                    JsonNode callArgs = call.get("args");
+                    List<String> actual = new ArrayList<>();
+                    if (callArgs != null && callArgs.isArray()) {
+                        for (JsonNode a : callArgs) {
+                            actual.add(a.toString());
+                        }
+                    }
+                    List<String> expected = args.stream().map(String::valueOf).toList();
+                    if (actual.equals(expected) || actual.equals(jsonOf(args))) {
+                        return this;
+                    }
+                }
+            }
+        }
+        throw new AssertionError(
+                "expected a queued $js handler '" + handler + "' with args " + args
+                        + ", but the last call queued " + jsHandlerNames());
+    }
+
+    /**
+     * Asserts the last call queued NO {@code js} effect for the named handler
+     * (issue #73, the {@code assertNoJs} harness assertion).
+     *
+     * @param handler the handler name that must NOT have been queued
+     * @return this tester
+     */
+    public LievitTester<T> assertNoJs(String handler) {
+        requireNotRejected("assertNoJs(\"" + handler + "\")");
+        if (jsHandlerNames().contains(handler)) {
+            throw new AssertionError(
+                    "expected NO queued $js handler '" + handler + "', but one was queued");
+        }
+        return this;
+    }
+
+    /**
      * Asserts the last call queued a {@code download} effect ({@code $this.download}, issue #161)
      * with the given file name, exact (UTF-8) content, and content type (Livewire
      * {@code assertFileDownloaded}). The content is decoded from the base64 the effect carries.
@@ -1006,6 +1079,20 @@ public final class LievitTester<T> {
     }
 
     /**
+     * Asserts the last call queued NO {@code js} effects whatsoever (issue #73).
+     *
+     * @return this tester
+     */
+    public LievitTester<T> assertNoJs() {
+        requireNotRejected("assertNoJs()");
+        List<String> queued = jsHandlerNames();
+        if (!queued.isEmpty()) {
+            throw new AssertionError("expected NO queued $js effects, but the call queued " + queued);
+        }
+        return this;
+    }
+
+    /**
      * Asserts the last call queued NO {@code download} effect (issue #161): the action returned
      * nothing downloadable, so the page simply re-rendered.
      *
@@ -1019,6 +1106,31 @@ public final class LievitTester<T> {
                     "expected NO file download, but one was queued: '" + downloadText(download, "name") + "'");
         }
         return this;
+    }
+
+    private List<String> jsHandlerNames() {
+        List<String> names = new ArrayList<>();
+        if (lastEffects == null) {
+            return names;
+        }
+        JsonNode js = lastEffects.get("js");
+        if (js != null && js.isArray()) {
+            for (JsonNode call : js) {
+                JsonNode name = call.get("name");
+                if (name != null) {
+                    names.add(name.asText());
+                }
+            }
+        }
+        return names;
+    }
+
+    private static List<String> jsonOf(List<?> args) {
+        List<String> out = new ArrayList<>();
+        for (Object a : args) {
+            out.add(a == null ? "null" : a instanceof String s ? '"' + s + '"' : String.valueOf(a));
+        }
+        return out;
     }
 
     private static @Nullable String downloadText(JsonNode node, String field) {

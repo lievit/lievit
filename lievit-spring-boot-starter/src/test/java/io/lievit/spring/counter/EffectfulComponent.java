@@ -33,6 +33,17 @@ public class EffectfulComponent {
         LievitEffects.current().redirect("/done");
     }
 
+    /**
+     * Queues a CSP-safe {@code $js} effect (issue #73, ADR-0024 #131): the server names a client
+     * handler ({@code highlight}) the runtime invokes by name with the new count as its argument,
+     * never an eval. The escape hatch for server-driven client behavior under the strict CSP.
+     */
+    @LievitAction
+    void flash() {
+        this.count++;
+        LievitEffects.current().js("highlight", this.count);
+    }
+
     @LievitAction
     int total() {
         return this.count + 100;
