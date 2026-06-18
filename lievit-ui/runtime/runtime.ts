@@ -41,6 +41,7 @@ import {
   actionScope,
 } from "./interceptors.js";
 import { type MergeIntent, type WireState, mergeNewSnapshot } from "./merge.js";
+import { ConcurrencyRegistry } from "./concurrency.js";
 import { morphIslands, parseIslands } from "./islands.js";
 import { JsRegistry } from "./js-registry.js";
 import { RefRegistry, registerV4Directives } from "./v4-directives.js";
@@ -130,6 +131,8 @@ export class LievitRuntime {
   readonly lifecycle: LifecycleBus;
   /** The interceptor chain (ADR-0024 #93): the *participating* request-lifecycle seam. */
   readonly interceptors: InterceptorChain;
+  /** The per-scope request concurrency engine (#95, ADR-0051): the cancel-vs-queue matrix. */
+  private readonly concurrency = new ConcurrencyRegistry();
   /** The named-ref registry (`l:ref`, #109). */
   readonly refs = new RefRegistry();
   /** The CSP-safe `$js` handler registry (#131): register named client functions here. */
@@ -456,6 +459,13 @@ export class LievitRuntime {
     if (state == null) {
       return;
     }
+    // A poll tick bypasses the per-component commit queue (#95): it must RACE the in-flight call so
+    // the concurrency engine can cancel-or-drop it (a later poll cancels an earlier one; a poll is
+    // dropped behind a user action). Queuing it would defeat the matrix. A user action queues.
+    if (meta.poll === true) {
+      await this.dispatch(state, [action], meta);
+      return;
+    }
     await this.enqueue(state, [action], meta);
   }
 
@@ -507,6 +517,12 @@ export class LievitRuntime {
   async refresh(element: Element, meta: CallMeta = {}): Promise<void> {
     const state = this.stateOf(element);
     if (state == null) {
+      return;
+    }
+    // A poll-driven refresh races (bypasses the commit queue) so the concurrency matrix governs it
+    // (#95); a non-poll `$refresh` queues like any user commit.
+    if (meta.poll === true) {
+      await this.dispatch(state, [], meta);
       return;
     }
     await this.enqueue(state, [], meta);
@@ -668,6 +684,36 @@ export class LievitRuntime {
     island: string | null = null,
     inboundEvents: readonly import("./wire.js").InboundWireEvent[] = [],
   ): Promise<void> {
+    // --- Per-scope concurrency (#95, ADR-0051): apply the cancel-vs-queue matrix against any
+    // in-flight call for this (component, island) scope. A poll arriving behind an in-flight user
+    // action is DROPPED here (silently, before any interceptor/lifecycle phase fires); a user action
+    // over an in-flight poll, or a newer poll over an older one, aborts that in-flight call's fetch
+    // through the signal we thread into `send`. The decision's `end()` runs in the `finally` below.
+    const kind: import("./concurrency.js").RequestKind = meta.poll === true ? "poll" : "user";
+    const decision = this.concurrency.begin(state.componentId, island, kind);
+    if (!decision.proceed) {
+      return;
+    }
+    try {
+      await this.dispatchAdmitted(state, calls, meta, island, inboundEvents, decision.signal);
+    } finally {
+      this.concurrency.end(state.componentId, island, decision.token);
+    }
+  }
+
+  /**
+   * The admitted-call body of {@link dispatch}: runs only after the concurrency engine let the call
+   * proceed, threading the scope's abort `signal` into the wire fetch (#95). Split out so the matrix
+   * decision + its `end()` cleanup wrap one place, regardless of which terminal path the call takes.
+   */
+  private async dispatchAdmitted(
+    state: ComponentState,
+    calls: readonly string[],
+    meta: CallMeta,
+    island: string | null,
+    inboundEvents: readonly import("./wire.js").InboundWireEvent[],
+    signal: AbortSignal,
+  ): Promise<void> {
     const baseWire: WireState = { ...state.ephemeral };
     const pendingPaths = Array.from(state.pendingPaths);
     const updates: Record<string, unknown> = { ...state.pendingUpdates };
@@ -713,10 +759,17 @@ export class LievitRuntime {
       response = await send(
         state.componentId,
         { snapshot: state.snapshot, updates: request.updates, calls, events: inboundEvents },
-        { ...this.options, extraHeaders: request.headers },
+        { ...this.options, extraHeaders: request.headers, signal },
       );
     } catch (error) {
       state.busy = false;
+      // A superseded call (#95): the concurrency engine aborted this fetch because a user action
+      // arrived over an in-flight poll, or a newer poll replaced this one. That is an intentional
+      // drop, not a transport failure: stay silent (no error report, no error phase), so a poll
+      // cancelled by a click never flashes an error overlay.
+      if (signal.aborted) {
+        return;
+      }
       this.reportError("wire call transport failed", error);
       const out: CallOutcome = { ...ctx, status: 0, ok: false, reason: "transport-error" };
       this.lifecycle.error(out);
