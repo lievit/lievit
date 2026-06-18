@@ -45,6 +45,7 @@ final class LievitPageRoutes {
 
     RouterFunction<ServerResponse> build() {
         RouterFunctions.Builder builder = RouterFunctions.route();
+        boolean any = false;
         for (String beanName : context.getBeanNamesForAnnotation(LievitComponent.class)) {
             Class<?> type = context.getType(beanName);
             if (type == null) {
@@ -56,6 +57,12 @@ final class LievitPageRoutes {
                 continue;
             }
             registerRoute(builder, type, route);
+            any = true;
+        }
+        if (!any) {
+            // RouterFunctions.Builder.build() throws when empty; an app with no @LievitPage component
+            // gets a router that matches nothing, so the bean is harmless.
+            return request -> java.util.Optional.empty();
         }
         return builder.build();
     }

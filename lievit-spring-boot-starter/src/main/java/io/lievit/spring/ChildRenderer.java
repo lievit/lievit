@@ -106,8 +106,22 @@ final class ChildRenderer {
         ComponentMetadata metadata = registry.metadata(child.className());
         Object instance = registry.freshInstance(child.className());
 
-        WireCall mounted = dispatcher.mount(metadata, instance, child.props());
-        String childHtml = templateAdapter.render(metadata, instance, mounted.wire());
+        // Bind the parent-rendered slot content (issue #91) for the duration of the child's mount, so
+        // the child's render reads LievitSlots.current() and emits slot placeholders. Cleared in the
+        // finally so nothing leaks to a sibling child; a slotless child binds an empty proxy.
+        io.lievit.component.LievitSlots.bindFor(child.slots());
+        WireCall mounted;
+        String childHtml;
+        try {
+            mounted = dispatcher.mount(metadata, instance, child.props());
+            childHtml = templateAdapter.render(metadata, instance, mounted.wire());
+        } finally {
+            io.lievit.component.LievitSlots.clearFor();
+        }
+        // Substitute the slot placeholders the child emitted with the parent-rendered slot HTML. The
+        // content runs in the parent's scope (its events/state belong to the parent); the child only
+        // positioned it. An absent slot's placeholder substitutes to nothing.
+        childHtml = substituteSlots(childHtml, child.slots());
 
         // Recurse into the child's own children first, so the inner HTML is complete before this
         // child's root markers are injected.
@@ -218,6 +232,54 @@ final class ChildRenderer {
         // Insert before the closing '>' (handling a self-closing '/>' tag).
         int insertAt = childHtml.charAt(tagEnd - 1) == '/' ? tagEnd - 1 : tagEnd;
         return childHtml.substring(0, insertAt) + markers + childHtml.substring(insertAt);
+    }
+
+    /**
+     * Substitutes each slot placeholder the child emitted ({@code <!--lievit:slot:name-->}) with the
+     * parent-rendered slot HTML, wrapped in fragment markers so the client can match and morph the
+     * slot as a distinct region keeping parent ownership (issue #91). A slot the child positioned but
+     * the parent did not supply substitutes to an empty string. A slot the parent supplied but the
+     * child never positioned is dropped (the child chose not to render it).
+     */
+    private static String substituteSlots(
+            String childHtml, java.util.Map<String, String> slots) {
+        if (childHtml.indexOf("<!--lievit:slot:") < 0) {
+            return childHtml;
+        }
+        String html = childHtml;
+        // Replace every positioned slot placeholder. Iterate over the union of positioned names by
+        // scanning the markup, but it is enough to replace for each parent-supplied slot plus clear
+        // any unfilled placeholders afterwards.
+        for (java.util.Map.Entry<String, String> entry : slots.entrySet()) {
+            String name = entry.getKey();
+            String content = entry.getValue() == null ? "" : entry.getValue();
+            String wrapped =
+                    "<!--lievit:slot-start:" + name + "-->"
+                            + content
+                            + "<!--lievit:slot-end:" + name + "-->";
+            html = html.replace(io.lievit.component.LievitSlots.placeholderFor(name), wrapped);
+        }
+        // Any placeholder still present is a slot the child positioned but the parent did not supply:
+        // collapse it to nothing.
+        html = stripUnfilledSlotPlaceholders(html);
+        return html;
+    }
+
+    private static String stripUnfilledSlotPlaceholders(String html) {
+        String marker = "<!--lievit:slot:";
+        StringBuilder out = new StringBuilder(html.length());
+        int from = 0;
+        int at;
+        while ((at = html.indexOf(marker, from)) >= 0) {
+            int end = html.indexOf("-->", at);
+            if (end < 0) {
+                break;
+            }
+            out.append(html, from, at);
+            from = end + 3;
+        }
+        out.append(html, from, html.length());
+        return out.toString();
     }
 
     private static String placeholder(String key) {
