@@ -142,6 +142,7 @@ installAllFeatures(lievit);
 | `l:navigate[.hover]` | SPA nav: fetch + body morph + history + events + hover prefetch + asset-diff reload |
 | `l:page="action"` | pagination link → page action + scroll-to-top (URL sync via the `url` effect) |
 | `l:upload="field"` | file upload → signed temp-path ref + lifecycle events (`installUploads`) |
+| `l:teleport="selector"` | relocate the element's content to a target (e.g. `body`) while it stays component-owned: reactive across morphs, events preserved, multiple teleports (`installTeleport`, ADR-0052) |
 
 ## The tokens
 

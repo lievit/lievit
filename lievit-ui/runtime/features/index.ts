@@ -24,6 +24,7 @@ import { installPoll } from "./poll.js";
 import { installPreserveScroll } from "./preserve-scroll.js";
 import { installScopedCss } from "./scoped-css.js";
 import { installShow } from "./show.js";
+import { installTeleport } from "./teleport.js";
 import { installTransition } from "./transition.js";
 import { installUploads } from "./uploads.js";
 
@@ -66,6 +67,7 @@ export { installNavigate, type NavigateOptions } from "./navigate.js";
 export { installPagination, type ScrollToTop } from "./pagination.js";
 export { installPreserveScroll } from "./preserve-scroll.js";
 export { installScopedCss, scopeCss, scopeId } from "./scoped-css.js";
+export { installTeleport } from "./teleport.js";
 export {
   installUploads,
   type TempFileRef,
@@ -103,5 +105,6 @@ export function installAllFeatures(
   installPreserveScroll(runtime);
   installCurrent(runtime);
   installScopedCss(runtime);
+  installTeleport(runtime);
   installUploads(runtime, options.uploads);
 }
