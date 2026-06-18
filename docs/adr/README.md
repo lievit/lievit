@@ -59,6 +59,8 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0062](0062-csp-safe-server-config.md): CSP-safe mode, server half: `lievit.csp.*` config + nonce-aware emission (#127). **accepted**
 - [ADR-0063](0063-scoped-css-server-route.md): Scoped CSS modules, server half: CSS route + `styleModule` effect + content-hash cache-busting (#129). **accepted**
 - [ADR-0064](0064-client-assets-consumer-seam.md): Client `applyAssets` consumer as a self-contained, opt-in feature (#171/#119/#129). **accepted**
+- [ADR-0065](0065-dynamic-object-property.md): A schemaless dynamic-object `@Wire` property (the stdClass analogue) — `DynamicObject` + deep dotted-set create-missing-keys binding (#137). **accepted**
+- [ADR-0066](0066-custom-type-roundtrip-and-validation.md): Custom serializable property types — round-trip closure (nested `Wireable`), hydrate type-check, nested-path validation (#139). **accepted**
 
 ## How to add an ADR
 
