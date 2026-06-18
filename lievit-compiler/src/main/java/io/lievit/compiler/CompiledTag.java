@@ -43,6 +43,11 @@ import java.util.Optional;
  * @param isExpression the {@code :is} expression when {@link #dynamic}, else empty
  * @param assetDirective the asset-directive kind for {@code <lievit:styles>}/{@code <lievit:scripts>},
  *     else empty
+ * @param eventListeners the {@code @event-name="handler"} listeners the parent declared on the child
+ *     tag (issue #69, Livewire {@code SupportNestedComponentListeners} parity): a map from the
+ *     child-emitted event name (kebab, as authored) to the parent action that handles it. The render
+ *     layer persists these in the child's memo and the client routes the bubbled child event to the
+ *     parent handler. Empty when the tag declares no listeners.
  */
 public record CompiledTag(
         String componentName,
@@ -56,7 +61,8 @@ public record CompiledTag(
         boolean selfClosing,
         boolean dynamic,
         Optional<String> isExpression,
-        Optional<CompiledTag.AssetKind> assetDirective) {
+        Optional<CompiledTag.AssetKind> assetDirective,
+        Map<String, String> eventListeners) {
 
     /** The asset-directive kinds the shortcut tags map to (the runtime-bundle injection points). */
     public enum AssetKind {
@@ -69,6 +75,7 @@ public record CompiledTag(
     public CompiledTag {
         literalAttributes = Map.copyOf(literalAttributes);
         boundAttributes = Map.copyOf(boundAttributes);
+        eventListeners = eventListeners == null ? Map.of() : Map.copyOf(eventListeners);
     }
 
     /**

@@ -18,11 +18,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
+import gg.jte.ContentType;
+import gg.jte.TemplateEngine;
+import gg.jte.resolve.ResourceCodeResolver;
 import io.lievit.LievitComponent;
+import io.lievit.compiler.DeterministicKeys;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
-import io.lievit.component.LifecycleBus;
 import io.lievit.component.IsolateListener;
+import io.lievit.component.LifecycleBus;
 import io.lievit.component.LifecycleHooksListener;
 import io.lievit.component.LifecyclePhase;
 import io.lievit.component.LocaleListener;
@@ -30,25 +34,20 @@ import io.lievit.component.MagicActionListener;
 import io.lievit.component.NoOpFieldValidator;
 import io.lievit.component.RedirectListener;
 import io.lievit.component.RenderlessListener;
-import io.lievit.component.TransitionListener;
 import io.lievit.component.SessionListener;
-import io.lievit.compiler.DeterministicKeys;
+import io.lievit.component.TransitionListener;
 import io.lievit.component.WireDispatcher;
-import io.lievit.wire.synth.SynthesizerRegistry;
 import io.lievit.dsl.DslOrEngineTemplateAdapter;
 import io.lievit.dsl.DslTemplateAdapter;
 import io.lievit.jte.JteTemplateAdapter;
 import io.lievit.render.TemplateAdapter;
+import io.lievit.spring.native_.LievitRuntimeHints;
 import io.lievit.wire.ChecksumFailureLimiter;
 import io.lievit.wire.ComponentId;
 import io.lievit.wire.PayloadGuard;
 import io.lievit.wire.SigningKeys;
 import io.lievit.wire.SnapshotCodec;
-import io.lievit.spring.native_.LievitRuntimeHints;
-
-import gg.jte.ContentType;
-import gg.jte.TemplateEngine;
-import gg.jte.resolve.ResourceCodeResolver;
+import io.lievit.wire.synth.SynthesizerRegistry;
 
 /**
  * Wires the lievit runtime when the starter is on the classpath (ADR-0008): the codec (from {@code

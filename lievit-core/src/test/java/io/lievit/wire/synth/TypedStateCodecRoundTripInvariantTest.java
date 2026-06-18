@@ -15,9 +15,9 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import io.lievit.wire.SigningKeys;
 import io.lievit.wire.Snapshot;
 import io.lievit.wire.SnapshotCodec;
-import io.lievit.wire.SigningKeys;
 
 /**
  * The golden typed-state round-trip THROUGH the real {@link SnapshotCodec}: a dehydrated tuple is

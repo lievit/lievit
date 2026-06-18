@@ -6,11 +6,11 @@ package io.lievit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.Test;
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Specifies the Bean Validation integration on {@link LievitFormObject}: a valid form returns an

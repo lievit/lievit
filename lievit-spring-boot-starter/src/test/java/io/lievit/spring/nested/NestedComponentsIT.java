@@ -103,4 +103,46 @@ class NestedComponentsIT {
                 .assertSee(">row 2<")
                 .assertSnapshotRotated();
     }
+
+    /**
+     * @spec.given a parent that declares a child with an @saved event listener and forwarded HTML
+     *     attributes (a class to merge, a data-role pass-through, and a `label` that is a real prop)
+     * @spec.when  the parent renders
+     * @spec.then  the child root carries lievit:on:saved="addRow" (the #69 listener wiring), the
+     *     forwarded class + data-role merged onto the root (#71), and `label` was seeded as a prop
+     *     (rendered as the row label), NOT stamped as a raw attribute
+     * @spec.adr   ADR-0016
+     * @spec.us    US-69-nested-component-listeners
+     */
+    @Test
+    void a_child_carries_parent_event_listeners_and_forwarded_attributes() {
+        test(ListComponent.class)
+                .mount()
+                // #69: the parent-declared listener is re-injected onto the child root.
+                .assertSee("lievit:on:saved=\"addRow\"")
+                // #71: the forwarded attribute bag merges onto the child root.
+                .assertSee("class=\"highlight\"")
+                .assertSee("data-role=\"listitem\"")
+                // `label` is a real @Wire prop: seeded down (rendered as the label), not in the bag.
+                .assertSee(">decorated<")
+                .assertDontSee("label=\"ignored\"");
+    }
+
+    /**
+     * @spec.given a parent that declares a child with a listener + forwarded attributes
+     * @spec.when  an action re-renders the parent (the child is re-declared with the same tag attrs)
+     * @spec.then  the listener marker and the forwarded attributes are re-injected on the re-render:
+     *     they survive a re-render (the parent re-declares them each render, ADR-0016)
+     * @spec.adr   ADR-0016
+     * @spec.us    US-71-attribute-forwarding
+     */
+    @Test
+    void forwarded_attributes_and_listeners_survive_a_re_render() {
+        test(ListComponent.class)
+                .mount()
+                .call("addRow")
+                .assertSee("lievit:on:saved=\"addRow\"")
+                .assertSee("class=\"highlight\"")
+                .assertSee("data-role=\"listitem\"");
+    }
 }

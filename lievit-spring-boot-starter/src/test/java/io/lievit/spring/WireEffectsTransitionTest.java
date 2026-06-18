@@ -6,8 +6,9 @@ package io.lievit.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.lievit.component.LievitEffects;
 import io.lievit.component.TransitionEffect;

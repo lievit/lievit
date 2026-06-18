@@ -53,5 +53,15 @@ public class ListComponent {
                 "draft-input",
                 RowInputComponent.class,
                 Map.of("value", draft, "_modelable", "draft"));
+        // A child that declares a parent @event listener (#69) and forwards HTML attributes (#71):
+        // @saved -> addRow, plus a class merge and a data-role pass-through; `label` is a real @Wire
+        // prop so it is seeded down, not put in the forwarded-attribute bag.
+        children.child(
+                "decorated-row",
+                RowComponent.class.getName(),
+                Map.of("label", "decorated"),
+                Map.of(),
+                Map.of("saved", "addRow"),
+                Map.of("class", "highlight", "data-role", "listitem", "label", "ignored"));
     }
 }

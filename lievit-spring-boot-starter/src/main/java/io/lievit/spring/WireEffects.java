@@ -10,6 +10,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+
 import io.lievit.component.DispatchedEvent;
 import io.lievit.component.DownloadEffect;
 import io.lievit.component.LievitEffects;

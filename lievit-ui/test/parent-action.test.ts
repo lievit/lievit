@@ -35,7 +35,7 @@ describe("$parent action routing from a child (#67, ADR-0016 client half)", () =
   });
 
   it("routes l:click=\"$parent.increment()\" to the parent's wire call", async () => {
-    const { parent, child } = mountParentChild();
+    const { child } = mountParentChild();
     const fetchImpl = vi.fn(async () =>
       new Response('<div data-lievit-component="Parent" data-lievit-id="parent-cid"></div>', {
         status: 200,

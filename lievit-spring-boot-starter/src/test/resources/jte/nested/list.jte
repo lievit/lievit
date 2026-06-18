@@ -10,5 +10,6 @@
         @endfor
     </ul>
     <div class="draft">$unsafe{LievitChildren.placeholderFor("draft-input")}</div>
+    <div class="decorated">$unsafe{LievitChildren.placeholderFor("decorated-row")}</div>
     <button l:click="addRow">add row</button>
 </div>

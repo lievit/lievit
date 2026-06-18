@@ -144,4 +144,59 @@ class LievitTagCompilerTest {
         assertThatThrownBy(() -> compiler.compile("<div>not a tag</div>"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    /**
+     * @spec.given a child tag declaring an @event listener alongside a literal and a bound prop
+     * @spec.when  it is compiled
+     * @spec.then  the @event listener is captured (event name -> parent handler) and NOT seeded as a
+     *     literal/bound prop: it is the nested-component listener wiring (#69), not a child field
+     * @spec.adr   ADR-0023
+     * @spec.us    US-69-nested-component-listeners
+     */
+    @Test
+    void captures_an_at_event_listener_as_a_parent_handler_not_a_prop() {
+        CompiledTag tag =
+                compiler.compile(
+                        "<lievit:todo-row :todo=\"t\" label=\"Row\" @saved=\"refreshList\" />");
+
+        assertThat(tag.eventListeners()).containsEntry("saved", "refreshList");
+        // The listener does not leak into the child's props (neither literal nor bound).
+        assertThat(tag.literalAttributes()).doesNotContainKey("saved");
+        assertThat(tag.boundAttributes()).doesNotContainKey("saved");
+        // The real props still parse normally.
+        assertThat(tag.literalAttributes()).containsEntry("label", "Row");
+        assertThat(tag.boundAttributes()).containsEntry("todo", "t");
+    }
+
+    /**
+     * @spec.given a child tag with several @event listeners and a kebab-cased event name
+     * @spec.when  it is compiled
+     * @spec.then  every listener is captured and the event name keeps its authored (kebab) form, so a
+     *     case-sensitive DOM event name round-trips
+     * @spec.adr   ADR-0023
+     * @spec.us    US-69-nested-component-listeners
+     */
+    @Test
+    void captures_multiple_event_listeners_keeping_the_authored_event_name() {
+        CompiledTag tag =
+                compiler.compile(
+                        "<lievit:editor @item-saved=\"onSave\" @item-deleted=\"onDelete\" />");
+
+        assertThat(tag.eventListeners())
+                .containsEntry("item-saved", "onSave")
+                .containsEntry("item-deleted", "onDelete");
+    }
+
+    /**
+     * @spec.given a tag with no @event listeners
+     * @spec.when  it is compiled
+     * @spec.then  the event-listener map is empty (the common case carries no listener wiring)
+     * @spec.adr   ADR-0023
+     */
+    @Test
+    void a_tag_without_event_listeners_has_an_empty_listener_map() {
+        CompiledTag tag = compiler.compile("<lievit:row label=\"x\" />");
+
+        assertThat(tag.eventListeners()).isEmpty();
+    }
 }
