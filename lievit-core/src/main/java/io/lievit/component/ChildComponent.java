@@ -35,15 +35,31 @@ import java.util.Map;
  *     mount; JSON-shaped, may be empty
  * @param slots the parent-rendered slot content by slot name ({@code "default"} = unnamed); empty
  *     when the child was mounted without slots
+ * @param listeners the {@code @event="handler"} listeners the parent declared on the child tag
+ *     (issue #69, Livewire {@code SupportNestedComponentListeners} parity): a map from the
+ *     child-emitted event name to the parent action that handles it. The renderer re-injects these
+ *     onto the child root each render so the client routes the bubbled child event to the parent.
+ *     Empty when the parent declared none.
+ * @param attributes the unmapped HTML attributes the parent put on the child tag that do not match a
+ *     child {@code @Wire} prop (issue #71, Livewire {@code $attributes} bag parity): {@code class},
+ *     {@code id}, {@code data-*}, etc. The renderer merges them onto the child's root element. Empty
+ *     when the parent forwarded none.
  */
 public record ChildComponent(
-        String key, String className, Map<String, Object> props, Map<String, String> slots) {
+        String key,
+        String className,
+        Map<String, Object> props,
+        Map<String, String> slots,
+        Map<String, String> listeners,
+        Map<String, String> attributes) {
 
     /**
      * @param key the stable child key (must be non-blank: the morph identity depends on it)
      * @param className the child component class name (must be non-blank)
      * @param props the parent-supplied props (defensively copied; never {@code null})
      * @param slots the parent-rendered slot content (defensively copied; never {@code null})
+     * @param listeners the parent-declared event listeners (defensively copied; never {@code null})
+     * @param attributes the forwarded HTML attribute bag (defensively copied; never {@code null})
      */
     public ChildComponent {
         if (key == null || key.isBlank()) {
@@ -54,6 +70,22 @@ public record ChildComponent(
         }
         props = props == null ? Map.of() : Map.copyOf(props);
         slots = slots == null ? Map.of() : Map.copyOf(slots);
+        listeners = listeners == null ? Map.of() : Map.copyOf(listeners);
+        attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+    }
+
+    /**
+     * A child with slot content but no listeners / forwarded attributes (keeps the issue-#91 call
+     * sites intact).
+     *
+     * @param key the stable child key
+     * @param className the child component class name
+     * @param props the parent-supplied props
+     * @param slots the parent-rendered slot content
+     */
+    public ChildComponent(
+            String key, String className, Map<String, Object> props, Map<String, String> slots) {
+        this(key, className, props, slots, Map.of(), Map.of());
     }
 
     /**
@@ -65,6 +97,6 @@ public record ChildComponent(
      * @param props the parent-supplied props
      */
     public ChildComponent(String key, String className, Map<String, Object> props) {
-        this(key, className, props, Map.of());
+        this(key, className, props, Map.of(), Map.of(), Map.of());
     }
 }

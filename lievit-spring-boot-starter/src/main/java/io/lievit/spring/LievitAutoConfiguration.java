@@ -18,9 +18,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
+import gg.jte.ContentType;
+import gg.jte.TemplateEngine;
+import gg.jte.resolve.ResourceCodeResolver;
 import io.lievit.LievitComponent;
+import io.lievit.compiler.DeterministicKeys;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
+import io.lievit.component.IsolateListener;
 import io.lievit.component.LifecycleBus;
 import io.lievit.component.LifecycleHooksListener;
 import io.lievit.component.LifecyclePhase;
@@ -29,25 +34,20 @@ import io.lievit.component.MagicActionListener;
 import io.lievit.component.NoOpFieldValidator;
 import io.lievit.component.RedirectListener;
 import io.lievit.component.RenderlessListener;
-import io.lievit.component.TransitionListener;
 import io.lievit.component.SessionListener;
-import io.lievit.compiler.DeterministicKeys;
+import io.lievit.component.TransitionListener;
 import io.lievit.component.WireDispatcher;
-import io.lievit.wire.synth.SynthesizerRegistry;
 import io.lievit.dsl.DslOrEngineTemplateAdapter;
 import io.lievit.dsl.DslTemplateAdapter;
 import io.lievit.jte.JteTemplateAdapter;
 import io.lievit.render.TemplateAdapter;
+import io.lievit.spring.native_.LievitRuntimeHints;
 import io.lievit.wire.ChecksumFailureLimiter;
 import io.lievit.wire.ComponentId;
 import io.lievit.wire.PayloadGuard;
 import io.lievit.wire.SigningKeys;
 import io.lievit.wire.SnapshotCodec;
-import io.lievit.spring.native_.LievitRuntimeHints;
-
-import gg.jte.ContentType;
-import gg.jte.TemplateEngine;
-import gg.jte.resolve.ResourceCodeResolver;
+import io.lievit.wire.synth.SynthesizerRegistry;
 
 /**
  * Wires the lievit runtime when the starter is on the classpath (ADR-0008): the codec (from {@code
@@ -188,6 +188,9 @@ public class LievitAutoConfiguration {
         // restore it on hydrate before render, so a wire update keeps the component's pinned locale
         // instead of reverting to the fresh request default. No-ops when no LocaleSource is bound.
         LocaleListener.registerOn(bus);
+        // @LievitIsolate (#61, ADR-0075): stamp isolate:true into the snapshot memo on mount/dehydrate
+        // so the client sends the component's updates in their own request, off the shared commit.
+        IsolateListener.registerOn(bus);
         bus.on(LifecyclePhase.CALL, new MagicActionListener(synthesizers));
         // RenderlessListener owns the render-skip tally for both @LievitRenderless and the
         // @LievitJson RPC actions (#99): both return without re-rendering.
@@ -529,6 +532,21 @@ public class LievitAutoConfiguration {
             LayoutRenderer layoutRenderer,
             ObjectProvider<LievitAssetInjector> assetInjector) {
         return new LievitPageRenderer(service, layoutRenderer, assetInjector.getIfAvailable());
+    }
+
+    /**
+     * Binds the per-request {@link io.lievit.component.LievitResponse} sink around every request and
+     * stamps the no-store headers on a page whose component opted out of the browser back-forward
+     * cache (issue #123, Livewire {@code SupportDisablingBackButtonCache} parity). The filter is a
+     * no-op for a request where no component called {@code disableBackButtonCache()}, so a plain page
+     * stays bfcache-eligible.
+     *
+     * @return the back-button-cache filter
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LievitBackButtonCacheFilter lievitBackButtonCacheFilter() {
+        return new LievitBackButtonCacheFilter();
     }
 
     /**

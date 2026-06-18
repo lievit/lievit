@@ -145,7 +145,105 @@ final class ChildRenderer {
                 Snapshot.fresh(cid, child.className(), mounted.wire(), now, codec.ttl());
 
         childHtml = injectMarkers(childHtml, child.key(), snapshot.cid(), codec.sign(snapshot));
-        return injectModelable(childHtml, metadata, child);
+        childHtml = injectModelable(childHtml, metadata, child);
+        // Re-inject the parent-declared event listeners (#69) and the forwarded HTML attribute bag
+        // (#71) onto the child root on EVERY render: the parent re-declares the child with the same
+        // tag attributes each re-render (ADR-0016), so re-injecting here is what makes them "survive a
+        // re-render" without the child owning the state.
+        childHtml = injectListeners(childHtml, child);
+        return mergeForwardedAttributes(childHtml, metadata, child);
+    }
+
+    /** The attribute prefix the client reads to route a child-emitted event to a parent handler. */
+    static final String LISTENER_ATTR_PREFIX = "lievit:on:";
+
+    /**
+     * Stamps {@code lievit:on:<event>="<parentAction>"} on the child root for each listener the parent
+     * declared on the child tag (issue #69). The client routes a bubbled child event named
+     * {@code <event>} to the parent's {@code <parentAction>} (the up-leg, like the modelable marker).
+     * No marker for a child mounted without listeners, so a plain child is unaffected.
+     */
+    private static String injectListeners(String childHtml, ChildComponent child) {
+        if (child.listeners().isEmpty()) {
+            return childHtml;
+        }
+        StringBuilder markers = new StringBuilder();
+        for (java.util.Map.Entry<String, String> listener : child.listeners().entrySet()) {
+            markers
+                    .append(' ')
+                    .append(LISTENER_ATTR_PREFIX)
+                    .append(escape(listener.getKey()))
+                    .append("=\"")
+                    .append(escape(listener.getValue()))
+                    .append('"');
+        }
+        return insertOnRoot(childHtml, markers.toString());
+    }
+
+    /**
+     * Merges the forwarded HTML attribute bag (issue #71, Livewire {@code $attributes}) onto the child
+     * root element: an attribute the parent put on the child tag that does NOT match a child
+     * {@code @Wire} prop ({@code class}, {@code id}, {@code data-*}, ...). A {@code class} attribute is
+     * appended to any class the child rendered (the merge); any other attribute is added (it is the
+     * parent's pass-through, the child did not declare it). An attribute matching a declared prop is
+     * skipped here: it was seeded as a prop, not forwarded.
+     */
+    private static String mergeForwardedAttributes(
+            String childHtml, ComponentMetadata metadata, ChildComponent child) {
+        if (child.attributes().isEmpty()) {
+            return childHtml;
+        }
+        String html = childHtml;
+        StringBuilder added = new StringBuilder();
+        for (java.util.Map.Entry<String, String> attr : child.attributes().entrySet()) {
+            String name = attr.getKey();
+            // A forwarded attribute that names a declared @Wire prop was already seeded down as a prop;
+            // do not also stamp it as a raw attribute (it is not part of the pass-through bag).
+            if (metadata.wireFields().containsKey(name)) {
+                continue;
+            }
+            String value = attr.getValue() == null ? "" : attr.getValue();
+            if ("class".equals(name)) {
+                html = mergeClass(html, value);
+            } else {
+                added.append(' ').append(escape(name)).append("=\"").append(escape(value)).append('"');
+            }
+        }
+        return added.length() == 0 ? html : insertOnRoot(html, added.toString());
+    }
+
+    /** Appends {@code extra} to the child root's existing {@code class}, or adds one if absent. */
+    private static String mergeClass(String html, String extra) {
+        int tagStart = firstElement(html);
+        int tagEnd = html.indexOf('>', tagStart);
+        if (tagEnd < 0) {
+            return html;
+        }
+        String openTag = html.substring(tagStart, tagEnd);
+        java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile("\\sclass=\"([^\"]*)\"").matcher(openTag);
+        if (m.find()) {
+            String merged = m.group(1).isBlank() ? extra : m.group(1) + " " + extra;
+            String newOpenTag =
+                    openTag.substring(0, m.start())
+                            + " class=\""
+                            + escape(merged)
+                            + "\""
+                            + openTag.substring(m.end());
+            return html.substring(0, tagStart) + newOpenTag + html.substring(tagEnd);
+        }
+        return insertOnRoot(html, " class=\"" + escape(extra) + "\"");
+    }
+
+    /** Inserts {@code markers} just before the close of the child root's opening tag. */
+    private static String insertOnRoot(String html, String markers) {
+        int tagStart = firstElement(html);
+        int tagEnd = html.indexOf('>', tagStart);
+        if (tagEnd < 0) {
+            return html;
+        }
+        int insertAt = html.charAt(tagEnd - 1) == '/' ? tagEnd - 1 : tagEnd;
+        return html.substring(0, insertAt) + markers + html.substring(insertAt);
     }
 
     /**
