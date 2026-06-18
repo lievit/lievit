@@ -51,6 +51,7 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0042](0042-component-finder-factory-naming.md): Component discovery, factory, and naming (Finder / Factory / component stack). **accepted**
 - [ADR-0043](0043-kit-actions-and-validation-view-models.md): Custom actions, bulk action grouping/selection, and the field validation builder. **accepted**
 - [ADR-0044](0044-uploads-and-download-effect.md): File uploads (signed temp files + direct upload) and the `download` effect. **accepted**
+- [ADR-0050](0050-navigate-depth-head-merge-persist-progress-scroll.md): Navigate depth (head merge, `l:persist`, progress bar, scroll opt-in) (#193, #195). Extends the navigate feature, no core edit. **accepted**
 
 ## How to add an ADR
 
