@@ -10,13 +10,39 @@ import {
   builtinDirectives,
   parseDirective,
 } from "../runtime/directives.js";
+import { ControlRegistry } from "../runtime/controls.js";
 
-function registry(): DirectiveRegistry {
+function registry(controls?: ControlRegistry): DirectiveRegistry {
   const reg = new DirectiveRegistry();
-  for (const d of builtinDirectives()) {
+  for (const d of builtinDirectives(controls)) {
     reg.register(d);
   }
   return reg;
+}
+
+/**
+ * A fake value-bearing custom element (a Web Awesome `<wa-input>` / `<wa-select>` stand-in): it
+ * exposes `.value` as a property, NOT via the native control interface, and emits the native
+ * `input` / `change` / `blur` like Web Awesome does.
+ */
+class FakeValueControl extends HTMLElement {
+  value = "";
+}
+
+/** A fake checkbox-like custom element (a `<wa-checkbox>` stand-in): boolean `.checked` + role. */
+class FakeCheckControl extends HTMLElement {
+  checked = false;
+  constructor() {
+    super();
+    this.setAttribute("role", "checkbox");
+  }
+}
+
+if (!customElements.get("fake-value")) {
+  customElements.define("fake-value", FakeValueControl);
+}
+if (!customElements.get("fake-check")) {
+  customElements.define("fake-check", FakeCheckControl);
 }
 
 function fakeRuntime(): DirectiveRuntime & {
@@ -133,6 +159,82 @@ describe("directive registry (extension point, wire-protocol §5)", () => {
     vi.advanceTimersByTime(200);
     expect(rt.models).toEqual([["q", "ab", true]]); // one send with the latest value
     vi.useRealTimers();
+  });
+
+  it("l:model reads .value from a custom element (Web Awesome wa-input convention)", () => {
+    document.body.innerHTML = '<fake-value l:model="name"></fake-value>';
+    const el = document.querySelector("fake-value") as FakeValueControl;
+    const rt = fakeRuntime();
+    registry().scan(document.body, rt);
+
+    el.value = "ada"; // property, the way wa-input exposes it (no textContent fallback)
+    el.dispatchEvent(new Event("input"));
+
+    expect(rt.models).toEqual([["name", "ada", false]]);
+  });
+
+  it("l:model reads .checked from a checkbox-like custom element (wa-checkbox)", () => {
+    document.body.innerHTML = '<fake-check l:model.lazy="agree"></fake-check>';
+    const el = document.querySelector("fake-check") as FakeCheckControl;
+    const rt = fakeRuntime();
+    registry().scan(document.body, rt);
+
+    el.checked = true;
+    el.dispatchEvent(new Event("change"));
+
+    expect(rt.models).toEqual([["agree", true, true]]); // boolean, not the string value
+  });
+
+  it("l:model.live debounces a custom element on its input event", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<fake-value l:model.live="q"></fake-value>';
+    const el = document.querySelector("fake-value") as FakeValueControl;
+    const rt = fakeRuntime();
+    registry().scan(document.body, rt);
+
+    el.value = "a";
+    el.dispatchEvent(new Event("input"));
+    el.value = "ab";
+    el.dispatchEvent(new Event("input"));
+    expect(rt.models).toHaveLength(0);
+
+    vi.advanceTimersByTime(200);
+    expect(rt.models).toEqual([["q", "ab", true]]);
+    vi.useRealTimers();
+  });
+
+  it("l:model.blur reads a custom element on blur", () => {
+    document.body.innerHTML = '<fake-value l:model.blur="name"></fake-value>';
+    const el = document.querySelector("fake-value") as FakeValueControl;
+    const rt = fakeRuntime();
+    registry().scan(document.body, rt);
+
+    el.value = "grace";
+    el.dispatchEvent(new Event("blur"));
+
+    expect(rt.models).toEqual([["name", "grace", true]]);
+  });
+
+  it("a registered control adapter overrides the default read + change event for its tag", () => {
+    const controls = new ControlRegistry();
+    controls.register("fake-value", {
+      read: (e) => `wrapped:${(e as FakeValueControl).value}`,
+      write: (e, v) => {
+        (e as FakeValueControl).value = String(v);
+      },
+      lazyEvent: "wa-change", // exotic control fires a non-standard change event
+    });
+    document.body.innerHTML = '<fake-value l:model.lazy="name"></fake-value>';
+    const el = document.querySelector("fake-value") as FakeValueControl;
+    const rt = fakeRuntime();
+    registry(controls).scan(document.body, rt);
+
+    el.value = "ada";
+    el.dispatchEvent(new Event("change")); // the default event is NOT listened to
+    expect(rt.models).toHaveLength(0);
+
+    el.dispatchEvent(new Event("wa-change")); // the adapter's declared event drives the bind
+    expect(rt.models).toEqual([["name", "wrapped:ada", true]]);
   });
 
   it("ignores an unknown l:* directive (forward compatible)", () => {

@@ -37,6 +37,13 @@ export {
 } from "./directives.js";
 
 export {
+  ControlRegistry,
+  defaultReadControlValue,
+  defaultWriteControlValue,
+  type ControlAdapter,
+} from "./controls.js";
+
+export {
   LifecycleBus,
   type LifecycleHook,
   type ComponentContext,
