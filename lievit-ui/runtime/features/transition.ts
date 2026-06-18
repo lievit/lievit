@@ -72,29 +72,52 @@ export function installTransition(runtime: LievitRuntime): () => void {
   // Elements already animating out (so a re-scan does not re-claim them).
   const leaving = new WeakSet<Node>();
 
-  const offMorph = runtime.morphWith(() => ({
-    beforeRemove: (node) => {
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-        return false;
-      }
-      const el = node as Element;
-      if (!hasTransition(el) || leaving.has(el)) {
-        return false;
-      }
-      leaving.add(el);
-      const htmlEl = el as HTMLElement;
-      fade(htmlEl, 1, 0, durationOf(el), () => htmlEl.remove());
-      return true; // claimed: the morph leaves the node in place; we remove it after the fade.
-    },
-  }));
+  // The server transition effect (#113, @LievitTransition) the runtime recorded for this update:
+  // skip suppresses the transition; a duration overrides the per-element default. Read across the
+  // morph from the runtime (a DOM stamp would be reconciled away by the morph).
+  const serverSkip = (root: Element): boolean => runtime.transitionFor(root)?.skip === true;
+  const serverDuration = (root: Element): number | null =>
+    runtime.transitionFor(root)?.duration ?? null;
+
+  const offMorph = runtime.morphWith((root) => {
+    if (serverSkip(root)) {
+      return null; // server opted this update out of transitions.
+    }
+    const override = serverDuration(root);
+    return {
+      beforeRemove: (node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          return false;
+        }
+        const el = node as Element;
+        if (!hasTransition(el) || leaving.has(el)) {
+          return false;
+        }
+        leaving.add(el);
+        const htmlEl = el as HTMLElement;
+        fade(htmlEl, 1, 0, override ?? durationOf(el), () => htmlEl.remove());
+        return true; // claimed: the morph leaves the node in place; we remove it after the fade.
+      },
+    };
+  });
 
   const offHook = runtime.use({
     afterCall: (ctx) => {
+      if (serverSkip(ctx.root)) {
+        // Mark fresh elements entered without animating, so the skip holds for this update.
+        for (const el of Array.from(ctx.root.querySelectorAll("*"))) {
+          if (hasTransition(el)) {
+            el.setAttribute("data-l-entered", "");
+          }
+        }
+        return;
+      }
+      const override = serverDuration(ctx.root);
       // Animate IN any l:transition element that has no recorded opacity (freshly inserted).
       for (const el of Array.from(ctx.root.querySelectorAll("*"))) {
         if (hasTransition(el) && !el.hasAttribute("data-l-entered")) {
           el.setAttribute("data-l-entered", "");
-          fade(el as HTMLElement, 0, 1, durationOf(el));
+          fade(el as HTMLElement, 0, 1, override ?? durationOf(el));
         }
       }
     },

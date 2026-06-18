@@ -10,6 +10,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 import io.lievit.LievitLayout;
+import io.lievit.LievitPage;
 import io.lievit.LievitTitle;
 
 /**
@@ -28,10 +29,13 @@ public final class PageComponent {
 
     private final @Nullable String layout;
     private final @Nullable String title;
+    private final @Nullable String route;
 
-    private PageComponent(@Nullable String layout, @Nullable String title) {
+    private PageComponent(
+            @Nullable String layout, @Nullable String title, @Nullable String route) {
         this.layout = layout;
         this.title = title;
+        this.route = route;
     }
 
     /**
@@ -47,9 +51,11 @@ public final class PageComponent {
     private static PageComponent reflect(Class<?> type) {
         LievitLayout layout = type.getAnnotation(LievitLayout.class);
         LievitTitle title = type.getAnnotation(LievitTitle.class);
+        LievitPage page = type.getAnnotation(LievitPage.class);
         return new PageComponent(
                 layout == null ? null : layout.value(),
-                title == null ? null : title.value());
+                title == null ? null : title.value(),
+                page == null ? null : page.value());
     }
 
     /**
@@ -64,5 +70,13 @@ public final class PageComponent {
      */
     public @Nullable String title() {
         return title;
+    }
+
+    /**
+     * @return the declared route URI ({@code @LievitPage}), or {@code null} if the component is not
+     *     mapped directly to a route (it is embedded, or routed by the host application)
+     */
+    public @Nullable String route() {
+        return route;
     }
 }

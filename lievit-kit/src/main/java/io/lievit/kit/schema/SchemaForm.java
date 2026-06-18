@@ -113,7 +113,26 @@ public final class SchemaForm {
                                 }
                             });
         }
+        // Repeaters validate their own bound list (min/max) above as fields; here we also walk each
+        // item's sub-schema, prefixing the indexed path so errors read items.0.name (the dot-path
+        // grammar SchemaState already addresses), per the repeater acceptance criteria.
+        for (Repeater repeater : repeaters()) {
+            errors.putAll(repeater.validateItems(state, operation, record));
+        }
         return errors;
+    }
+
+    /**
+     * @return every {@link Repeater} in the tree, flattened across layout containers
+     */
+    public List<Repeater> repeaters() {
+        List<Repeater> out = new ArrayList<>();
+        for (SchemaField<?, ?> field : fields()) {
+            if (field instanceof Repeater repeater) {
+                out.add(repeater);
+            }
+        }
+        return out;
     }
 
     /**

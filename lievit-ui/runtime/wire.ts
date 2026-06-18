@@ -15,7 +15,17 @@
 
 import { type Effects, parseEffects } from "./effects.js";
 
-/** The endpoint payload `{ _snapshot, _updates, _calls }` (the CSRF `_token` rides separately). */
+/** One inbound event the client routed to this component's `@LievitOn` listeners (ADR-0030, #43). */
+export interface InboundWireEvent {
+  readonly name: string;
+  readonly detail?: Record<string, unknown> | null;
+}
+
+/**
+ * The endpoint payload `{ _snapshot, _updates, _calls, _events }` (the CSRF `_token` rides
+ * separately). `_events` carries the events the client event router decided this component must
+ * receive (ADR-0030): the server re-runs the matching `@LievitOn` listeners and re-renders.
+ */
 export interface WireCall {
   /** The signed snapshot the client carried back (the `_snapshot` field). */
   readonly snapshot: string;
@@ -23,6 +33,8 @@ export interface WireCall {
   readonly updates: Readonly<Record<string, unknown>>;
   /** The action names to invoke in order (the `_calls` list); omitted on the wire when empty. */
   readonly calls: readonly string[];
+  /** The inbound events to deliver to this component's listeners (`_events`); omitted when empty. */
+  readonly events?: readonly InboundWireEvent[];
 }
 
 /** A successful (`200`) wire response: the patched HTML, the next snapshot, decoded effects. */
@@ -78,6 +90,9 @@ function body(call: WireCall): string {
   }
   if (call.calls.length > 0) {
     payload._calls = call.calls;
+  }
+  if (call.events != null && call.events.length > 0) {
+    payload._events = call.events;
   }
   return JSON.stringify(payload);
 }

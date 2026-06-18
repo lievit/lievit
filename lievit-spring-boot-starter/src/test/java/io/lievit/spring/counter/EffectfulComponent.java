@@ -37,4 +37,15 @@ public class EffectfulComponent {
     int total() {
         return this.count + 100;
     }
+
+    /**
+     * A {@code @LievitJson} RPC endpoint (#99): the client calls it as {@code $lievit.lookup()} and
+     * gets a {@code Promise} resolving the returned value, with no re-render (the return rides the
+     * effects channel's {@code returns} key, the HTML patch is empty).
+     */
+    @LievitAction
+    @io.lievit.LievitJson
+    java.util.Map<String, Object> lookup() {
+        return java.util.Map.of("answer", 42, "count", this.count);
+    }
 }

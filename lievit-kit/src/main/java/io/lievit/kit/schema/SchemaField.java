@@ -9,6 +9,7 @@ import java.util.Optional;
 
 import org.jspecify.annotations.Nullable;
 
+import io.lievit.kit.Color;
 import io.lievit.kit.support.EvaluationContext;
 
 /**
@@ -30,8 +31,12 @@ public abstract class SchemaField<T extends @Nullable Object, SELF extends Schem
     private final String label;
     private @Nullable String helperText;
     private @Nullable String hint;
+    private @Nullable String hintIcon;
+    private @Nullable Color hintColor;
     private @Nullable String prefix;
     private @Nullable String suffix;
+    private @Nullable String prefixIcon;
+    private @Nullable String suffixIcon;
     private boolean required;
     private final RuleSet rules = RuleSet.create();
 
@@ -98,6 +103,42 @@ public abstract class SchemaField<T extends @Nullable Object, SELF extends Schem
     }
 
     /**
+     * Sets an icon shown beside the hint (an icon name/alias resolved by the icon registry).
+     *
+     * @param hintIcon the icon name/alias
+     * @return this field
+     */
+    public SELF hintIcon(String hintIcon) {
+        this.hintIcon = Objects.requireNonNull(hintIcon, "hintIcon");
+        return self();
+    }
+
+    /**
+     * @return the hint icon name/alias, or {@code null}
+     */
+    public @Nullable String hintIcon() {
+        return hintIcon;
+    }
+
+    /**
+     * Sets the hint color (tints the hint text and icon).
+     *
+     * @param hintColor the semantic color
+     * @return this field
+     */
+    public SELF hintColor(Color hintColor) {
+        this.hintColor = Objects.requireNonNull(hintColor, "hintColor");
+        return self();
+    }
+
+    /**
+     * @return the hint color, or {@code null} for the default
+     */
+    public @Nullable Color hintColor() {
+        return hintColor;
+    }
+
+    /**
      * Sets a prefix affix shown inside the input, before the value (for example a currency sign).
      *
      * @param prefix the prefix text
@@ -131,6 +172,42 @@ public abstract class SchemaField<T extends @Nullable Object, SELF extends Schem
      */
     public @Nullable String suffix() {
         return suffix;
+    }
+
+    /**
+     * Sets a prefix icon affix shown inside the input, before the value.
+     *
+     * @param prefixIcon the icon name/alias
+     * @return this field
+     */
+    public SELF prefixIcon(String prefixIcon) {
+        this.prefixIcon = Objects.requireNonNull(prefixIcon, "prefixIcon");
+        return self();
+    }
+
+    /**
+     * @return the prefix icon affix, or {@code null}
+     */
+    public @Nullable String prefixIcon() {
+        return prefixIcon;
+    }
+
+    /**
+     * Sets a suffix icon affix shown inside the input, after the value.
+     *
+     * @param suffixIcon the icon name/alias
+     * @return this field
+     */
+    public SELF suffixIcon(String suffixIcon) {
+        this.suffixIcon = Objects.requireNonNull(suffixIcon, "suffixIcon");
+        return self();
+    }
+
+    /**
+     * @return the suffix icon affix, or {@code null}
+     */
+    public @Nullable String suffixIcon() {
+        return suffixIcon;
     }
 
     /**
