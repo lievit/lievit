@@ -54,6 +54,14 @@ export {
   type StreamSource,
   type StreamCallOptions,
 } from "./stream.js";
+export {
+  installBroadcast,
+  openBroadcastSource,
+  parseBroadcastEvent,
+  DEFAULT_BROADCAST_URL,
+  type BroadcastSource,
+  type BroadcastOptions,
+} from "./broadcast.js";
 export { installNavigate, type NavigateOptions } from "./navigate.js";
 export { installPagination, type ScrollToTop } from "./pagination.js";
 export { installPreserveScroll } from "./preserve-scroll.js";
@@ -69,6 +77,10 @@ export {
  * Installs every batch-2 client feature on a runtime (the convenience an app's `main.ts` calls after
  * {@link startLievit}). The streaming consumer is not installed here (it is opened on demand per
  * stream, not globally).
+ *
+ * <p>The streaming consumer and the broadcast channel are NOT installed here: each is opened on
+ * demand (a stream per `l:stream` request; the broadcast channel only when an app opts in to live
+ * push, since it holds an open SSE connection). Call {@link installBroadcast} explicitly to enable it.
  *
  * @param runtime the started runtime to extend
  * @param options per-feature options (currently only uploads)

@@ -229,6 +229,35 @@ export class LievitRuntime {
   }
 
   /**
+   * Routes a server-PUSHED event (a broadcast, issue #304/#45) into the page exactly as if an action
+   * had dispatched it: it re-emits on `window` (the cross-app bus the admin toast listens on), fires
+   * the `runtime.on` JS listeners, and delivers it to every mounted component whose `@LievitOn`
+   * listeners match its routing (`to` for a per-component broadcast, else the global fan-out). It is
+   * the one core seam the broadcast feature needs: the feature owns the transport (the `EventSource`),
+   * this owns the in-page routing, reusing the same {@link routeDispatchedEvents} machinery as the
+   * wire-call `dispatch` effect so a pushed event behaves identically to a dispatched one.
+   *
+   * Unlike a wire-call dispatch there is no originating component, so the global fan-out reaches ALL
+   * mounted components (nothing to self-exclude); a detached sentinel root is passed as the origin so
+   * the `self`-exclusion never matches a real component.
+   *
+   * @param event the pushed event (name + detail + optional `to` routing target)
+   */
+  receiveBroadcast(event: import("./effects.js").DispatchedEvent): void {
+    const routes = routeDispatchedEvents(
+      [event],
+      document.createElement("div"), // a detached sentinel: no real component is the "origin" of a push
+      this.components,
+      this.events,
+    );
+    for (const route of routes) {
+      for (const target of route.targets) {
+        this.deliverInboundEvent(target, route.event);
+      }
+    }
+  }
+
+  /**
    * Returns the `$lievit` component object for the component owning `element` (Livewire's `$wire`,
    * ADR-0030 magic actions, the client half): `$get` / `$set` / `$call` / `$refresh` / `$watch` /
    * `$parent`. A page's JS (or a Lit island) uses it to drive the component without touching the

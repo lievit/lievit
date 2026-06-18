@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.lievit</groupId>
+    <groupId>io.github.lievit</groupId>
     <artifactId>lievit-parent</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
@@ -58,6 +58,7 @@
         <module>lievit-kit</module>
         <module>lievit-cli</module>
         <module>examples/golden-path-starter</module>
+        <module>examples/kit-crud-admin</module>
     </modules>
 
     <properties>
@@ -78,13 +79,13 @@
         <java.version>25</java.version>
 
         <!-- Verified versions (2026-06-17, docs-first; sister repo spring-gdpr parity for the Spring stack). -->
-        <spring-boot.version>4.0.6</spring-boot.version>
+        <spring-boot.version>4.1.0</spring-boot.version>
         <jte.version>3.2.4</jte.version>
-        <jjwt.version>0.12.6</jjwt.version>
+        <jjwt.version>0.13.0</jjwt.version>
         <jspecify.version>1.0.0</jspecify.version>
         <jqwik.version>1.9.3</jqwik.version>
-        <archunit.version>1.3.2</archunit.version>
-        <assertj.version>3.27.6</assertj.version>
+        <archunit.version>1.4.2</archunit.version>
+        <assertj.version>3.27.7</assertj.version>
 
         <!-- GraalVM Native Build Tools (ADR-0006). The native profile is declared here, not
              inherited from spring-boot-starter-parent (lievit has its own parent). -->
@@ -111,52 +112,52 @@
 
             <!-- lievit reactor coordinates -->
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-dsl</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-compiler</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-jte</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-thymeleaf</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-mustache</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-freemarker</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-raw</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-spring-boot-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.lievit</groupId>
+                <groupId>io.github.lievit</groupId>
                 <artifactId>lievit-kit</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -273,6 +274,23 @@
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
                 </plugin>
+                <!--
+                    Maven Central publish plugins (RFC 0026 skeleton). Versioned here, wired into
+                    a build only by the `release` profile below, so the normal build / JitPack path
+                    never signs or deploys. The Central coordinate is groupId io.github.lievit (free,
+                    GitHub-org-verified; Francesco does not own lievit.io). Mirrors the spring-gdpr /
+                    spring-aiact sister setup.
+                -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.2.8</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonatype.central</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>0.10.0</version>
+                </plugin>
                 <plugin>
                     <groupId>com.diffplug.spotless</groupId>
                     <artifactId>spotless-maven-plugin</artifactId>
@@ -380,6 +398,86 @@
                     <plugin>
                         <groupId>org.graalvm.buildtools</groupId>
                         <artifactId>native-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            The release profile (RFC 0026 skeleton), activated with `-Prelease`. It is the ONLY path
+            that produces -sources.jar / -javadoc.jar, PGP-signs every artifact, and deploys to the
+            Sonatype Central Portal. The default build and the JitPack reactor (`./mvnw install`, no
+            profile) deliberately do NOT trigger signing or deploy, so a clean `install` and JitPack
+            stay fast and credential-free.
+
+            Out-of-band secrets Francesco supplies at actual-release time (NOT committed):
+              - GPG key: a published key pair; the signing passphrase is read by maven-gpg-plugin
+                from `gpg.passphrase` (settings.xml or `-Dgpg.passphrase=`) / the gpg-agent.
+              - Central Portal token: a userToken pair under <server><id>central</id> in
+                ~/.m2/settings.xml (publishingServerId=central below).
+            autoPublish=false + waitUntil=validated: the deploy uploads and waits for Central to
+            VALIDATE the bundle, then stops; the human clicks "Publish" in the portal. Flip
+            autoPublish=true once the first release is observed green.
+        -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals><goal>jar-no-fork</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals><goal>jar</goal></goals>
+                                <configuration>
+                                    <doclint>none</doclint>
+                                    <quiet>true</quiet>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals><goal>sign</goal></goals>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                            <!--
+                                examples/golden-path-starter is a runnable demo, not a published
+                                library; it already carries maven.deploy.skip=true in its own pom, so
+                                the Central plugin skips it and only the library modules are bundled.
+                            -->
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

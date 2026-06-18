@@ -10,11 +10,13 @@
 [![Java](https://img.shields.io/badge/java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/spring--boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
 
-> **Status: pre-1.0 (`0.1.0-SNAPSHOT`), build live.** The Maven reactor builds green: 11 modules
-> (the wire runtime, the single-file DSL, five template adapters, the Spring Boot starter, the
-> admin kit, the CLI), the `Lievit.test()` harness, and a runnable golden-path example. The API
-> is still pre-1.0 and may move before a tagged `0.1.0`. Not yet on Maven Central; consume it
-> today via JitPack (see [Install](#install)). Project home and canonical reference:
+> **Status: pre-1.0 (`0.1.0-SNAPSHOT`), build live.** The Maven reactor builds green: 14 modules
+> (the wire runtime, the single-file DSL, the v4 compiler, five template adapters, the Spring Boot
+> starter, the admin kit, the CLI, the copy-in UI registry + client runtime), the `Lievit.test()`
+> harness, and two runnable examples. The API is still pre-1.0 and may move before a tagged
+> `0.1.0`. Not yet on Maven Central; consume it today via JitPack (see [Install](#install)). See the
+> [feature matrix](#feature-matrix) for the honest shipped-vs-roadmap split, and the
+> [guides](docs/guide/) for task-oriented docs. Project home and canonical reference:
 > [iambilotta.com](https://iambilotta.com).
 
 ```
@@ -32,14 +34,16 @@ Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a c
 ```
 
 [**Install**](#install) ·
+[**Feature matrix**](#feature-matrix) ·
 [**The category**](#the-category) ·
 [**The three strata**](#the-three-strata) ·
-[**The public API**](#the-public-api-nine-annotations) ·
+[**The public API**](#the-public-api-annotations) ·
 [**Hello component**](#hello-component-api-first-sketch) ·
 [**Single-file vs multi-file**](#single-file--multi-file) ·
 [**Wire protocol**](#wire-protocol-v01) ·
+[**Guides**](docs/guide/) ·
 [**ADRs**](docs/adr/) ·
-[**Docs plan**](docs/PLAN.md)
+[**Examples**](examples/)
 
 ---
 
@@ -86,6 +90,69 @@ Pin a commit SHA rather than `main-SNAPSHOT` for a reproducible build (the SHA i
 JitPack). The version follows JitPack's rules: a tag, a commit, or `<branch>-SNAPSHOT`. The first
 build of any new ref takes a minute while JitPack compiles the reactor; subsequent resolves are
 cached.
+
+## Feature matrix
+
+What is in the build today versus what the ADRs name as deliberately deferred. The deferred items are
+**roadmap, not features**: the protocol and the ADRs leave room for them without a breaking change.
+
+### Shipped (`0.1.0-SNAPSHOT`, build green)
+
+| Area | What ships | Guide / ADR |
+|---|---|---|
+| Wire runtime | Stateless HMAC-signed snapshot, mount/render/action/re-render loop, codec, registry, dispatcher, `POST /lievit/{id}/call` + batch `/lievit/update` | [guide](docs/guide/components-and-wire.md), [ADR-0001](docs/adr/0001-wire-protocol-v0.1.md) |
+| Component API | `@LievitComponent` / `@Wire` / `@LievitAction` / `@LievitMount` / `@LievitRender` / `@LievitProperty` / `@LievitComputed` / `@LievitUrl` / `@LievitOn` / `@LievitRenderless` / `@LievitSession` / `@LievitLayout` / `@LievitTitle` | [guide](docs/guide/components-and-wire.md) |
+| Directives | `l:click` / `l:submit` / `l:keydown` / `l:model[.live/.lazy/.blur/.debounce]`; v4: `l:bind` / `l:text` / `l:dirty` / `l:error(s)` / `l:ref` / `l:sort` / `l:loading` / `l:island`; opt-in: `l:show` / `l:confirm` / `l:navigate` / `l:ignore` / `l:current` | [guide](docs/guide/directives.md), [ADR-0024](docs/adr/0024-v4-client-convergence.md) |
+| Events & effects | `@LievitOn`, `dispatch` / `dispatchSelf` / `dispatchTo`, `$dispatch`, the `Lievit-Effects` channel (redirect / dispatch / returns / url / errors / islands / js / release) | [guide](docs/guide/events.md), [ADR-0030](docs/adr/0030-runtime-parity-events-lifecycle-magic-redirects.md) |
+| Lifecycle & computed | `@LievitComputed`; convention hooks `boot`/`booted`/`hydrate`/`dehydrate`/`updating(Prop)`/`updated(Prop)`/`rendering`/`rendered`; the lifecycle bus | [guide](docs/guide/computed-and-lifecycle.md), [ADR-0015](docs/adr/0015-computed-properties.md), [ADR-0022](docs/adr/0022-request-lifecycle-bus.md) |
+| Magic actions | `$set` / `$toggle` / `$refresh` / `$get` / `$parent` (settable-allowlist enforced) | [guide](docs/guide/directives.md), [ADR-0030](docs/adr/0030-runtime-parity-events-lifecycle-magic-redirects.md) |
+| Forms & validation | Jakarta Bean Validation on `@Wire`, the `FieldValidator` SPI, the `_errors` model param, form objects (`LievitFormObject`) | [guide](docs/guide/forms-and-validation.md), [ADR-0017](docs/adr/0017-form-objects.md) |
+| Nested components | Keyed children, reactive props, modelable two-way bind, deterministic keys | [guide](docs/guide/nested-components.md), [ADR-0016](docs/adr/0016-nested-components.md), [ADR-0023](docs/adr/0023-v4-compiler-and-deterministic-keys.md) |
+| Islands | `l:island` + comment-marker fragments, replace/append/prepend morph | [guide](docs/guide/islands.md), [ADR-0024](docs/adr/0024-v4-client-convergence.md) |
+| Single-file DSL | Type-safe `Html` builder (`io.lievit.dsl.H`), escape-by-construction | [guide](docs/guide/single-file-dsl.md), [ADR-0018](docs/adr/0018-single-file-dsl.md) |
+| Template adapters | JTE (primary) + Thymeleaf + Mustache + FreeMarker + raw | [ADR-0004](docs/adr/0004-template-adapter-strategy.md) |
+| Typed state | Synthesizer registry + `Wireable` SPI, exact round-trip for records/enums/temporals/`BigDecimal`/`UUID`/`Set`/`Map`; class-instantiation guard | [ADR-0020](docs/adr/0020-typed-state-synthesizers.md), [ADR-0021](docs/adr/0021-class-instantiation-guard.md) |
+| Security | HMAC + `kid` rotation, locked fields, settable/callable allowlist, payload caps, fail-closed errors, checksum-failure rate limit | [wire protocol](docs/wire-protocol.md), [ADR-0013](docs/adr/0013-payload-hardening.md), [ADR-0014](docs/adr/0014-fail-closed-error-rendering.md) |
+| Admin (lievit-kit) | Resource / Form (text, textarea, select, toggle, date, belongs-to) / Table (columns, filters, grouping, summaries, soft-delete, reordering) / Actions (create, edit, delete, bulk, form) / Infolists / Panels / dashboard widgets / DB notifications; async jobs (sync default + executor opt-in), CSV import / export, multi-tenancy, clusters, settings | [guide](docs/guide/kit-admin.md) |
+| Real-time | SSE broadcast channel (opt-in `lievit.broadcast.enabled`, per-`Principal`), live-push notifications, echo-listener bridge into the dispatch routing | [ADR-0040](docs/adr/0040-realtime-broadcast-channel-sse.md) |
+| UI (lievit-ui) | 28 copy-in light-DOM Lit components + design tokens; dependency-free client runtime bundle | [guide](docs/guide/lievit-ui.md), [ADR-0009](docs/adr/0009-lievit-ui-copy-in-registry.md), [ADR-0019](docs/adr/0019-client-runtime-bundle.md) |
+| Testing | `Lievit.test()` headless harness (typed state read-back, hostile-seat affordances) | [ADR-0010](docs/adr/0010-dev-test-harness.md) |
+
+### Roadmap (named in the ADRs, NOT in the build)
+
+| Deferred | Where it is reserved |
+|---|---|
+| Server-side snapshot store (large-state components) | [wire protocol §6](docs/wire-protocol.md) |
+| WebSocket transport + the `stream` effect (SSE broadcast shipped, see matrix) | [ADR-0001](docs/adr/0001-wire-protocol-v0.1.md), [ADR-0012](docs/adr/0012-effects-channel.md) |
+| `download` effect (base64 file ride-along) | [ADR-0012](docs/adr/0012-effects-channel.md) |
+| UUID v7 (time-ordered) component IDs | [wire protocol §2](docs/wire-protocol.md) |
+| Kit relation fields beyond `BelongsToField` (`HasMany` / `BelongsToMany`) | lievit-kit |
+| Cross-instance broadcast fan-out (message broker behind the SSE channel) | [ADR-0040](docs/adr/0040-realtime-broadcast-channel-sse.md) |
+
+### Maven Central (planned)
+
+On the first tagged release the modules will also publish to
+[Maven Central](https://central.sonatype.com) under the groupId **`io.github.lievit`** (the free,
+GitHub-org-verified namespace), so you can drop the JitPack repository and depend on the plain
+coordinate:
+
+```xml
+<!-- planned: available from the first tagged 0.1.0 on Maven Central -->
+<dependency>
+    <groupId>io.github.lievit</groupId>
+    <artifactId>lievit-spring-boot-starter</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+```kotlin
+// planned: available from the first tagged 0.1.0 on Maven Central
+implementation("io.github.lievit:lievit-spring-boot-starter:0.1.0")
+```
+
+The Java packages stay `io.lievit.*` (the groupId is the publish namespace, not the package). The
+release machinery (signed source + javadoc jars via the `release` Maven profile) is wired but not
+yet exercised; until the first release is observed live on Central, JitPack above is the path.
 
 ## The category
 
@@ -380,6 +447,49 @@ void valid_form_submits() {
         .assertWireMatches(comp -> comp.submitted);
 }
 ```
+
+## Real-time broadcast (live server→client push)
+
+The wire loop is request/response. For the cases that need the server to push *to* a client
+out-of-band of a request — a toast the moment someone assigns you a task, a notification bell that
+refreshes live instead of on its 30 s poll — lievit ships an **opt-in realtime channel over
+Server-Sent Events** (ADR-0040). SSE, not WebSocket: it keeps the stateless, scale-to-zero posture
+(no sticky sessions, no server-held state), needs no extra dependency, and rides the page's existing
+same-origin CSP. The channel carries server-pushed *events*, never component state, so the snapshot
+stays the only state carrier.
+
+It is **off by default**. Turn it on with one property; an app that does not push never opens a
+connection:
+
+```properties
+lievit.broadcast.enabled=true
+# lievit.broadcast.timeout=5m   # SSE idle timeout; the browser EventSource reconnects after it
+```
+
+The server mounts `GET /lievit/broadcast`, an SSE stream **keyed to the request `Principal`**: a
+client can only ever subscribe to its own user's channel (anonymous → `401`). Push from anywhere
+(an action, a scheduled job) through the `BroadcastChannel` bean:
+
+```java
+// kit: a live toast + a bell refresh to one recipient, plus the durable persisted copy
+broadcastNotification.sendAndBroadcast(store, "agent-7", AdminNotification.success("New lead"));
+```
+
+A pushed event is the same `{name, detail?, to?}` envelope as a `dispatch` effect, so the client
+routes it **exactly as a dispatched one**: re-emit on `window`, fire `runtime.on` listeners, and
+deliver to matching `@LievitOn` components (`to` targets a component, e.g. the bell; absent is a
+global fan-out — the Echo-listener bridge). Wire the client once:
+
+```ts
+import { startLievit, installBroadcast } from "@lievit/lievit-ui";
+
+const lievit = startLievit({ csrfToken, csrfHeader });
+installBroadcast(lievit);   // opens the SSE channel; closes it on l:navigate
+```
+
+Live push is best-effort (a recipient with no open client receives nothing live); the durable
+persisted notification is the fallback the bell shows on next load, which is why `sendAndBroadcast`
+persists too.
 
 ## Testing your components (`Lievit.test()`)
 

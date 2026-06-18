@@ -15,6 +15,9 @@ import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
 
+import io.lievit.kit.cluster.Cluster;
+import io.lievit.kit.tenancy.Tenancy;
+
 /**
  * A named, independently configurable admin surface, built with a fluent DSL (the
  * filament-internals.md Panel builder, mapped to a Spring configuration DSL instead of a Laravel
@@ -66,6 +69,13 @@ public final class Panel {
     // User menu + profile (issue #343).
     private final List<MenuItem> userMenuItems = new ArrayList<>();
     private boolean profilePage;
+
+    // Multi-tenancy (issue #339) — opt-in, off by default: tenancy is the largest panel subsystem,
+    // so it stays an external module the panel merely references, not a set of accreted concerns.
+    private @Nullable Tenancy tenancy;
+
+    // Clusters (issue #341) — resources/pages grouped under a shared prefix + sub-navigation.
+    private final List<Cluster> clusters = new ArrayList<>();
 
     private Panel(String id) {
         this.id = Objects.requireNonNull(id, "id");
@@ -640,5 +650,49 @@ public final class Panel {
     /** @return the panel-relative route of the edit-profile page */
     public String profilePath() {
         return path + "/profile";
+    }
+
+    // --- Multi-tenancy (issue #339), opt-in ---
+
+    /**
+     * Turns multi-tenancy on for this panel (the Filament {@code Panel::tenant(...)}). Off by default
+     * so a single-tenant app pays nothing; with it set the panel scopes resources to the active
+     * tenant, offers the tenant switcher, and resolves the tenant route segment.
+     *
+     * @param tenancy the tenancy configuration
+     * @return this panel
+     */
+    public Panel tenancy(Tenancy tenancy) {
+        this.tenancy = Objects.requireNonNull(tenancy, "tenancy");
+        return this;
+    }
+
+    /** @return whether multi-tenancy is enabled on this panel */
+    public boolean hasTenancy() {
+        return tenancy != null;
+    }
+
+    /** @return the tenancy configuration, if enabled */
+    public Optional<Tenancy> tenancy() {
+        return Optional.ofNullable(tenancy);
+    }
+
+    // --- Clusters (issue #341) ---
+
+    /**
+     * Registers a cluster: a group of resources/pages under a shared url prefix with its own
+     * sub-navigation (the Filament {@code Cluster}).
+     *
+     * @param cluster the cluster
+     * @return this panel
+     */
+    public Panel cluster(Cluster cluster) {
+        clusters.add(Objects.requireNonNull(cluster, "cluster"));
+        return this;
+    }
+
+    /** @return the registered clusters, in registration order, as an unmodifiable snapshot */
+    public List<Cluster> clusters() {
+        return Collections.unmodifiableList(clusters);
     }
 }

@@ -386,6 +386,46 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * The SSE broadcast channel (issue #304 / #45): the server→client live-push port. Opt-in, mounted
+     * only when {@code lievit.broadcast.enabled=true} so an app that does not push live notifications
+     * never holds an open SSE connection. The channel reuses the wire effects mapper to serialize the
+     * event frame.
+     *
+     * @param json the mapper for the SSE event frame
+     * @param properties the bound {@code lievit.*} configuration (the SSE timeout)
+     * @return the SSE broadcast channel
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            prefix = "lievit.broadcast",
+            name = "enabled",
+            havingValue = "true")
+    public io.lievit.spring.broadcast.SseBroadcastChannel lievitBroadcastChannel(
+            tools.jackson.databind.ObjectMapper json, LievitProperties properties) {
+        return new io.lievit.spring.broadcast.SseBroadcastChannel(
+                json, properties.getBroadcast().getTimeout());
+    }
+
+    /**
+     * The broadcast subscribe controller (issue #304 / #45): {@code GET /lievit/broadcast}, the SSE
+     * stream a logged-in user's clients listen on. Mounted with the channel (same opt-in gate).
+     *
+     * @param channel the SSE broadcast channel
+     * @return the broadcast controller
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            prefix = "lievit.broadcast",
+            name = "enabled",
+            havingValue = "true")
+    public io.lievit.spring.broadcast.BroadcastController lievitBroadcastController(
+            io.lievit.spring.broadcast.SseBroadcastChannel channel) {
+        return new io.lievit.spring.broadcast.BroadcastController(channel);
+    }
+
+    /**
      * The default layout wrapper (issue #63/#181): wraps a full-page component in a minimal HTML5
      * document. A host that wants its own app shell declares its own {@link LayoutRenderer} bean.
      *
