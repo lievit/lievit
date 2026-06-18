@@ -33,6 +33,7 @@ public final class Panel {
     private final List<Resource<?>> resources = new ArrayList<>();
     private final List<WidgetPage> pages = new ArrayList<>();
     private final Map<String, List<Supplier<String>>> renderHooks = new LinkedHashMap<>();
+    private final Map<String, List<ScopedHook>> scopedRenderHooks = new LinkedHashMap<>();
     private final Map<String, Plugin> plugins = new LinkedHashMap<>();
 
     // Branding / theming (issue #321).
@@ -137,12 +138,62 @@ public final class Panel {
     }
 
     /**
+     * Registers a <em>scoped</em> render hook: a fragment injected at a named point only when the
+     * active page/resource matches the given scope (the Filament scoped {@code renderHook}). A
+     * scoped hook does not fire on other surfaces.
+     *
      * @param point one of the {@link RenderHook} constants
-     * @return the fragment suppliers registered at that point, in registration order (empty if none)
+     * @param scope the page/resource class (or any scope key) the hook is bound to
+     * @param fragment supplies the HTML fragment to inject
+     * @return this panel
+     */
+    public Panel renderHook(String point, String scope, Supplier<String> fragment) {
+        Objects.requireNonNull(scope, "scope");
+        scopedRenderHooks
+                .computeIfAbsent(point, p -> new ArrayList<>())
+                .add(new ScopedHook(scope, Objects.requireNonNull(fragment, "fragment")));
+        return this;
+    }
+
+    /**
+     * @param point one of the {@link RenderHook} constants
+     * @return the fragment suppliers registered at that point with no scope, in registration order
+     *     (empty if none)
      */
     public List<Supplier<String>> renderHooks(String point) {
         return Collections.unmodifiableList(renderHooks.getOrDefault(point, List.of()));
     }
+
+    /**
+     * Resolves the fragments to render at a point for the active scope: the unscoped fragments plus
+     * any scoped fragment whose scope equals {@code activeScope} (the Filament
+     * {@code renderHook(name, scopes)} resolution).
+     *
+     * @param point one of the {@link RenderHook} constants
+     * @param activeScope the active page/resource scope key (or {@code null} for none)
+     * @return the fragment suppliers to render, unscoped first then matching-scoped, in order
+     */
+    public List<Supplier<String>> renderHooks(String point, @Nullable String activeScope) {
+        List<Supplier<String>> resolved = new ArrayList<>(renderHooks.getOrDefault(point, List.of()));
+        for (ScopedHook hook : scopedRenderHooks.getOrDefault(point, List.of())) {
+            if (activeScope != null && hook.scope().equals(activeScope)) {
+                resolved.add(hook.fragment());
+            }
+        }
+        return Collections.unmodifiableList(resolved);
+    }
+
+    /**
+     * @param point one of the {@link RenderHook} constants
+     * @return whether any fragment (scoped or not) is registered at the point, so the layout can skip
+     *     the wrapper markup when nothing is registered
+     */
+    public boolean hasRenderHook(String point) {
+        return !renderHooks.getOrDefault(point, List.of()).isEmpty()
+                || !scopedRenderHooks.getOrDefault(point, List.of()).isEmpty();
+    }
+
+    private record ScopedHook(String scope, Supplier<String> fragment) {}
 
     /**
      * Applies a plugin: runs its {@link Plugin#register(Panel)} immediately and its
