@@ -64,6 +64,20 @@ the true compile-time pass can reuse it verbatim later.
   empty) allowlists app-registered custom directive names (`runtime.directives.register({name})`),
   which a static scan cannot see.
 
+- **Compile-time entry point in the CLI:** `lievit check-directives <dir>` (`CheckDirectivesCommand`
+  in `lievit-cli`) walks an adopter's SOURCE template directory, runs the same `DirectiveValidator`,
+  and exits `1` on any unknown directive (`0` = clean tree or no templates found, `2` = the directory
+  does not exist). The CLI was chosen over a Maven mojo: it already depends on `lievit-compiler`
+  (where the validator lives), already houses `doctor`/`convert`, and is the established "adopter
+  consumes a pinned tool" surface (the same model an adopter like gest already runs for tracegate);
+  a mojo would have needed a new plugin module and would tie the check to a Maven reactor, whereas the
+  fat-jar runs in any build (Maven, Makefile target, pre-commit hook). It is a sibling subcommand,
+  not a `doctor` sub-check, because it takes a target directory argument and is run in CI/build, not
+  in the interactive "is my machine set up" doctor flow. `--extra` (comma-separated / repeatable)
+  mirrors `lievit.directives.extra` for runtime-registered custom directives a static scan cannot see.
+  This is the closing half of the poka-yoke: it runs at the adopter's BUILD, over the `.jte` source,
+  which is exactly where a precompiled-template adopter's startup scan is inert.
+
 ## Consequences
 
 - The `l:value` class of bug now fails the boot with a precise message
@@ -74,15 +88,22 @@ the true compile-time pass can reuse it verbatim later.
   one line (`lievit.directives.extra=foo`); an app that wants it off sets `validate=false`.
 - The valid set is mirrored, not shared, so it *can* drift; the parity test is the guard, and it is the
   honest residual risk if someone deletes the test or the UI tree is absent in a given build.
-- The pure `DirectiveValidator` + `DirectiveNames` are the reusable core: the compile-time follow-up
-  (a Maven mojo, or the CLI `doctor` check) feeds it the same `.jte` sources and gets the same
+- The pure `DirectiveValidator` + `DirectiveNames` are the reusable core: both the startup bean and
+  the `lievit check-directives` CLI command feed them the same `.jte` sources and get the same
   diagnostics, with no logic duplicated.
+- An adopter that precompiles its JTE (the `.jte` source is under `src/main/jte`, not on the runtime
+  classpath as `.jte`) now has a real gate: it wires `lievit check-directives <its-source-jte-dir>`
+  into its build (a Makefile target / pre-commit hook / CI step running the pinned CLI fat-jar), so
+  `l:value` fails THAT build, not silently in the browser. The startup bean stays as defense in depth
+  for non-precompiled adopters.
 
 ## Follow-ups
 
-- **True compile-time poka-yoke (preferred long-term):** a `lievit doctor` check or a Maven mojo that
-  runs `DirectiveValidator` over the source `.jte` files at adopter build time, so the failure lands in
-  the build, not the boot. Reuses this ADR's `DirectiveValidator`/`DirectiveNames` unchanged.
+- **True compile-time poka-yoke: DONE.** Implemented as the `lievit check-directives <dir>` CLI
+  subcommand (`CheckDirectivesCommand`, `lievit-cli`), which runs `DirectiveValidator` over the source
+  `.jte` files at adopter build time so the failure lands in the build, not the boot. Reuses this
+  ADR's `DirectiveValidator`/`DirectiveNames` unchanged. A Maven mojo remains a possible future
+  convenience for pure-Maven adopters but is not needed: the fat-jar runs in any build.
 - **Runtime defense-in-depth (proposal):** the client `DirectiveRegistry.bindElement` could
   `console.warn` (dev mode) on an unknown `l:*` attribute instead of silently dropping it, catching the
   case of a directive added to a template the startup scan did not cover (e.g. server-pushed HTML). Out
