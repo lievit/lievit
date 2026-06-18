@@ -13,6 +13,8 @@
  * the channel is purely additive and backward compatible.
  */
 
+import type { AssetsBlock } from "./features/assets.js";
+
 /** One queued browser event, the unit of the `dispatch` effect. */
 export interface DispatchedEvent {
   readonly name: string;
@@ -89,6 +91,13 @@ export interface Effects {
   readonly transition?: TransitionEffect;
   /** A file the action returned for the browser to download (`$this.download`, #161). */
   readonly download?: DownloadEffect;
+  /**
+   * The page-level assets this update brings (#171/#119/#129, ADR-0064/0081): the per-component
+   * `run($wire,$js)` module URLs, the `@assets` head tags, and the scoped-CSS style modules. Applied
+   * once per asset by {@link import("./features/assets.js").applyAssets} (wired in via `installAssets`,
+   * ADR-0081); `parseEffects` decodes this key with the rest of the bag.
+   */
+  readonly assets?: AssetsBlock;
 }
 
 /**

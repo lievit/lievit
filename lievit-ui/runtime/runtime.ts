@@ -108,6 +108,13 @@ interface ComponentState {
 export interface RuntimeOptions extends SendOptions {
   /** Reporter for a transport error or an unexpected failure (defaults to `console.error`). */
   readonly onError?: (message: string, detail: unknown) => void;
+  /**
+   * The page CSP nonce (#423, ADR-0081): the page bootstrap hands it in next to `csrfToken` (ADR-0039
+   * stamps it server-side). It is exposed on a successful call's `InterceptorOutcome` so the
+   * asset-injection interceptor (`installAssets`) can stamp it on injected `<script>`/`<link>` tags.
+   * Omitted when the page runs no nonce-based policy.
+   */
+  readonly nonce?: string;
 }
 
 /**
@@ -913,7 +920,16 @@ export class LievitRuntime {
       return;
     }
 
-    const okOutcome: InterceptorOutcome = { ...ctx, status: 200, ok: true, reason: null };
+    const okOutcome: InterceptorOutcome = {
+      ...ctx,
+      status: 200,
+      ok: true,
+      reason: null,
+      // The page-level assets this update carried, for the asset-injection interceptor's post-morph
+      // phase (#423, ADR-0081); the page nonce rides alongside so injected tags are CSP-authorised.
+      assets: response.effects?.assets ?? null,
+      nonce: this.options.nonce,
+    };
     this.interceptors.success(okOutcome);
 
     // --- Surgical merge (#87): the server is authoritative, but a pending edit to a path the
