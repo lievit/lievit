@@ -18,9 +18,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
+import gg.jte.ContentType;
+import gg.jte.TemplateEngine;
+import gg.jte.resolve.ResourceCodeResolver;
 import io.lievit.LievitComponent;
+import io.lievit.compiler.DeterministicKeys;
 import io.lievit.component.BeanValidationFieldValidator;
 import io.lievit.component.FieldValidator;
+import io.lievit.component.IsolateListener;
 import io.lievit.component.LifecycleBus;
 import io.lievit.component.LifecycleHooksListener;
 import io.lievit.component.LifecyclePhase;
@@ -29,25 +34,20 @@ import io.lievit.component.MagicActionListener;
 import io.lievit.component.NoOpFieldValidator;
 import io.lievit.component.RedirectListener;
 import io.lievit.component.RenderlessListener;
-import io.lievit.component.TransitionListener;
 import io.lievit.component.SessionListener;
-import io.lievit.compiler.DeterministicKeys;
+import io.lievit.component.TransitionListener;
 import io.lievit.component.WireDispatcher;
-import io.lievit.wire.synth.SynthesizerRegistry;
 import io.lievit.dsl.DslOrEngineTemplateAdapter;
 import io.lievit.dsl.DslTemplateAdapter;
 import io.lievit.jte.JteTemplateAdapter;
 import io.lievit.render.TemplateAdapter;
+import io.lievit.spring.native_.LievitRuntimeHints;
 import io.lievit.wire.ChecksumFailureLimiter;
 import io.lievit.wire.ComponentId;
 import io.lievit.wire.PayloadGuard;
 import io.lievit.wire.SigningKeys;
 import io.lievit.wire.SnapshotCodec;
-import io.lievit.spring.native_.LievitRuntimeHints;
-
-import gg.jte.ContentType;
-import gg.jte.TemplateEngine;
-import gg.jte.resolve.ResourceCodeResolver;
+import io.lievit.wire.synth.SynthesizerRegistry;
 
 /**
  * Wires the lievit runtime when the starter is on the classpath (ADR-0008): the codec (from {@code
@@ -188,6 +188,9 @@ public class LievitAutoConfiguration {
         // restore it on hydrate before render, so a wire update keeps the component's pinned locale
         // instead of reverting to the fresh request default. No-ops when no LocaleSource is bound.
         LocaleListener.registerOn(bus);
+        // @LievitIsolate (#61, ADR-0075): stamp isolate:true into the snapshot memo on mount/dehydrate
+        // so the client sends the component's updates in their own request, off the shared commit.
+        IsolateListener.registerOn(bus);
         bus.on(LifecyclePhase.CALL, new MagicActionListener(synthesizers));
         // RenderlessListener owns the render-skip tally for both @LievitRenderless and the
         // @LievitJson RPC actions (#99): both return without re-rendering.
@@ -327,7 +330,8 @@ public class LievitAutoConfiguration {
             ChecksumFailureLimiter failureLimiter,
             ComponentId componentIds,
             tools.jackson.databind.ObjectMapper json,
-            LievitProperties properties) {
+            LievitProperties properties,
+            ObjectProvider<ComponentAssetEmitter> assetEmitter) {
         return new LievitWireService(
                 codec,
                 registry,
@@ -336,7 +340,8 @@ public class LievitAutoConfiguration {
                 failureLimiter,
                 componentIds,
                 json,
-                properties.getMaxNestingDepth());
+                properties.getMaxNestingDepth(),
+                assetEmitter.getIfAvailable());
     }
 
     /**
@@ -542,6 +547,92 @@ public class LievitAutoConfiguration {
     }
 
     /**
+     * Binds the per-request {@link io.lievit.component.LievitResponse} sink around every request and
+     * stamps the no-store headers on a page whose component opted out of the browser back-forward
+     * cache (issue #123, Livewire {@code SupportDisablingBackButtonCache} parity). The filter is a
+     * no-op for a request where no component called {@code disableBackButtonCache()}, so a plain page
+     * stays bfcache-eligible.
+     *
+     * @return the back-button-cache filter
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LievitBackButtonCacheFilter lievitBackButtonCacheFilter() {
+        return new LievitBackButtonCacheFilter();
+    }
+
+    /**
+     * The component compiler (ADR-0023): reads each component's colocated side artifacts (script
+     * module, scoped CSS, {@code @assets} head tags, placeholder) and caches them. Shared by the
+     * asset controller (the CSS route) and the asset emitter (the per-update assets block).
+     *
+     * @return the component compiler (cached, default class-file-staleness signature)
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public io.lievit.compiler.ComponentCompiler lievitComponentCompiler() {
+        return new io.lievit.compiler.ComponentCompiler();
+    }
+
+    /**
+     * The Vite build manifest (issue #171, ADR-0060): the version map resolving the runtime bundle +
+     * per-component modules to their content-hashed files. Loaded once off the classpath under
+     * {@code lievit.assets.classpath-dir}; {@link io.lievit.compiler.AssetManifest#EMPTY} when no
+     * manifest is packaged (dev), so serving falls back to the unhashed bundle.
+     *
+     * @param properties the bound config (classpath dir + manifest path)
+     * @param json the Jackson mapper
+     * @return the parsed manifest
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public io.lievit.compiler.AssetManifest lievitAssetManifest(
+            LievitProperties properties, tools.jackson.databind.ObjectMapper json) {
+        LievitProperties.Assets assets = properties.getAssets();
+        return AssetManifestLoader.load(
+                assets.getClasspathDir(), assets.getManifestPath(), json);
+    }
+
+    /**
+     * The per-update asset emitter (issue #171/#119/#129): derives the {@code run($wire,$js)} module
+     * URLs, the {@code @assets} head tags, and the scoped-CSS {@code styleModule}s a newly-rendered
+     * component brings, so the update response ships a late-arriving component's JS/CSS (Livewire's
+     * {@code getAssets()}).
+     *
+     * @param compiler the component compiler
+     * @param manifest the Vite build manifest
+     * @return the asset emitter (assets served under {@code /lievit})
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public ComponentAssetEmitter lievitComponentAssetEmitter(
+            io.lievit.compiler.ComponentCompiler compiler,
+            io.lievit.compiler.AssetManifest manifest) {
+        return new ComponentAssetEmitter(compiler, manifest, "/lievit");
+    }
+
+    /**
+     * The asset-serving controller (issue #171/#129): serves the runtime bundle at
+     * {@code /lievit/lievit.js} (Vite-hashed when built), the hashed bundle files, the per-component
+     * dev modules, and each component's scoped CSS at {@code /lievit/css/{component}}.
+     *
+     * @param registry the component registry (the CSS route's name lookup)
+     * @param compiler the component compiler (the colocated CSS)
+     * @param manifest the Vite build manifest (the hashed runtime file)
+     * @param properties the bound config (classpath dir + runtime entry)
+     * @return the asset controller
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public LievitAssetController lievitAssetController(
+            ComponentRegistry registry,
+            io.lievit.compiler.ComponentCompiler compiler,
+            io.lievit.compiler.AssetManifest manifest,
+            LievitProperties properties) {
+        return new LievitAssetController(registry, compiler, manifest, properties);
+    }
+
+    /**
      * Maps every {@code @LievitPage} component to a route on a single shared page handler (issue
      * #181, Livewire {@code Route::livewire} + {@code LivewirePageController} parity). The route's
      * path variables are bound to the component's same-named {@code @Wire} fields (props seeded before
@@ -556,8 +647,13 @@ public class LievitAutoConfiguration {
     @Bean
     public org.springframework.web.servlet.function.RouterFunction<
                     org.springframework.web.servlet.function.ServerResponse>
-            lievitPageRoutes(ApplicationContext context, LievitPageRenderer renderer) {
-        return new LievitPageRoutes(context, renderer).build();
+            lievitPageRoutes(
+                    ApplicationContext context,
+                    LievitPageRenderer renderer,
+                    LievitProperties properties) {
+        LievitProperties.Csp csp = properties.getCsp();
+        return new LievitPageRoutes(context, renderer, csp.isEnabled(), csp.getNonceAttribute())
+                .build();
     }
 
     private static byte[] decode(String base64Url) {

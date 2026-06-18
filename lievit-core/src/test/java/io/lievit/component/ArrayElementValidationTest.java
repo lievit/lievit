@@ -9,12 +9,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.Test;
-
 import jakarta.validation.Valid;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.Min;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Specifies that a {@code @Valid} collection's element constraints are surfaced as indexed paths by

@@ -22,7 +22,6 @@ import io.lievit.wire.Snapshot;
 import io.lievit.wire.SnapshotCodec;
 import io.lievit.wire.WireError;
 import io.lievit.wire.WireException;
-
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -54,6 +53,7 @@ public final class LievitWireService {
     private final ComponentId componentIds;
     private final ObjectMapper json;
     private final ChildRenderer childRenderer;
+    private final @Nullable ComponentAssetEmitter assetEmitter;
 
     /**
      * @param codec the snapshot codec (sign / verify)
@@ -75,6 +75,32 @@ public final class LievitWireService {
             ComponentId componentIds,
             ObjectMapper json,
             int maxChildDepth) {
+        this(codec, registry, dispatcher, templateAdapter, failureLimiter, componentIds, json,
+                maxChildDepth, null);
+    }
+
+    /**
+     * @param codec the snapshot codec (sign / verify)
+     * @param registry resolves a snapshot class name to a fresh component instance
+     * @param dispatcher the stateless lifecycle engine
+     * @param templateAdapter the active template adapter (JTE primary)
+     * @param failureLimiter the per-client checksum-failure budget
+     * @param componentIds the component id generator (for the initial mount)
+     * @param json the mapper used to encode the {@code Lievit-Effects} header bag (ADR-0012)
+     * @param maxChildDepth the nested-component depth cap (ADR-0016)
+     * @param assetEmitter the per-update asset emitter (issue #171), or {@code null} to ship no assets
+     *     block (a build with no asset pipeline)
+     */
+    public LievitWireService(
+            SnapshotCodec codec,
+            ComponentRegistry registry,
+            WireDispatcher dispatcher,
+            TemplateAdapter templateAdapter,
+            ChecksumFailureLimiter failureLimiter,
+            ComponentId componentIds,
+            ObjectMapper json,
+            int maxChildDepth,
+            @Nullable ComponentAssetEmitter assetEmitter) {
         this.codec = codec;
         this.registry = registry;
         this.dispatcher = dispatcher;
@@ -82,6 +108,7 @@ public final class LievitWireService {
         this.failureLimiter = failureLimiter;
         this.componentIds = componentIds;
         this.json = json;
+        this.assetEmitter = assetEmitter;
         this.childRenderer =
                 new ChildRenderer(
                         registry, dispatcher, templateAdapter, codec, componentIds, maxChildDepth);
@@ -283,8 +310,11 @@ public final class LievitWireService {
                             outcome.result().html(),
                             outcome.effects()));
         }
-        // No page-level late assets yet (issue #171 owns the asset pipeline); empty map is omitted.
-        return new BatchUpdateResponse(results, Map.of());
+        // The page-level late assets (issue #171): the union of the per-component asset blocks each
+        // committed result carries, so the client has one place to load a batch's late-arriving
+        // assets. The per-component effects still carry their own block (the single-endpoint shape);
+        // this aggregate is the convenience page-level view, deduped across the batch.
+        return new BatchUpdateResponse(results, aggregateAssets(results));
     }
 
     /**
@@ -341,10 +371,100 @@ public final class LievitWireService {
 
         Instant now = Instant.now();
         Snapshot next = Snapshot.fresh(snapshot.cid(), snapshot.cls(), wire, now, codec.ttl());
-        WireEffects effects = WireEffects.from(call.effects());
+        // Attach the page-level assets the rendered component(s) bring (issue #171): the
+        // run($wire,$js) module, the @assets head tags, the scoped-CSS styleModule. The block rides
+        // every update where the component renders; the client dedups by the carried keys (the
+        // stateless server cannot track per-page loaded state, ADR-0001). A renderless call ships none.
+        WireEffects.Assets assets = call.renderSkipped() ? null : deriveAssets(metadata, call);
+        WireEffects effects = WireEffects.withAssets(WireEffects.from(call.effects()), assets);
         String encoded = encodeEffects(effects);
         return new WireCallOutcome(
                 snapshot.cid(), new WireCallResult(html, codec.sign(next), encoded), effects);
+    }
+
+    /**
+     * Derives the page-level assets the rendered component (and the children it mounted) bring,
+     * deduped within this single call by a fresh seen-set (so a parent + two instances of the same
+     * child ship the child's module once). Returns {@code null} when no component on this render
+     * carries assets, or when no asset emitter is wired.
+     */
+    private WireEffects.@Nullable Assets deriveAssets(ComponentMetadata metadata, WireCall call) {
+        if (assetEmitter == null) {
+            return null;
+        }
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        java.util.List<String> scripts = new java.util.ArrayList<>();
+        java.util.List<String> headTags = new java.util.ArrayList<>();
+        java.util.List<WireEffects.StyleModule> styleModules = new java.util.ArrayList<>();
+        accumulate(metadata.type(), seen, scripts, headTags, styleModules);
+        for (io.lievit.component.ChildComponent child : call.children()) {
+            try {
+                accumulate(
+                        registry.metadata(child.className()).type(),
+                        seen,
+                        scripts,
+                        headTags,
+                        styleModules);
+            } catch (RuntimeException ignored) {
+                // A child class that does not resolve to a known component brings no assets.
+            }
+        }
+        WireEffects.Assets assets = new WireEffects.Assets(scripts, headTags, styleModules);
+        return assets.isEmpty() ? null : assets;
+    }
+
+    private void accumulate(
+            Class<?> type,
+            java.util.Set<String> seen,
+            java.util.List<String> scripts,
+            java.util.List<String> headTags,
+            java.util.List<WireEffects.StyleModule> styleModules) {
+        WireEffects.Assets one = assetEmitter.emit(type, seen);
+        if (one != null) {
+            scripts.addAll(one.scripts());
+            headTags.addAll(one.headTags());
+            styleModules.addAll(one.styleModules());
+        }
+    }
+
+    /**
+     * Aggregates the per-component asset blocks across a batch into one deduped page-level map
+     * ({@code {scripts, headTags, styleModules}}, issue #171), so the client has a single late-load
+     * surface for the whole batch. Empty when no component in the batch brought assets (the map is
+     * then omitted from the JSON response).
+     */
+    private static Map<String, Object> aggregateAssets(
+            List<BatchUpdateResponse.ComponentResult> results) {
+        java.util.LinkedHashSet<String> scripts = new java.util.LinkedHashSet<>();
+        java.util.LinkedHashSet<String> headTags = new java.util.LinkedHashSet<>();
+        java.util.LinkedHashMap<String, WireEffects.StyleModule> styleModules =
+                new java.util.LinkedHashMap<>();
+        for (BatchUpdateResponse.ComponentResult result : results) {
+            WireEffects effects = result.effects();
+            if (effects == null || effects.assets() == null) {
+                continue;
+            }
+            WireEffects.Assets block = effects.assets();
+            scripts.addAll(block.scripts());
+            headTags.addAll(block.headTags());
+            for (WireEffects.StyleModule module : block.styleModules()) {
+                styleModules.putIfAbsent(module.component() + ":" + module.hash(), module);
+            }
+        }
+        if (scripts.isEmpty() && headTags.isEmpty() && styleModules.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> aggregate = new LinkedHashMap<>();
+        if (!scripts.isEmpty()) {
+            aggregate.put("scripts", new java.util.ArrayList<>(scripts));
+        }
+        if (!headTags.isEmpty()) {
+            aggregate.put("headTags", new java.util.ArrayList<>(headTags));
+        }
+        if (!styleModules.isEmpty()) {
+            aggregate.put("styleModules", new java.util.ArrayList<>(styleModules.values()));
+        }
+        return aggregate;
     }
 
     /** The internal per-component outcome: the cid, the wire result, and the structured effects. */

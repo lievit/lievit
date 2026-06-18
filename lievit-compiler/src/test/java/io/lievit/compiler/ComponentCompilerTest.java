@@ -128,5 +128,43 @@ class ComponentCompilerTest {
         assertThat(compiled.scriptModule()).isEmpty();
         assertThat(compiled.style()).isEmpty();
         assertThat(compiled.placeholder()).isEmpty();
+        assertThat(compiled.assets().isEmpty()).isTrue();
+    }
+
+    /**
+     * @spec.given a component with a colocated {@code .lievit.assets} resource declaring head tags
+     * @spec.when  it is compiled
+     * @spec.then  the {@code @assets} head tags are captured verbatim, in order, with comment/blank
+     *     lines stripped (the once-per-page shared-asset block, issue #119)
+     * @spec.adr   ADR-0061
+     * @spec.us    US-119-script-and-assets
+     */
+    @Test
+    void captures_at_assets_head_tags_verbatim() {
+        CompiledComponent compiled = compiler.compile(AssetsFixture.class);
+
+        assertThat(compiled.assets().isEmpty()).isFalse();
+        assertThat(compiled.assets().headTags())
+                .containsExactly(
+                        "<link rel=\"stylesheet\" href=\"https://cdn.example.com/chart.css\">",
+                        "<script src=\"https://cdn.example.com/chart.js\"></script>");
+    }
+
+    /**
+     * @spec.given two components with the same and with different template identities
+     * @spec.when  their {@code @assets} dedup keys are derived
+     * @spec.then  the key is deterministic and distinct per component (so the page can dedup a
+     *     component's assets across instances yet ship a different component's assets, issue #119)
+     * @spec.adr   ADR-0061
+     */
+    @Test
+    void derives_a_deterministic_distinct_assets_key_per_component() {
+        String assetsKey = compiler.compile(AssetsFixture.class).assets().key();
+        String otherKey = compiler.compile(DslComp.class).assets().key();
+
+        assertThat(assetsKey).startsWith("lw-").endsWith("-assets");
+        assertThat(assetsKey).isNotEqualTo(otherKey);
+        // Stable across recompiles (the once-per-page dedup depends on it).
+        assertThat(compiler.compile(AssetsFixture.class).assets().key()).isEqualTo(assetsKey);
     }
 }

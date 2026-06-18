@@ -65,6 +65,9 @@ export const COMPONENT_ID_ATTR = "data-lievit-id";
 /** The attribute marking a component root (its value is the FQN, for diagnostics). */
 export const COMPONENT_ATTR = "data-lievit-component";
 
+/** The prefix of a `$parent.action(...)` magic resolved client-side, not sent to the server (#67). */
+const PARENT_MAGIC_PREFIX = "$parent.";
+
 /** Per-component live state the runtime owns (snapshot + pending deferred model updates). */
 interface ComponentState {
   readonly root: Element;
@@ -313,6 +316,22 @@ export class LievitRuntime {
     return parent == null ? null : this.$lievit(parent);
   }
 
+  /**
+   * True if the component owning `element` is `@LievitIsolate` (#61, ADR-0075): the server stamped
+   * `isolate:true` into the snapshot memo, so the component's updates must be sent in their own
+   * request rather than bundled into a shared multi-component commit. A bundler consults this before
+   * folding a component into a batch; today every commit is already per-component (lievit has no
+   * shared client batch endpoint in v0.1), so an isolated component is de-facto isolated and this is
+   * the seam a future shared bundler reads to keep it out of the batch.
+   *
+   * @param element any element inside the target component
+   * @returns true when the component opted into isolated requests, false otherwise (incl. no component)
+   */
+  isIsolated(element: Element): boolean {
+    const state = this.stateOf(element);
+    return state != null && decodeMemo(state.snapshot)[ISOLATE_MEMO_KEY] === true;
+  }
+
   /** Registers a `$watch` listener for a field on a component root; returns an unsubscribe. */
   private addWatcher(root: Element, field: string, listener: WatchListener): () => void {
     let byField = this.watchers.get(root);
@@ -455,6 +474,14 @@ export class LievitRuntime {
    * @param meta coarse call metadata (e.g. `{ poll: true }`, the trigger element) for hooks/interceptors
    */
   async callAction(element: Element, action: string, meta: CallMeta = {}): Promise<void> {
+    // `$parent.foo()` is resolved CLIENT-side (#67, ADR-0016): the server treats `$parent` as a
+    // no-op magic, so a child driving its parent must re-route the call up the DOM tree here. The
+    // bare name (no `(...)`) is a property read, meaningful only in JS via `$lievit.$parent.$get`,
+    // never as a click handler, so it is dropped rather than sent as a phantom action.
+    if (action.startsWith(PARENT_MAGIC_PREFIX)) {
+      this.callParent(element, action);
+      return;
+    }
     const state = this.stateOf(element);
     if (state == null) {
       return;
@@ -467,6 +494,35 @@ export class LievitRuntime {
       return;
     }
     await this.enqueue(state, [action], meta);
+  }
+
+  /**
+   * Routes a `$parent.action(...)` call from a child up to its enclosing component (#67, the
+   * client half of ADR-0016 `$parent`). Resolves the parent via the same DOM walk `$lievit.$parent`
+   * uses; a child at the root (no enclosing component) is a no-op (Livewire `$parent` is undefined
+   * at the top). A bare `$parent.prop` (no call parens) is a property read with no template meaning,
+   * so it is ignored here (it is reachable in JS via `$lievit.$parent.$get`).
+   */
+  private callParent(childElement: Element, action: string): void {
+    // Resolve the parent of the COMPONENT the clicked element belongs to, not of the clicked
+    // element: walking from the element would find its own component root as the "parent".
+    const childRoot = this.rootOf(childElement);
+    if (childRoot == null) {
+      return;
+    }
+    const parent = this.parentObjectOf(childRoot);
+    if (parent == null) {
+      return;
+    }
+    const expr = action.slice(PARENT_MAGIC_PREFIX.length);
+    const open = expr.indexOf("(");
+    if (open < 0) {
+      return; // a bare property read, no action to invoke
+    }
+    const method = expr.slice(0, open).trim();
+    if (method.length > 0) {
+      parent.$call(method);
+    }
   }
 
   /**
@@ -1082,6 +1138,21 @@ function decodeWire(snapshot: string): WireState {
   } catch {
     return {};
   }
+}
+
+/** The reserved key under which the server merges the cross-call memo into the snapshot wire. */
+const MEMO_KEY = "@memo";
+/** The memo flag a `@LievitIsolate` component carries (#61, ADR-0075). */
+const ISOLATE_MEMO_KEY = "isolate";
+
+/**
+ * Reads the snapshot memo bag (`wire["@memo"]`) the server round-trips: locale pinning (ADR-0037),
+ * the isolate flag (#61), and any other cross-call control. Returns an empty object when the snapshot
+ * carries no memo (the common case), so a caller reads a flag with a plain optional lookup.
+ */
+function decodeMemo(snapshot: string): Record<string, unknown> {
+  const memo = decodeWire(snapshot)[MEMO_KEY];
+  return memo != null && typeof memo === "object" ? (memo as Record<string, unknown>) : {};
 }
 
 /** Decodes a base64url string to UTF-8 text (CSP-safe, uses `atob`, no eval). */

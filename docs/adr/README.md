@@ -56,6 +56,13 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0052](0052-teleport-placeholder-relocation.md): `l:teleport` placeholder-in-place DOM relocation, client-only (#115). **accepted**
 - [ADR-0053](0053-spring-security-authorization-backbone.md): Spring Security is lievit's authorization backbone; `@LievitAuthorize` (the eighth annotation) + the `ActionAuthorizer` seam + the `PermissionEvaluator` Policy analog (#57). Supersedes ADR-0014's "no forced dependency", amends ADR-0002's count. **accepted**
 - [ADR-0054](0054-persistent-middleware-per-request-reauthorization.md): Persistent middleware / per-request re-authorization on the wire endpoint; Spring's URL-matched filter chain + the per-update `@LievitAuthorize` re-check (#179). **accepted**
+- [ADR-0060](0060-asset-pipeline-vite-manifest-serving.md): Asset pipeline: Vite-manifest-versioned bundle serving + per-update component assets (#171). **accepted**
+- [ADR-0061](0061-script-and-assets-once-semantics.md): `@script` / `@assets` once-semantics: compile-time capture with deterministic keys (#119). **accepted**
+- [ADR-0062](0062-csp-safe-server-config.md): CSP-safe mode, server half: `lievit.csp.*` config + nonce-aware emission (#127). **accepted**
+- [ADR-0063](0063-scoped-css-server-route.md): Scoped CSS modules, server half: CSS route + `styleModule` effect + content-hash cache-busting (#129). **accepted**
+- [ADR-0064](0064-client-assets-consumer-seam.md): Client `applyAssets` consumer as a self-contained, opt-in feature (#171/#119/#129). **accepted**
+- [ADR-0065](0065-dynamic-object-property.md): A schemaless dynamic-object `@Wire` property (the stdClass analogue) — `DynamicObject` + deep dotted-set create-missing-keys binding (#137). **accepted**
+- [ADR-0066](0066-custom-type-roundtrip-and-validation.md): Custom serializable property types — round-trip closure (nested `Wireable`), hydrate type-check, nested-path validation (#139). **accepted**
 
 ## How to add an ADR
 

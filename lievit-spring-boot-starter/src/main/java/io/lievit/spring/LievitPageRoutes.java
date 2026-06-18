@@ -17,7 +17,6 @@ import org.springframework.web.servlet.function.RouterFunctions;
 import org.springframework.web.servlet.function.ServerResponse;
 
 import io.lievit.LievitComponent;
-import io.lievit.LievitPage;
 import io.lievit.component.PageComponent;
 
 /**
@@ -38,10 +37,22 @@ final class LievitPageRoutes {
 
     private final ApplicationContext context;
     private final LievitPageRenderer renderer;
+    private final boolean cspEnabled;
+    private final String nonceAttribute;
 
     LievitPageRoutes(ApplicationContext context, LievitPageRenderer renderer) {
+        this(context, renderer, true, "lievit.csp-nonce");
+    }
+
+    LievitPageRoutes(
+            ApplicationContext context,
+            LievitPageRenderer renderer,
+            boolean cspEnabled,
+            String nonceAttribute) {
         this.context = context;
         this.renderer = renderer;
+        this.cspEnabled = cspEnabled;
+        this.nonceAttribute = nonceAttribute;
     }
 
     RouterFunction<ServerResponse> build() {
@@ -86,6 +97,7 @@ final class LievitPageRoutes {
                     String html =
                             renderer.renderPage(
                                     type, props, csrfToken(request), cspNonce(request));
+                    // (nonce read below honours lievit.csp.* config, issue #127)
                     return ServerResponse.ok().contentType(MediaType.TEXT_HTML).body(html);
                 });
     }
@@ -124,14 +136,19 @@ final class LievitPageRoutes {
     }
 
     /**
-     * Reads a CSP nonce off the request (issue #121, the strict-CSP posture of ADR-0019): a host
-     * using a nonce-based CSP exposes it as the {@code lievit.csp-nonce} request attribute (or
-     * Spring Security 6.2+ {@code org.springframework.security.web.csp.nonce}). Returns {@code null}
-     * when no nonce is in play, so the injected tag carries no spurious nonce attribute.
+     * Reads a CSP nonce off the request (issue #121/#127, the strict-CSP posture of ADR-0019/0062): a
+     * host using a nonce-based CSP exposes it as the configured {@code lievit.csp.nonce-attribute}
+     * request attribute (default {@code lievit.csp-nonce}), falling back to the Spring Security 6.2+
+     * {@code org.springframework.security.web.csp.nonce}. Returns {@code null} when CSP-mode is
+     * disabled ({@code lievit.csp.enabled=false}) or no nonce is in play, so the injected tag carries
+     * no spurious nonce attribute.
      */
-    private static @Nullable String cspNonce(
+    private @Nullable String cspNonce(
             org.springframework.web.servlet.function.ServerRequest request) {
-        Object nonce = request.servletRequest().getAttribute("lievit.csp-nonce");
+        if (!cspEnabled) {
+            return null;
+        }
+        Object nonce = request.servletRequest().getAttribute(nonceAttribute);
         if (nonce == null) {
             nonce =
                     request

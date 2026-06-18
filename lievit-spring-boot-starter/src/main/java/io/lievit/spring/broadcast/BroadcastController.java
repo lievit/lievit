@@ -6,14 +6,13 @@ package io.lievit.spring.broadcast;
 
 import java.security.Principal;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import org.jspecify.annotations.Nullable;
 
 /**
  * The broadcast subscribe endpoint (issue #304 / #45): {@code GET /lievit/broadcast} opens a

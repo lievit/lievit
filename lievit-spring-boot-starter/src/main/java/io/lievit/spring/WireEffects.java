@@ -10,6 +10,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+
 import io.lievit.component.DispatchedEvent;
 import io.lievit.component.DownloadEffect;
 import io.lievit.component.LievitEffects;
@@ -34,6 +35,10 @@ import io.lievit.component.LievitEffects;
  * @param validatedFields the field names a live {@code validateOnly} update revalidated (ADR-0038),
  *     so the client merges the errors into its bag (clearing exactly these fields, keeping the
  *     rest); {@code null} on a full {@code validate}/submit (the client then full-replaces)
+ * @param assets the page-level assets a newly-rendered component type brings on this update (issue
+ *     #171/#119/#129): the {@code run($wire,$js)} module URLs, the {@code @assets} head tags, and the
+ *     scoped-CSS {@code styleModule} links, each shipped once per page; {@code null} when this call
+ *     introduced no not-yet-loaded component (the common case, the key is then omitted)
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record WireEffects(
@@ -46,7 +51,52 @@ public record WireEffects(
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Js> js,
         @Nullable String release,
         @Nullable Transition transition,
-        @Nullable Download download) {
+        @Nullable Download download,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable Assets assets) {
+
+    /**
+     * The page-level assets a wire call's newly-rendered component(s) bring (issue #171/#119/#129):
+     * the lievit analogue of Livewire's {@code getAssets()} returned on every update so a
+     * late-arriving component ships its JS/CSS. Server-authored and derived from <em>which component
+     * types rendered</em>, not from the action's {@link LievitEffects} sink (the asset story is not a
+     * user-callable effect, it is the wire layer's bookkeeping). Each list is omitted when empty, so a
+     * call that introduced no new component type serializes nothing.
+     *
+     * @param scripts the {@code run($wire,$js)} client-module URLs to load once (the per-component
+     *     {@code <script type=module>} entries, the {@code @script} analogue)
+     * @param headTags the {@code @assets} head tags to inject once per page (shared third-party
+     *     assets), already deduped by the component's deterministic key
+     * @param styleModules the scoped-CSS {@code styleModule} entries (the {@code <link>} the client
+     *     injects with the content hash for cache-busting, issue #129)
+     */
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public record Assets(
+            @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> scripts,
+            @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> headTags,
+            @JsonInclude(JsonInclude.Include.NON_EMPTY) List<StyleModule> styleModules) {
+
+        public Assets {
+            scripts = List.copyOf(scripts);
+            headTags = List.copyOf(headTags);
+            styleModules = List.copyOf(styleModules);
+        }
+
+        /** @return true when no assets of any kind are carried (the block is then omitted). */
+        public boolean isEmpty() {
+            return scripts.isEmpty() && headTags.isEmpty() && styleModules.isEmpty();
+        }
+    }
+
+    /**
+     * One scoped-CSS {@code styleModule} (issue #129): the component, the route serving its scoped
+     * stylesheet, and the content hash the client uses to cache-bust the injected {@code <link>}.
+     *
+     * @param component the component name the styles are scoped to
+     * @param href the CSS route URL (carries the content hash as a cache-busting query param)
+     * @param hash the content hash (so the client re-fetches only when the CSS changed)
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record StyleModule(String component, String href, String hash) {}
 
     /**
      * One queued browser event, the serialized {@link DispatchedEvent}. The {@code to} / {@code self}
@@ -129,7 +179,41 @@ public record WireEffects(
                 jsCalls,
                 effects.release(),
                 toTransition(effects.transition()),
-                toDownload(effects.download()));
+                toDownload(effects.download()),
+                null);
+    }
+
+    /**
+     * Returns a copy of this bag carrying the page-level assets block (issue #171). The assets are
+     * server-authored by the wire layer (derived from which component types rendered), not by the
+     * action, so they are attached here rather than projected from {@link LievitEffects}. When this
+     * bag is {@code null} (a no-effects call) but assets are present, a fresh effects bag carrying
+     * only the assets is built, so a late-arriving component still ships its JS/CSS.
+     *
+     * @param base the effects from the action ({@code null} when the action produced none)
+     * @param assets the derived assets block ({@code null} or empty when none)
+     * @return the bag with assets attached, or {@code base} unchanged when there are no assets
+     */
+    public static @Nullable WireEffects withAssets(@Nullable WireEffects base, @Nullable Assets assets) {
+        if (assets == null || assets.isEmpty()) {
+            return base;
+        }
+        if (base == null) {
+            return new WireEffects(
+                    null, List.of(), null, null, null, List.of(), List.of(), null, null, null, assets);
+        }
+        return new WireEffects(
+                base.redirect(),
+                base.dispatch(),
+                base.returns(),
+                base.errors(),
+                base.validatedFields(),
+                base.islands(),
+                base.js(),
+                base.release(),
+                base.transition(),
+                base.download(),
+                assets);
     }
 
     private static @Nullable Download toDownload(@Nullable DownloadEffect d) {

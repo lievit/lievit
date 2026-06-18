@@ -33,10 +33,10 @@ public final class LievitTagCompiler {
                     "^\\s*<\\s*(/)?\\s*lievit:([a-zA-Z][\\w-]*)\\s*(.*?)\\s*(/)?\\s*>\\s*$",
                     Pattern.DOTALL);
 
-    // one attribute: name(:bound or wire:key etc.) optionally = "value" or = 'value'
+    // one attribute: name(:bound, wire:key, or @event etc.) optionally = "value" or = 'value'
     private static final Pattern ATTR =
             Pattern.compile(
-                    "([:a-zA-Z][\\w:.-]*)\\s*(?:=\\s*(?:\"([^\"]*)\"|'([^']*)'))?");
+                    "([:@a-zA-Z][\\w:.-]*)\\s*(?:=\\s*(?:\"([^\"]*)\"|'([^']*)'))?");
 
     /**
      * Compiles one {@code <lievit:...>} tag.
@@ -66,6 +66,7 @@ public final class LievitTagCompiler {
 
         Map<String, String> literal = new LinkedHashMap<>();
         Map<String, String> bound = new LinkedHashMap<>();
+        Map<String, String> events = new LinkedHashMap<>();
         Optional<String> key = Optional.empty();
         Optional<String> ref = Optional.empty();
         Optional<String> isExpr = Optional.empty();
@@ -84,7 +85,12 @@ public final class LievitTagCompiler {
                     case "defer" -> defer = true;
                     case ":is" -> isExpr = Optional.ofNullable(value);
                     default -> {
-                        if (rawName.startsWith(":")) {
+                        if (rawName.startsWith("@") && rawName.length() > 1) {
+                            // Nested-component event listener (#69): @saved="refresh" wires the parent
+                            // to handle the child-emitted `saved` event with its `refresh` action. The
+                            // event name keeps its authored kebab form (DOM events are case-sensitive).
+                            events.put(rawName.substring(1), value == null ? "" : value);
+                        } else if (rawName.startsWith(":")) {
                             // Bound expression attribute: :user-id="u.id" -> userId.
                             bound.put(kebabToCamel(rawName.substring(1)), value == null ? "" : value);
                         } else if (!rawName.contains(":")) {
@@ -110,7 +116,8 @@ public final class LievitTagCompiler {
                 selfClosing,
                 dynamic,
                 isExpr,
-                Optional.empty());
+                Optional.empty(),
+                events);
     }
 
     private static CompiledTag assetTag(
@@ -127,7 +134,8 @@ public final class LievitTagCompiler {
                 selfClosing,
                 false,
                 Optional.empty(),
-                Optional.of(kind));
+                Optional.of(kind),
+                Map.of());
     }
 
     /**

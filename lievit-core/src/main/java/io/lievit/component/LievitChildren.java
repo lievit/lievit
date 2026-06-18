@@ -116,12 +116,40 @@ public final class LievitChildren {
             String className,
             @Nullable Map<String, Object> props,
             @Nullable Map<String, String> slots) {
+        return child(key, className, props, slots, Map.of(), Map.of());
+    }
+
+    /**
+     * Declares a child with parent-declared event listeners (issue #69) and forwarded HTML attributes
+     * (issue #71), the form the tag-compiler lowering uses when a {@code <lievit:child>} tag carried
+     * {@code @event="handler"} listeners or unmapped HTML attributes. The listeners route a
+     * child-emitted event to a parent action; the attributes are the {@code $attributes} bag merged
+     * onto the child root. Both ride the child's memo / markers so they survive a re-render.
+     *
+     * @param key the stable child key (unique within this render)
+     * @param className the child {@code @LievitComponent} class name
+     * @param props the props seeded onto the child before mount (may be {@code null}/empty)
+     * @param slots the parent-rendered slot content by name (may be {@code null}/empty)
+     * @param listeners the event-name -&gt; parent-handler map (may be {@code null}/empty)
+     * @param attributes the forwarded HTML attribute bag (may be {@code null}/empty)
+     * @return the placeholder token the parent template renders where the child belongs
+     * @throws IllegalStateException if {@code key} was already declared in this render
+     */
+    public String child(
+            String key,
+            String className,
+            @Nullable Map<String, Object> props,
+            @Nullable Map<String, String> slots,
+            @Nullable Map<String, String> listeners,
+            @Nullable Map<String, String> attributes) {
         ChildComponent child =
                 new ChildComponent(
                         key,
                         className,
                         props == null ? Map.of() : props,
-                        slots == null ? Map.of() : slots);
+                        slots == null ? Map.of() : slots,
+                        listeners == null ? Map.of() : listeners,
+                        attributes == null ? Map.of() : attributes);
         if (byKey.putIfAbsent(key, child) != null) {
             throw new IllegalStateException(
                     "duplicate child @key '"

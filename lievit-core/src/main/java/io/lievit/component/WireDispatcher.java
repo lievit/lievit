@@ -17,6 +17,7 @@ import io.lievit.LievitFormObject;
 import io.lievit.wire.PayloadGuard;
 import io.lievit.wire.WireError;
 import io.lievit.wire.WireException;
+import io.lievit.wire.synth.DynamicObject;
 import io.lievit.wire.synth.SynthesizerRegistry;
 
 /**
@@ -50,6 +51,10 @@ import io.lievit.wire.synth.SynthesizerRegistry;
  *   <li>form-object fields ({@link LievitFormObject}) hydrate from a nested map in the snapshot
  *       and accept dotted-path updates (e.g., {@code "form.email"}) in {@code _updates} (ADR-0017).
  *       Only fields declared on the form object class are settable; depth is bounded at one level.
+ *   <li>dynamic-object fields ({@link DynamicObject}) are schemaless: a dotted-path update
+ *       (e.g., {@code "obj.address.city"}) deep-sets the value, creating the missing nested keys,
+ *       and the whole object round-trips as a plain JSON map (the stdClass analogue, issue #137).
+ *       Depth is bounded by the {@link PayloadGuard} nesting cap.
  * </ul>
  */
 public final class WireDispatcher {
@@ -575,6 +580,11 @@ public final class WireDispatcher {
                 // The snapshot carries {"form": {"email": "x", ...}}: rehydrate the nested map
                 // into a fresh form object and write it onto the component.
                 rehydrateFormObject(formMeta, field, instance, entry.getValue());
+            } else if (DynamicObject.class.isAssignableFrom(field.type())) {
+                // A schemaless dynamic object: the snapshot value is a `dyn` tuple (the common case)
+                // or a bare JSON map (a first snapshot); hydrateForUpdate handles both and yields a
+                // DynamicObject, never a bare LinkedHashMap the field could not accept (issue #137).
+                field.write(instance, synthesizers.hydrateForUpdate(field.type(), entry.getValue()));
             } else {
                 // Reconstruct the exact type from a @w tuple (ADR-0020); a plain value passes
                 // through the registry unchanged for WireField.write's own numeric coercion.
@@ -644,8 +654,7 @@ public final class WireDispatcher {
             updateFinishes.addAll(lifecycle.trigger(LifecyclePhase.UPDATE, ctx));
             int dot = key.indexOf('.');
             if (dot >= 0) {
-                // Dotted path: delegate to the form-object update logic.
-                applyFormObjectUpdate(metadata, instance, key, dot, entry.getValue());
+                applyDottedUpdate(metadata, instance, key, dot, entry.getValue());
             } else {
                 applyTopLevelUpdate(metadata, instance, key, entry.getValue());
             }
@@ -669,6 +678,60 @@ public final class WireDispatcher {
         // string, a <select> enum name) is coerced to the field's declared type before binding, so
         // a LocalDate field rehydrates to LocalDate and an enum field to the enum, not a String.
         field.write(instance, synthesizers.hydrateForUpdate(field.type(), value));
+    }
+
+    /**
+     * Routes a dotted-path update ({@code "obj.field"}) by the kind of {@code @Wire} field its first
+     * segment names: a {@link LievitFormObject} field takes the declared-shape, one-level form-object
+     * path (ADR-0017); a {@link DynamicObject} field takes the schemaless deep-set path that creates
+     * missing nested keys (issue #137). The first segment must be a {@code @Wire} field either way:
+     * the annotation is the settable allowlist (ADR-0013). A dotted key whose head names neither kind
+     * (a plain scalar {@code @Wire} field, or no field) is dropped.
+     */
+    private void applyDottedUpdate(
+            ComponentMetadata metadata, Object instance, String key, int dot, Object value) {
+        String headFieldName = key.substring(0, dot);
+        WireField field = metadata.wireFields().get(headFieldName);
+        if (field == null) {
+            // The left side of the dot does not name a @Wire field: outside the allowlist. Drop.
+            return;
+        }
+        if (DynamicObject.class.isAssignableFrom(field.type())) {
+            applyDynamicObjectUpdate(field, instance, key.substring(dot + 1), value);
+            return;
+        }
+        applyFormObjectUpdate(metadata, instance, key, dot, value);
+    }
+
+    /**
+     * Applies a deep dotted-path update to a {@link DynamicObject} {@code @Wire} field, creating the
+     * missing intermediate keys along the path (the {@code stdClass} bind semantics, issue #137).
+     *
+     * <p>Security: a locked field still rejects the write (the lock stops the client, ADR-0001
+     * amendment); the {@link PayloadGuard} has already bounded the dotted path's nesting depth and
+     * proven the value is plain JSON data (ADR-0013), so an unbounded-depth or gadget-shaped set
+     * never reaches here. The dynamic object is materialized if the field was null, so a fresh
+     * component binds the first key without a {@code @LievitMount} hook.
+     */
+    private void applyDynamicObjectUpdate(
+            WireField field, Object instance, String path, @Nullable Object value) {
+        if (field.locked()) {
+            throw new WireException(
+                    WireError.LOCKED_PROPERTY,
+                    "client update rejected for locked @Wire field");
+        }
+        Object current = field.read(instance);
+        DynamicObject target;
+        if (current instanceof DynamicObject existing) {
+            target = existing;
+        } else {
+            target = new DynamicObject();
+            field.write(instance, target);
+        }
+        // The value rides the wire as plain JSON; a typed leaf would have arrived as a @w tuple, so
+        // hydrate it through the registry before storing (a date string stays a string here, the
+        // dynamic object is schemaless and never coerces by a declared type).
+        target.set(path, synthesizers.hydrate(value));
     }
 
     private void applyFormObjectUpdate(
