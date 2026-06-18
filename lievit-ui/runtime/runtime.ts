@@ -51,6 +51,11 @@ import {
   ComponentRegistry,
   routeDispatchedEvents,
 } from "./events.js";
+import {
+  type LievitObject,
+  type WatchListener,
+  lievitObject,
+} from "./lievit-object.js";
 
 /** The attribute the server renders on a component root carrying its current signed snapshot. */
 export const SNAPSHOT_ATTR = "data-lievit-snapshot";
@@ -134,6 +139,9 @@ export class LievitRuntime {
   /** The JS-side event listener bus (#43): `runtime.on(name, fn)` reacts to server events. */
   readonly events = new ClientEventBus();
 
+  /** `$watch` listeners per component root, keyed by field (the `$lievit.$watch` backing, ADR-0030). */
+  private readonly watchers = new WeakMap<Element, Map<string, Set<WatchListener>>>();
+
   private readonly states = new WeakMap<Element, ComponentState>();
   private readonly options: RuntimeOptions;
   private readonly directiveRuntime: DirectiveRuntime;
@@ -199,6 +207,71 @@ export class LievitRuntime {
    */
   on(name: string, listener: ClientEventListener): () => void {
     return this.events.on(name, listener);
+  }
+
+  /**
+   * Returns the `$lievit` component object for the component owning `element` (Livewire's `$wire`,
+   * ADR-0030 magic actions, the client half): `$get` / `$set` / `$call` / `$refresh` / `$watch` /
+   * `$parent`. A page's JS (or a Lit island) uses it to drive the component without touching the
+   * runtime internals. Returns `null` when `element` is not inside a mounted component.
+   *
+   * `$set` rides the same model-update path a `l:model` edit takes (the server settable allowlist
+   * applies); `$call` invokes a bare `@LievitAction` by name (inline args to a regular action are a
+   * server-side parity gap, so args are not forwarded — only magic actions parse inline args today).
+   *
+   * @param element any element inside the target component
+   * @returns the component's `$lievit` object, or `null` if `element` is outside any component
+   */
+  $lievit(element: Element): LievitObject | null {
+    const root = this.rootOf(element);
+    if (root == null) {
+      return null;
+    }
+    return lievitObject(root, {
+      get: (el, field) => this.readEphemeral(el, field),
+      set: (el, field, value) => void this.setModel(el, field, value, true),
+      // Args to a regular action are not forwarded (server parses inline args for magic actions
+      // only); the bare name preserves the wire's authorization allowlist (ADR-0013).
+      call: (el, action) => void this.callAction(el, action),
+      refresh: (el) => void this.refresh(el),
+      parent: (childRoot) => this.parentObjectOf(childRoot),
+      watch: (watchRoot, field, listener) => this.addWatcher(watchRoot, field, listener),
+    });
+  }
+
+  /** Resolves the `$lievit` object of the component ENCLOSING `childRoot`, or null at the top. */
+  private parentObjectOf(childRoot: Element): LievitObject | null {
+    const parent = childRoot.parentElement?.closest(`[${COMPONENT_ATTR}]`) ?? null;
+    return parent == null ? null : this.$lievit(parent);
+  }
+
+  /** Registers a `$watch` listener for a field on a component root; returns an unsubscribe. */
+  private addWatcher(root: Element, field: string, listener: WatchListener): () => void {
+    let byField = this.watchers.get(root);
+    if (byField == null) {
+      byField = new Map();
+      this.watchers.set(root, byField);
+    }
+    let set = byField.get(field);
+    if (set == null) {
+      set = new Set();
+      byField.set(field, set);
+    }
+    set.add(listener);
+    return () => {
+      this.watchers.get(root)?.get(field)?.delete(listener);
+    };
+  }
+
+  /** Fires the `$watch` listeners for a field's new value on a component root (fail-soft). */
+  private fireWatchers(root: Element, field: string, value: unknown): void {
+    for (const listener of this.watchers.get(root)?.get(field) ?? []) {
+      try {
+        listener(value, field);
+      } catch (error) {
+        this.reportError("$watch listener threw", error);
+      }
+    }
   }
 
   /**
@@ -464,6 +537,7 @@ export class LievitRuntime {
     state.ephemeral[field] = value as never;
     state.pendingPaths.add(field);
     this.lifecycle.modelChange(this.contextOf(state), field, value);
+    this.fireWatchers(state.root, field, value);
     if (sendNow) {
       await this.enqueue(state, []);
     }
@@ -625,6 +699,13 @@ export class LievitRuntime {
         delete state.ephemeral[key];
       }
       Object.assign(state.ephemeral, merged);
+      // Fire `$watch` listeners for any field the server changed (ADR-0030): a watch reacts to a
+      // server-pushed value, not only a local `l:model` edit.
+      for (const [field, value] of Object.entries(merged)) {
+        if (!Object.is(baseWire[field], value)) {
+          this.fireWatchers(state.root, field, value);
+        }
+      }
     } else {
       for (const key of Object.keys(state.pendingUpdates)) {
         delete state.pendingUpdates[key];

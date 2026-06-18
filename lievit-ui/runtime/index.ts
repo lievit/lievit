@@ -67,6 +67,13 @@ export {
   type EventRoute,
 } from "./events.js";
 
+export {
+  lievitObject,
+  type LievitObject,
+  type LievitObjectDeps,
+  type WatchListener,
+} from "./lievit-object.js";
+
 export { morph, type MorphHooks, type MorphMode } from "./morph.js";
 
 export {
