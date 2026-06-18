@@ -17,6 +17,16 @@
 export interface DispatchedEvent {
   readonly name: string;
   readonly detail?: Record<string, unknown>;
+  /**
+   * The target component NAME for `dispatchTo` (ADR-0030): the client routes the event only to
+   * mounted components of this name. Absent for a global `dispatch` or a `dispatchSelf`.
+   */
+  readonly to?: string;
+  /**
+   * `true` for `dispatchSelf` (ADR-0030): the client routes the event only to the component that
+   * produced it. Absent (or `false`) for a global `dispatch` or a `dispatchTo`.
+   */
+  readonly self?: boolean;
 }
 
 /**
@@ -37,6 +47,21 @@ export interface JsEffectCall {
   readonly args?: readonly unknown[];
 }
 
+/**
+ * The `transition` effect (`@LievitTransition`, #113, server half): an action can ask the client to
+ * animate THIS update's morph rather than declaring it statically on the markup. `skip:true` means
+ * "no transition for this update" (a server-driven opt-out, e.g. a poll tick). `duration` overrides
+ * the per-element default; `name` selects a named transition the client transition feature knows.
+ */
+export interface TransitionEffect {
+  /** True to suppress any transition for this update (a server-driven skip). */
+  readonly skip?: boolean;
+  /** Override duration in ms for this update's animations. */
+  readonly duration?: number;
+  /** A named transition the client transition feature recognises (e.g. `"fade"`). */
+  readonly name?: string;
+}
+
 /** The decoded effects bag (the `Lievit-Effects` header JSON). Every key is optional. */
 export interface Effects {
   readonly redirect?: string;
@@ -52,6 +77,8 @@ export interface Effects {
   readonly release?: string;
   /** Named CSP-safe `$js` handlers to invoke (ADR-0024, #131). */
   readonly js?: readonly JsEffectCall[];
+  /** The server-driven transition control for this update (`@LievitTransition`, #113). */
+  readonly transition?: TransitionEffect;
 }
 
 /**

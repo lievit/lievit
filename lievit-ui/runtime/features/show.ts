@@ -22,11 +22,15 @@
 
 import type { LievitRuntime } from "../runtime.js";
 import {
-  type ShowScope,
-  ShowExpressionError,
-  evaluateShowExpression,
-  parseShowExpression,
-} from "./show-expression.js";
+  type ExprScope,
+  ExpressionError,
+  evaluateExpression,
+  parseExpression,
+  truthy,
+} from "../expression.js";
+
+/** The show scope is the generalized CSP-safe expression scope (#127 supersedes the l:show grammar). */
+type ShowScope = ExprScope;
 
 /** The directive attribute (without the `l:` prefix). */
 const NAME = "show";
@@ -77,9 +81,9 @@ export function installShow(runtime: LievitRuntime): () => void {
     const important = el.getAttribute("l:show.important") != null || hasImportantModifier(el);
     let visible: boolean;
     try {
-      visible = evaluateShowExpression(parseShowExpression(stripModifiers(attr)), scopeOf(root));
+      visible = truthy(evaluateExpression(parseExpression(stripModifiers(attr)), scopeOf(root)));
     } catch (error) {
-      if (error instanceof ShowExpressionError) {
+      if (error instanceof ExpressionError) {
         visible = true; // never hide on a bad expression; surface it instead of failing closed-dark.
         console.error(`[lievit] l:show ${error.message}`);
       } else {

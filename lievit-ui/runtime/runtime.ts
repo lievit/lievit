@@ -45,6 +45,17 @@ import { morphIslands, parseIslands } from "./islands.js";
 import { JsRegistry } from "./js-registry.js";
 import { RefRegistry, registerV4Directives } from "./v4-directives.js";
 import { releaseMismatch } from "./release-token.js";
+import {
+  ClientEventBus,
+  type ClientEventListener,
+  ComponentRegistry,
+  routeDispatchedEvents,
+} from "./events.js";
+import {
+  type LievitObject,
+  type WatchListener,
+  lievitObject,
+} from "./lievit-object.js";
 
 /** The attribute the server renders on a component root carrying its current signed snapshot. */
 export const SNAPSHOT_ATTR = "data-lievit-snapshot";
@@ -123,6 +134,13 @@ export class LievitRuntime {
   readonly refs = new RefRegistry();
   /** The CSP-safe `$js` handler registry (#131): register named client functions here. */
   readonly js = new JsRegistry();
+  /** The mounted-component registry (#43): resolves `dispatchTo` / global event fan-out to roots. */
+  readonly components = new ComponentRegistry();
+  /** The JS-side event listener bus (#43): `runtime.on(name, fn)` reacts to server events. */
+  readonly events = new ClientEventBus();
+
+  /** `$watch` listeners per component root, keyed by field (the `$lievit.$watch` backing, ADR-0030). */
+  private readonly watchers = new WeakMap<Element, Map<string, Set<WatchListener>>>();
 
   private readonly states = new WeakMap<Element, ComponentState>();
   private readonly options: RuntimeOptions;
@@ -166,6 +184,25 @@ export class LievitRuntime {
   /** The latest `errors` effect per component, captured pre-`afterCall` for the error directives. */
   private readonly lastErrors = new WeakMap<Element, Record<string, readonly string[]>>();
 
+  /** The latest `transition` effect per component (#113), read by the transition feature per morph. */
+  private readonly lastTransition = new WeakMap<
+    Element,
+    import("./effects.js").TransitionEffect | null
+  >();
+
+  /**
+   * Reads the server transition effect (`@LievitTransition`, #113) for a component root's current
+   * update, or `null` when the last call carried none (the static `l:transition` markup decides).
+   * The transition feature reads this across the morph rather than a DOM attribute the morph would
+   * reconcile away.
+   *
+   * @param root the component root
+   * @returns the transition effect for this update, or `null`
+   */
+  transitionFor(root: Element): import("./effects.js").TransitionEffect | null {
+    return this.lastTransition.get(root) ?? null;
+  }
+
   /**
    * Convenience to register a {@link LifecycleHook} (delegates to {@link LifecycleBus.register}).
    *
@@ -174,6 +211,86 @@ export class LievitRuntime {
    */
   use(hook: LifecycleHook): () => void {
     return this.lifecycle.register(hook);
+  }
+
+  /**
+   * Registers a JS listener for a server-dispatched event (the client half of the event system, #43,
+   * the `$lievit.$on` / Livewire `Livewire.on` analogue). The listener fires whenever an action
+   * dispatches an event of `name`, regardless of routing target, so page code reacts without a DOM
+   * `addEventListener`. Component-to-component delivery (the server `@LievitOn` re-run) is automatic
+   * and separate; this is for app-level JS only.
+   *
+   * @param name the event name
+   * @param listener the callback (receives the event detail, or `null` for a bare signal)
+   * @returns an unsubscribe function
+   */
+  on(name: string, listener: ClientEventListener): () => void {
+    return this.events.on(name, listener);
+  }
+
+  /**
+   * Returns the `$lievit` component object for the component owning `element` (Livewire's `$wire`,
+   * ADR-0030 magic actions, the client half): `$get` / `$set` / `$call` / `$refresh` / `$watch` /
+   * `$parent`. A page's JS (or a Lit island) uses it to drive the component without touching the
+   * runtime internals. Returns `null` when `element` is not inside a mounted component.
+   *
+   * `$set` rides the same model-update path a `l:model` edit takes (the server settable allowlist
+   * applies); `$call` invokes a bare `@LievitAction` by name (inline args to a regular action are a
+   * server-side parity gap, so args are not forwarded — only magic actions parse inline args today).
+   *
+   * @param element any element inside the target component
+   * @returns the component's `$lievit` object, or `null` if `element` is outside any component
+   */
+  $lievit(element: Element): LievitObject | null {
+    const root = this.rootOf(element);
+    if (root == null) {
+      return null;
+    }
+    return lievitObject(root, {
+      get: (el, field) => this.readEphemeral(el, field),
+      set: (el, field, value) => void this.setModel(el, field, value, true),
+      // Args to a regular action are not forwarded (server parses inline args for magic actions
+      // only); the bare name preserves the wire's authorization allowlist (ADR-0013).
+      call: (el, action) => void this.callAction(el, action),
+      refresh: (el) => void this.refresh(el),
+      parent: (childRoot) => this.parentObjectOf(childRoot),
+      watch: (watchRoot, field, listener) => this.addWatcher(watchRoot, field, listener),
+    });
+  }
+
+  /** Resolves the `$lievit` object of the component ENCLOSING `childRoot`, or null at the top. */
+  private parentObjectOf(childRoot: Element): LievitObject | null {
+    const parent = childRoot.parentElement?.closest(`[${COMPONENT_ATTR}]`) ?? null;
+    return parent == null ? null : this.$lievit(parent);
+  }
+
+  /** Registers a `$watch` listener for a field on a component root; returns an unsubscribe. */
+  private addWatcher(root: Element, field: string, listener: WatchListener): () => void {
+    let byField = this.watchers.get(root);
+    if (byField == null) {
+      byField = new Map();
+      this.watchers.set(root, byField);
+    }
+    let set = byField.get(field);
+    if (set == null) {
+      set = new Set();
+      byField.set(field, set);
+    }
+    set.add(listener);
+    return () => {
+      this.watchers.get(root)?.get(field)?.delete(listener);
+    };
+  }
+
+  /** Fires the `$watch` listeners for a field's new value on a component root (fail-soft). */
+  private fireWatchers(root: Element, field: string, value: unknown): void {
+    for (const listener of this.watchers.get(root)?.get(field) ?? []) {
+      try {
+        listener(value, field);
+      } catch (error) {
+        this.reportError("$watch listener threw", error);
+      }
+    }
   }
 
   /**
@@ -396,6 +513,8 @@ export class LievitRuntime {
       });
     }
     this.directives.scan(rootEl, this.directiveRuntime);
+    // Register the root in the component registry so dispatched events can be routed to it (#43).
+    this.components.register(rootEl);
     const state = this.states.get(rootEl)!;
     this.lifecycle.componentInit(this.contextOf(state));
   }
@@ -437,6 +556,7 @@ export class LievitRuntime {
     state.ephemeral[field] = value as never;
     state.pendingPaths.add(field);
     this.lifecycle.modelChange(this.contextOf(state), field, value);
+    this.fireWatchers(state.root, field, value);
     if (sendNow) {
       await this.enqueue(state, []);
     }
@@ -451,11 +571,32 @@ export class LievitRuntime {
     state: ComponentState,
     calls: readonly string[],
     meta: CallMeta = {},
+    events: readonly import("./wire.js").InboundWireEvent[] = [],
   ): Promise<void> {
-    const next = state.inFlight.then(() => this.dispatch(state, calls, meta));
+    const next = state.inFlight.then(() => this.dispatch(state, calls, meta, null, events));
     // Keep the chain alive even if a commit rejects (a failure must not freeze the queue).
     state.inFlight = next.catch(() => {});
     return next;
+  }
+
+  /**
+   * Delivers one inbound event to a target component (#43, ADR-0030): enqueues a wire call on the
+   * target's own commit chain carrying the event as `_events` and no actions, so the server re-runs
+   * the matching `@LievitOn` listeners and re-renders. A target with no live state is skipped (it left
+   * the DOM between the dispatch and the delivery).
+   *
+   * @param targetRoot the component root that must receive the event
+   * @param event the dispatched event to deliver (name + detail)
+   */
+  private deliverInboundEvent(
+    targetRoot: Element,
+    event: import("./effects.js").DispatchedEvent,
+  ): void {
+    const target = this.states.get(targetRoot);
+    if (target == null) {
+      return;
+    }
+    void this.enqueue(target, [], {}, [{ name: event.name, detail: event.detail ?? null }]);
   }
 
   /**
@@ -479,6 +620,7 @@ export class LievitRuntime {
     calls: readonly string[],
     meta: CallMeta = {},
     island: string | null = null,
+    inboundEvents: readonly import("./wire.js").InboundWireEvent[] = [],
   ): Promise<void> {
     const baseWire: WireState = { ...state.ephemeral };
     const pendingPaths = Array.from(state.pendingPaths);
@@ -524,7 +666,7 @@ export class LievitRuntime {
     try {
       response = await send(
         state.componentId,
-        { snapshot: state.snapshot, updates: request.updates, calls },
+        { snapshot: state.snapshot, updates: request.updates, calls, events: inboundEvents },
         { ...this.options, extraHeaders: request.headers },
       );
     } catch (error) {
@@ -576,6 +718,13 @@ export class LievitRuntime {
         delete state.ephemeral[key];
       }
       Object.assign(state.ephemeral, merged);
+      // Fire `$watch` listeners for any field the server changed (ADR-0030): a watch reacts to a
+      // server-pushed value, not only a local `l:model` edit.
+      for (const [field, value] of Object.entries(merged)) {
+        if (!Object.is(baseWire[field], value)) {
+          this.fireWatchers(state.root, field, value);
+        }
+      }
     } else {
       for (const key of Object.keys(state.pendingUpdates)) {
         delete state.pendingUpdates[key];
@@ -586,6 +735,10 @@ export class LievitRuntime {
 
     // Capture validation errors for the error directives before they fire on `afterCall` (#101).
     this.lastErrors.set(state.root, response.effects?.errors ?? {});
+    // Record the server transition control (#113, @LievitTransition) for THIS update so the
+    // transition feature reads it across the morph; a no-transition call clears it (the static
+    // `l:transition` markup then decides). A DOM stamp would be reconciled away by the morph.
+    this.lastTransition.set(state.root, response.effects?.transition ?? null);
 
     // --- Apply non-DOM effects (dispatch / redirect blockable / url / js), then morph (#93 order)
     this.applyNonDomEffects(state, response.effects, okOutcome);
@@ -636,14 +789,13 @@ export class LievitRuntime {
     if (effects.redirect != null && this.interceptors.redirect(effects.redirect, outcome)) {
       navigate = () => {}; // prevented: do not navigate
     }
-    // dispatch + url + errors ride applyEffects (address-bar write + the `lievit:url` /
+    // url + errors + redirect ride applyEffects (address-bar write + the `lievit:url` /
     // `lievit:validation-errors` DOM events, wire-protocol.md §5b / ADR-0012); redirect navigation
-    // honors the interceptor decision. The v4 error directives read errors via the captured
-    // `lastErrors` snapshot, so surfacing the event here is purely additive.
+    // honors the interceptor decision. `dispatch` is routed separately (below) so the per-event
+    // `self` / `to` targeting (#43) reaches other mounted components, not just `window`.
     applyEffects(
       {
         redirect: effects.redirect,
-        dispatch: effects.dispatch,
         returns: effects.returns,
         url: effects.url,
         errors: effects.errors,
@@ -651,6 +803,19 @@ export class LievitRuntime {
       window,
       navigate ?? ((url) => window.location.assign(url)),
     );
+    // dispatch routing (#43, ADR-0030): re-emit on window + the JS bus AND deliver each event to the
+    // component roots its target resolves to (their server `@LievitOn` listeners re-run via `_events`).
+    const routes = routeDispatchedEvents(
+      effects.dispatch,
+      state.root,
+      this.components,
+      this.events,
+    );
+    for (const route of routes) {
+      for (const target of route.targets) {
+        this.deliverInboundEvent(target, route.event);
+      }
+    }
     // CSP-safe $js: invoke each named handler from the registry (never an eval, #131).
     if (effects.js != null) {
       this.js.applyEffect(effects.js, { root: state.root });

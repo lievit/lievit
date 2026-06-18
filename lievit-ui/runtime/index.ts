@@ -49,6 +49,7 @@ export {
   send,
   wireEndpoint,
   type WireCall,
+  type InboundWireEvent,
   type WireResponse,
   type WireFailure,
   type SendOptions,
@@ -56,6 +57,32 @@ export {
   HEADER_EFFECTS,
   HEADER_REASON,
 } from "./wire.js";
+
+export {
+  ComponentRegistry,
+  ClientEventBus,
+  routeDispatchedEvents,
+  COMPONENT_NAME_ATTR,
+  type ClientEventListener,
+  type EventRoute,
+} from "./events.js";
+
+export {
+  lievitObject,
+  type LievitObject,
+  type LievitObjectDeps,
+  type WatchListener,
+} from "./lievit-object.js";
+
+export {
+  parseExpression,
+  evaluateExpression,
+  evaluate,
+  truthy,
+  ExpressionError,
+  type ParsedExpression,
+  type ExprScope,
+} from "./expression.js";
 
 export { morph, type MorphHooks, type MorphMode } from "./morph.js";
 
@@ -70,6 +97,7 @@ export {
   type DispatchedEvent,
   type UrlEffect,
   type JsEffectCall,
+  type TransitionEffect,
 } from "./effects.js";
 
 export {
@@ -84,6 +112,12 @@ export {
   installTransition,
   installLazy,
   installNavigate,
+  installPreserveScroll,
+  installCurrent,
+  isCurrentPath,
+  installScopedCss,
+  scopeCss,
+  scopeId,
   installPagination,
   installUploads,
   parseShowExpression,
