@@ -54,6 +54,11 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0050](0050-navigate-depth-head-merge-persist-progress-scroll.md): Navigate depth (head merge, `l:persist`, progress bar, scroll opt-in) (#193, #195). Extends the navigate feature, no core edit. **accepted**
 - [ADR-0051](0051-request-interactions-and-error-ux.md): Request interactions, per-scope (component/island) cancel-vs-queue concurrency (#95) + the `onExpired` recovery hook and page-expired dialog (#103). Client-only, composes the interceptor seams. **accepted**
 - [ADR-0052](0052-teleport-placeholder-relocation.md): `l:teleport` placeholder-in-place DOM relocation, client-only (#115). **accepted**
+- [ADR-0060](0060-asset-pipeline-vite-manifest-serving.md): Asset pipeline: Vite-manifest-versioned bundle serving + per-update component assets (#171). **accepted**
+- [ADR-0061](0061-script-and-assets-once-semantics.md): `@script` / `@assets` once-semantics: compile-time capture with deterministic keys (#119). **accepted**
+- [ADR-0062](0062-csp-safe-server-config.md): CSP-safe mode, server half: `lievit.csp.*` config + nonce-aware emission (#127). **accepted**
+- [ADR-0063](0063-scoped-css-server-route.md): Scoped CSS modules, server half: CSS route + `styleModule` effect + content-hash cache-busting (#129). **accepted**
+- [ADR-0064](0064-client-assets-consumer-seam.md): Client `applyAssets` consumer as a self-contained, opt-in feature (#171/#119/#129). **accepted**
 - [ADR-0065](0065-dynamic-object-property.md): A schemaless dynamic-object `@Wire` property (the stdClass analogue) — `DynamicObject` + deep dotted-set create-missing-keys binding (#137). **accepted**
 - [ADR-0066](0066-custom-type-roundtrip-and-validation.md): Custom serializable property types — round-trip closure (nested `Wireable`), hydrate type-check, nested-path validation (#139). **accepted**
 

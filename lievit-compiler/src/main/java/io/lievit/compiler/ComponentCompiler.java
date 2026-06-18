@@ -97,8 +97,32 @@ public final class ComponentCompiler {
                 resourceName(type, ".lievit.ts").or(() -> resourceName(type, ".lievit.js"));
         Optional<String> style = resource(type, ".lievit.css");
         Optional<String> placeholder = resource(type, ".placeholder.html");
+        ComponentAssets assets = assets(type, templateId);
 
-        return new CompiledComponent(metadata, templateId, singleFile, script, style, placeholder);
+        return new CompiledComponent(
+                metadata, templateId, singleFile, script, style, placeholder, assets);
+    }
+
+    /**
+     * Captures the per-component {@code @assets} head tags (issue #119) from a colocated
+     * {@code <Simple>.lievit.assets} resource, one head tag per non-blank line (blank lines and
+     * {@code #}-prefixed comment lines are skipped). The tags are stamped with a deterministic
+     * once-per-page key derived from the component identity ({@code lw-<crc32(templateId)>-assets}),
+     * so the page emits them exactly once regardless of how many instances render. Absent the
+     * resource, the assets are empty (the common case: a component with no shared head assets).
+     */
+    private static ComponentAssets assets(Class<?> type, String templateId) {
+        String key = DeterministicKeys.of(templateId, "assets");
+        Optional<String> declared = resource(type, ".lievit.assets");
+        if (declared.isEmpty()) {
+            return new ComponentAssets(key, java.util.List.of());
+        }
+        java.util.List<String> tags =
+                declared.get().lines()
+                        .map(String::strip)
+                        .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                        .toList();
+        return new ComponentAssets(key, tags);
     }
 
     /** The script module is recorded by its resource path (the asset pipeline builds it), not inlined. */

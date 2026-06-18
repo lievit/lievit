@@ -78,6 +78,9 @@ public class LievitProperties {
     /** Auto-injection of the runtime assets on full-page responses (issue #121). */
     private final Assets assets = new Assets();
 
+    /** Strict-CSP emission settings (issue #127): the server half of CSP-safe mode. */
+    private final Csp csp = new Csp();
+
     public @Nullable String getSigningKey() {
         return signingKey;
     }
@@ -198,6 +201,10 @@ public class LievitProperties {
         return assets;
     }
 
+    public Csp getCsp() {
+        return csp;
+    }
+
     /**
      * Auto-injected-assets configuration, bound from {@code lievit.assets.*} (issue #121, ADR-0039).
      * The runtime {@code <style>}/{@code <script>} are injected into full-page responses produced
@@ -223,6 +230,50 @@ public class LievitProperties {
 
         /** The runtime stylesheet URL, or empty for the zero-CSS default (ADR-0005): no stylesheet. */
         private String styleUrl = "";
+
+        /**
+         * The classpath location of the built runtime bundle the {@code /lievit/lievit.js} route
+         * serves, and the package the per-component / hashed assets resolve under (issue #171,
+         * ADR-0060). Default {@code lievit-runtime/}: the Vite build outputs the bundle here under
+         * {@code src/main/resources/lievit-runtime/} so the starter serves it off the classpath with
+         * no extra hosting.
+         */
+        private String classpathDir = "lievit-runtime";
+
+        /**
+         * The classpath location of the Vite build manifest ({@code .vite/manifest.json}, issue
+         * #171). When present, the served bundle is the content-hashed file the manifest resolves for
+         * {@link #runtimeEntry} (versioned, long-cacheable); when absent (dev), the route serves the
+         * fixed unhashed bundle file. Resolved relative to {@link #classpathDir}.
+         */
+        private String manifestPath = ".vite/manifest.json";
+
+        /** The Vite manifest entry key for the runtime bundle (issue #171). */
+        private String runtimeEntry = "runtime/index.ts";
+
+        public String getClasspathDir() {
+            return classpathDir;
+        }
+
+        public void setClasspathDir(String classpathDir) {
+            this.classpathDir = classpathDir;
+        }
+
+        public String getManifestPath() {
+            return manifestPath;
+        }
+
+        public void setManifestPath(String manifestPath) {
+            this.manifestPath = manifestPath;
+        }
+
+        public String getRuntimeEntry() {
+            return runtimeEntry;
+        }
+
+        public void setRuntimeEntry(String runtimeEntry) {
+            this.runtimeEntry = runtimeEntry;
+        }
 
         public boolean isEnabled() {
             return enabled;
@@ -254,6 +305,50 @@ public class LievitProperties {
 
         public void setStyleUrl(String styleUrl) {
             this.styleUrl = styleUrl;
+        }
+    }
+
+    /**
+     * Strict-CSP emission configuration, bound from {@code lievit.csp.*} (issue #127, the server half
+     * of CSP-safe mode; ADR-0062). lievit's posture is strict-CSP by default (ADR-0019: no inline
+     * script, no {@code eval}), so this does not toggle a less-safe mode; it makes the
+     * <em>nonce-aware</em> emission explicit and configurable. {@code enabled=true} (the default)
+     * stamps the CSP nonce on every lievit-injected {@code <script>}/{@code <link>} (the asset
+     * injector + the asset controller) so a strict {@code script-src 'nonce-...'} / {@code style-src
+     * 'nonce-...'} policy authorises the external runtime load with no {@code unsafe-inline}. The
+     * nonce itself is host-supplied: lievit reads it off the request attribute named here, it never
+     * generates a nonce or writes the CSP header (that is the host's {@code SecurityFilterChain}).
+     */
+    public static class Csp {
+
+        /**
+         * Whether lievit stamps the CSP nonce on its injected/served script and style tags. Default
+         * true (the strict-CSP posture). Set false only for an app that runs without a nonce-based
+         * CSP and does not want the nonce attribute emitted even when a nonce is present.
+         */
+        private boolean enabled = true;
+
+        /**
+         * The request-attribute name the host exposes the per-request CSP nonce under. Default is
+         * lievit's well-known {@code lievit.csp-nonce}; Spring Security 6.2+ nonce integrations expose
+         * it under their own attribute, set here to read that one instead.
+         */
+        private String nonceAttribute = "lievit.csp-nonce";
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getNonceAttribute() {
+            return nonceAttribute;
+        }
+
+        public void setNonceAttribute(String nonceAttribute) {
+            this.nonceAttribute = nonceAttribute;
         }
     }
 

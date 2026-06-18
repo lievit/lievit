@@ -38,6 +38,8 @@ import io.lievit.component.ComponentMetadata;
  *     {@code Foo.lievit.ts}); the asset pipeline (#171) builds + injects it under the strict CSP
  * @param style the colocated scoped/global CSS, if present
  * @param placeholder the colocated lazy-load placeholder markup, if present
+ * @param assets the per-component {@code @assets} head tags captured once-per-page (issue #119), keyed
+ *     deterministically so the page dedups them across instances; empty when none declared
  */
 public record CompiledComponent(
         ComponentMetadata metadata,
@@ -45,7 +47,8 @@ public record CompiledComponent(
         boolean singleFile,
         Optional<String> scriptModule,
         Optional<String> style,
-        Optional<String> placeholder) {
+        Optional<String> placeholder,
+        ComponentAssets assets) {
 
     /**
      * @return the component's fully-qualified class name (the snapshot {@code cls})
@@ -55,9 +58,13 @@ public record CompiledComponent(
     }
 
     /**
-     * @return true if the component colocates any side artifact (script, style, or placeholder)
+     * @return true if the component colocates any side artifact (script, style, placeholder, or
+     *     {@code @assets} head tags)
      */
     public boolean hasSideArtifacts() {
-        return scriptModule.isPresent() || style.isPresent() || placeholder.isPresent();
+        return scriptModule.isPresent()
+                || style.isPresent()
+                || placeholder.isPresent()
+                || !assets.isEmpty();
     }
 }

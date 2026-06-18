@@ -1,0 +1,4 @@
+# @assets head tags for AssetsFixture (issue #119): shared third-party head assets shipped once
+# per page regardless of how many instances render. One head tag per non-blank line.
+<link rel="stylesheet" href="https://cdn.example.com/chart.css">
+<script src="https://cdn.example.com/chart.js"></script>
