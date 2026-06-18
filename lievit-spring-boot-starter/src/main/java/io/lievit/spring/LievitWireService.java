@@ -271,6 +271,21 @@ public final class LievitWireService {
             Map<String, Object> model = withErrors(mergeModel(wire, call), call.effects());
             html = templateAdapter.render(metadata, instance, model);
             html = childRenderer.substitute(html, call.children());
+            // Island targeting (server half of islands; pairs with the shipped client islands.ts):
+            // when the action targeted one or more named islands, return ONLY those island fragments
+            // instead of the full component HTML, so the client morphs just those regions. The whole
+            // component is rendered first (the island content is computed in context), then the
+            // targeted fragments are extracted by their <!--[lievit:island name]--> markers.
+            List<String> islands = call.effects().islands();
+            if (!islands.isEmpty()) {
+                String targeted = io.lievit.compiler.IslandFragments.extractTargeted(html, islands);
+                // Only narrow to the fragment when the render actually emitted the targeted island(s);
+                // if none matched (the island was behind a removed conditional), fall back to the full
+                // HTML so the client still has something correct to morph.
+                if (!targeted.isEmpty()) {
+                    html = targeted;
+                }
+            }
         }
 
         Instant now = Instant.now();

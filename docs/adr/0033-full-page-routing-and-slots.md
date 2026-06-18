@@ -1,4 +1,4 @@
-# ADR-0033: Full-page routing + layout wrapping, and server-side slots
+# ADR-0033: Full-page routing + layout wrapping, server-side slots, and island fragment compilation
 
 - **Status:** accepted
 - **Date:** 2026-06-18
@@ -56,6 +56,24 @@ distinct region keeping parent ownership. A slot the child positioned but the pa
 collapses to nothing; a slotless child binds an empty proxy and is unaffected. Because the parent
 re-supplies the fragments on every re-render (the slot HTML is recomputed in the parent's render),
 slots survive the child's re-render with the parent's current state.
+
+### Server-side island fragment compilation (#89 server half)
+
+The client islands runtime (`islands.ts`) shipped already and expects the server to wrap a named
+island region in `<!--[lievit:island name]-->` … `<!--[/lievit:island name]-->` and, on a targeted
+re-render, to return only the targeted fragment(s). The server half was missing. We add:
+
+- **`LievitIsland`** (core): the single source of the open/close marker text, kept byte-identical to
+  the client contract, so a template wraps a region with `$unsafe{LievitIsland.open("feed")}` …
+  `$unsafe{LievitIsland.close("feed")}`.
+- **`IslandFragments`** (compiler): extracts the named island fragments from rendered HTML by their
+  markers (the server peer of the client `parseIslands`). `extractTargeted(html, names)` returns only
+  the targeted fragments (markers included, so the client re-parses them) in targeted order.
+- **Wiring** (`LievitWireService.runCall`): when an action targeted islands
+  (`LievitEffects.island(name)`) and the render was not skipped, the whole component is rendered (the
+  island content is computed in context) and then narrowed to the targeted fragment(s); if none
+  matched (the island was behind a removed conditional), it falls back to the full HTML so the client
+  always has correct markup to morph.
 
 ## Consequences
 
