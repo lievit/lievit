@@ -9,6 +9,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
+import java.util.function.Supplier;
 
 import io.lievit.upload.FileStore;
 import io.lievit.upload.TempFileSigner;
@@ -32,6 +34,7 @@ public final class LocalFileStore implements FileStore {
     private final TempFileStorage temp;
     private final TempFileSigner signer;
     private final Path permanentRoot;
+    private final Supplier<Instant> clock;
 
     /**
      * @param temp the temp storage holding the uploaded bytes
@@ -39,9 +42,26 @@ public final class LocalFileStore implements FileStore {
      * @param permanentRoot the root directory permanent files land under (created if absent)
      */
     public LocalFileStore(TempFileStorage temp, TempFileSigner signer, Path permanentRoot) {
+        this(temp, signer, permanentRoot, Instant::now);
+    }
+
+    /**
+     * Clock-injectable constructor: the token-expiry check verifies against {@code clock} instead of
+     * the system clock, so a test can sign and verify at one fixed instant (the production overload
+     * passes {@code Instant::now}). Without this seam a fixed-timestamp test only passes inside the
+     * token's TTL window of the day it was written.
+     *
+     * @param temp the temp storage holding the uploaded bytes
+     * @param signer the signer that verifies a temp token before its bytes are read
+     * @param permanentRoot the root directory permanent files land under (created if absent)
+     * @param clock supplies the instant the token expiry is checked against
+     */
+    public LocalFileStore(
+            TempFileStorage temp, TempFileSigner signer, Path permanentRoot, Supplier<Instant> clock) {
         this.temp = temp;
         this.signer = signer;
         this.permanentRoot = permanentRoot.toAbsolutePath().normalize();
+        this.clock = clock;
         try {
             Files.createDirectories(this.permanentRoot);
         } catch (IOException e) {
@@ -52,7 +72,7 @@ public final class LocalFileStore implements FileStore {
     @Override
     public String store(TemporaryUploadedFile file, String destinationDirectory) {
         // The signer verifies (and rejects a forged / expired / traversal token) before any read.
-        String relativeTemp = signer.verify(file.token());
+        String relativeTemp = signer.verify(file.token(), clock.get());
         Path source = temp.resolve(relativeTemp);
 
         String storedRelative = uniqueRelative(destinationDirectory, file.clientName());
