@@ -20,6 +20,7 @@ import { installLoading } from "./loading.js";
 import { installNavigate } from "./navigate.js";
 import { installPagination } from "./pagination.js";
 import { installPoll } from "./poll.js";
+import { installPreserveScroll } from "./preserve-scroll.js";
 import { installShow } from "./show.js";
 import { installTransition } from "./transition.js";
 import { installUploads } from "./uploads.js";
@@ -49,6 +50,7 @@ export {
 } from "./stream.js";
 export { installNavigate, type NavigateOptions } from "./navigate.js";
 export { installPagination, type ScrollToTop } from "./pagination.js";
+export { installPreserveScroll } from "./preserve-scroll.js";
 export {
   installUploads,
   type TempFileRef,
@@ -79,5 +81,6 @@ export function installAllFeatures(
   installLazy(runtime);
   installNavigate(runtime);
   installPagination(runtime);
+  installPreserveScroll(runtime);
   installUploads(runtime, options.uploads);
 }

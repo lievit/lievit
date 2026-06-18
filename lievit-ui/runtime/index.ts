@@ -101,6 +101,7 @@ export {
   installTransition,
   installLazy,
   installNavigate,
+  installPreserveScroll,
   installPagination,
   installUploads,
   parseShowExpression,
