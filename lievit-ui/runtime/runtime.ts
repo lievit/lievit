@@ -45,6 +45,12 @@ import { morphIslands, parseIslands } from "./islands.js";
 import { JsRegistry } from "./js-registry.js";
 import { RefRegistry, registerV4Directives } from "./v4-directives.js";
 import { releaseMismatch } from "./release-token.js";
+import {
+  ClientEventBus,
+  type ClientEventListener,
+  ComponentRegistry,
+  routeDispatchedEvents,
+} from "./events.js";
 
 /** The attribute the server renders on a component root carrying its current signed snapshot. */
 export const SNAPSHOT_ATTR = "data-lievit-snapshot";
@@ -123,6 +129,10 @@ export class LievitRuntime {
   readonly refs = new RefRegistry();
   /** The CSP-safe `$js` handler registry (#131): register named client functions here. */
   readonly js = new JsRegistry();
+  /** The mounted-component registry (#43): resolves `dispatchTo` / global event fan-out to roots. */
+  readonly components = new ComponentRegistry();
+  /** The JS-side event listener bus (#43): `runtime.on(name, fn)` reacts to server events. */
+  readonly events = new ClientEventBus();
 
   private readonly states = new WeakMap<Element, ComponentState>();
   private readonly options: RuntimeOptions;
@@ -174,6 +184,21 @@ export class LievitRuntime {
    */
   use(hook: LifecycleHook): () => void {
     return this.lifecycle.register(hook);
+  }
+
+  /**
+   * Registers a JS listener for a server-dispatched event (the client half of the event system, #43,
+   * the `$lievit.$on` / Livewire `Livewire.on` analogue). The listener fires whenever an action
+   * dispatches an event of `name`, regardless of routing target, so page code reacts without a DOM
+   * `addEventListener`. Component-to-component delivery (the server `@LievitOn` re-run) is automatic
+   * and separate; this is for app-level JS only.
+   *
+   * @param name the event name
+   * @param listener the callback (receives the event detail, or `null` for a bare signal)
+   * @returns an unsubscribe function
+   */
+  on(name: string, listener: ClientEventListener): () => void {
+    return this.events.on(name, listener);
   }
 
   /**
@@ -396,6 +421,8 @@ export class LievitRuntime {
       });
     }
     this.directives.scan(rootEl, this.directiveRuntime);
+    // Register the root in the component registry so dispatched events can be routed to it (#43).
+    this.components.register(rootEl);
     const state = this.states.get(rootEl)!;
     this.lifecycle.componentInit(this.contextOf(state));
   }
@@ -451,11 +478,32 @@ export class LievitRuntime {
     state: ComponentState,
     calls: readonly string[],
     meta: CallMeta = {},
+    events: readonly import("./wire.js").InboundWireEvent[] = [],
   ): Promise<void> {
-    const next = state.inFlight.then(() => this.dispatch(state, calls, meta));
+    const next = state.inFlight.then(() => this.dispatch(state, calls, meta, null, events));
     // Keep the chain alive even if a commit rejects (a failure must not freeze the queue).
     state.inFlight = next.catch(() => {});
     return next;
+  }
+
+  /**
+   * Delivers one inbound event to a target component (#43, ADR-0030): enqueues a wire call on the
+   * target's own commit chain carrying the event as `_events` and no actions, so the server re-runs
+   * the matching `@LievitOn` listeners and re-renders. A target with no live state is skipped (it left
+   * the DOM between the dispatch and the delivery).
+   *
+   * @param targetRoot the component root that must receive the event
+   * @param event the dispatched event to deliver (name + detail)
+   */
+  private deliverInboundEvent(
+    targetRoot: Element,
+    event: import("./effects.js").DispatchedEvent,
+  ): void {
+    const target = this.states.get(targetRoot);
+    if (target == null) {
+      return;
+    }
+    void this.enqueue(target, [], {}, [{ name: event.name, detail: event.detail ?? null }]);
   }
 
   /**
@@ -479,6 +527,7 @@ export class LievitRuntime {
     calls: readonly string[],
     meta: CallMeta = {},
     island: string | null = null,
+    inboundEvents: readonly import("./wire.js").InboundWireEvent[] = [],
   ): Promise<void> {
     const baseWire: WireState = { ...state.ephemeral };
     const pendingPaths = Array.from(state.pendingPaths);
@@ -524,7 +573,7 @@ export class LievitRuntime {
     try {
       response = await send(
         state.componentId,
-        { snapshot: state.snapshot, updates: request.updates, calls },
+        { snapshot: state.snapshot, updates: request.updates, calls, events: inboundEvents },
         { ...this.options, extraHeaders: request.headers },
       );
     } catch (error) {
@@ -636,14 +685,13 @@ export class LievitRuntime {
     if (effects.redirect != null && this.interceptors.redirect(effects.redirect, outcome)) {
       navigate = () => {}; // prevented: do not navigate
     }
-    // dispatch + url + errors ride applyEffects (address-bar write + the `lievit:url` /
+    // url + errors + redirect ride applyEffects (address-bar write + the `lievit:url` /
     // `lievit:validation-errors` DOM events, wire-protocol.md §5b / ADR-0012); redirect navigation
-    // honors the interceptor decision. The v4 error directives read errors via the captured
-    // `lastErrors` snapshot, so surfacing the event here is purely additive.
+    // honors the interceptor decision. `dispatch` is routed separately (below) so the per-event
+    // `self` / `to` targeting (#43) reaches other mounted components, not just `window`.
     applyEffects(
       {
         redirect: effects.redirect,
-        dispatch: effects.dispatch,
         returns: effects.returns,
         url: effects.url,
         errors: effects.errors,
@@ -651,6 +699,19 @@ export class LievitRuntime {
       window,
       navigate ?? ((url) => window.location.assign(url)),
     );
+    // dispatch routing (#43, ADR-0030): re-emit on window + the JS bus AND deliver each event to the
+    // component roots its target resolves to (their server `@LievitOn` listeners re-run via `_events`).
+    const routes = routeDispatchedEvents(
+      effects.dispatch,
+      state.root,
+      this.components,
+      this.events,
+    );
+    for (const route of routes) {
+      for (const target of route.targets) {
+        this.deliverInboundEvent(target, route.event);
+      }
+    }
     // CSP-safe $js: invoke each named handler from the registry (never an eval, #131).
     if (effects.js != null) {
       this.js.applyEffect(effects.js, { root: state.root });

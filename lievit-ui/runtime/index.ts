@@ -49,6 +49,7 @@ export {
   send,
   wireEndpoint,
   type WireCall,
+  type InboundWireEvent,
   type WireResponse,
   type WireFailure,
   type SendOptions,
@@ -56,6 +57,15 @@ export {
   HEADER_EFFECTS,
   HEADER_REASON,
 } from "./wire.js";
+
+export {
+  ComponentRegistry,
+  ClientEventBus,
+  routeDispatchedEvents,
+  COMPONENT_NAME_ATTR,
+  type ClientEventListener,
+  type EventRoute,
+} from "./events.js";
 
 export { morph, type MorphHooks, type MorphMode } from "./morph.js";
 

@@ -17,6 +17,16 @@
 export interface DispatchedEvent {
   readonly name: string;
   readonly detail?: Record<string, unknown>;
+  /**
+   * The target component NAME for `dispatchTo` (ADR-0030): the client routes the event only to
+   * mounted components of this name. Absent for a global `dispatch` or a `dispatchSelf`.
+   */
+  readonly to?: string;
+  /**
+   * `true` for `dispatchSelf` (ADR-0030): the client routes the event only to the component that
+   * produced it. Absent (or `false`) for a global `dispatch` or a `dispatchTo`.
+   */
+  readonly self?: boolean;
 }
 
 /**
