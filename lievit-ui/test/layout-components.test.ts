@@ -5,7 +5,9 @@
 import { describe, test, expect, afterEach } from "vitest";
 import "../registry/components/scroll-area/scroll-area.js";
 import "../registry/components/resizable/resizable.js";
-import "../registry/components/sheet/sheet.js";
+// sheet became a server-first WIRE component (Wave 2, ADR-0012): no Lit island to import. Its
+// server state-transition + render behaviour is pinned on the JVM side in lievit-kit
+// (SheetComponentIT), the same way collapsible's is.
 
 async function mount<T extends HTMLElement>(tag: string, set?: (el: T) => void): Promise<T> {
   const el = document.createElement(tag) as T;
@@ -28,7 +30,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 describe("layout light DOM", () => {
   test("every layout primitive renders into the light DOM (no shadow root)", async () => {
-    for (const tag of ["lv-scroll-area", "lv-resizable", "lv-sheet"]) {
+    for (const tag of ["lv-scroll-area", "lv-resizable"]) {
       const el = await mount(tag);
       expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
     }
@@ -217,132 +219,5 @@ describe("lv-resizable", () => {
     sep.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await settle(el);
     expect(sep.getAttribute("aria-valuenow")).toBe("20"); // reopens to its min
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-sheet
-// ---------------------------------------------------------------------------
-type SheetEl = HTMLElement & {
-  open: boolean;
-  side: string;
-  heading: string;
-  description: string;
-  dismissible: boolean;
-  showClose: boolean;
-};
-
-describe("lv-sheet", () => {
-  test("closed by default: no --open class on the panel", async () => {
-    const el = await mount<SheetEl>("lv-sheet");
-    expect(el.querySelector(".lv-sheet--open")).toBeNull();
-  });
-
-  test("open renders the backdrop and panel --open classes", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-    });
-    expect(el.querySelector(".lv-sheet-backdrop--open")).not.toBeNull();
-    expect(el.querySelector(".lv-sheet--open")).not.toBeNull();
-  });
-
-  test("the panel is a modal dialog", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-    });
-    const panel = el.querySelector(".lv-sheet") as HTMLElement;
-    expect(panel.getAttribute("role")).toBe("dialog");
-    expect(panel.getAttribute("aria-modal")).toBe("true");
-  });
-
-  test("all four sides add the matching class", async () => {
-    for (const side of ["right", "left", "top", "bottom"] as const) {
-      const el = await mount<SheetEl>("lv-sheet", (e) => {
-        e.side = side;
-      });
-      expect(el.querySelector(`.lv-sheet--${side}`)).not.toBeNull();
-    }
-  });
-
-  test("heading wires aria-labelledby, description wires aria-describedby", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-      e.heading = "Edit profile";
-      e.description = "Make changes here.";
-    });
-    const panel = el.querySelector(".lv-sheet") as HTMLElement;
-    const title = el.querySelector(".lv-sheet__title") as HTMLElement;
-    const desc = el.querySelector(".lv-sheet__description") as HTMLElement;
-    expect(panel.getAttribute("aria-labelledby")).toBe(title.id);
-    expect(panel.getAttribute("aria-describedby")).toBe(desc.id);
-  });
-
-  test("the close button emits lv-close", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-    });
-    let closed = false;
-    el.addEventListener("lv-close", () => {
-      closed = true;
-    });
-    (el.querySelector(".lv-sheet__close") as HTMLButtonElement).click();
-    expect(closed).toBe(true);
-  });
-
-  test("the close button renders a Lucide x svg, never Font Awesome", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-    });
-    expect(el.querySelector(".lv-sheet__close svg")).not.toBeNull();
-    expect(el.querySelector("i.fa, wa-icon")).toBeNull();
-  });
-
-  test("show-close=false hides the close button", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-      e.showClose = false;
-    });
-    expect(el.querySelector(".lv-sheet__close")).toBeNull();
-  });
-
-  test("backdrop click emits lv-close when dismissible (default)", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-    });
-    let closed = false;
-    el.addEventListener("lv-close", () => {
-      closed = true;
-    });
-    const backdrop = el.querySelector(".lv-sheet-backdrop") as HTMLElement;
-    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(closed).toBe(true);
-  });
-
-  test("backdrop click does NOT close when dismissible=false", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-      e.dismissible = false;
-    });
-    let closed = false;
-    el.addEventListener("lv-close", () => {
-      closed = true;
-    });
-    (el.querySelector(".lv-sheet-backdrop") as HTMLElement).dispatchEvent(
-      new MouseEvent("click", { bubbles: true })
-    );
-    expect(closed).toBe(false);
-  });
-
-  test("Escape closes an open sheet", async () => {
-    const el = await mount<SheetEl>("lv-sheet", (e) => {
-      e.open = true;
-    });
-    await settle(el);
-    let closed = false;
-    el.addEventListener("lv-close", () => {
-      closed = true;
-    });
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    expect(closed).toBe(true);
   });
 });

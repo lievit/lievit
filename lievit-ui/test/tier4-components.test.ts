@@ -3,8 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 import { describe, test, expect, afterEach } from "vitest";
-import "../registry/components/dialog/dialog.js";
-import "../registry/components/drawer/drawer.js";
+// dialog + drawer became server-first WIRE components (Wave 2, ADR-0012): no Lit island to
+// import. Their server state-transition + render behaviour is pinned on the JVM side in
+// lievit-kit (DialogComponentIT / DrawerComponentIT), the same way collapsible's is.
 import "../registry/components/tabs/tabs.js";
 import "../registry/components/accordion/accordion.js";
 import "../registry/components/breadcrumb/breadcrumb.js";
@@ -27,8 +28,6 @@ afterEach(() => {
 describe("tier-4 light DOM", () => {
   test("every tier-4 primitive renders into the light DOM (no shadow root)", async () => {
     for (const tag of [
-      "lv-dialog",
-      "lv-drawer",
       "lv-tabs",
       "lv-accordion",
       "lv-breadcrumb",
@@ -39,138 +38,8 @@ describe("tier-4 light DOM", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// lv-dialog
-// ---------------------------------------------------------------------------
-type DialogEl = HTMLElement & { open: boolean; heading: string; dismissible: boolean };
-
-describe("lv-dialog", () => {
-  test("closed by default: backdrop has no --open class", async () => {
-    const el = await mount("lv-dialog");
-    expect(el.querySelector(".lv-dialog-backdrop--open")).toBeNull();
-  });
-
-  test("open renders the backdrop --open class", async () => {
-    const el = await mount<DialogEl>("lv-dialog", (e) => {
-      e.open = true;
-    });
-    expect(el.querySelector(".lv-dialog-backdrop--open")).not.toBeNull();
-  });
-
-  test("dialog panel has role=dialog and aria-modal=true", async () => {
-    const el = await mount<DialogEl>("lv-dialog", (e) => {
-      e.open = true;
-    });
-    const panel = el.querySelector(".lv-dialog");
-    expect(panel?.getAttribute("role")).toBe("dialog");
-    expect(panel?.getAttribute("aria-modal")).toBe("true");
-  });
-
-  test("heading renders and aria-labelledby is wired", async () => {
-    const el = await mount<DialogEl>("lv-dialog", (e) => {
-      e.open = true;
-      e.heading = "Confirm action";
-    });
-    const title = el.querySelector(".lv-dialog__title");
-    expect(title?.textContent).toBe("Confirm action");
-    const panel = el.querySelector(".lv-dialog");
-    const labelledBy = panel?.getAttribute("aria-labelledby");
-    expect(labelledBy).toBeTruthy();
-    expect(el.querySelector(`#${labelledBy}`)?.textContent).toBe("Confirm action");
-  });
-
-  test("close button renders when heading is set", async () => {
-    const el = await mount<DialogEl>("lv-dialog", (e) => {
-      e.open = true;
-      e.heading = "Test";
-    });
-    expect(el.querySelector(".lv-dialog__close")).not.toBeNull();
-  });
-
-  test("clicking close button emits lv-close", async () => {
-    let closed = false;
-    const el = await mount<DialogEl>("lv-dialog", (e) => {
-      e.open = true;
-      e.heading = "Test";
-    });
-    el.addEventListener("lv-close", () => { closed = true; });
-    (el.querySelector(".lv-dialog__close") as HTMLButtonElement).click();
-    expect(closed).toBe(true);
-  });
-
-  test("clicking backdrop emits lv-close when dismissible (default)", async () => {
-    let closed = false;
-    const el = await mount<DialogEl>("lv-dialog", (e) => {
-      e.open = true;
-    });
-    el.addEventListener("lv-close", () => { closed = true; });
-    const backdrop = el.querySelector(".lv-dialog-backdrop") as HTMLElement;
-    // Simulate click directly on backdrop (not a child)
-    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(closed).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-drawer
-// ---------------------------------------------------------------------------
-type DrawerEl = HTMLElement & { open: boolean; heading: string; side: string; dismissible: boolean };
-
-describe("lv-drawer", () => {
-  test("closed by default: drawer panel has no --open class", async () => {
-    const el = await mount("lv-drawer");
-    expect(el.querySelector(".lv-drawer--open")).toBeNull();
-  });
-
-  test("open adds --open class to the panel", async () => {
-    const el = await mount<DrawerEl>("lv-drawer", (e) => {
-      e.open = true;
-    });
-    expect(el.querySelector(".lv-drawer--open")).not.toBeNull();
-  });
-
-  test("role=dialog and aria-modal=true on the panel", async () => {
-    const el = await mount<DrawerEl>("lv-drawer", (e) => {
-      e.open = true;
-    });
-    const panel = el.querySelector(".lv-drawer");
-    expect(panel?.getAttribute("role")).toBe("dialog");
-    expect(panel?.getAttribute("aria-modal")).toBe("true");
-  });
-
-  test("side prop adds the correct class", async () => {
-    for (const side of ["right", "left", "bottom", "top"] as const) {
-      const el = await mount<DrawerEl>("lv-drawer", (e) => {
-        e.side = side;
-      });
-      expect(el.querySelector(`.lv-drawer--${side}`)).not.toBeNull();
-      document.body.innerHTML = "";
-    }
-  });
-
-  test("heading renders and aria-labelledby is wired", async () => {
-    const el = await mount<DrawerEl>("lv-drawer", (e) => {
-      e.open = true;
-      e.heading = "Filters";
-    });
-    const title = el.querySelector(".lv-drawer__title");
-    expect(title?.textContent).toBe("Filters");
-    const panel = el.querySelector(".lv-drawer");
-    const labelledBy = panel?.getAttribute("aria-labelledby");
-    expect(labelledBy).toBeTruthy();
-  });
-
-  test("clicking close button emits lv-close", async () => {
-    let closed = false;
-    const el = await mount<DrawerEl>("lv-drawer", (e) => {
-      e.open = true;
-      e.heading = "Settings";
-    });
-    el.addEventListener("lv-close", () => { closed = true; });
-    (el.querySelector(".lv-drawer__close") as HTMLButtonElement).click();
-    expect(closed).toBe(true);
-  });
-});
+// dialog + drawer are no longer Lit islands (Wave 2 -> WIRE, ADR-0012); their tests moved to
+// the JVM-side render-asserting ITs in lievit-kit (DialogComponentIT / DrawerComponentIT).
 
 // ---------------------------------------------------------------------------
 // lv-tabs

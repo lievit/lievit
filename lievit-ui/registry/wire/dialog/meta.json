@@ -1,0 +1,23 @@
+{
+  "name": "dialog",
+  "type": "registry:wire",
+  "description": "An accessible modal dialog. Server-first WIRE component (ADR-0012): open state lives in typed Java, the server re-renders, the client morphs; the body + footer are owned template regions, not slots. Replaces the <lv-dialog> Lit island. WAI-ARIA APG dialog (role=dialog + aria-modal + aria-labelledby/aria-describedby); focus-trap + Escape are a CSP-clean typed-TS enhancement, open-state stays server-owned.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/dialog/DialogComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/DialogComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/dialog/dialog.jte",
+      "type": "registry:wire",
+      "target": "lievit/dialog.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Register DialogComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.dialog(...)`. The open state is server-owned: fire `open` to show it and `close` (backdrop / Escape / close button) to hide it. Put your dialog body + footer markup directly in the data-lv-dialog-body / data-lv-dialog-footer regions of the copied template (they are owned source, NOT slots). Focus-trap + Escape: wire a small typed-TS module keyed off [data-lv-dialog] that traps Tab within [data-lv-dialog-panel] while not [hidden] and dispatches the `close` action on Escape; the open-state itself stays server (wire). The `@LievitComponent(template=\"lievit/dialog\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+}

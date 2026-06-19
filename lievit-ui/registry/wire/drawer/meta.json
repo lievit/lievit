@@ -1,0 +1,23 @@
+{
+  "name": "drawer",
+  "type": "registry:wire",
+  "description": "A modal side panel anchored to a viewport edge (right/left/top/bottom). Server-first WIRE component (ADR-0012): open state lives in typed Java, the server re-renders, the client morphs; the body is an owned template region, not a slot. Replaces the <lv-drawer> Lit island. Same WAI-ARIA APG dialog semantics as the dialog wire (role=dialog + aria-modal + aria-labelledby); focus-trap + Escape are a CSP-clean typed-TS enhancement, open-state stays server-owned.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/drawer/DrawerComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/DrawerComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/drawer/drawer.jte",
+      "type": "registry:wire",
+      "target": "lievit/drawer.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Register DrawerComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.drawer(...)`. The open state is server-owned: fire `open` to show it and `close` (backdrop / Escape / close button) to hide it; set `side` to 'right' (default) | 'left' | 'top' | 'bottom'. Put your drawer body markup directly in the data-lv-drawer-body region of the copied template (owned source, NOT a slot). Focus-trap + Escape: wire a small typed-TS module keyed off [data-lv-drawer] that traps Tab within [data-lv-drawer-panel] while not [hidden] and dispatches the `close` action on Escape; the open-state itself stays server (wire). For the richer header/description/footer four-side panel use the sheet wire instead. Adjust the package + template name freely once copied (the source is yours)."
+}
