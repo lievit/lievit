@@ -1,0 +1,17 @@
+{
+  "name": "popover",
+  "type": "registry:jte",
+  "description": "A click-triggered floating panel anchored to a trigger, with ZERO JS. The load-bearing overlay seam (ADR-0012 blueprint R4): show/hide via the native HTML `popover` attribute + `popovertarget` (top-layer, light-dismiss, ARIA wired by the browser); position via CSS Anchor Positioning (anchor-name / position-anchor / position-area + flip-block fallback), no @floating-ui/dom. Panel content is OWNED, server-rendered markup (a Content slot), never a <slot>. Replaces the <lv-popover> Lit island. Plain HTML + Tailwind + --lv-* tokens, CSP-clean. For server-data-driven content + server-held open-state, see the popover-wire component.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/popover.jte",
+      "type": "registry:jte",
+      "target": "lievit/popover.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Copies lievit/popover.jte to your JTE root, reached as @template.lievit.popover(...). Pass a unique `id` (the popovertarget link target), the `trigger` content (label/icon) and the `content` panel body (server-rendered, never a <slot>); set `placement` (\"bottom\" | \"top\", flips when cramped) or `disabled`. The browser owns show/hide + Escape/outside-click dismiss + aria-expanded; CSS anchor positioning places the panel. The source is yours: edit freely. For a popover whose content depends on server state (the calendar-filter feed), use the popover-wire component instead."
+}

@@ -3,7 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 import { describe, test, expect, afterEach } from "vitest";
-import "../registry/components/dropdown-menu/dropdown-menu.js";
+// dropdown-menu is now a server-first registry:jte partial (ADR-0012, Wave 3); the Lit island is
+// gone. Its server-first contract is pinned in popover.test.ts (registry shape + the native-popover
+// seam) — this file keeps only the still-island tier-3 primitives (date-picker, data-table).
 import "../registry/components/date-picker/date-picker.js";
 import "../registry/components/data-table/data-table.js";
 
@@ -25,142 +27,12 @@ afterEach(() => {
 describe("tier-3 light DOM", () => {
   test("every tier-3 primitive renders into the light DOM (no shadow root to pierce)", async () => {
     for (const tag of [
-      "lv-dropdown-menu",
       "lv-date-picker",
       "lv-data-table",
-      "lv-file-upload",
-      "lv-rich-select",
     ]) {
       const el = await mount(tag);
       expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-dropdown-menu
-// ---------------------------------------------------------------------------
-type LvDropdownEl = HTMLElement & {
-  items: Array<{ key: string; label: string; icon?: string; disabled?: boolean; separator?: boolean }>;
-  label: string;
-  disabled: boolean;
-};
-
-describe("lv-dropdown-menu", () => {
-  const items = [
-    { key: "edit", label: "Edit" },
-    { key: "copy", label: "Copy" },
-    { key: "delete", label: "Delete", disabled: true },
-    { key: "archive", label: "Archive", separator: true },
-  ];
-
-  test("renders a trigger button with aria-haspopup=menu", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    const btn = el.querySelector(".lv-dropdown__trigger") as HTMLButtonElement;
-    expect(btn).not.toBeNull();
-    expect(btn.getAttribute("aria-haspopup")).toBe("menu");
-  });
-
-  test("menu panel is hidden by default (no --open class)", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    expect(el.querySelector(".lv-dropdown__panel--open")).toBeNull();
-  });
-
-  test("clicking the trigger opens the panel and sets aria-expanded=true", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    (el.querySelector(".lv-dropdown__trigger") as HTMLButtonElement).click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    expect(el.querySelector(".lv-dropdown__panel--open")).not.toBeNull();
-    expect(
-      el.querySelector(".lv-dropdown__trigger")?.getAttribute("aria-expanded")
-    ).toBe("true");
-  });
-
-  test("clicking an item emits lv-select with the item key and closes the panel", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    let detail: unknown;
-    el.addEventListener("lv-select", (e) => { detail = (e as CustomEvent).detail; });
-
-    (el.querySelector(".lv-dropdown__trigger") as HTMLButtonElement).click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    const menuItems = el.querySelectorAll<HTMLElement>('[role="menuitem"]');
-    menuItems[0].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    expect(detail).toBe("edit");
-    expect(el.querySelector(".lv-dropdown__panel--open")).toBeNull();
-  });
-
-  test("disabled item has aria-disabled=true", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    (el.querySelector(".lv-dropdown__trigger") as HTMLButtonElement).click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    const menuItems = el.querySelectorAll<HTMLElement>('[role="menuitem"]');
-    // 3rd item (index 2) is disabled
-    expect(menuItems[2].getAttribute("aria-disabled")).toBe("true");
-  });
-
-  test("disabled item click does not emit lv-select", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    let fired = false;
-    el.addEventListener("lv-select", () => { fired = true; });
-
-    (el.querySelector(".lv-dropdown__trigger") as HTMLButtonElement).click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    const menuItems = el.querySelectorAll<HTMLElement>('[role="menuitem"]');
-    menuItems[2].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    expect(fired).toBe(false);
-  });
-
-  test("separator item renders a role=separator divider", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    (el.querySelector(".lv-dropdown__trigger") as HTMLButtonElement).click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    expect(el.querySelector('[role="separator"]')).not.toBeNull();
-  });
-
-  test("panel has role=menu", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-    });
-    expect(el.querySelector('[role="menu"]')).not.toBeNull();
-  });
-
-  test("disabled prop prevents the menu from opening", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-      e.disabled = true;
-    });
-    (el.querySelector(".lv-dropdown__trigger") as HTMLButtonElement).click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    expect(el.querySelector(".lv-dropdown__panel--open")).toBeNull();
-  });
-
-  test("label prop is reflected in the trigger text", async () => {
-    const el = await mount<LvDropdownEl>("lv-dropdown-menu", (e) => {
-      e.items = items;
-      e.label = "Actions";
-    });
-    expect(el.querySelector(".lv-dropdown__trigger")?.textContent).toContain("Actions");
   });
 });
 
