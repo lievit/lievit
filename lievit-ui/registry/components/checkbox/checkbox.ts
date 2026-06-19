@@ -13,13 +13,26 @@ import { adoptLightStyles } from "../light-dom/light-dom.js";
  * keyboard activation (Space), and checked/disabled semantics for free
  * (WAI-ARIA APG checkbox pattern, research 4.3). An explicit `label` prop is
  * exposed to assistive tech via `aria-label` when no external `<label for=...>`
- * is supplied. Data down, events up: emits a bubbling `lv-change` event with the
- * new `checked` boolean when the value changes.
+ * is supplied.
+ *
+ * Form-associated (`static formAssociated`): submits under `name` inside a plain
+ * `<form method=post>` exactly like a native checkbox: it contributes `value` (default
+ * `"on"`) ONLY when checked, and is absent from `new FormData(form)` when unchecked. It
+ * reports through ElementInternals (`setFormValue`) where supported and ALSO mirrors a
+ * hidden `<input name>` (rendered only when checked) as the portable fallback for
+ * environments without ElementInternals (e.g. the happy-dom test runtime), so FormData
+ * sees the field either way. `formResetCallback` returns it to its initial checked state;
+ * `formDisabledCallback` follows a disabled fieldset. Data down, events up: on change it
+ * emits the back-compat `lv-change` CustomEvent AND a native bubbling `change` event so
+ * the wire's `l:model` binds with zero config.
  *
  * Owned source, copied in by `lievit add checkbox`. Light-DOM rendered.
  */
 @customElement("lv-checkbox")
 export class LvCheckbox extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** Whether the checkbox is ticked. */
   @property({ type: Boolean }) checked = false;
 
@@ -29,8 +42,49 @@ export class LvCheckbox extends LitElement {
   /** Accessible label when no external <label for=...> is used. */
   @property() label = "";
 
+  /** Form field name; the control submits its value under this name when checked. */
+  @property() name = "";
+
+  /** Submitted value when checked (native checkbox default is `"on"`). */
+  @property() value = "on";
+
   /** Id forwarded to the native input for `<label for=...>` association. */
   @property() inputId = "";
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The checked state the control resets to on form reset (captured at first connect). */
+  private initialChecked = false;
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.initialChecked = this.checked;
+    this.syncFormValue();
+  }
+
+  /** Reports the current value to the form: `value` when checked, null when unchecked. */
+  private syncFormValue() {
+    this.internals?.setFormValue(this.checked ? (this.value || "on") : null);
+  }
+
+  /** Reset to the initial checked state (form-associated lifecycle). */
+  formResetCallback() {
+    this.checked = this.initialChecked;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-checkbox", LvCheckbox.css);
@@ -79,9 +133,12 @@ export class LvCheckbox extends LitElement {
   private onChange(e: Event) {
     const checked = (e.target as HTMLInputElement).checked;
     this.checked = checked;
+    this.syncFormValue();
+    // Back-compat CustomEvent plus a native `change` so `l:model` (native event listener) binds.
     this.dispatchEvent(
       new CustomEvent("lv-change", { detail: checked, bubbles: true, composed: true })
     );
+    this.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   render() {
@@ -99,6 +156,9 @@ export class LvCheckbox extends LitElement {
         ${this.label
           ? html`<span class="lv-checkbox__label">${this.label}</span>`
           : null}
+        ${this.internals || !this.checked
+          ? null
+          : html`<input type="hidden" name=${this.name || ""} .value=${this.value || "on"} />`}
       </span>
     `;
   }

@@ -35,18 +35,30 @@ export interface RadioOption {
  * uses the ARIA role pattern with styled `<button>` elements (WAI-ARIA authoring
  * practices, radio group example).
  *
- * Data down, events up: emits `lv-change` with the selected value string.
- * `value` prop is the currently selected option value (empty string = nothing).
+ * Form-associated (`static formAssociated`): submits the selected `value` under `name` inside a
+ * plain `<form method=post>`, via ElementInternals (`setFormValue`) where supported and a hidden
+ * `<input name>` mirror as the portable fallback (e.g. the happy-dom test runtime), so
+ * `new FormData(form)` sees the field either way. `formResetCallback` returns it to its initial
+ * selection; `formDisabledCallback` follows a disabled fieldset. Data down, events up: on selection
+ * it emits the back-compat `lv-change` CustomEvent AND native bubbling `input` + `change` events so
+ * the wire's `l:model` binds with zero config. `value` is the currently selected option value
+ * (empty string = nothing).
  *
  * Owned source, copied in by `lievit add radio-group`. Light-DOM rendered.
  */
 @customElement("lv-radio-group")
 export class LvRadioGroup extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** Radio options. */
   @property({ type: Array }) options: RadioOption[] = [];
 
   /** Currently selected value. */
   @property() value = "";
+
+  /** Form field name; the control submits its selected value under this name. */
+  @property() name = "";
 
   /** Group label (rendered as a visible legend-like label). */
   @property() label = "";
@@ -56,6 +68,41 @@ export class LvRadioGroup extends LitElement {
 
   /** Orientation of the radio options. */
   @property() orientation: "vertical" | "horizontal" = "vertical";
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The value the control resets to on form reset (captured at first connect). */
+  private initialValue = "";
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.initialValue = this.value;
+    this.syncFormValue();
+  }
+
+  /** Reports the current value to the form (ElementInternals; the hidden mirror covers the rest). */
+  private syncFormValue() {
+    this.internals?.setFormValue(this.value);
+  }
+
+  /** Reset to the initial value (form-associated lifecycle). */
+  formResetCallback() {
+    this.value = this.initialValue;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-radio-group", LvRadioGroup.css);
@@ -127,9 +174,13 @@ export class LvRadioGroup extends LitElement {
     const opt = this.options.find((o) => o.value === value);
     if (!opt || opt.disabled || this.disabled) return;
     this.value = value;
+    this.syncFormValue();
+    // Back-compat CustomEvent plus native input + change so `l:model` (native event listener) binds.
     this.dispatchEvent(
       new CustomEvent("lv-change", { detail: value, bubbles: true, composed: true })
     );
+    this.dispatchEvent(new Event("input", { bubbles: true }));
+    this.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   private onKeyDown(e: KeyboardEvent, optValue: string) {
@@ -207,6 +258,9 @@ export class LvRadioGroup extends LitElement {
             `;
           })}
         </div>
+        ${this.internals
+          ? null
+          : html`<input type="hidden" name=${this.name || ""} .value=${this.value} />`}
       </div>
     `;
   }

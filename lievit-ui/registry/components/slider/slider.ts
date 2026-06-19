@@ -18,13 +18,21 @@ import { adoptLightStyles } from "../light-dom/light-dom.js";
  * from the underlying input. An accessible `label` is exposed via `aria-label`
  * when no external `<label for=...>` is used.
  *
- * Data down, events up: emits a bubbling `lv-change` event with the new numeric
- * value (as a number) when the value changes.
+ * Form-associated (`static formAssociated`): submits its numeric `value` (as a string) under
+ * `name` inside a plain `<form method=post>`, via ElementInternals (`setFormValue`) where
+ * supported and a hidden `<input name>` mirror as the portable fallback (e.g. the happy-dom test
+ * runtime), so `new FormData(form)` sees the field either way. `formResetCallback` returns it to
+ * its initial value; `formDisabledCallback` follows a disabled fieldset. Data down, events up: on
+ * drag it emits the back-compat `lv-change` CustomEvent AND a native bubbling `input` event, and a
+ * native `change` on commit (pointer/key release), so the wire's `l:model` binds with zero config.
  *
  * Owned source, copied in by `lievit add slider`. Light-DOM rendered.
  */
 @customElement("lv-slider")
 export class LvSlider extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** Current value. */
   @property({ type: Number }) value = 0;
 
@@ -43,11 +51,49 @@ export class LvSlider extends LitElement {
   /** Accessible label when no external `<label for=...>` is used. */
   @property() label = "";
 
+  /** Form field name; the control submits its value under this name. */
+  @property() name = "";
+
   /** Id forwarded to the native input for `<label for=...>` association. */
   @property() inputId = "";
 
   /** Show the current value alongside the slider. */
   @property({ type: Boolean }) showValue = false;
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The value the control resets to on form reset (captured at first connect). */
+  private initialValue = 0;
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.initialValue = this.value;
+    this.syncFormValue();
+  }
+
+  /** Reports the current value to the form (ElementInternals; the hidden mirror covers the rest). */
+  private syncFormValue() {
+    this.internals?.setFormValue(String(this.value));
+  }
+
+  /** Reset to the initial value (form-associated lifecycle). */
+  formResetCallback() {
+    this.value = this.initialValue;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-slider", LvSlider.css);
@@ -106,12 +152,23 @@ export class LvSlider extends LitElement {
     }
   `;
 
-  private onChange(e: Event) {
+  private onInput(e: Event) {
     const val = Number((e.target as HTMLInputElement).value);
     this.value = val;
+    this.syncFormValue();
+    // Back-compat CustomEvent plus a native `input` (fires on every drag step) so `l:model` binds.
     this.dispatchEvent(
       new CustomEvent("lv-change", { detail: val, bubbles: true, composed: true })
     );
+    this.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  private onChange(e: Event) {
+    const val = Number((e.target as HTMLInputElement).value);
+    this.value = val;
+    this.syncFormValue();
+    // A native `change` on commit (pointer/key release) for `l:model.lazy`/`.change` bindings.
+    this.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   render() {
@@ -130,11 +187,15 @@ export class LvSlider extends LitElement {
           aria-valuemin=${this.min}
           aria-valuemax=${this.max}
           aria-valuenow=${this.value}
-          @input=${this.onChange}
+          @input=${this.onInput}
+          @change=${this.onChange}
         />
         ${this.showValue
           ? html`<span class="lv-slider__value" aria-live="polite">${this.value}</span>`
           : null}
+        ${this.internals
+          ? null
+          : html`<input type="hidden" name=${this.name || ""} .value=${String(this.value)} />`}
       </div>
     `;
   }

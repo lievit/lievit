@@ -13,11 +13,23 @@ import { adoptLightStyles } from "../light-dom/light-dom.js";
  * a button with `role="switch"` and `aria-checked` carries keyboard activation
  * (Enter/Space) and announces state changes to screen readers. The track and thumb
  * are purely visual; the ARIA attributes on the button element carry semantics.
- * Data down, events up: emits a bubbling `lv-change` event with the new `checked`
- * boolean. Owned source, copied in by `lievit add switch`. Light-DOM rendered.
+ *
+ * Form-associated (`static formAssociated`): submits under `name` inside a plain
+ * `<form method=post>` like a native checkbox: it contributes `value` (default `"on"`)
+ * ONLY when checked, and is absent from `new FormData(form)` when off. It reports through
+ * ElementInternals (`setFormValue`) where supported and ALSO mirrors a hidden `<input name>`
+ * (rendered only when checked) as the portable fallback for environments without
+ * ElementInternals (e.g. the happy-dom test runtime), so FormData sees the field either way.
+ * `formResetCallback` returns it to its initial state; `formDisabledCallback` follows a
+ * disabled fieldset. Data down, events up: on toggle it emits the back-compat `lv-change`
+ * CustomEvent AND a native bubbling `change` event so the wire's `l:model` binds with zero
+ * config. Owned source, copied in by `lievit add switch`. Light-DOM rendered.
  */
 @customElement("lv-switch")
 export class LvSwitch extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** Whether the switch is on. */
   @property({ type: Boolean }) checked = false;
 
@@ -26,6 +38,47 @@ export class LvSwitch extends LitElement {
 
   /** Accessible label for the switch. */
   @property() label = "";
+
+  /** Form field name; the control submits its value under this name when on. */
+  @property() name = "";
+
+  /** Submitted value when on (defaults to `"on"`, like a native checkbox). */
+  @property() value = "on";
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The checked state the control resets to on form reset (captured at first connect). */
+  private initialChecked = false;
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.initialChecked = this.checked;
+    this.syncFormValue();
+  }
+
+  /** Reports the current value to the form: `value` when on, null when off. */
+  private syncFormValue() {
+    this.internals?.setFormValue(this.checked ? (this.value || "on") : null);
+  }
+
+  /** Reset to the initial state (form-associated lifecycle). */
+  formResetCallback() {
+    this.checked = this.initialChecked;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-switch", LvSwitch.css);
@@ -88,9 +141,12 @@ export class LvSwitch extends LitElement {
   private toggle() {
     if (this.disabled) return;
     this.checked = !this.checked;
+    this.syncFormValue();
+    // Back-compat CustomEvent plus a native `change` so `l:model` (native event listener) binds.
     this.dispatchEvent(
       new CustomEvent("lv-change", { detail: this.checked, bubbles: true, composed: true })
     );
+    this.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   render() {
@@ -111,6 +167,9 @@ export class LvSwitch extends LitElement {
         ${this.label
           ? html`<span class="lv-switch__label" aria-hidden="true">${this.label}</span>`
           : null}
+        ${this.internals || !this.checked
+          ? null
+          : html`<input type="hidden" name=${this.name || ""} .value=${this.value || "on"} />`}
       </span>
     `;
   }
