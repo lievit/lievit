@@ -40,10 +40,12 @@ describe("static partials b1 -- shared hygiene", () => {
       expect(src.toLowerCase()).not.toMatch(/font-?awesome|wa-icon|fa-/);
     });
 
-    test(`${name}: no inline <script> and no inline on* handlers, except the documented img fallback`, () => {
+    test(`${name}: no inline <script> and ZERO inline on* handlers (strict CSP refuses them)`, () => {
       expect(src).not.toMatch(/<script/i);
-      // avatar's onerror is the one allowed inline handler (no-JS image->fallback swap).
-      const inlineHandlers = (src.match(/\son[a-z]+=/gi) ?? []).filter((h) => !/\sonerror=/i.test(h));
+      // CSP-safe by default: no inline handler is allowed, not even avatar's old onerror swap
+      // (#3 dogfood finding). A client-side image fallback is opt-in via data-lv-avatar-fallback,
+      // wired from an adopter's own TS module -- never an inline attribute.
+      const inlineHandlers = src.match(/\son[a-z]+=/gi) ?? [];
       expect(inlineHandlers, `unexpected inline handlers: ${inlineHandlers.join(", ")}`).toEqual([]);
     });
 

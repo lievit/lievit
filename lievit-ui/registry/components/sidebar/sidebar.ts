@@ -236,7 +236,7 @@ export class LvSidebar extends LitElement {
       position: fixed;
       inset: 0;
       z-index: 9400;
-      background: rgb(0 0 0 / 0.40);
+      background: var(--lv-color-overlay);
     }
     .lv-sidebar--mobile .lv-sidebar__backdrop.lv-sidebar__backdrop--open { display: block; }
     .lv-sidebar--mobile .lv-sidebar {

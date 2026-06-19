@@ -69,7 +69,7 @@ export class LvSheet extends LitElement {
       position: fixed;
       inset: 0;
       z-index: var(--lv-z-overlay);
-      background: rgb(0 0 0 / 0.50);
+      background: var(--lv-color-overlay);
     }
     .lv-sheet-backdrop--open { display: block; }
     .lv-sheet {
