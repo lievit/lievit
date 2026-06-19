@@ -1,0 +1,64 @@
+<%--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  lievit-ui radio-group/option partial -- one native <input type="radio"> + its <label>.
+
+  TIER: STATIC presentational -> JTE partial. A single native radio styled by tokens; part of the
+  radio-group family (use it directly only for the `content` slot of @@template.radio-group when
+  you need per-option disabled or rich labels). The shared `name` (passed by the group) ties the
+  options into one native single-selection group.
+
+  STRUCTURE: native <input type=radio> with `appearance-none` and a token dot revealed via
+  `checked` (shadcn's visual), wrapped in a <label> for click-to-select.
+
+  A11y: a real radio with its own id; the wrapping <label> names it. Inherits the group's
+  fieldset legend/aria-label as the group name.
+
+  Params:
+    String name                 the shared radio name (from the group).
+    String value                this option's submitted value.
+    String label    = null      visible label text.
+    String id       = value     the radio's id; defaults to the value.
+    boolean checked  = false    initial selected state.
+    boolean disabled = false    disables this option.
+    boolean required = false    marks the radio required.
+    String model    = null      l:model expression bound on the radio.
+
+  Usage:
+    @@template.radio-group.option(name = "stato", value = "attivo", label = "Attivo", checked = true)
+--%>
+@param String name
+@param String value
+@param String label = null
+@param String id = null
+@param boolean checked = false
+@param boolean disabled = false
+@param boolean required = false
+@param String model = null
+
+!{var radioId = (id != null && !id.isBlank()) ? id : name + "-" + value;}
+
+<label
+  for="${radioId}"
+  data-slot="radio-group-option"
+  data-disabled="${disabled}"
+  class="inline-flex items-center gap-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50"
+  style="font-family:var(--lv-font-sans);"
+>
+  <input
+    data-slot="radio-group-control"
+    type="radio"
+    id="${radioId}"
+    name="${name}"
+    value="${value}"
+    checked="${checked}"
+    disabled="${disabled}"
+    required="${required}"
+    l:model="${model}"
+    class="size-[var(--lv-space-4)] shrink-0 cursor-pointer appearance-none rounded-full border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] checked:bg-[radial-gradient(circle,var(--lv-color-primary)_40%,transparent_45%)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed"
+  >
+  @if(label != null && !label.isBlank())
+    <span data-slot="radio-group-option-label">${label}</span>
+  @endif
+</label>

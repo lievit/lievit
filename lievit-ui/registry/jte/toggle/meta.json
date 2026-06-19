@@ -1,0 +1,17 @@
+{
+  "name": "toggle",
+  "type": "registry:jte",
+  "description": "A two-state pressed <button> (aria-pressed) with shadcn variants/sizes and an optional Lucide icon. The pressed state is server-owned (data down); the click is wired via l:click. Server-first replacement for the Lit island.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/toggle.jte",
+      "type": "registry:jte",
+      "target": "lievit/toggle.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the toggle partial to your JTE root at lievit/toggle.jte, reached as @template.lievit.toggle(...). Render `pressed` from the controller and wire `pressedAction` (l:click) to the wire action that flips it. `variant` (default|outline), `size` (sm|default|lg), optional `icon`; set `ariaLabel` for icon-only toggles. Requires the icon partial. The source is yours: edit freely."
+}

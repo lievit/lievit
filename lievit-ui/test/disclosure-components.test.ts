@@ -6,8 +6,8 @@ import { describe, test, expect, afterEach } from "vitest";
 // collapsible was converted to a server-first WIRE component (ADR-0012, Wave 0); its Lit island
 // is gone. Its behaviour now lives in registry/wire/collapsible (Java + JTE), tested in
 // test/wire-collapsible.test.ts (registry resolution) + the lievit-kit IT (render + state). The
-// toggle / toggle-group islands stay until their own wave.
-import "../registry/components/toggle/toggle.js";
+// toggle island became a server-first JTE partial (ADR-0012, Wave 1b), tested in
+// test/jte-static-partials.test.ts; the toggle-group island stays until its own wave.
 import "../registry/components/toggle-group/toggle-group.js";
 
 async function mount<T extends HTMLElement>(tag: string, set?: (el: T) => void): Promise<T> {
@@ -31,78 +31,11 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 describe("disclosure light DOM", () => {
   test("every disclosure primitive renders into the light DOM (no shadow root)", async () => {
-    // lv-collapsible dropped: now a server-first WIRE component (ADR-0012).
-    for (const tag of ["lv-toggle", "lv-toggle-group"]) {
+    // lv-collapsible dropped (WIRE) + lv-toggle dropped (JTE partial), both per ADR-0012.
+    for (const tag of ["lv-toggle-group"]) {
       const el = await mount(tag);
       expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-toggle
-// ---------------------------------------------------------------------------
-type LvToggleEl = HTMLElement & {
-  pressed: boolean;
-  disabled: boolean;
-  variant: string;
-  size: string;
-  icon: string;
-  value: string;
-};
-
-describe("lv-toggle", () => {
-  test("renders a native button with aria-pressed", async () => {
-    const el = await mount<LvToggleEl>("lv-toggle");
-    const btn = el.querySelector("button") as HTMLButtonElement;
-    expect(btn).not.toBeNull();
-    expect(btn.getAttribute("aria-pressed")).toBe("false");
-  });
-
-  test("pressed maps to aria-pressed=true", async () => {
-    const el = await mount<LvToggleEl>("lv-toggle", (e) => { e.pressed = true; });
-    expect(el.querySelector("button")?.getAttribute("aria-pressed")).toBe("true");
-  });
-
-  test("click toggles pressed and emits lv-change with { pressed, value }", async () => {
-    const el = await mount<LvToggleEl>("lv-toggle", (e) => { e.value = "bold"; });
-    let detail: { pressed: boolean; value: string } | undefined;
-    el.addEventListener("lv-change", (e) => { detail = (e as CustomEvent).detail; });
-    (el.querySelector("button") as HTMLButtonElement).click();
-    await settle(el);
-    expect(el.pressed).toBe(true);
-    expect(detail).toEqual({ pressed: true, value: "bold" });
-  });
-
-  test("a second click toggles back off", async () => {
-    const el = await mount<LvToggleEl>("lv-toggle", (e) => { e.pressed = true; });
-    (el.querySelector("button") as HTMLButtonElement).click();
-    await settle(el);
-    expect(el.pressed).toBe(false);
-    expect(el.querySelector("button")?.getAttribute("aria-pressed")).toBe("false");
-  });
-
-  test("disabled prevents toggling", async () => {
-    const el = await mount<LvToggleEl>("lv-toggle", (e) => { e.disabled = true; });
-    (el.querySelector("button") as HTMLButtonElement).click();
-    await settle(el);
-    expect(el.pressed).toBe(false);
-  });
-
-  test("variant and size map to token classes", async () => {
-    const el = await mount<LvToggleEl>("lv-toggle", (e) => {
-      e.variant = "outline";
-      e.size = "lg";
-    });
-    const btn = el.querySelector("button") as HTMLButtonElement;
-    expect(btn.classList.contains("lv-toggle--outline")).toBe(true);
-    expect(btn.classList.contains("lv-toggle--lg")).toBe(true);
-  });
-
-  test("icon renders a Lucide svg, never Font Awesome", async () => {
-    const el = await mount<LvToggleEl>("lv-toggle", (e) => { e.icon = "bell"; });
-    expect(el.querySelector(".lv-toggle__icon svg")).not.toBeNull();
-    expect(el.querySelector("i.fa, wa-icon")).toBeNull();
   });
 });
 

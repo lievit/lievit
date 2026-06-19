@@ -1,0 +1,23 @@
+{
+  "name": "radio-group",
+  "type": "registry:jte",
+  "description": "A token-styled group of native <input type=radio> in a fieldset/legend. The shared name gives single-selection, roving arrow-key focus and the radiogroup role for free; binds via l:model on each radio. Server-first replacement for the Lit island. Ships the radio-group/option child partial.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/radio-group.jte",
+      "type": "registry:jte",
+      "target": "lievit/radio-group.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/radio-group/option.jte",
+      "type": "registry:jte",
+      "target": "lievit/radio-group/option.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the radio-group partial (+ its radio-group/option child) to your JTE root at lievit/radio-group.jte, reached as @template.lievit.radio-group(name=..., options=...). Native radios sharing `name` POST the selected value JS-off; bind to a wire field with `model`. The source is yours: edit freely."
+}

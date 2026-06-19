@@ -1,0 +1,17 @@
+{
+  "name": "slider",
+  "type": "registry:jte",
+  "description": "A token-styled native <input type=range>. Carries the slider role, aria-valuemin/max/now and keyboard navigation for free; POSTs the numeric value, binds via l:model. Server-first replacement for the Lit island.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/slider.jte",
+      "type": "registry:jte",
+      "target": "lievit/slider.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Copies the slider partial to your JTE root at lievit/slider.jte, reached as @template.lievit.slider(name=...). The native range input POSTs its numeric value under `name` (zero JS); bind to a wire field with `model`. The source is yours: edit freely."
+}
