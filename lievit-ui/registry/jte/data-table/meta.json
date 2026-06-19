@@ -1,0 +1,29 @@
+{
+  "name": "data-table",
+  "type": "registry:jte",
+  "description": "A server-sorted, server-paginated data table: a real <table> whose sort and page are SERVER facts (sortable headers are real <a href> re-sort links carrying aria-sort, paging via the pagination partial). Rows come in via a Content slot (caller owns the cells). Empty state. Zero JS, zero client sort, CSP-clean. The presentational primitive the kit's admin list composes.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/data-table.jte",
+      "type": "registry:jte",
+      "target": "lievit/data-table.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/data-table/row.jte",
+      "type": "registry:jte",
+      "target": "lievit/data-table/row.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/data-table/cell.jte",
+      "type": "registry:jte",
+      "target": "lievit/data-table/cell.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Copies the data-table partial family to your JTE root: lievit/data-table.jte (+ data-table/row.jte, data-table/cell.jte), reached as @template.lievit.data-table(...). It is server-first: sort and page are URL state your controller produces, not client state. Pass `headers` (labels), `sortUrls` (per-column next-sort href; blank = not sortable), `sortStates` (\"asc\"/\"desc\"/\"\" per column), and the `rows` slot (one @template.lievit.data-table.row per item, holding @template.lievit.data-table.cell blocks). Pass `page`/`totalPages`/`pageHrefPattern` for the pager and `rowCount`=0 to render the empty state. The pager composes the sibling `pagination` partial, so copy `lievit/pagination.jte` in too (it is the authoring partial this one renders). The lievit-kit admin list (AdminListView/ListRequest) is the stateful engine that drives this primitive via l:click sort/page actions; this is the markup it renders. The source is yours: edit freely."
+}

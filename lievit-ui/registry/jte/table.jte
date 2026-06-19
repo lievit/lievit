@@ -5,7 +5,8 @@
   The table PRIMITIVE markup, mirroring shadcn's Table / TableHeader / TableBody /
   TableFooter / TableRow / TableHead / TableCell / TableCaption. This is layout-only
   chrome: borders, a muted header, hover rows. Sorting / selection / pagination are the
-  caller's job (or the interactive data-table island), keeping this tier presentational.
+  caller's job (or the server-first `data-table` partial, which adds server-sorted headers
+  + the pagination partial on top of this look), keeping this tier presentational.
 
   Tier rationale: pure presentation, no client state, so a JTE partial (DONE criterion 1).
 
