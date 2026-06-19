@@ -1,0 +1,17 @@
+{
+  "name": "native-select",
+  "type": "registry:jte",
+  "description": "The one true select: a token-styled wrapper around the real native <select> with a chevron indicator. Submits with a plain form, zero JS, fully accessible for free; value!=label via the content slot, binds via l:model. The redundant Lit `select` island was removed (ADR-0012); this covers it.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/native-select.jte",
+      "type": "registry:jte",
+      "target": "lievit/native-select.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "icon"],
+  "docs": "Copies the native-select partial to your JTE root at lievit/native-select.jte, reached as @template.lievit.native-select(name=...). Pass `options` (value==label) or a `content` slot of <option>/<optgroup> markup (value!=label); the native <select> POSTs under `name` JS-off; bind to a wire field with `model`. Requires the icon partial for the chevron. The source is yours: edit freely."
+}

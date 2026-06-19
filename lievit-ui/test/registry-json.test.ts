@@ -25,7 +25,7 @@ const TIER_1 = [
 
 const TIER_2 = [
   "checkbox",
-  "select",
+  "native-select",
   "switch",
   "field",
   "toast",

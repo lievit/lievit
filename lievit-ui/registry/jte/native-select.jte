@@ -1,5 +1,8 @@
 @import gg.jte.Content
 <%--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
   lievit-ui :: native-select (static JTE partial)
 
   A token-styled wrapper around the REAL native <select> element, with a Lucide
@@ -41,7 +44,13 @@
     String placeholder = null    a disabled/hidden first option shown when value is empty.
     boolean disabled   = false   disables the control + dims the wrapper.
     boolean required   = false   marks the control required.
+    boolean invalid    = false   danger border + aria-invalid="true".
+    String model       = null    l:model expression to bind the <select> to a wire field.
     String cssClass    = ""      extra utility classes on the wrapper.
+
+  This is the ONE select component in lievit-ui (ADR-0012, the redundant Lit `select` island was
+  removed): the value!=label case the island covered via an options array is covered here by the
+  `content` slot, and `l:model` on the native <select> binds the native change event with no JS.
 
   Usage:
     @@template.native-select(
@@ -66,6 +75,8 @@
 @param String placeholder = null
 @param boolean disabled = false
 @param boolean required = false
+@param boolean invalid = false
+@param String model = null
 @param String cssClass = ""
 
 !{var selectId = (id != null && !id.isBlank()) ? id : name;}
@@ -77,7 +88,8 @@
 <div
   data-slot="native-select"
   data-disabled="${disabled}"
-  class="relative flex h-[var(--lv-space-10)] w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 ${cssClass}"
+  data-invalid="${invalid}"
+  class="relative flex h-[var(--lv-space-10)] w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-danger)] ${cssClass}"
 >
   <select
     data-slot="native-select-control"
@@ -86,6 +98,8 @@
     disabled="${disabled}"
     required="${required}"
     aria-label="${ariaLabel}"
+    aria-invalid="${invalid ? "true" : null}"
+    l:model="${model}"
     class="h-full w-full min-w-0 cursor-pointer appearance-none border-0 bg-transparent pl-[var(--lv-space-3)] pr-[var(--lv-space-8)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed"
     style="font-family:var(--lv-font-sans);"
   >

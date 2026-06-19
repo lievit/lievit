@@ -31,6 +31,33 @@ const ALL = [
   "table/head.jte",
   "table/cell.jte",
   "table/caption.jte",
+  // Wave 1b: the form-control partials (native element, token-styled, l:model-bindable).
+  "input.jte",
+  "textarea.jte",
+  "label.jte",
+  "field.jte",
+  "checkbox.jte",
+  "radio-group.jte",
+  "radio-group/option.jte",
+  "switch.jte",
+  "slider.jte",
+  "toggle.jte",
+] as const;
+
+// The Wave-1b form-control partials never ship a Font Awesome glyph (icons come from the
+// Lucide icon partial only); the strict CSP also forbids inline event handlers.
+const FORM_CONTROLS = [
+  "input.jte",
+  "textarea.jte",
+  "label.jte",
+  "field.jte",
+  "checkbox.jte",
+  "radio-group.jte",
+  "radio-group/option.jte",
+  "switch.jte",
+  "slider.jte",
+  "toggle.jte",
+  "native-select.jte",
 ] as const;
 
 describe("static JTE partials: house rules", () => {
@@ -137,5 +164,163 @@ describe("table.jte (composable set)", () => {
     const row = read("table/row.jte");
     expect(row).toContain('data-state="${state.isEmpty() ? null : state}"');
     expect(row).not.toMatch(/@if\([^)]*\)data-state/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 1b: form-control partials (native element styled by tokens, l:model-bindable)
+// ---------------------------------------------------------------------------
+describe("form-control partials: never Font Awesome (icons via the Lucide icon partial)", () => {
+  test.each(FORM_CONTROLS)("%s ships no Font Awesome glyph or inline handler", (f) => {
+    const src = read(f);
+    expect(src).not.toMatch(/\bfa-|font-awesome|fontawesome/i);
+    // No inline event handler attributes (the strict CSP refuses them silently).
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).not.toMatch(/\son[a-z]+=/i);
+  });
+});
+
+describe("input.jte", () => {
+  const src = read("input.jte");
+  test("renders a real native <input> carrying a name (POSTs) + binds via l:model", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<input[\s\n]/);
+    expect(markup).toContain('name="${name}"');
+    expect(markup).toContain('l:model="${model}"');
+  });
+  test("token-styled with the --lv-ring focus + aria-invalid, no hardcoded colour", () => {
+    expect(src).toContain("var(--lv-ring)");
+    expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+  });
+});
+
+describe("textarea.jte", () => {
+  const src = read("textarea.jte");
+  test("renders a real native <textarea> carrying a name + binds via l:model", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<textarea[\s\n]/);
+    expect(markup).toContain("</textarea>");
+    expect(markup).toContain('name="${name}"');
+    expect(markup).toContain('l:model="${model}"');
+  });
+  test("the value renders as the element's text content, not a value attribute", () => {
+    expect(src).toContain(">${value}</textarea>");
+  });
+});
+
+describe("label.jte", () => {
+  const src = read("label.jte");
+  test("renders a real native <label for> with the for association", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<label[\s\n]/);
+    expect(markup).toContain('for="${forId}"');
+  });
+  test("the required marker is hidden from assistive tech", () => {
+    expect(src).toContain('<span aria-hidden="true" class="text-[var(--lv-color-danger)]">*</span>');
+  });
+});
+
+describe("field.jte", () => {
+  const src = read("field.jte");
+  test("composes the label partial + slots the control + renders an error as role=alert", () => {
+    expect(src).toContain("@template.label(");
+    expect(src).toContain("${control}");
+    expect(src).toContain('role="alert"');
+    expect(src).toContain('aria-live="polite"');
+  });
+  test("the error element id is derived from the control id (aria-describedby target)", () => {
+    expect(src).toContain('id="${forId}-error"');
+  });
+});
+
+describe("checkbox.jte", () => {
+  const src = read("checkbox.jte");
+  test("renders a real native <input type=checkbox> carrying a name + binds via l:model", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<input[\s\S]*?type="checkbox"/);
+    expect(markup).toContain('name="${name}"');
+    expect(markup).toContain('l:model="${model}"');
+  });
+  test("the check glyph comes from the icon partial (Lucide), token-styled", () => {
+    expect(src).toContain('@template.icon(name = "check"');
+    expect(src).toContain("var(--lv-color-primary)");
+  });
+});
+
+describe("radio-group.jte", () => {
+  const src = read("radio-group.jte");
+  const opt = read("radio-group/option.jte");
+  test("the group is a native <fieldset> + <legend>, options share one name", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<fieldset[\s\n]/);
+    expect(markup).toMatch(/<legend[\s\n]/);
+    expect(markup).toContain("@template.radio-group.option(");
+  });
+  test("each option is a real native <input type=radio> carrying the shared name + l:model", () => {
+    const markup = opt.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<input[\s\S]*?type="radio"/);
+    expect(markup).toContain('name="${name}"');
+    expect(markup).toContain('l:model="${model}"');
+  });
+});
+
+describe("switch.jte", () => {
+  const src = read("switch.jte");
+  test("renders a real native <input type=checkbox role=switch> carrying a name + l:model", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<input[\s\S]*?type="checkbox"/);
+    expect(markup).toContain('role="switch"');
+    expect(markup).toContain('name="${name}"');
+    expect(markup).toContain('l:model="${model}"');
+  });
+});
+
+describe("slider.jte", () => {
+  const src = read("slider.jte");
+  test("renders a real native <input type=range> carrying a name + binds via l:model", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<input[\s\S]*?type="range"/);
+    expect(markup).toContain('name="${name}"');
+    expect(markup).toContain('l:model="${model}"');
+  });
+  test("the slider semantics come from the native element (min/max/step), not custom ARIA", () => {
+    expect(src).toContain('min="${min}"');
+    expect(src).toContain('max="${max}"');
+    expect(src).toContain('step="${step}"');
+  });
+});
+
+describe("toggle.jte", () => {
+  const src = read("toggle.jte");
+  test("renders a real native <button> carrying aria-pressed, click wired via l:click", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<button[\s\n]/);
+    expect(markup).toContain('aria-pressed="${pressed ? "true" : "false"}"');
+    expect(markup).toContain('l:click="${pressedAction}"');
+  });
+  test("the optional icon comes from the Lucide icon partial, token-styled", () => {
+    expect(src).toContain("@template.icon(name = icon");
+    expect(src).toContain("var(--lv-ring)");
+  });
+});
+
+describe("native-select.jte (the one true select after the fold)", () => {
+  const src = read("native-select.jte");
+  test("renders a real native <select> carrying a name + binds via l:model", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<select[\s\n]/);
+    expect(markup).toContain("</select>");
+    expect(markup).toContain('name="${name}"');
+    expect(markup).toContain('l:model="${model}"');
+  });
+  test("covers value!=label via the content slot + simple value==label via options", () => {
+    expect(src).toContain("@if(content != null)");
+    expect(src).toContain("@for(String opt : options)");
+  });
+  test("supports the invalid state folded in from the removed select island", () => {
+    expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
+    expect(src).toContain("data-[invalid=true]:border-[var(--lv-color-danger)]");
   });
 });

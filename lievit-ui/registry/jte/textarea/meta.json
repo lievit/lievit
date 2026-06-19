@@ -1,0 +1,17 @@
+{
+  "name": "textarea",
+  "type": "registry:jte",
+  "description": "A token-styled multi-line native <textarea>. Carries a real name (POSTs JS-off), binds via l:model on the native input/change events, aria-invalid from the invalid flag. Server-first replacement for the never-form-associated Lit island.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/textarea.jte",
+      "type": "registry:jte",
+      "target": "lievit/textarea.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Copies the textarea partial to your JTE root at lievit/textarea.jte, reached as @template.lievit.textarea(name=...). The native <textarea> POSTs under `name` with zero JS; bind to a wire field with `model`. The source is yours: edit freely."
+}

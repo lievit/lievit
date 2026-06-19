@@ -1,0 +1,17 @@
+{
+  "name": "label",
+  "type": "registry:jte",
+  "description": "A token-styled native <label> with for/id association and an optional aria-hidden required marker. Server-first replacement for the Lit island (which only wrapped a native <label>).",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/label.jte",
+      "type": "registry:jte",
+      "target": "lievit/label.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type"],
+  "docs": "Copies the label partial to your JTE root at lievit/label.jte, reached as @template.lievit.label(forId=..., text=...). Set `forId` to the control's id for native label association. The source is yours: edit freely."
+}
