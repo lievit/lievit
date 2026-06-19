@@ -1,0 +1,16 @@
+{
+  "name": "icons",
+  "type": "registry:lib",
+  "description": "Lucide icon body map for Lit islands: `iconBody(name)` returns the inner SVG markup for a vendored Lucide icon, inlined into the component's own <svg> wrapper and tinted via --lv-* tokens + currentColor. A registry dependency, not a standalone component.",
+  "dependencies": [],
+  "registryDependencies": [],
+  "files": [
+    {
+      "path": "icons/icon-bodies.ts",
+      "type": "registry:lib",
+      "target": "components/ui/icons/icon-bodies.ts"
+    }
+  ],
+  "tokens": [],
+  "docs": "Internal helper; pulled in automatically as a dependency of any lievit-ui component that renders an inline Lucide icon (e.g. calendar, carousel). Import { iconBody } and inline unsafeSVG(iconBody(name)) inside an <svg viewBox=\"0 0 24 24\"> wrapper."
+}

@@ -14,7 +14,7 @@ import type { Registry, RegistryItem } from "./registry.js";
  * `--check` mode fails on drift, keeping the committed registry.json honest.
  */
 
-const ITEM_DIRS = ["tokens", "components"] as const;
+const ITEM_DIRS = ["tokens", "icons", "components"] as const;
 
 /** Walk the registry tree and load every `meta.json`, inlining its files' content. */
 export function buildRegistry(registryRoot: string): Registry {
@@ -25,9 +25,10 @@ export function buildRegistry(registryRoot: string): Registry {
     if (!existsSync(topDir)) {
       continue;
     }
-    // tokens/ is itself one item dir; components/ holds many item dirs.
+    // tokens/ and icons/ are each themselves one item dir (a single meta.json at the
+    // top level); components/ holds many item dirs.
     const candidateDirs =
-      top === "tokens"
+      top === "tokens" || top === "icons"
         ? [topDir]
         : readdirSync(topDir, { withFileTypes: true })
             .filter((e) => e.isDirectory())
