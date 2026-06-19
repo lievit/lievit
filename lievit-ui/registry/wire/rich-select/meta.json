@@ -1,0 +1,23 @@
+{
+  "name": "rich-select",
+  "type": "registry:wire",
+  "description": "A searchable single-select whose options are filtered SERVER-SIDE: the query binds l:model.debounce, the server re-filters the catalog and re-renders the listbox (the canonical wire/htmx typeahead, no client filtering). The selected value lives server-side and is set via the $set magic action. Server-first WIRE component (ADR-0012); replaces the <lv-rich-select> Lit island. WAI-ARIA APG combobox + listbox.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/rich-select/RichSelectComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/RichSelectComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/rich-select/rich-select.jte",
+      "type": "registry:wire",
+      "target": "lievit/rich-select.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register RichSelectComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `allOptions` from your repository in the constructor or a @LievitRender hook (the seed list is placeholder data). The query filters server-side via l:model.debounce; selection sets the `selected` field via $set('selected', '<value>'). The rendered hidden input (name=...) submits the selection in a plain POST form. The `@LievitComponent(template=\"lievit/rich-select\")` name assumes the .jte landed under lievit/; adjust freely once copied (the source is yours)."
+}
