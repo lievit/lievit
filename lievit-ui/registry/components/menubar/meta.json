@@ -1,0 +1,16 @@
+{
+  "name": "menubar",
+  "type": "registry:ui",
+  "description": "A horizontal application menubar (File / Edit / View ...) following the WAI-ARIA APG menubar pattern, matched to Radix Menubar; Left/Right move between menus, Down opens, roving tabindex, one open menu at a time, submenus + checkbox/radio items.",
+  "dependencies": ["lit", "@floating-ui/dom"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/menubar/menubar.ts",
+      "type": "registry:ui",
+      "target": "components/ui/menubar.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-menubar> by importing components/ui/menubar.ts from your entry point. Pass `menus` as an array of { key, label, disabled?, items } where items are { key, label, icon?, shortcut?, disabled?, type?: 'item'|'checkbox'|'radio'|'separator'|'submenu', checked?, radioGroup?, children? }. Listen for `lv-select` (detail = { menu, key }) and `lv-checked-change` (detail = { menu, key, checked })."
+}

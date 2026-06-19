@@ -1,0 +1,16 @@
+{
+  "name": "navigation-menu",
+  "type": "registry:ui",
+  "description": "A site navigation bar with rich dropdown panels (a navigation landmark, not a menu role), matched to Radix NavigationMenu; intent-delay hover open, pointer-leave close, real <a> links, Escape closes, arrow keys move between triggers; positioned by @floating-ui/dom.",
+  "dependencies": ["lit", "@floating-ui/dom"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/navigation-menu/navigation-menu.ts",
+      "type": "registry:ui",
+      "target": "components/ui/navigation-menu.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-navigation-menu> by importing components/ui/navigation-menu.ts from your entry point. Pass `items` as an array of { key, label, href? (plain link), links? } where links are { label, href, description?, icon? }; an item with `links` becomes a trigger that opens a content panel, otherwise it is a bare <a>. Set `label`, `open-delay`, `close-delay`. Links are real anchors (browser navigation); listen for `lv-open` / `lv-close` (detail = { key }) to react to panel state."
+}
