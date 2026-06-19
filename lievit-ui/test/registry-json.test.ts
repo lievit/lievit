@@ -51,6 +51,14 @@ const WAVE_2_SERVER_FIRST: Record<string, "registry:wire" | "registry:jte"> = {
   "input-otp": "registry:jte",
 };
 
+// Wave 3 (ADR-0012, server-first): alert-dialog is now a registry:wire confirm modal built on the
+// dialog wire (role=alertdialog, real l:click buttons), and toast is a registry:jte partial +
+// CSP-clean enhancer rendered from a server flash. Neither ships as a Lit island (registry:ui).
+const WAVE_3_SERVER_FIRST: Record<string, "registry:wire" | "registry:jte"> = {
+  "alert-dialog": "registry:wire",
+  toast: "registry:jte",
+};
+
 describe("built registry.json", () => {
   test("ships every tier-1 primitive the research flagged", () => {
     const names = new Set(built.items.map((i) => i.name));
@@ -82,6 +90,42 @@ describe("built registry.json", () => {
       // none of them is a registry:ui (the Lit island tier).
       expect(item!.type).not.toBe("registry:ui");
     }
+  });
+
+  test("the Wave-3 overlay/notify components ship server-first, not as Lit islands", () => {
+    const byName = new Map(built.items.map((i) => [i.name, i]));
+    for (const [name, type] of Object.entries(WAVE_3_SERVER_FIRST)) {
+      const item = byName.get(name);
+      expect(item, `missing Wave-3 component: ${name}`).toBeDefined();
+      expect(item!.type, `${name} must be ${type}, not a Lit island`).toBe(type);
+      expect(item!.type).not.toBe("registry:ui");
+    }
+  });
+
+  test("the alert-dialog wire composes the dialog wire structure (no <lv-dialog> island)", () => {
+    const item = built.items.find((i) => i.name === "alert-dialog");
+    expect(item, "alert-dialog must be a registry item").toBeDefined();
+    const jte = item!.files.find((f) => f.path.endsWith(".jte"))?.content ?? "";
+    // role=alertdialog (the interruptive-prompt specialization), real confirm/cancel l:click buttons
+    expect(jte).toContain('role="alertdialog"');
+    expect(jte).toContain('l:click="confirm"');
+    expect(jte).toContain('l:click="cancel"');
+    // the old island is not RENDERED (the doc comment may name it as the dropped tier; the markup
+    // must not). Strip the JTE doc comment and assert no <lv-dialog> usage remains.
+    const markup = jte.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).not.toContain("<lv-dialog");
+  });
+
+  test("the toast partial renders the live-region role + ships a CSP-clean enhancer (no <script>)", () => {
+    const item = built.items.find((i) => i.name === "toast");
+    expect(item, "toast must be a registry item").toBeDefined();
+    const jte = item!.files.find((f) => f.path.endsWith(".jte"))?.content ?? "";
+    // variant -> role mapping rendered server-side; dismissible button; no inline script.
+    expect(jte).toContain('role="${urgent ? "alert" : "status"}"');
+    expect(jte).toContain("data-toast-dismiss");
+    expect(jte).not.toMatch(/<script/i);
+    // it ships the auto-dismiss enhancer alongside the partial.
+    expect(item!.files.some((f) => f.path.endsWith("toast.enhancer.ts"))).toBe(true);
   });
 
   test("ships the tokens and light-dom base items", () => {
