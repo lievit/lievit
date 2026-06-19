@@ -10,54 +10,266 @@
  * The --lv-* prefix is load-bearing: lievit-ui co-exists with the adopter's own CSS and
  * with Tailwind's generated vars, so the namespace prevents collisions (research 4.2).
  *
- * v0.1 ships a single :root swatch (no dark mode). The structure leaves room for a future
- * `@media (prefers-color-scheme: dark)` block without a breaking change (research 5.2).
+ * v2 vocabulary (issue #428): a Filament/shadcn-grade token set. The structure mirrors
+ * shadcn-ui's new-york-v4 theme mapped to the --lv-* namespace: a full semantic colour
+ * set (primary/secondary/muted/accent/destructive + success/warning/info, each with a
+ * paired -fg), surfaces (card/popover), border/input/ring, a radius scale, a spacing
+ * scale, a type scale (size/weight/line-height), shadows, z-index layers, motion
+ * (duration + easing), and a chart palette.
+ *
+ * Colour FORMAT: hex sRGB. The 31 v0.1 tokens were hex and are kept byte-stable, so the
+ * whole palette stays hex for one coherent format (no mixed hex/OKLCH). A retheme overrides
+ * the values in whatever format the adopter prefers (hex/OKLCH/hsl); components read the
+ * var(), never the format. shadcn v4 ships OKLCH; we map its token STRUCTURE, not its
+ * literal values, to preserve the existing neutral Tailwind palette (backward compatible).
+ *
+ * The brand-able seam: an adopter rebrands by overriding ~20 tokens in :root (chiefly the
+ * semantic colour pairs + --lv-radius + the fonts); every component follows automatically.
+ *
+ * DARK MODE: a single `.dark, [data-theme="dark"]` block re-points the colour tokens only
+ * (the structural tokens -- spacing, radius, type, z, motion -- are theme-invariant and
+ * never repeated). Toggle by adding `class="dark"` or `data-theme="dark"` on <html>.
+ *
+ * The 31 v0.1 names are kept byte-stable so the 28 existing components do not break; the
+ * new tokens are additive. Where a new shadcn-style name is the canonical one and an old
+ * name is a near-synonym, the old name is preserved and documented as an alias.
  */
+
 :root {
-  /* color: base surfaces and text */
+  /* ----------------------------------------------------------------------- *
+   * COLOUR -- semantic surfaces and text (OKLCH: lightness chroma hue)       *
+   * ----------------------------------------------------------------------- */
+
+  /* base page surface + body text */
   --lv-color-bg: #ffffff;
   --lv-color-fg: #111827;
-  --lv-color-surface: #f9fafb; /* table row zebra, card background (research 4.2) */
-  --lv-color-border: #d1d5db;
-  --lv-color-muted: #6b7280;
 
-  /* color: brand */
+  /* a slightly raised neutral surface: table zebra, inset panels (research 4.2) */
+  --lv-color-surface: #f9fafb;
+  --lv-color-surface-fg: #111827;
+
+  /* hairlines, dividers, default control borders */
+  --lv-color-border: #d1d5db;
+
+  /* form-control border (separable from --lv-color-border for inputs) */
+  --lv-color-input: #d1d5db;
+
+  /* low-emphasis text: captions, placeholders, disabled labels */
+  --lv-color-muted: #6b7280;
+  --lv-color-muted-fg: #6b7280;
+  --lv-color-muted-bg: #f3f4f6; /* muted FILL (badge/skeleton background) */
+
+  /* card + popover surfaces (shadcn parity; default to bg, overridable) */
+  --lv-color-card: #ffffff;
+  --lv-color-card-fg: #111827;
+  --lv-color-popover: #ffffff;
+  --lv-color-popover-fg: #111827;
+
+  /* ----------------------------------------------------------------------- *
+   * COLOUR -- brand + semantic intents (each intent carries a paired -fg)    *
+   * ----------------------------------------------------------------------- */
+
+  /* primary: the main call to action */
   --lv-color-primary: #2563eb;
   --lv-color-primary-fg: #ffffff;
 
-  /* color: status (gestionale completeness, research 4.2) */
+  /* secondary: low-emphasis neutral action (shadcn secondary) */
+  --lv-color-secondary: #f3f4f6;
+  --lv-color-secondary-fg: #1f2937;
+
+  /* accent: hover/active tint for menu items, ghost surfaces (shadcn accent) */
+  --lv-color-accent: #f3f4f6;
+  --lv-color-accent-fg: #1f2937;
+
+  /* destructive: the shadcn name for danger (alias below kept for the 28) */
+  --lv-color-destructive: #dc2626;
+  --lv-color-destructive-fg: #ffffff;
+
+  /* status intents (gestionale completeness, research 4.2) */
   --lv-color-success: #16a34a;
   --lv-color-success-fg: #ffffff;
   --lv-color-warning: #d97706;
   --lv-color-warning-fg: #ffffff;
   --lv-color-info: #2563eb; /* aliases primary; kept distinct so a retheme can split them */
   --lv-color-info-fg: #ffffff;
-  --lv-color-danger: #dc2626;
+  --lv-color-danger: #dc2626; /* alias of --lv-color-destructive; kept for the 28 v0.1 components */
   --lv-color-danger-fg: #ffffff;
 
-  /* spacing (4px scale) */
+  /* chart palette: a 5-step sequential ramp for data-viz (shadcn chart-1..5) */
+  --lv-color-chart-1: #93c5fd;
+  --lv-color-chart-2: #3b82f6;
+  --lv-color-chart-3: #2563eb;
+  --lv-color-chart-4: #1d4ed8;
+  --lv-color-chart-5: #1e40af;
+
+  /* sidebar surface set (shadcn sidebar tokens; for the app-shell block) */
+  --lv-color-sidebar: #f9fafb;
+  --lv-color-sidebar-fg: #111827;
+  --lv-color-sidebar-border: #e5e7eb;
+  --lv-color-sidebar-accent: #f3f4f6;
+  --lv-color-sidebar-accent-fg: #1f2937;
+
+  /* ----------------------------------------------------------------------- *
+   * SPACING (4px / 0.25rem base scale)                                      *
+   * ----------------------------------------------------------------------- */
+  --lv-space-0: 0;
+  --lv-space-px: 1px;
   --lv-space-1: 0.25rem;
   --lv-space-2: 0.5rem;
   --lv-space-3: 0.75rem;
   --lv-space-4: 1rem;
   --lv-space-5: 1.25rem;
   --lv-space-6: 1.5rem;
+  --lv-space-8: 2rem;
+  --lv-space-10: 2.5rem;
+  --lv-space-12: 3rem;
+  --lv-space-16: 4rem;
 
-  /* radius */
+  /* ----------------------------------------------------------------------- *
+   * RADIUS scale (shadcn derives sm/md/lg from a single --lv-radius base)    *
+   * ----------------------------------------------------------------------- */
+  --lv-radius: 0.5rem; /* the brand-able base; override this to round everything */
   --lv-radius-sm: 0.25rem;
   --lv-radius-md: 0.5rem;
+  --lv-radius-lg: 0.75rem;
+  --lv-radius-xl: 1rem;
+  --lv-radius-full: 9999px;
 
-  /* type */
+  /* ----------------------------------------------------------------------- *
+   * TYPOGRAPHY                                                              *
+   * ----------------------------------------------------------------------- */
   --lv-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --lv-font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+
+  /* size scale */
+  --lv-text-xs: 0.75rem;
   --lv-text-sm: 0.875rem;
   --lv-text-base: 1rem;
   --lv-text-lg: 1.125rem;
-  --lv-leading: 1.5;
+  --lv-text-xl: 1.25rem;
+  --lv-text-2xl: 1.5rem;
+  --lv-text-3xl: 1.875rem;
 
-  /* elevation (gestionale completeness, research 4.2) */
+  /* weights */
+  --lv-font-normal: 400;
+  --lv-font-medium: 500;
+  --lv-font-semibold: 600;
+  --lv-font-bold: 700;
+
+  /* line-heights (--lv-leading kept as the default body alias) */
+  --lv-leading: 1.5;
+  --lv-leading-none: 1;
+  --lv-leading-tight: 1.25;
+  --lv-leading-normal: 1.5;
+  --lv-leading-relaxed: 1.625;
+
+  /* ----------------------------------------------------------------------- *
+   * ELEVATION (shadow ramp; sm/md kept byte-stable for the 28)              *
+   * ----------------------------------------------------------------------- */
+  --lv-shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
   --lv-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --lv-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07);
+  --lv-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --lv-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
 
-  /* focus ring: shared by every interactive primitive */
-  --lv-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-primary) 35%, transparent);
+  /* ----------------------------------------------------------------------- *
+   * FOCUS RING -- shared by every interactive primitive                     *
+   * ----------------------------------------------------------------------- */
+  --lv-color-ring: #2563eb; /* the ring colour token (shadcn --ring) */
+  --lv-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-ring) 35%, transparent);
+
+  /* ----------------------------------------------------------------------- *
+   * Z-INDEX layers (stacking contract for overlays)                         *
+   * ----------------------------------------------------------------------- */
+  --lv-z-base: 0;
+  --lv-z-dropdown: 1000;
+  --lv-z-sticky: 1100;
+  --lv-z-overlay: 1200; /* dialog/drawer backdrop */
+  --lv-z-modal: 1300; /* dialog/drawer panel */
+  --lv-z-popover: 1400; /* popover/tooltip/menu floating layer */
+  --lv-z-toast: 1500; /* always on top */
+
+  /* ----------------------------------------------------------------------- *
+   * MOTION (duration + easing for transitions/animations)                   *
+   * ----------------------------------------------------------------------- */
+  --lv-duration-fast: 120ms;
+  --lv-duration: 200ms;
+  --lv-duration-slow: 320ms;
+  --lv-ease: cubic-bezier(0.4, 0, 0.2, 1); /* standard */
+  --lv-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --lv-ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* ----------------------------------------------------------------------- *
+   * ICON sizing (consumed by the Lucide icon partial)                       *
+   * ----------------------------------------------------------------------- */
+  --lv-icon-size: 1em; /* inherit text size by default; currentColor strokes it */
+  --lv-icon-stroke: 2; /* Lucide's native stroke width */
+}
+
+/* ========================================================================= *
+ * DARK MODE -- re-points colour tokens only. Structural tokens (spacing,    *
+ * radius, type, z, motion, icon) are theme-invariant and never repeated.    *
+ * Activate with class="dark" or data-theme="dark" on a root element.        *
+ * ========================================================================= */
+.dark,
+[data-theme="dark"] {
+  --lv-color-bg: #0a0a0a;
+  --lv-color-fg: #fafafa;
+
+  --lv-color-surface: #171717;
+  --lv-color-surface-fg: #fafafa;
+
+  --lv-color-border: #2e2e2e;
+  --lv-color-input: #3a3a3a;
+
+  --lv-color-muted: #a1a1aa;
+  --lv-color-muted-fg: #a1a1aa;
+  --lv-color-muted-bg: #262626;
+
+  --lv-color-card: #171717;
+  --lv-color-card-fg: #fafafa;
+  --lv-color-popover: #171717;
+  --lv-color-popover-fg: #fafafa;
+
+  --lv-color-primary: #3b82f6;
+  --lv-color-primary-fg: #0a0a0a;
+
+  --lv-color-secondary: #262626;
+  --lv-color-secondary-fg: #fafafa;
+
+  --lv-color-accent: #2e2e2e;
+  --lv-color-accent-fg: #fafafa;
+
+  --lv-color-destructive: #ef4444;
+  --lv-color-destructive-fg: #fafafa;
+
+  --lv-color-success: #22c55e;
+  --lv-color-success-fg: #052e16;
+  --lv-color-warning: #f59e0b;
+  --lv-color-warning-fg: #1c1207;
+  --lv-color-info: #3b82f6;
+  --lv-color-info-fg: #0a0a0a;
+  --lv-color-danger: #ef4444;
+  --lv-color-danger-fg: #fafafa;
+
+  --lv-color-chart-1: #1e3a8a;
+  --lv-color-chart-2: #1d4ed8;
+  --lv-color-chart-3: #2563eb;
+  --lv-color-chart-4: #3b82f6;
+  --lv-color-chart-5: #93c5fd;
+
+  --lv-color-sidebar: #171717;
+  --lv-color-sidebar-fg: #fafafa;
+  --lv-color-sidebar-border: #2e2e2e;
+  --lv-color-sidebar-accent: #262626;
+  --lv-color-sidebar-accent-fg: #fafafa;
+
+  --lv-color-ring: #3b82f6;
+
+  /* shadows read darker on a dark canvas */
+  --lv-shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --lv-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --lv-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.45);
+  --lv-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+  --lv-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55);
 }

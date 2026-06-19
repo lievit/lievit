@@ -25,6 +25,13 @@ lievit-ui/
       button/  { button.ts,  meta.json }
       input/   { input.ts,   meta.json }
       textarea/, label/, badge/, card/, separator/, spinner/, alert/
+    jte/
+      icon.jte                  # Lucide icon partial (inline-per-name, token-styled)  [v2]
+    icons/                      # vendored Lucide SVGs + generated body map (Java + TS)  [v2]
+      <name>.svg                #   the starter set; add an icon by dropping a .svg here
+      generate-icon-map.mjs     #   regenerates LievitIcons.java + icon-bodies.ts from the svgs
+    docs/
+      tokens-and-icons.md       # how to use the tokens + the icon partial  [v2]
   cli/
     registry.ts                 # the registry data model + transitive resolver
     add.ts                      # the pure `add` planner (no disk effects)
