@@ -1,0 +1,23 @@
+{
+  "name": "toggle-group",
+  "type": "registry:wire",
+  "description": "A set of toggle buttons with single- or multiple-selection; the selected value(s) are server state. Server-first WIRE component (ADR-0012): the selection lives in typed Java, the server re-renders, the client morphs. Replaces the <lv-toggle-group> Lit island. Radix ToggleGroup a11y: single = radiogroup > radio[aria-checked], multiple = group > button[aria-pressed].",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/toggle-group/ToggleGroupComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/ToggleGroupComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/toggle-group/toggle-group.jte",
+      "type": "registry:wire",
+      "target": "lievit/toggle-group.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register ToggleGroupComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `values` + `labels` (index-aligned), optional `icons` (index-aligned, '' = none) and `disabledValues`, plus `mode` ('single' | 'multiple') and the whole-group `disabled`, as locked server config; the buttons render themselves. Each item toggles with `l:click=\"$set('toggleValue','<value>')\"`; the @LievitRender hook flips it in the selected set and clears the arm (one click, fully server-side; single mode keeps at most one and allows deselect-to-empty, Radix behaviour). Single mode renders role=radiogroup > radio[aria-checked], multiple renders role=group > button[aria-pressed]. The `@LievitComponent(template=\"lievit/toggle-group\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+}

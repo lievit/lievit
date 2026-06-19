@@ -1,0 +1,23 @@
+{
+  "name": "tabs",
+  "type": "registry:wire",
+  "description": "A tab bar + panels where the active tab is server state; only the active panel is shown. Server-first WIRE component (ADR-0012): the active id lives in typed Java, the server re-renders, the client morphs. Replaces the <lv-tabs> Lit island. WAI-ARIA APG tabs (tablist > tab[aria-selected][aria-controls] + tabpanel[aria-labelledby], roving tabindex). An HTMX content-swap recipe is the lighter alternative for independent panel fragments (see docs).",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "wire/tabs/TabsComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/TabsComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/tabs/tabs.jte",
+      "type": "registry:wire",
+      "target": "lievit/tabs.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type", "ring"],
+  "docs": "Register TabsComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `tabIds` + `labels` (index-aligned), optional `disabledIds`, as locked server config, then render it via the wire mount / `@template.lievit.tabs(...)`. Each tab switches with `l:click=\"$set('active','<id>')\"` (the active tab is a scalar, so the $set magic IS the select; no custom action needed); the @LievitRender hook falls back to the first enabled tab and refuses a disabled/unknown active id. The panel BODY per tab is OWNED markup inside the `data-tabs-panel` div: edit it in this copied-in template (there is no <slot>). HTMX alternative: drop the wire and give each tab link an `hx-get` to a controller endpoint returning the panel partial, swapped into the panel container, when the panels are independent server fragments. The `@LievitComponent(template=\"lievit/tabs\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+}
