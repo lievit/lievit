@@ -1,0 +1,16 @@
+{
+  "name": "carousel",
+  "type": "registry:ui",
+  "description": "A slides carousel (WAI-ARIA APG carousel pattern); prev/next with Lucide arrows, ArrowLeft/Right keyboard nav, optional autoplay that pauses on hover/focus/hidden tab, per-slide aria-roledescription + live status region. Native CSS scroll-snap, horizontal or vertical.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom", "icons"],
+  "files": [
+    {
+      "path": "components/carousel/carousel.ts",
+      "type": "registry:ui",
+      "target": "components/ui/carousel.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "shadow", "ring"],
+  "docs": "Register <lv-carousel> by importing components/ui/carousel.ts from your entry point. Put one element per slide as direct children: <lv-carousel label=\"Featured\"><div>Slide 1</div><div>Slide 2</div></lv-carousel>. The component adopts the children into its scroll viewport. Set `index` to drive the active slide, `orientation` ('horizontal' | 'vertical'), `loop` to wrap, and `autoplay` (ms, 0 = off). Listen for `lv-change` ({ index })."
+}

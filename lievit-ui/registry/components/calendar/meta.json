@@ -1,0 +1,16 @@
+{
+  "name": "calendar",
+  "type": "registry:ui",
+  "description": "A standalone, inline month-grid date picker primitive (WAI-ARIA APG grid pattern); month nav with Lucide chevrons, roving-tabindex keyboard navigation (arrows + Home/End + PageUp/Down), single or range selection, today/selected/disabled states, min/max bounds, locale-aware first-day-of-week.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom", "icons"],
+  "files": [
+    {
+      "path": "components/calendar/calendar.ts",
+      "type": "registry:ui",
+      "target": "components/ui/calendar.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register <lv-calendar> by importing components/ui/calendar.ts from your entry point. Set `mode` ('single' | 'range'). Bind `value`: in single mode an ISO date (YYYY-MM-DD), in range mode 'start,end'. Optional `min` / `max` (ISO) bound the selectable range; set the `isDisabled` property to a `(iso) => boolean` predicate to disable individual days; `weekStart` (0=Sun, 1=Mon default) and `locale` control the header. Listen for `lv-change` to receive the new value string."
+}
