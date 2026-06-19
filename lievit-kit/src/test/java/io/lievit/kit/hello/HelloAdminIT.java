@@ -64,10 +64,33 @@ class HelloAdminIT {
                 .contains("href=\"/admin/listings/create\"")
                 .contains("<th>Ref</th>")
                 .contains("<th>City</th>")
+                .contains("<th>Zone</th>")
                 .contains("<td>Parma</td>")
                 .contains("<td>Reggio Emilia</td>")
                 .contains("data-admin-pagination");
         assertThat(mounted.snapshot()).isNotBlank();
+    }
+
+    /**
+     * @spec.given the worked ListingResource whose table declares a linked Ref column and a coloured
+     *     Zone badge column
+     * @spec.when  its list component is mounted and rendered by JTE through the real runtime
+     * @spec.then  the linked column renders a real {@code <a href>} to the row's edit page and the
+     *     badge column renders a {@code <lv-badge variant="...">}, proving the typed cells survive the
+     *     end-to-end JTE compile + render
+     * @spec.adr   ADR-0008
+     */
+    @Test
+    void renders_typed_cells_as_links_and_badges_through_jte() {
+        WireCallResult mounted = wireService.mount(LIST);
+
+        assertThat(mounted.html())
+                // Ref is a LinkCell: a real anchor to the row's edit page (Parma is ref 1).
+                .contains("<a href=\"/admin/listings/1/edit\">1</a>")
+                // Zone is a BadgeCell: Reggio Emilia (>5 chars) -> "large" with the "info" variant.
+                .contains("<lv-badge variant=\"info\">large</lv-badge>")
+                // Parma (<=5 chars) -> "small" with the "gray" variant.
+                .contains("<lv-badge variant=\"gray\">small</lv-badge>");
     }
 
     /**

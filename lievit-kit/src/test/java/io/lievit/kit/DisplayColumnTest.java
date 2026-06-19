@@ -49,7 +49,7 @@ class DisplayColumnTest {
         ImageColumn<Item> col = ImageColumn.<Item>make("Avatar", Item::avatar).circular().size(64);
 
         Item item = new Item(false, "https://x/y.png", "", List.of(), 0, "");
-        assertThat(col.urlFor(item)).isEqualTo("https://x/y.png");
+        assertThat(col.src(item)).isEqualTo("https://x/y.png");
         assertThat(col.isCircular()).isTrue();
         assertThat(col.size()).isEqualTo(64);
     }

@@ -12,6 +12,7 @@ import jakarta.validation.Validator;
 
 import org.jspecify.annotations.Nullable;
 
+import io.lievit.kit.BadgeColumn;
 import io.lievit.kit.Form;
 import io.lievit.kit.FormBinder;
 import io.lievit.kit.FormValidator;
@@ -19,6 +20,7 @@ import io.lievit.kit.RecordRepository;
 import io.lievit.kit.Resource;
 import io.lievit.kit.ResourcePages;
 import io.lievit.kit.Table;
+import io.lievit.kit.TextColumn;
 import io.lievit.kit.TextField;
 
 /**
@@ -58,8 +60,16 @@ public final class ListingResource extends Resource<Listing> {
         return Table.<Listing>create()
                 .heading("Listings")
                 .id(l -> String.valueOf(l.ref()))
-                .column("Ref", Listing::ref)
-                .column("City", Listing::city);
+                // Ref deep-links to the row's edit page: a LinkCell -> real <a href>.
+                .column(
+                        TextColumn.make("Ref", Listing::ref)
+                                .url(l -> "/admin/listings/" + l.ref() + "/edit"))
+                .column("City", Listing::city)
+                // A coloured badge derived from the city: a BadgeCell -> <lv-badge variant="...">.
+                .column(
+                        BadgeColumn.<Listing>make(
+                                        "Zone", l -> l.city().length() > 5 ? "large" : "small")
+                                .color(zone -> "large".equals(zone) ? "info" : "gray"));
     }
 
     @Override

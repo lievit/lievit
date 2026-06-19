@@ -99,15 +99,31 @@ public record AdminListView(
     }
 
     /**
-     * One rendered row: its route id plus the ordered cell strings.
+     * One rendered row: its route id plus the ordered <strong>typed</strong> {@link Cell cells}. A
+     * cell is no longer a flat string but a typed projection ({@link Cell.Text}, {@link Cell.Badge},
+     * {@link Cell.Link}, {@link Cell.Icon}) the column produced from its type/config, so the template
+     * renders rich content (a coloured badge, a real {@code <a href>}, an icon) instead of escaped
+     * text only.
      *
      * @param id the row id (from the table id function)
-     * @param cells the cell values, aligned with {@link #headers()}
+     * @param cells the typed cells, aligned with {@link #headers()}
      */
-    public record Row(String id, List<String> cells) {
+    public record Row(String id, List<Cell> cells) {
         /** Compact constructor: defends the cell list. */
         public Row {
             cells = List.copyOf(cells);
+        }
+
+        /**
+         * @return the cells' display text in order, the flat string projection (convenience for a
+         *     template or consumer that only wants the text, ignoring the cell type)
+         */
+        public List<String> textCells() {
+            List<String> texts = new ArrayList<>();
+            for (Cell cell : cells) {
+                texts.add(cell.text());
+            }
+            return texts;
         }
     }
 
@@ -211,9 +227,9 @@ public record AdminListView(
 
         List<Row> rows = new ArrayList<>();
         for (T record : dataPage.rows()) {
-            List<String> cells = new ArrayList<>();
+            List<Cell> cells = new ArrayList<>();
             for (Column<T> column : columns) {
-                cells.add(column.cell(record));
+                cells.add(column.cellFor(record));
             }
             rows.add(new Row(table.idOf(record), cells));
         }

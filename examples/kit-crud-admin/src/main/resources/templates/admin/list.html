@@ -45,7 +45,26 @@
     </thead>
     <tbody>
         <tr th:each="row : ${view.rows()}">
-            <td th:each="cell : ${row.cells()}" th:text="${cell}">cell</td>
+            <td th:each="cell : ${row.cells()}">
+                <!-- Typed cell rendering: a badge -> coloured pill, a link -> real <a href>, an
+                     icon -> glyph, otherwise escaped text. The kit ships the typed Cell; the adopter
+                     owns the actual element/styling (here plain HTML, in a JTE app the lievit-ui
+                     <lv-badge> + icon partial). -->
+                <span th:if="${cell instanceof T(io.lievit.kit.Cell.Badge)}"
+                      class="badge" th:classappend="${'badge-' + cell.variant()}"
+                      th:text="${cell.text()}">badge</span>
+                <a th:if="${cell instanceof T(io.lievit.kit.Cell.Link)}"
+                   th:href="${cell.href()}"
+                   th:target="${cell.newTab()} ? '_blank' : null"
+                   th:rel="${cell.newTab()} ? 'noopener noreferrer' : null"
+                   th:text="${cell.text()}">link</a>
+                <span th:if="${cell instanceof T(io.lievit.kit.Cell.Icon)}">
+                    <span th:attr="data-icon=${cell.name()},data-color=${cell.color()}"></span>
+                    <span th:if="${!cell.text().isEmpty()}" th:text="${cell.text()}">label</span>
+                </span>
+                <span th:if="${cell instanceof T(io.lievit.kit.Cell.Text)}"
+                      th:text="${cell.text()}">cell</span>
+            </td>
             <td class="actions">
                 <a th:href="${routes.edit(row.id())}">Edit</a>
                 <form method="post"

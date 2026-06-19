@@ -59,7 +59,13 @@ public class ProductResource extends Resource<Product> {
                 .id(Product::id)
                 .heading("Products")
                 .striped()
-                .column(TextColumn.make("Name", Product::name).makeSortable().searchable())
+                .column(
+                        TextColumn.make("Name", Product::name)
+                                .makeSortable()
+                                .searchable()
+                                // deep-link the name to the row's edit page (a LinkCell): the kit
+                                // renders a real <a href>, not escaped text.
+                                .url(product -> "/admin/products/" + product.id() + "/edit"))
                 .column(TextColumn.make("SKU", Product::sku).searchable())
                 .column(
                         BadgeColumn.make("Status", Product::status)

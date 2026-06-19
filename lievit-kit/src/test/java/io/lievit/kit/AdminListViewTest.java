@@ -88,7 +88,8 @@ class AdminListViewTest {
 
         assertThat(view.headers()).containsExactly("Name");
         assertThat(view.rows()).extracting(AdminListView.Row::id).containsExactly("3", "4");
-        assertThat(view.rows().get(0).cells()).containsExactly("City 3");
+        assertThat(view.rows().get(0).textCells()).containsExactly("City 3");
+        assertThat(view.rows().get(0).cells()).containsExactly(new Cell.Text("City 3"));
     }
 
     /**
@@ -136,5 +137,130 @@ class AdminListViewTest {
         AdminListView view = AdminListView.of(resourceOf(repoOf(3)), 99, 2);
 
         assertThat(view.pagination().page()).isEqualTo(2);
+    }
+
+    record Item(int id, String name, String status) {}
+
+    static Resource<Item> richResource() {
+        Item one = new Item(1, "Alpha", "active");
+        Item two = new Item(2, "Beta", "archived");
+        RecordRepository<Item> repo =
+                new RecordRepository<>() {
+                    final List<Item> all = List.of(one, two);
+
+                    @Override
+                    public Page<Item> page(Query query) {
+                        return Page.of(all, all.size());
+                    }
+
+                    @Override
+                    public Optional<Item> findById(String id) {
+                        return all.stream().filter(i -> String.valueOf(i.id()).equals(id)).findFirst();
+                    }
+
+                    @Override
+                    public Item create(Item record) {
+                        return record;
+                    }
+
+                    @Override
+                    public Item update(String id, Item record) {
+                        return record;
+                    }
+
+                    @Override
+                    public void delete(String id) {}
+                };
+        return new Resource<>(repo) {
+            @Override
+            public String slug() {
+                return "items";
+            }
+
+            @Override
+            public String label() {
+                return "Items";
+            }
+
+            @Override
+            public Table<Item> table() {
+                return Table.<Item>create()
+                        .id(i -> String.valueOf(i.id()))
+                        .column(
+                                TextColumn.make("Name", Item::name)
+                                        .url(i -> "/items/" + i.id(), true))
+                        .column(BadgeColumn.make("Status", Item::status).color(s -> "active".equals(s) ? "success" : "danger"))
+                        .column(IconColumn.make("Flag", Item::status).icon(s -> "active".equals(s) ? "check" : "x").color(s -> "active".equals(s) ? "success" : "danger"))
+                        .column("Plain", Item::status);
+            }
+        };
+    }
+
+    /**
+     * @spec.given a column carrying a new-tab url mapper
+     * @spec.when  the list view builds its cells
+     * @spec.then  that column yields a Cell.Link with the row's href, text, and the new-tab flag
+     */
+    @Test
+    void a_url_column_yields_a_link_cell() {
+        AdminListView view = AdminListView.of(richResource(), 1, 10);
+
+        Cell first = view.rows().get(0).cells().get(0);
+        assertThat(first).isInstanceOf(Cell.Link.class);
+        Cell.Link link = (Cell.Link) first;
+        assertThat(link.text()).isEqualTo("Alpha");
+        assertThat(link.href()).isEqualTo("/items/1");
+        assertThat(link.newTab()).isTrue();
+    }
+
+    /**
+     * @spec.given a badge column with a colour mapper
+     * @spec.when  the list view builds its cells
+     * @spec.then  that column yields a Cell.Badge carrying the text and the mapped variant per row
+     */
+    @Test
+    void a_badge_column_yields_a_badge_cell_with_its_variant() {
+        AdminListView view = AdminListView.of(richResource(), 1, 10);
+
+        assertThat(view.rows().get(0).cells().get(1)).isEqualTo(new Cell.Badge("active", "success"));
+        assertThat(view.rows().get(1).cells().get(1)).isEqualTo(new Cell.Badge("archived", "danger"));
+    }
+
+    /**
+     * @spec.given an icon column with an icon mapper and a colour mapper
+     * @spec.when  the list view builds its cells
+     * @spec.then  that column yields a Cell.Icon with the resolved icon name, the text, and the colour
+     */
+    @Test
+    void an_icon_column_yields_an_icon_cell() {
+        AdminListView view = AdminListView.of(richResource(), 1, 10);
+
+        assertThat(view.rows().get(0).cells().get(2)).isEqualTo(new Cell.Icon("check", "active", "success"));
+        assertThat(view.rows().get(1).cells().get(2)).isEqualTo(new Cell.Icon("x", "archived", "danger"));
+    }
+
+    /**
+     * @spec.given a plain (untyped, un-linked) column
+     * @spec.when  the list view builds its cells
+     * @spec.then  that column yields a Cell.Text with the escaped value
+     */
+    @Test
+    void a_plain_column_yields_a_text_cell() {
+        AdminListView view = AdminListView.of(richResource(), 1, 10);
+
+        assertThat(view.rows().get(0).cells().get(3)).isEqualTo(new Cell.Text("active"));
+    }
+
+    /**
+     * @spec.given a row carrying a mix of typed cells
+     * @spec.when  the flat text projection is read
+     * @spec.then  textCells returns each cell's display text in column order
+     */
+    @Test
+    void text_cells_projects_every_cell_to_its_display_text() {
+        AdminListView view = AdminListView.of(richResource(), 1, 10);
+
+        assertThat(view.rows().get(0).textCells())
+                .containsExactly("Alpha", "active", "active", "active");
     }
 }

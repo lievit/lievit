@@ -24,7 +24,6 @@ public final class TextColumn<T> extends Column<T> {
 
     private @Nullable Function<Object, String> formatter;
     private int limit = -1;
-    private @Nullable Function<? super T, String> url;
     private boolean copyable;
     private @Nullable Function<? super T, String> description;
     private @Nullable Function<? super T, String> tooltip;
@@ -189,13 +188,29 @@ public final class TextColumn<T> extends Column<T> {
     }
 
     /**
-     * Makes the cell a link to the URL derived from the row.
+     * Makes the cell a link to the URL derived from the row (the Filament {@code ->url(...)}). The
+     * URL seam lives on the base {@link Column}; this override only narrows the return type for the
+     * fluent {@code TextColumn} chain.
      *
      * @param fn maps a row to its URL
      * @return this column
      */
+    @Override
     public TextColumn<T> url(Function<? super T, String> fn) {
-        this.url = Objects.requireNonNull(fn, "fn");
+        super.url(fn);
+        return this;
+    }
+
+    /**
+     * Makes the cell a link, opening in a new tab when {@code newTab} is true.
+     *
+     * @param fn maps a row to its URL
+     * @param newTab whether the link opens in a new browser tab
+     * @return this column
+     */
+    @Override
+    public TextColumn<T> url(Function<? super T, String> fn, boolean newTab) {
+        super.url(fn, newTab);
         return this;
     }
 
@@ -229,21 +244,6 @@ public final class TextColumn<T> extends Column<T> {
     public TextColumn<T> tooltip(Function<? super T, String> fn) {
         this.tooltip = Objects.requireNonNull(fn, "fn");
         return this;
-    }
-
-    /** @return whether this column links its cells */
-    public boolean hasUrl() {
-        return url != null;
-    }
-
-    /**
-     * @param row the row
-     * @return the cell's link URL, or empty if this column is not linked
-     */
-    public java.util.Optional<String> urlFor(T row) {
-        return url == null
-                ? java.util.Optional.empty()
-                : java.util.Optional.ofNullable(url.apply(row));
     }
 
     /** @return whether the cell is copyable */

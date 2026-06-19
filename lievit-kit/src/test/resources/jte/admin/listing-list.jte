@@ -1,5 +1,6 @@
 @import io.lievit.component.ComponentMetadata
 @import io.lievit.kit.AdminListView
+@import io.lievit.kit.Cell
 @import io.lievit.kit.hello.ListingListComponent
 @param ListingListComponent _instance
 @param String createUrl
@@ -22,8 +23,20 @@
         <tbody>
         @for(AdminListView.Row row : view.rows())
             <tr data-admin-row="${row.id()}">
-                @for(String cell : row.cells())
-                    <td>${cell}</td>
+                @for(Cell cell : row.cells())
+                    @if(cell instanceof Cell.Badge badge)
+                        <td><lv-badge variant="${badge.variant()}">${badge.text()}</lv-badge></td>
+                    @elseif(cell instanceof Cell.Link link)
+                        @if(link.newTab())
+                            <td><a href="${link.href()}" target="_blank" rel="noopener noreferrer">${link.text()}</a></td>
+                        @else
+                            <td><a href="${link.href()}">${link.text()}</a></td>
+                        @endif
+                    @elseif(cell instanceof Cell.Icon icon)
+                        <td><lv-icon name="${icon.name()}" data-color="${icon.color()}"></lv-icon>@if(!icon.text().isEmpty())<span>${icon.text()}</span>@endif</td>
+                    @else
+                        <td>${cell.text()}</td>
+                    @endif
                 @endfor
                 <td>
                     @if(pendingDeleteId.equals(row.id()))

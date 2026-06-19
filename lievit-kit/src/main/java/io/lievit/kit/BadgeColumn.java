@@ -63,4 +63,14 @@ public final class BadgeColumn<T> extends Column<T> {
         }
         return colorMapper.apply(cell(row));
     }
+
+    /**
+     * Renders a {@link Cell.Badge} carrying the cell text and the {@linkplain #colorFor(Object)
+     * colour mapper}'s variant (so the template stamps {@code <lv-badge variant="...">}). A declared
+     * {@link #url(java.util.function.Function) url mapper} still wraps it as a {@link Cell.Link}.
+     */
+    @Override
+    public Cell cellFor(T row) {
+        return linkify(row, new Cell.Badge(cell(row), colorFor(row)));
+    }
 }

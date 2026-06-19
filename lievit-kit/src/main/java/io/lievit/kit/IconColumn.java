@@ -92,4 +92,15 @@ public final class IconColumn<T> extends Column<T> {
         String color = colorMapper.apply(rawValue(row));
         return color == null ? "" : color;
     }
+
+    /**
+     * Renders a {@link Cell.Icon} carrying the {@linkplain #iconFor(Object) resolved icon name}, the
+     * cell text as the optional adjacent label, and the {@linkplain #colorFor(Object) colour}. A
+     * declared {@link #url(java.util.function.Function) url mapper} still wraps it as a
+     * {@link Cell.Link}.
+     */
+    @Override
+    public Cell cellFor(T row) {
+        return linkify(row, new Cell.Icon(iconFor(row), cell(row), colorFor(row)));
+    }
 }

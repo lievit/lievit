@@ -52,8 +52,15 @@ public final class ImageColumn<T> extends Column<T> {
         return this;
     }
 
-    /** @return the image URL for a row (the cell string) */
-    public String urlFor(T row) {
+    /**
+     * The image source URL for a row (the cell string). Named {@code src} (not {@code url}) to keep
+     * it distinct from the base {@link Column#urlFor(Object) link URL}: an image column's value is
+     * the {@code <img src>}, not an {@code <a href>}.
+     *
+     * @param row the row
+     * @return the image source URL
+     */
+    public String src(T row) {
         return cell(row);
     }
 
