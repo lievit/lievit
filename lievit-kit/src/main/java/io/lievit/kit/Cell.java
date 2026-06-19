@@ -17,8 +17,9 @@ import org.jspecify.annotations.Nullable;
  * {@link Column#url(java.util.function.Function) url mapper} yields a {@link Link} (the Filament
  * {@code ->url(...)}), an {@link IconColumn} yields an {@link Icon}, and a plain {@link TextColumn}
  * or default column yields {@link Text}. The template switches on the cell type and stamps the
- * matching lievit-ui renderer ({@code <lv-badge>}, an {@code <a href>}, the icon partial, escaped
- * text). Pure data: no rendering or engine knowledge lives here.
+ * matching server-first lievit-ui partial (the badge partial's {@code <span class="lv-badge ...">},
+ * an {@code <a href>}, the icon partial's inline {@code <svg>}, escaped text). Pure data: no
+ * rendering or engine knowledge lives here.
  *
  * <p>Every variant carries the cell's {@link #text() display text} (the escaped string projection)
  * so the simplest template path, and any consumer that only wants the text, reads it uniformly
@@ -41,8 +42,9 @@ public sealed interface Cell permits Cell.Text, Cell.Badge, Cell.Link, Cell.Icon
     record Text(String text) implements Cell {}
 
     /**
-     * A badge cell (the Filament {@code ->badge()}): the template renders {@link #text()} inside a
-     * {@code <lv-badge variant="...">}. The {@link #variant()} is the semantic colour/variant the
+     * A badge cell (the Filament {@code ->badge()}): the template renders {@link #text()} inside the
+     * badge partial's {@code <span class="lv-badge lv-badge--<variant>">}. The {@link #variant()} is
+     * the semantic colour/variant the
      * column's {@link BadgeColumn#color(java.util.function.Function) colour mapper} produced (for
      * example {@code "success"}, {@code "danger"}, {@code "green"}); empty for the neutral default.
      *
