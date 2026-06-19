@@ -1,0 +1,16 @@
+{
+  "name": "popover",
+  "type": "registry:ui",
+  "description": "A click-triggered floating panel anchored to a trigger (WAI-ARIA dialog-popover, Radix model); positioned by @floating-ui/dom with offset + flip + shift, Escape + click-outside to dismiss, optional focus trap.",
+  "dependencies": ["lit", "@floating-ui/dom"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/popover/popover.ts",
+      "type": "registry:ui",
+      "target": "components/ui/popover.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Register <lv-popover> by importing components/ui/popover.ts from your entry point. Slot the trigger in slot=\"trigger\" and the panel body in slot=\"content\": `<lv-popover><lv-button slot=\"trigger\">Open</lv-button><div slot=\"content\">Body</div></lv-popover>`. Set `placement` (default bottom), `disabled`, or `trap-focus` to cycle Tab within the panel. Listen for `lv-open`/`lv-close`."
+}
