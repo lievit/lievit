@@ -12,7 +12,7 @@
  * equivalent structural golden the planning DONE criteria asks for.
  */
 import { describe, test, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
