@@ -151,7 +151,7 @@ public final class ExportAction<T> {
     private void notifyCompletion(JobRun run, ExportFormat format, String url, LievitEffects effects) {
         AdminNotification.success("Exported " + run.progress().successful() + " rows.")
                 .actions(
-                        NotificationAction.make("download", "Download " + format.name())
+                        NotificationAction.make("download", "Download " + format.displayName())
                                 .url(url))
                 .flashOnto(effects);
     }
