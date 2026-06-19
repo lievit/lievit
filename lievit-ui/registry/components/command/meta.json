@@ -1,0 +1,16 @@
+{
+  "name": "command",
+  "type": "registry:ui",
+  "description": "A searchable command palette: filter-as-you-type over grouped items, full keyboard navigation (Up/Down skip disabled + wrap, Home/End, Enter selects, Escape closes), empty state, optional icons and shortcuts. WAI-ARIA combobox + listbox with aria-activedescendant. Search icon via the vendored Lucide map. Light-DOM Lit; often composed inside <lv-dialog> as a command-dialog.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom", "dialog"],
+  "files": [
+    {
+      "path": "components/command/command.ts",
+      "type": "registry:ui",
+      "target": "components/ui/command.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-command> by importing components/ui/command.ts from your entry point. Pass `items` as { value, label, group?, icon?, shortcut?, keywords?, disabled? }[] (icon = a vendored Lucide name; keywords add synonyms to the filter). Listen for `lv-select` (chosen item value) and `lv-escape` (user pressed Escape). For a command-dialog, render <lv-command> inside <lv-dialog open> and close the dialog on lv-select / lv-escape."
+}
