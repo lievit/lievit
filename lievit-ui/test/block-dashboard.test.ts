@@ -3,15 +3,18 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
  * Dashboard BLOCK (#461). A block is a composition: the canonical analytics-dashboard
- * PATTERN as a JTE template that wires existing lievit-ui pieces (stat cards, <lv-badge>,
- * the Lucide icon partial, <lv-chart>, the composable table set). Like the static-partial
+ * PATTERN as a JTE template that wires the SERVER-FIRST lievit-ui partials (ADR-0012, Wave 4):
+ * stat cards, the badge partial, the Lucide icon partial, the chart partial (server SVG),
+ * the composable table set. The former Lit-island tags (<lv-badge>, <lv-chart>) are GONE;
+ * each is now a @template.* composition rendered on the server. Like the static-partial
  * suites, the .jte is compiled in the Java world, so this harness asserts on the partial
  * SOURCE as text: it pins the token-driven styling (every colour/space/radius reads a
  * --lv-* var), the accessibility contract (labelled regions + a real <th scope> table),
- * that every datum arrives via @param (no hardcoded business data), that charts are
- * referenced as <lv-chart> islands, that icons go through the Lucide partial (never Font
- * Awesome), and that no inline <script> ships. This is the structural golden the planning
- * DONE criteria asks for; a render/golden in the Java runtime is out of scope for the JS suite.
+ * that every datum arrives via @param (no hardcoded business data), that the delta pill is
+ * the badge partial and the charts are the chart partial (and NO custom-element <lv-*> tag
+ * remains), that icons go through the Lucide partial (never Font Awesome), and that no inline
+ * <script> ships. This is the structural golden the planning DONE criteria asks for; a
+ * render/golden in the Java runtime is out of scope for the JS suite.
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -71,8 +74,9 @@ describe("dashboard block (#461) -- shared hygiene", () => {
 describe("dashboard block -- data via params, nothing hardcoded", () => {
   test("KPI stats, chart data and table rows are all @param-driven", () => {
     expect(src).toContain("@param List<Map<String, String>> stats");
-    expect(src).toContain("@param String chartCategories");
-    expect(src).toContain("@param String chartSeries");
+    // the chart partial takes TYPED arrays (server SVG), not JSON-string series attributes
+    expect(src).toContain("@param String[] chartCategories");
+    expect(src).toContain("@param int[] chartValues");
     expect(src).toContain("@param List<Map<String, String>> rows");
     expect(src).toContain("@param List<String> rowColumns");
   });
@@ -86,9 +90,11 @@ describe("dashboard block -- data via params, nothing hardcoded", () => {
     expect(src).not.toMatch(/\$\s?1[,.]250|\b45,678\b|Total Revenue|New Customers/);
   });
 
-  test("the chart data attributes interpolate the params, no inline literal arrays", () => {
-    expect(src).toContain('categories="${chartCategories}"');
-    expect(src).toContain('series="${chartSeries}"');
+  test("the chart partial is passed the param arrays, no inline literal data", () => {
+    expect(src).toContain("categories = chartCategories");
+    expect(src).toContain("values = chartValues");
+    expect(src).toContain("categories = chart2Categories");
+    expect(src).toContain("values = chart2Values");
   });
 
   test("the table loops the caller's columns + rows, no hardcoded cells", () => {
@@ -98,9 +104,16 @@ describe("dashboard block -- data via params, nothing hardcoded", () => {
   });
 });
 
-describe("dashboard block -- composes existing components", () => {
-  test("stat-card delta uses the <lv-badge> island", () => {
-    expect(src).toContain("<lv-badge");
+describe("dashboard block -- server-first composition (ADR-0012: no island tags)", () => {
+  test("emits NO Lit-island custom-element tag (the pivot dropped them)", () => {
+    const islandTags = src.match(/<lv-[a-z-]+/gi) ?? [];
+    expect(islandTags, `island tags must be gone: ${islandTags.join(", ")}`).toEqual([]);
+    expect(src, "<lv-badge> island must be replaced by the badge partial").not.toMatch(/<lv-badge\b/);
+    expect(src, "<lv-chart> island must be replaced by the chart partial").not.toMatch(/<lv-chart\b/);
+  });
+
+  test("stat-card delta uses the BADGE partial (server-rendered span)", () => {
+    expect(src).toContain("@template.badge(variant = badgeVariant");
   });
 
   test("the trend arrow goes through the Lucide icon partial", () => {
@@ -110,9 +123,9 @@ describe("dashboard block -- composes existing components", () => {
     expect(src).toMatch(/arrow-up/);
   });
 
-  test("references one or more <lv-chart> islands for the charts row", () => {
-    expect(src).toContain("<lv-chart");
-    expect(src).toMatch(/type="\$\{chartType\}"/);
+  test("the charts row is the CHART partial (server-rendered inline SVG)", () => {
+    expect(src).toContain("@template.chart(");
+    expect(src).toContain("label = chartLabel == null ? chartTitle : chartLabel");
   });
 
   test("the recent-items table is built from the composable table partial set", () => {

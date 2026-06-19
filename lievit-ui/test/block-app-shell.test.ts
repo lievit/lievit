@@ -3,16 +3,15 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
  * Block: app-shell (issue #460). The canonical authenticated-application shell, expressed
- * as a JTE BLOCK -- a composition of EXISTING lievit-ui components (<lv-sidebar>,
- * <lv-dropdown-menu>, the avatar + input-group partials, the breadcrumb slot), not a new
- * primitive. As with the static-partials suites, this block is compiled in the Java world,
- * so the harness asserts on the block SOURCE as text: it pins the token-driven styling
- * (every colour/space/radius reads a --lv-* var, never a hardcoded value), the WAI-ARIA
- * landmark structure (skip-link + <header> + the sidebar's <nav> + <main>), the param API
- * (data DOWN, no hardcoded menu items), that it COMPOSES the islands rather than rebuilding
- * them, that icons route through the Lucide partial (never Font Awesome), and the correct
- * comment syntax (<%-- --%>, not @* *@). A Java-runtime render/golden is out of scope for
- * the JS suite; this is the structural golden the planning DONE criteria asks for.
+ * as a JTE BLOCK -- a composition of the SERVER-FIRST lievit-ui partials (ADR-0012, Wave 4):
+ * the sidebar partial for navigation, the dropdown-menu partial for the user menu, the
+ * breadcrumb / avatar / input-group partials for the header. The former Lit-island tags
+ * (<lv-sidebar>, <lv-dropdown-menu>) are GONE; every island is now a @template.* composition
+ * rendered on the server, data DOWN via typed @param. The .jte is compiled in the Java world,
+ * so the harness asserts on the block SOURCE as text: it pins the token-driven styling, the
+ * WAI-ARIA landmark structure (skip-link + <header> + the sidebar partial's <nav> + <main>),
+ * the param API (typed nav/menu data DOWN, no hardcoded items), that it COMPOSES the partials
+ * (and emits NO custom-element <lv-*> tag), and the correct comment syntax (<%-- --%>).
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -21,9 +20,8 @@ import { join } from "node:path";
 const blockPath = join(import.meta.dirname, "..", "registry", "jte", "blocks", "app-shell.jte");
 const src = readFileSync(blockPath, "utf8");
 
-/** The rendered markup only: strip the <%-- --%> usage-doc comment, which legitimately
- *  MENTIONS `<script type="application/json">` data payloads in prose/usage snippets. The
- *  "no inline script" hygiene applies to what the template EMITS, not to its documentation. */
+/** The rendered markup only: strip the <%-- --%> usage-doc comment. The "no inline script"
+ *  and "no island tag" hygiene applies to what the template EMITS, not to its documentation. */
 const body = src.replace(/<%--[\s\S]*?--%>/g, "");
 
 /** Tailwind utilities that legitimately carry a fixed geometry value. */
@@ -34,7 +32,7 @@ describe("block app-shell -- hygiene", () => {
     expect(src, "missing <%-- --%> jte comment block").toContain("<%--");
     expect(src, "comment block must close").toContain("--%>");
     expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
-    expect(src, "missing Usage section").toMatch(/Usage:/);
+    expect(src, "missing Usage section").toMatch(/Usage/);
     expect(src, "usage snippet must show the @@template call").toContain("@@template.blocks.app-shell(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
@@ -70,37 +68,55 @@ describe("block app-shell -- hygiene", () => {
   });
 });
 
-describe("block app-shell -- composition (no rebuild)", () => {
-  test("is built AROUND the <lv-sidebar> island for navigation", () => {
-    expect(body).toMatch(/<lv-sidebar\b/);
-    // the sidebar IS the page's <nav>; the block must not also hand-roll a <nav> landmark
-    expect(body, "the sidebar island owns the <nav> landmark; do not duplicate it").not.toMatch(/<nav\b/);
+describe("block app-shell -- server-first composition (ADR-0012: no island tags)", () => {
+  test("emits NO Lit-island custom-element tag (the pivot dropped them)", () => {
+    const islandTags = body.match(/<lv-[a-z-]+/gi) ?? [];
+    expect(islandTags, `island tags must be gone: ${islandTags.join(", ")}`).toEqual([]);
+    // explicitly: the two former islands this block mounted
+    expect(body, "<lv-sidebar> island must be replaced by the sidebar partial").not.toMatch(/<lv-sidebar\b/);
+    expect(body, "<lv-dropdown-menu> island must be replaced by the dropdown-menu partial").not.toMatch(/<lv-dropdown-menu\b/);
   });
 
-  test("composes the <lv-dropdown-menu> island for the user menu", () => {
-    expect(body).toMatch(/<lv-dropdown-menu\b/);
+  test("navigation is the SIDEBAR partial, composed from sidebar group/item sub-partials", () => {
+    expect(body, "must compose the sidebar partial").toMatch(/@template\.sidebar\(/);
+    expect(body, "groups come from the sidebar.group sub-partial").toContain("@template.sidebar.group(");
+    expect(body, "items come from the sidebar.item sub-partial").toContain("@template.sidebar.item(");
+  });
+
+  test("the user menu is the DROPDOWN-MENU partial, composed from its item/separator sub-partials", () => {
+    expect(body, "must compose the dropdown-menu partial").toMatch(/@template\.dropdown-menu\(/);
+    expect(body, "menu entries come from dropdown-menu.item").toContain("@template.dropdown-menu.item(");
+    expect(body, "dividers come from dropdown-menu.separator").toContain("@template.dropdown-menu.separator(");
+  });
+
+  test("the header trail is the BREADCRUMB partial (not rebuilt here)", () => {
+    expect(body, "must compose the breadcrumb partial").toMatch(/@template\.breadcrumb\(/);
   });
 
   test("composes the existing avatar + input-group partials (not reimplemented)", () => {
     expect(src).toContain("@template.avatar(");
     expect(src).toContain("@template.input-group(");
   });
-
-  test("accepts a breadcrumb slot rather than rebuilding a breadcrumb here", () => {
-    expect(src).toContain("@param gg.jte.Content breadcrumb");
-  });
 });
 
-describe("block app-shell -- data down (no hardcoded nav data)", () => {
-  test("navigation groups arrive via a param, never hardcoded in the block", () => {
-    expect(src, "nav data must be a param").toContain("@param gg.jte.Content navGroups");
-    // the block must pass nav data DOWN to the island, not enumerate items itself
-    expect(body, "nav data must be slotted into the sidebar, not inlined").toContain("${navGroups}");
+describe("block app-shell -- data down (typed params, no hardcoded nav data)", () => {
+  test("navigation groups arrive as typed data, iterated DOWN into the sidebar partial", () => {
+    expect(src, "nav data must be a typed List param").toContain("@param List<Map<String, String>> navGroups");
+    // the block iterates the typed nav data into the sidebar sub-partials, never enumerating literal items
+    expect(body).toContain("@for(var gi = 0; gi < labels.size(); gi++)");
+    expect(body).toContain('item.getOrDefault("label", "")');
+    expect(body).toContain('item.getOrDefault("href", "")');
   });
 
-  test("the user-menu items arrive via a param too", () => {
-    expect(src).toContain("@param gg.jte.Content userMenu");
-    expect(body).toContain("${userMenu}");
+  test("the user-menu items arrive as typed data too, iterated into dropdown items", () => {
+    expect(src).toContain("@param List<Map<String, String>> userMenu");
+    expect(body).toContain("@for(Map<String, String> mi : userMenu)");
+    expect(body).toContain('mi.getOrDefault("label", "")');
+  });
+
+  test("the breadcrumb trail arrives as typed data passed to the breadcrumb partial", () => {
+    expect(src).toContain("@param List<Map<String, String>> breadcrumb");
+    expect(body).toContain("@template.breadcrumb(items = breadcrumb)");
   });
 
   test("the user, app name, page title and active nav are all parameters", () => {
@@ -133,20 +149,15 @@ describe("block app-shell -- a11y landmark structure", () => {
     expect(body).toMatch(/<h1\b/);
   });
 
-  test("the navigation landmark comes from the sidebar island, not a duplicate <nav>", () => {
-    // already pinned in composition; restated here as the landmark contract
-    expect(body).toMatch(/<lv-sidebar\b/);
-    expect(body).not.toMatch(/<nav\b/);
+  test("the navigation landmark comes from the sidebar partial (its own <nav>), not a duplicate", () => {
+    // the sidebar partial renders the page's single <nav>; the block must not hand-roll one
+    expect(body, "the sidebar partial owns the <nav> landmark; do not duplicate it").not.toMatch(/<nav\b/);
+    expect(body).toMatch(/@template\.sidebar\(/);
   });
 
-  test("the sidebar toggle names + controls the sidebar (aria-controls + aria-expanded)", () => {
-    expect(body).toMatch(/data-lv-sidebar-toggle/);
-    expect(body).toMatch(/aria-controls="\$\{sidebarId\}"/);
-    expect(body).toMatch(/aria-expanded=/);
-    expect(body).toMatch(/aria-label="Toggle navigation sidebar"/);
-  });
-
-  test("focus-visible ring on interactive chrome reads the --lv-ring token", () => {
-    expect(body).toContain("focus-visible:shadow-[var(--lv-ring)]");
+  test("focus ring on the block's own chrome (the skip-link) reads the --lv-ring token", () => {
+    // the composed partials (sidebar trigger, dropdown trigger, input-group) carry their own
+    // focus-visible rings; the only interactive chrome the BLOCK itself owns is the skip-link.
+    expect(body).toContain("focus:shadow-[var(--lv-ring)]");
   });
 });

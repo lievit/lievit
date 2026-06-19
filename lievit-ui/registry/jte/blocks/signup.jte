@@ -17,16 +17,14 @@
   STRUCTURE (scientific decision rule): compared against shadcn's signup-01..05 (Card +
   Field + Input + Button), MUI, and Web Awesome, shadcn's card-of-fields + a separated social
   section + a footer "sign in" link is the cleanest, most accessible registration pattern, so
-  it is the one reproduced. The deviation forced by the server-rendered tier: every control is
-  a NATIVE form element with a real `name` so the browser submits it on POST (the <lv-input> /
-  <lv-checkbox> islands are wire-protocol-bound, "data down events up", and carry no `name`, so
-  they do NOT post a value in a plain form). The fields reuse the input-group partial so the
-  look stays identical to the rest of the library; the terms checkbox is a native
-  `input[type=checkbox][required]` so the browser enforces acceptance with zero JS. A
-  <lv-input> / <lv-checkbox> island can progressively enhance these later without changing the
-  posted shape. The field row is inlined per-field (a `@for` over a small list) rather than a
-  shared partial, so this block stays self-contained and merges cleanly alongside the sibling
-  login block.
+  it is the one reproduced. The server-rendered tier (ADR-0012): every control is a NATIVE form
+  element with a real `name` so the browser submits it on POST; there are no custom-element
+  tags. The fields reuse the input-group partial so the look stays identical to the rest of the
+  library; the terms checkbox is a native `input[type=checkbox][required]` so the browser
+  enforces acceptance with zero JS. An adopter may progressively enhance these later with their
+  own enhancer without changing the posted shape. The field row is inlined per-field (a `@for`
+  over a small list) rather than a shared partial, so this block stays self-contained and merges
+  cleanly alongside the sibling login block.
 
   TWO VARIANTS via `variant`:
     "card"     (default) the form inside a single bordered card, centred -- shadcn signup-01.
