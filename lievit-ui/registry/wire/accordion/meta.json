@@ -1,0 +1,23 @@
+{
+  "name": "accordion",
+  "type": "registry:wire",
+  "description": "A disclosure group: several triggers each expand/collapse their own region, single or multiple open. Server-first WIRE component (ADR-0012): the open set lives in typed Java, the server re-renders, the client morphs. Replaces the <lv-accordion> Lit island. WAI-ARIA APG accordion (per-item button[aria-expanded][aria-controls] + region[aria-labelledby]).",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/accordion/AccordionComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/AccordionComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/accordion/accordion.jte",
+      "type": "registry:wire",
+      "target": "lievit/accordion.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register AccordionComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `itemIds` + `labels` (index-aligned) and `mode` ('single' | 'multiple') as locked server config, then render it via the wire mount / `@template.lievit.accordion(...)`. Each trigger arms its item with `l:click=\"$set('toggleId','<id>')\"`; the @LievitRender hook flips it in the open set and clears the arm (one click, fully server-side). The panel BODY per item is OWNED markup inside the `data-accordion-region` div: edit it in this copied-in template (there is no <slot>). The `@LievitComponent(template=\"lievit/accordion\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+}

@@ -3,11 +3,10 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 import { describe, test, expect, afterEach } from "vitest";
-// dialog + drawer became server-first WIRE components (Wave 2, ADR-0012): no Lit island to
-// import. Their server state-transition + render behaviour is pinned on the JVM side in
-// lievit-kit (DialogComponentIT / DrawerComponentIT), the same way collapsible's is.
-import "../registry/components/tabs/tabs.js";
-import "../registry/components/accordion/accordion.js";
+// dialog/drawer (Wave 2 overlays) + tabs/accordion (Wave 2 disclosure) became server-first WIRE
+// components (ADR-0012): no Lit island to import. Their render behaviour is pinned on the JVM side
+// in lievit-kit (DialogComponentIT / DrawerComponentIT / TabsComponentIT / AccordionComponentIT)
+// + the registry shape in wire-*.test.ts. breadcrumb remains an island until Wave 4.
 import "../registry/components/breadcrumb/breadcrumb.js";
 
 async function mount<T extends HTMLElement>(tag: string, set?: (el: T) => void): Promise<T> {
@@ -22,254 +21,12 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-// ---------------------------------------------------------------------------
-// Light DOM check for all tier-4 primitives
-// ---------------------------------------------------------------------------
 describe("tier-4 light DOM", () => {
   test("every tier-4 primitive renders into the light DOM (no shadow root)", async () => {
-    for (const tag of [
-      "lv-tabs",
-      "lv-accordion",
-      "lv-breadcrumb",
-    ]) {
+    for (const tag of ["lv-breadcrumb"]) {
       const el = await mount(tag);
       expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
     }
-  });
-});
-
-// dialog + drawer are no longer Lit islands (Wave 2 -> WIRE, ADR-0012); their tests moved to
-// the JVM-side render-asserting ITs in lievit-kit (DialogComponentIT / DrawerComponentIT).
-
-// ---------------------------------------------------------------------------
-// lv-tabs
-// ---------------------------------------------------------------------------
-type TabsEl = HTMLElement & {
-  tabs: Array<{ id: string; label: string; disabled?: boolean }>;
-  value: string;
-};
-
-const sampleTabs = [
-  { id: "general", label: "General" },
-  { id: "security", label: "Security" },
-  { id: "billing", label: "Billing", disabled: true },
-];
-
-describe("lv-tabs", () => {
-  test("renders a tablist with role=tablist", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-    });
-    expect(el.querySelector('[role="tablist"]')).not.toBeNull();
-  });
-
-  test("each tab has role=tab", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-    });
-    const tabs = el.querySelectorAll('[role="tab"]');
-    expect(tabs.length).toBe(3);
-  });
-
-  test("first tab is selected by default (aria-selected=true)", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-    });
-    const tabs = el.querySelectorAll('[role="tab"]');
-    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
-    expect(tabs[1].getAttribute("aria-selected")).toBe("false");
-  });
-
-  test("value prop sets the active tab", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-      e.value = "security";
-    });
-    const tabs = el.querySelectorAll('[role="tab"]');
-    expect(tabs[0].getAttribute("aria-selected")).toBe("false");
-    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
-  });
-
-  test("clicking a tab makes it selected and emits lv-change", async () => {
-    let changeDetail: unknown;
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-    });
-    el.addEventListener("lv-change", (ev) => { changeDetail = (ev as CustomEvent).detail; });
-
-    const tabs = el.querySelectorAll<HTMLElement>('[role="tab"]');
-    tabs[1].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    expect(changeDetail).toBe("security");
-    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
-  });
-
-  test("each tab panel has role=tabpanel and aria-labelledby", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-    });
-    const panels = el.querySelectorAll('[role="tabpanel"]');
-    expect(panels.length).toBe(3);
-    panels.forEach((panel) => {
-      expect(panel.getAttribute("aria-labelledby")).toBeTruthy();
-    });
-  });
-
-  test("only the active panel is visible (others have hidden)", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-      e.value = "general";
-    });
-    const panels = el.querySelectorAll('[role="tabpanel"]');
-    // first is visible, others hidden
-    expect(panels[0].hasAttribute("hidden")).toBe(false);
-    expect(panels[1].hasAttribute("hidden")).toBe(true);
-  });
-
-  test("active tab has tabindex=0, others have tabindex=-1", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-      e.value = "general";
-    });
-    const tabs = el.querySelectorAll('[role="tab"]');
-    expect(tabs[0].getAttribute("tabindex")).toBe("0");
-    expect(tabs[1].getAttribute("tabindex")).toBe("-1");
-  });
-
-  test("disabled tab has disabled attribute", async () => {
-    const el = await mount<TabsEl>("lv-tabs", (e) => {
-      e.tabs = sampleTabs;
-    });
-    const tabs = el.querySelectorAll('[role="tab"]');
-    expect((tabs[2] as HTMLButtonElement).disabled).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-accordion
-// ---------------------------------------------------------------------------
-type AccordionEl = HTMLElement & {
-  items: Array<{ id: string; label: string; defaultOpen?: boolean }>;
-  type: "single" | "multiple";
-  value: string | string[];
-};
-
-const accordionItems = [
-  { id: "faq1", label: "What is lievit?" },
-  { id: "faq2", label: "How does it work?" },
-  { id: "faq3", label: "Is it free?" },
-];
-
-describe("lv-accordion", () => {
-  test("renders one trigger button per item", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-    });
-    const triggers = el.querySelectorAll(".lv-accordion__trigger");
-    expect(triggers.length).toBe(3);
-  });
-
-  test("all panels are collapsed by default (hidden)", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-    });
-    const panels = el.querySelectorAll(".lv-accordion__panel");
-    panels.forEach((panel) => {
-      expect(panel.hasAttribute("hidden")).toBe(true);
-    });
-  });
-
-  test("each trigger has aria-expanded=false when collapsed", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-    });
-    const triggers = el.querySelectorAll(".lv-accordion__trigger");
-    triggers.forEach((t) => {
-      expect(t.getAttribute("aria-expanded")).toBe("false");
-    });
-  });
-
-  test("clicking a trigger expands its panel", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-    });
-    const triggers = el.querySelectorAll<HTMLButtonElement>(".lv-accordion__trigger");
-    triggers[0].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    expect(triggers[0].getAttribute("aria-expanded")).toBe("true");
-    const panels = el.querySelectorAll(".lv-accordion__panel");
-    expect(panels[0].hasAttribute("hidden")).toBe(false);
-  });
-
-  test("single mode: opening one closes the other", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-      e.type = "single";
-    });
-    const triggers = el.querySelectorAll<HTMLButtonElement>(".lv-accordion__trigger");
-    // open first
-    triggers[0].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    // open second
-    triggers[1].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    expect(triggers[0].getAttribute("aria-expanded")).toBe("false");
-    expect(triggers[1].getAttribute("aria-expanded")).toBe("true");
-  });
-
-  test("multiple mode: two items can be open simultaneously", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-      e.type = "multiple";
-    });
-    const triggers = el.querySelectorAll<HTMLButtonElement>(".lv-accordion__trigger");
-    triggers[0].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    triggers[1].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    expect(triggers[0].getAttribute("aria-expanded")).toBe("true");
-    expect(triggers[1].getAttribute("aria-expanded")).toBe("true");
-  });
-
-  test("clicking a trigger emits lv-change with { id, open }", async () => {
-    let detail: unknown;
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-    });
-    el.addEventListener("lv-change", (ev) => { detail = (ev as CustomEvent).detail; });
-
-    const triggers = el.querySelectorAll<HTMLButtonElement>(".lv-accordion__trigger");
-    triggers[0].click();
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-
-    expect((detail as { id: string; open: boolean }).id).toBe("faq1");
-    expect((detail as { id: string; open: boolean }).open).toBe(true);
-  });
-
-  test("defaultOpen opens the item on first render", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = [
-        { id: "a", label: "A", defaultOpen: true },
-        { id: "b", label: "B" },
-      ];
-    });
-    const panels = el.querySelectorAll(".lv-accordion__panel");
-    expect(panels[0].hasAttribute("hidden")).toBe(false);
-    expect(panels[1].hasAttribute("hidden")).toBe(true);
-  });
-
-  test("trigger has aria-controls pointing at the panel id", async () => {
-    const el = await mount<AccordionEl>("lv-accordion", (e) => {
-      e.items = accordionItems;
-    });
-    const trigger = el.querySelector(".lv-accordion__trigger") as HTMLElement;
-    const panelId = trigger.getAttribute("aria-controls");
-    expect(panelId).toBeTruthy();
-    expect(el.querySelector(`#${panelId}`)).not.toBeNull();
   });
 });
 
@@ -332,7 +89,7 @@ describe("lv-breadcrumb", () => {
       e.separator = ">";
     });
     const separators = el.querySelectorAll(".lv-breadcrumb__separator");
-    expect(separators.length).toBe(2); // n-1 separators
+    expect(separators.length).toBe(2);
     separators.forEach((s) => expect(s.getAttribute("aria-hidden")).toBe("true"));
   });
 
