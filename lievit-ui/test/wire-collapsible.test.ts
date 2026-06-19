@@ -17,6 +17,7 @@ import { buildRegistry } from "../cli/build-registry.js";
 import { resolve } from "../cli/registry.js";
 import { run } from "../cli/lievit-add.js";
 import type { Registry } from "../cli/registry.js";
+import { syntheticUiRegistry } from "./fixtures/synthetic-ui-registry.js";
 
 const registryRoot = join(import.meta.dirname, "..", "registry");
 const registry: Registry = buildRegistry(registryRoot);
@@ -142,10 +143,12 @@ describe("lievit add collapsible: two-root copy-in", () => {
 });
 
 describe("back-compat: registry:ui add is unaffected by the two-root mechanism", () => {
-  test("lievit add chart still lands under the single alias root", () => {
-    run(["chart", "--root", "src"], registry, project, out);
+  // The library ships no registry:ui island post-pivot (ADR-0012), so the legacy single-root
+  // resolution is exercised against a synthetic registry:ui fixture.
+  test("a registry:ui add still lands under the single alias root", () => {
+    run(["widget", "--root", "src"], syntheticUiRegistry(), project, out);
     // a presentation item with no file.root keeps the legacy alias-root resolution.
-    expect(existsSync(join(project, "src/components/ui/chart.ts"))).toBe(true);
+    expect(existsSync(join(project, "src/components/ui/widget.ts"))).toBe(true);
     // it must NOT leak into the java/jte roots.
     expect(existsSync(join(project, "src/main/java"))).toBe(false);
   });
