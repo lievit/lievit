@@ -1,0 +1,17 @@
+{
+  "name": "button",
+  "type": "registry:jte",
+  "description": "A token-styled button (or link styled as a button); the click is wired by the consuming wire template via l:click, the partial renders only the styled control. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/button.jte",
+      "type": "registry:jte",
+      "target": "lievit/button.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the button partial to your JTE root at lievit/button.jte, reached as @template.lievit.button(variant=..., content=@`...`). Wire the action with l:click on the rendered element from the consuming wire template, or pass href to render a real link. The source is yours: edit freely."
+}

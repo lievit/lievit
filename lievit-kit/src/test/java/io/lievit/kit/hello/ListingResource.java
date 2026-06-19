@@ -16,6 +16,7 @@ import io.lievit.kit.BadgeColumn;
 import io.lievit.kit.Form;
 import io.lievit.kit.FormBinder;
 import io.lievit.kit.FormValidator;
+import io.lievit.kit.IconColumn;
 import io.lievit.kit.RecordRepository;
 import io.lievit.kit.Resource;
 import io.lievit.kit.ResourcePages;
@@ -65,11 +66,18 @@ public final class ListingResource extends Resource<Listing> {
                         TextColumn.make("Ref", Listing::ref)
                                 .url(l -> "/admin/listings/" + l.ref() + "/edit"))
                 .column("City", Listing::city)
-                // A coloured badge derived from the city: a BadgeCell -> <lv-badge variant="...">.
+                // A coloured badge derived from the city: a BadgeCell rendered by the server-first
+                // badge partial as <span class="lv-badge lv-badge--<variant>"> (ADR-0012).
                 .column(
                         BadgeColumn.<Listing>make(
                                         "Zone", l -> l.city().length() > 5 ? "large" : "small")
-                                .color(zone -> "large".equals(zone) ? "info" : "gray"));
+                                .color(zone -> "large".equals(zone) ? "info" : "gray"))
+                // An icon derived from the city length: an IconCell rendered by the server-first
+                // icon partial as an inline <svg> (ADR-0012), never an <lv-icon> island tag.
+                .column(
+                        IconColumn.<Listing>make("Big", l -> l.city().length() > 5)
+                                .bool("check", "x")
+                                .color(v -> Boolean.TRUE.equals(v) ? "success" : "muted"));
     }
 
     @Override

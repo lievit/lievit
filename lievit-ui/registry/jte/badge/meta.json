@@ -1,0 +1,17 @@
+{
+  "name": "badge",
+  "type": "registry:jte",
+  "description": "A small status pill mapping each variant (neutral, success, warning, danger, info) to a status-token fill + foreground pair. Server-first PARTIAL (ADR-0012, Wave 4): variant-to-colour is pure, so there is no client state and no island. Replaces the <lv-badge> Lit island. Plain HTML span + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/badge.jte",
+      "type": "registry:jte",
+      "target": "lievit/badge.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Copies the badge partial to your JTE root at lievit/badge.jte, reached as @template.lievit.badge(variant=..., label=\"...\"). Variant drives the fill + foreground tokens; pass label for plain text or a content slot for rich children (content wins). The source is yours: edit freely."
+}

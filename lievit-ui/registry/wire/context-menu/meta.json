@@ -1,0 +1,28 @@
+{
+  "name": "context-menu",
+  "type": "registry:wire",
+  "description": "A right-click context menu opened at the pointer. Server-first WIRE component (ADR-0012, Wave 2): open-state, pointer position, items and selection live in typed Java; the server re-renders, the client morphs. A tiny CSP-clean typed-TS enhancer captures the contextmenu gesture (no Lit, no @floating-ui/dom). Replaces the <lv-context-menu> Lit island. WAI-ARIA APG menu pattern (role=menu of role=menuitem).",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/context-menu/ContextMenuComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/ContextMenuComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/context-menu/context-menu.jte",
+      "type": "registry:wire",
+      "target": "lievit/context-menu.jte",
+      "root": "jte"
+    },
+    {
+      "path": "wire/context-menu/context-menu.ts",
+      "type": "registry:wire",
+      "target": "components/ui/context-menu.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register ContextMenuComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call) and supply the real `items` list (override the default in your copy). Render it via the wire mount / `@template.lievit.context-menu(...)`; put your right-clickable content in the owned `data-context-menu-trigger` region (NOT a slot). Call `enhanceContextMenus(runtime)` once from main.ts after `startLievit()` so a right-click opens the menu at the pointer. A selection arms `selectedKey` via $set; read it (or add server authz on a `closeAfterSelect`) in your copy. The `@LievitComponent(template=\"lievit/context-menu\")` name + the io.lievit.wire package are yours to change once copied."
+}

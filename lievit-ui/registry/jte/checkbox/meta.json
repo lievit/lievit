@@ -1,0 +1,17 @@
+{
+  "name": "checkbox",
+  "type": "registry:jte",
+  "description": "A token-styled native <input type=checkbox> with a token check glyph (icon partial). Carries the checkbox role for free, POSTs `value` only when checked, binds via l:model on the native change event. Server-first replacement for the Lit island.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/checkbox.jte",
+      "type": "registry:jte",
+      "target": "lievit/checkbox.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the checkbox partial to your JTE root at lievit/checkbox.jte, reached as @template.lievit.checkbox(name=...). The native checkbox POSTs `value` under `name` only when checked (zero JS); bind to a wire field with `model`. Requires the icon partial for the check glyph. The source is yours: edit freely."
+}

@@ -1,0 +1,29 @@
+{
+  "name": "dropdown-menu",
+  "type": "registry:jte",
+  "description": "A trigger + a menu of REAL items (links / actions), with ZERO JS. Server-first PARTIAL (ADR-0012, Wave 2/3) built on the popover overlay seam: show/hide via the native HTML `popover` attribute + `popovertarget` (top-layer, light-dismiss, aria-expanded wired by the browser); position via CSS Anchor Positioning; items are real <a href> (navigate JS-off, middle-click works) or real <button> (form action), each role=menuitem (WAI-ARIA APG menu-button, Radix DropdownMenu model). Replaces the <lv-dropdown-menu> Lit island. Plain HTML + Tailwind + --lv-* tokens, CSP-clean. Tab navigates the items (the platform); arrow-key roving is an optional typed-TS enhancer, not shipped.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/dropdown-menu.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/item.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/separator.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/separator.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Copies the dropdown-menu family to your JTE root (lievit/dropdown-menu.jte + lievit/dropdown-menu/{item,separator}.jte), reached as @template.lievit.dropdown-menu(...). Pass a unique `id`, the `trigger` content, and compose the `content` slot from @template.lievit.dropdown-menu.item (give `href` for a navigation link, or `formId`/`formAction` for a form action) and @template.lievit.dropdown-menu.separator. The browser owns show/hide + dismiss; CSS anchor positioning places the menu. Real links navigate with JS off. For a menu whose ITEMS are a server feed (a filtered command palette), use the command WIRE component instead."
+}

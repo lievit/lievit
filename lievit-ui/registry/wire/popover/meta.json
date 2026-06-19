@@ -1,0 +1,23 @@
+{
+  "name": "popover-wire",
+  "type": "registry:wire",
+  "description": "The server-data-driven variant of the popover overlay seam (ADR-0012 blueprint R4): open-state lives in typed Java and the panel CONTENT is (re)derived from server state on each open (gest's calendar-filter feed). The server re-renders the conditionally-rendered panel, the client morphs it; no <slot>, no @floating-ui/dom, no Lit. Positioning stays the server-pure CSS Anchor Positioning the popover PARTIAL uses. Use the popover JTE partial for a static popover; this heavier WIRE tier is for server-held content + open-state.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "wire/popover/PopoverComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/PopoverComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/popover/popover-wire.jte",
+      "type": "registry:wire",
+      "target": "lievit/popover-wire.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Register PopoverComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / @template.lievit.popover-wire(...); put your server-derived panel body in the owned data-popover-panel region (NOT a slot), or derive it from a @Wire field. The trigger fires `toggle` over the wire; `show`/`close` are also exposed. The panel is conditionally rendered (@if(open)) so its content cannot fail to project. The @LievitComponent(template=\"lievit/popover-wire\") name + the io.lievit.wire package are yours to change once copied."
+}

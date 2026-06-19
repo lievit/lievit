@@ -1,0 +1,17 @@
+{
+  "name": "progress",
+  "type": "registry:jte",
+  "description": "A determinate or indeterminate progress bar with WAI-ARIA progressbar semantics; respects prefers-reduced-motion. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/progress.jte",
+      "type": "registry:jte",
+      "target": "lievit/progress.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "radius"],
+  "docs": "Copies the progress partial to your JTE root at lievit/progress.jte, reached as @template.lievit.progress(value=42, label=...). value < 0 renders the indeterminate animation. The source is yours: edit freely."
+}

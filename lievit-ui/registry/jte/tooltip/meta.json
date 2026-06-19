@@ -1,0 +1,17 @@
+{
+  "name": "tooltip",
+  "type": "registry:jte",
+  "description": "A floating contextual label, CSS-only; WAI-ARIA tooltip pattern (panel role=tooltip + the trigger's aria-describedby). Revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/tooltip.jte",
+      "type": "registry:jte",
+      "target": "lievit/tooltip.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z"],
+  "docs": "Copies the tooltip partial to your JTE root at lievit/tooltip.jte, reached as @template.lievit.tooltip(content=\"...\", tipId=\"...\", trigger=@`...`). Put aria-describedby=tipId on the interactive trigger so the label is announced on focus. The source is yours: edit freely."
+}

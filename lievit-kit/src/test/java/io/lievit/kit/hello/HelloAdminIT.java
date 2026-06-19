@@ -76,9 +76,11 @@ class HelloAdminIT {
      *     Zone badge column
      * @spec.when  its list component is mounted and rendered by JTE through the real runtime
      * @spec.then  the linked column renders a real {@code <a href>} to the row's edit page and the
-     *     badge column renders a {@code <lv-badge variant="...">}, proving the typed cells survive the
-     *     end-to-end JTE compile + render
+     *     badge column renders the server-first badge partial's {@code <span class="lv-badge
+     *     lv-badge--<variant>">} (no {@code <lv-badge>} island tag), proving the typed cells survive
+     *     the end-to-end JTE compile + render
      * @spec.adr   ADR-0008
+     * @spec.adr   ADR-0012
      */
     @Test
     void renders_typed_cells_as_links_and_badges_through_jte() {
@@ -87,10 +89,25 @@ class HelloAdminIT {
         assertThat(mounted.html())
                 // Ref is a LinkCell: a real anchor to the row's edit page (Parma is ref 1).
                 .contains("<a href=\"/admin/listings/1/edit\">1</a>")
-                // Zone is a BadgeCell: Reggio Emilia (>5 chars) -> "large" with the "info" variant.
-                .contains("<lv-badge variant=\"info\">large</lv-badge>")
+                // Zone is a BadgeCell rendered by the server-first badge partial (ADR-0012): the
+                // island <lv-badge> tag is gone, replaced by a token-styled <span>. Reggio Emilia
+                // (>5 chars) -> "large" with the "info" variant.
+                .contains("lv-badge--info")
+                .contains("data-variant=\"info\"")
+                .contains(">large</span>")
                 // Parma (<=5 chars) -> "small" with the "gray" variant.
-                .contains("<lv-badge variant=\"gray\">small</lv-badge>");
+                .contains("lv-badge--gray")
+                .contains(">small</span>")
+                // Big is an IconCell rendered by the server-first icon partial (ADR-0012): an inline
+                // <svg> with data-icon, not an <lv-icon> island tag. Reggio Emilia (>5) -> "check",
+                // Parma -> "x"; the colour token rides a text-* utility class on the svg.
+                .contains("<svg")
+                .contains("data-icon=\"check\"")
+                .contains("data-icon=\"x\"")
+                .contains("text-[var(--lv-color-success)]")
+                // No island custom-element tags survive the render.
+                .doesNotContain("<lv-badge")
+                .doesNotContain("<lv-icon");
     }
 
     /**

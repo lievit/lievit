@@ -1,0 +1,28 @@
+{
+  "name": "calendar",
+  "type": "registry:wire",
+  "description": "A full event calendar (month/week/day) rendered server-first (ADR-0012, R1 RESOLVED). The grid, the events placed in its cells, the view, the anchor date and the filter all live in typed Java; the server renders the grid as HTML and the client morphs each re-render. The wire optimization toolkit absorbs round-trip latency: l:init/skeleton for first paint, l:loading feedback, l:model.debounce filter, l:click navigation. The one irreducible client bit -- event drag onto a day cell -- is a tiny CSP-clean typed-TS enhancer that fires the moveEvent action on drop (no Lit, no @event-calendar). Retires the <lv-calendar> Lit island and gest's ht-calendar escape-hatch. WAI-ARIA APG grid pattern.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/calendar/CalendarComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/CalendarComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/calendar/calendar.jte",
+      "type": "registry:wire",
+      "target": "lievit/calendar.jte",
+      "root": "jte"
+    },
+    {
+      "path": "wire/calendar/calendar.ts",
+      "type": "registry:wire",
+      "target": "components/ui/calendar.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register CalendarComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `allEvents` from your repository keyed by the visible range (rangeStart()..rangeEnd()) in the constructor / a @LievitRender hook -- the seed list is example data. Render it via the wire mount / @template.lievit.calendar(...); the cells + events are OWNED template markup (NOT a slot). Call enhanceCalendars(runtime) once from main.ts after startLievit() so dragging an event chip onto a day cell moves it server-side; add server-side authz in moveEvent(). The l:init skeleton makes first paint immediate; the l:model.debounce filter and l:click navigation re-render server-side. The @LievitComponent(template=\"lievit/calendar\") name + the io.lievit.wire package are yours to change once copied."
+}

@@ -1,0 +1,17 @@
+{
+  "name": "date-picker",
+  "type": "registry:jte",
+  "description": "A token-styled native <input type=\"date\"> with its <label>: the browser owns the accessible, locale-aware calendar popup, keyboard grid and validation. @param for name/id/value/min/max/required/label (+ disabled/readonly/invalid/describedBy/model). Zero JS, no @floating-ui, CSP-clean, form-submits the ISO date under `name`. Server-first PARTIAL (ADR-0012); replaces the <lv-date-picker> Lit island. A richer range / custom-grid picker is the calendar wire or an escape-hatch, not this component.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/date-picker.jte",
+      "type": "registry:jte",
+      "target": "lievit/date-picker.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring", "shadow"],
+  "docs": "Copies the date-picker partial to your JTE root at lievit/date-picker.jte, reached as @template.lievit.date-picker(name=..., label=..., value=\"2026-06-19\"). It renders a native <input type=date>: the browser supplies the calendar, keyboard navigation, locale formatting and min/max/required enforcement with zero JS. The value POSTs under `name` as ISO YYYY-MM-DD, or bind it to a wire field with `model`. The source is yours: edit freely. If you ever need a RANGE or custom-calendar-grid picker, that is the calendar wire (a separate component) or a documented escape-hatch typed-TS micro-enhancement; lievit-ui's date-picker is the native input."
+}

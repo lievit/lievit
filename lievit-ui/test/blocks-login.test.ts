@@ -122,11 +122,12 @@ describe("login block -- composes existing partials, never rebuilds primitives",
     expect(src).toContain('@template.icon(name = "lock")');
   });
 
-  test("does not redefine a primitive input/button as a custom element from scratch", () => {
-    // it may reference native <input>/<button> (the form needs them) but must not invent
-    // a new <lv-*-input> primitive; the field markup goes through input-group. Assert on the
-    // rendered markup so the doc comment's mention of the island does not trip the check.
-    expect(markup).not.toMatch(/<lv-input/);
+  test("emits NO custom-element <lv-*> tag at all (ADR-0012 server-first, even in the doc)", () => {
+    // server-first: the block is native <input>/<button> + the input-group partial. No island
+    // tag may remain anywhere, not even spelled in the rationale comment.
+    const islandTags = src.match(/<lv-[a-z-]+/gi) ?? [];
+    expect(islandTags, `island tags must be gone: ${islandTags.join(", ")}`).toEqual([]);
+    expect(markup, "rendered markup must invent no <lv-input> primitive").not.toMatch(/<lv-input/);
   });
 });
 

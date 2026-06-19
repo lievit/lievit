@@ -55,8 +55,17 @@ function loadConfig(cwd: string, override?: string): AddConfig {
   }
   const configPath = join(cwd, "lievit.json");
   if (existsSync(configPath)) {
-    const cfg = JSON.parse(readFileSync(configPath, "utf8")) as { root?: string };
-    return { root: cfg.root ?? "src" };
+    // `roots.{java,jte}` are the ADR-0012 server-first two-root extension; absent = the defaults
+    // (`src/main/java`, `src/main/jte`), so a presentation-only lievit.json keeps working.
+    const cfg = JSON.parse(readFileSync(configPath, "utf8")) as {
+      root?: string;
+      roots?: { java?: string; jte?: string };
+    };
+    return {
+      root: cfg.root ?? "src",
+      javaRoot: cfg.roots?.java,
+      jteRoot: cfg.roots?.jte,
+    };
   }
   return { root: "src" };
 }

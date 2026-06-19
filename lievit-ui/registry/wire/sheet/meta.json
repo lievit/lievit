@@ -1,0 +1,23 @@
+{
+  "name": "sheet",
+  "type": "registry:wire",
+  "description": "A modal side panel that slides in from any of the four viewport edges (the richer, shadcn-shaped generalisation of drawer): structured header/description/footer + a built-in Lucide close button. Server-first WIRE component (ADR-0012): open state lives in typed Java, the server re-renders, the client morphs; the body + footer are owned template regions, not slots. Replaces the <lv-sheet> Lit island. WAI-ARIA APG dialog (role=dialog + aria-modal + aria-labelledby/aria-describedby); focus-trap + Escape are a CSP-clean typed-TS enhancement, open-state stays server-owned.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/sheet/SheetComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/SheetComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/sheet/sheet.jte",
+      "type": "registry:wire",
+      "target": "lievit/sheet.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Register SheetComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.sheet(...)`. The open state is server-owned: fire `open` to show it and `close` (backdrop / Escape / close button) to hide it; set `side` to 'right' (default) | 'left' | 'top' | 'bottom', `heading` + `description` for the labelled header, `showClose=false` to hide the close button. Put your sheet body + footer markup directly in the data-lv-sheet-body / data-lv-sheet-footer regions of the copied template (owned source, NOT slots). Focus-trap + Escape: wire a small typed-TS module keyed off [data-lv-sheet] that traps Tab within [data-lv-sheet-panel] while not [hidden] and dispatches the `close` action on Escape; the open-state itself stays server (wire). For the minimal heading+body edge panel use the drawer wire instead. Adjust the package + template name freely once copied (the source is yours)."
+}

@@ -1,0 +1,29 @@
+{
+  "name": "navigation-menu",
+  "type": "registry:jte",
+  "description": "A site navigation landmark (<nav>, not a menu role) with real <a href> links and optional rich dropdown panels revealed on hover/focus-within, CSS-only (Radix NavigationMenu model). Server-first PARTIAL (ADR-0012, Wave 2): active-state comes from the server-rendered route via aria-current, the panel reveal is pure CSS, so there is no client state and no wire component. Replaces the <lv-navigation-menu> Lit island. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/navigation-menu.jte",
+      "type": "registry:jte",
+      "target": "lievit/navigation-menu.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/navigation-menu/link.jte",
+      "type": "registry:jte",
+      "target": "lievit/navigation-menu/link.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/navigation-menu/menu.jte",
+      "type": "registry:jte",
+      "target": "lievit/navigation-menu/menu.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Copies the navigation-menu family to your JTE root (lievit/navigation-menu.jte + lievit/navigation-menu/{link,menu}.jte), reached as @template.lievit.navigation-menu(...). Compose the <li> items in the `content` slot from @template.lievit.navigation-menu.menu (a trigger + rich panel) and @template.lievit.navigation-menu.link (a bare link). Derive each link's `active` from the route you are rendering (the controller knows the current page); the partial sets aria-current=\"page\" on it. The panel reveals on CSS hover/focus-within, no JS. The source is yours: edit freely."
+}

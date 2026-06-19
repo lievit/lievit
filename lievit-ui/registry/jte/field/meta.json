@@ -1,0 +1,17 @@
+{
+  "name": "field",
+  "type": "registry:jte",
+  "description": "A label + control + hint/error wrapper (composition only): composes the label partial, slots the caller's control, and renders an error in a role=alert/aria-live region. Server-first replacement for the Lit island.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "label"],
+  "files": [
+    {
+      "path": "jte/field.jte",
+      "type": "registry:jte",
+      "target": "lievit/field.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type"],
+  "docs": "Copies the field partial to your JTE root at lievit/field.jte, reached as @template.lievit.field(forId=..., label=..., control=@`...`). Pass the control markup as the `control` Content slot; set the control's aria-describedby to `<forId>-error` so the error is announced. The source is yours: edit freely."
+}

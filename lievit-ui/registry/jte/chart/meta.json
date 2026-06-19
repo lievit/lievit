@@ -1,0 +1,17 @@
+{
+  "name": "chart",
+  "type": "registry:jte",
+  "description": "A server-rendered static bar chart as inline SVG: one <rect> per typed @param data point, coloured by the --lv-color-chart-N tokens, with axis labels and a WAI-ARIA img role (aria-label + in-SVG <title> text alternative, per-bar aria-label). Zero JS, no canvas, no client charting lib, CSP-clean. Server-first PARTIAL (ADR-0012); replaces the <lv-chart> Lit island. An interactive chart (hover tooltip, zoom) is an escape-hatch typed-TS micro-enhancement over this SVG, not shipped.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/chart.jte",
+      "type": "registry:jte",
+      "target": "lievit/chart.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type"],
+  "docs": "Copies the chart partial to your JTE root at lievit/chart.jte, reached as @template.lievit.chart(label=..., categories=String[], values=int[]). The controller passes the typed dataset (a String[] of x labels + an int[] of values) and the partial emits a static SVG bar chart the browser draws with zero JS. Set `color` to any --lv-color-chart-N token, tune `width`/`height`, toggle `showAxis`. The source is yours: edit freely. If you ever need an INTERACTIVE chart (hover tooltip, zoom, live data), that is the documented escape-hatch: drop a typed-TS micro-enhancement over this SVG in your own frontend/src/ (the same seam gest uses for ht-calendar); lievit-ui ships no charting island."
+}

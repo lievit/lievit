@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **lievit-ui is now a SERVER component library** (ADR-0012): the 46 light-DOM Lit islands were
+  retired in favour of one predictable, convention-driven model: JTE partials for presentation,
+  lievit-wire components (typed Java state + `l:*`) for stateful interactivity, htmx/native for
+  simple swaps, and a typed-vanilla-TS micro-enhancement as the rare client escape hatch. Root
+  cause of the pivot: light-DOM custom elements use native `<slot>`, inert without a shadow root,
+  so slotted content silently failed to project, with no console error and no failing test. The
+  new library ships **40 JTE partials + 14 wire components + 0 Lit islands**; every partial and
+  wire template carries a render-asserting test (vitest source-contract + lievit-kit ITs through
+  the real runtime) that would have caught a non-projected slot. Highlights: the overlay seam is
+  the native `popover` attribute + CSS Anchor Positioning (no floating-ui); the calendar is a
+  server-rendered wire grid with the `l:model.debounce` / `l:init` / `l:loading` optimization
+  toolkit and a typed-TS drag enhancer (no @event-calendar, no Lit); the kit renders badge/icon
+  cells and the four blocks (app-shell, dashboard, login, signup) as partial markup, not island
+  tags. The `light-dom` Lit style helper was dropped with the last island. `lievit add` copies a
+  component on both layers (Java + JTE) via the `registry:wire` two-root mechanism. The CLI
+  single-root back-compat is now pinned against a synthetic `registry:ui` fixture.
+
 ### Added
 
 - **Typed-state round-trip** (ADR-0020, the confirmed kit-CRUD blocker): a `Synthesizer<T>` SPI +

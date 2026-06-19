@@ -1,0 +1,17 @@
+{
+  "name": "card",
+  "type": "registry:jte",
+  "description": "A surface container with an optional labelled header region (role=region + aria-labelledby when a heading is set). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/card.jte",
+      "type": "registry:jte",
+      "target": "lievit/card.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow"],
+  "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Pass a heading + headingId to render a labelled region. The source is yours: edit freely."
+}

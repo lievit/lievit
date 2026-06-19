@@ -1,0 +1,23 @@
+{
+  "name": "alert-dialog",
+  "type": "registry:wire",
+  "description": "A confirm modal: an interruptive prompt requiring a response (delete this? discard?). Server-first WIRE component (ADR-0012, Wave 3), the role=alertdialog specialization of the dialog wire: open-state + title/description/labels + the destructive flag live in typed Java, the server re-renders, the client morphs; the destructive action + cancel are real l:click buttons, not slots. Renders the dialog wire's overlay/panel structure directly (no nested live instance, no <lv-dialog> island). WAI-ARIA APG alertdialog (role=alertdialog + aria-modal + aria-labelledby/aria-describedby); the backdrop does NOT dismiss (only the explicit buttons do); focus-trap + Escape are a CSP-clean typed-TS enhancement, open-state stays server-owned.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/alert-dialog/AlertDialogComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/AlertDialogComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/alert-dialog/alert-dialog.jte",
+      "type": "registry:wire",
+      "target": "lievit/alert-dialog.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Register AlertDialogComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.alert-dialog(...)`. The open state is server-owned: fire `open` from a trigger to show the prompt, `confirm` (the destructive/primary action) or `cancel` to close. Do the real destructive work server-side by overriding `confirm()` (with authz) before it closes, or read the `confirmed` wire flag on the host after the round-trip. An alertdialog is interruptive: the backdrop does NOT dismiss it, only the explicit buttons do. Focus-trap + Escape: wire a small typed-TS module keyed off [data-lv-alert-dialog] that traps Tab within [data-lv-alert-dialog-panel] while not [hidden] and dispatches the `cancel` action on Escape; the open-state itself stays server (wire). The `@LievitComponent(template=\"lievit/alert-dialog\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+}

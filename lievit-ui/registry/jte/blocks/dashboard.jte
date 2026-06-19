@@ -15,24 +15,28 @@
   from real model data (planning two-tier model: blocks are compositions of the
   component tier).
 
+  SERVER-FIRST (ADR-0012, Wave 4): the block COMPOSES the server-rendered partials, it no
+  longer mounts Lit-island custom elements. The former badge / chart island tags are
+  now `@template.badge` / `@template.chart` compositions rendered on the server.
+
   COMPOSES (existing pieces, nothing rebuilt):
     - stat cards     : server-rendered token-styled <section role="region"> surfaces
                        (the card visual built inline so the whole KPI row is one
-                       SSR pass; the trend delta uses <lv-badge> + the Lucide icon
+                       SSR pass; the trend delta uses @template.badge + the Lucide icon
                        partial for the up/down arrow).
-    - <lv-badge>     : the delta pill (variant success/danger/neutral), island.
+    - @template.badge: the delta pill (variant success/danger/neutral), server-rendered span.
     - @template.icon : the Lucide up/down arrow on each delta (never Font Awesome).
-    - <lv-chart>     : the charts row (one or two), native-SVG island. Data is passed
-                       as JSON-string attributes (Lit @property({type:Array}) parses
-                       them); the controller serialises categories + series to JSON.
+    - @template.chart: the charts row (one or two), a server-rendered inline-SVG bar chart.
+                       Data is passed as TYPED arrays (String[] categories + int[] values);
+                       the controller derives them from its model, no client charting lib.
     - the table set  : @template.table.* (real <table>/<thead>/<th scope>/<tbody>)
                        for the recent-items section. Caller owns the row loop.
 
   A11Y (Radix / WAI-ARIA model):
     - each KPI is a <section role="region" aria-labelledby> announced by its label,
       grouped under a visually-hidden "Key metrics" heading so the row is navigable.
-    - each chart card is a <section> with a real <h*> heading; <lv-chart> itself
-      carries role="img" + aria-label + a visually-hidden data <table>.
+    - each chart card is a <section> with a real <h*> heading; the chart partial itself
+      renders an <svg role="img"> with an aria-label + an in-SVG <title> text alternative.
     - the recent-items table is a real <table> with <th scope="col"> header cells and
       a <caption> as its accessible name.
     - section headings give the block a proper document outline.
@@ -51,16 +55,14 @@
                                       it is derived from delta's sign.
                              badge    OPTIONAL explicit lv-badge variant; when absent
                                       derived (down => danger, else success).
-    String  chartTitle      heading for the primary chart card.
-    String  chartType       "bar" | "line" | "area" (default "area").
-    String  chartLabel      <lv-chart> accessible label (default = chartTitle).
-    String  chartCategories JSON array string of x-axis labels, e.g. ["Jan","Feb"].
-    String  chartSeries      JSON array string of {key,label,data[],color?} series.
-    String  chart2Title      OPTIONAL second chart card heading; when null the second
+    String   chartTitle      heading for the primary chart card.
+    String   chartLabel      chart accessible label (default = chartTitle).
+    String[] chartCategories x-axis labels, one per data point, e.g. {"Jan","Feb"}.
+    int[]    chartValues     bar values, aligned positionally with chartCategories.
+    String   chart2Title     OPTIONAL second chart card heading; when null the second
                              chart is omitted and the first spans the full width.
-    String  chart2Type       second chart kind (default "bar").
-    String  chart2Categories JSON for the second chart.
-    String  chart2Series     JSON for the second chart.
+    String[] chart2Categories x-axis labels for the second chart.
+    int[]    chart2Values    bar values for the second chart.
     String  rowsTitle        heading + <caption> for the recent-items table.
     List<String> rowColumns  the table header cells (in order).
     List<Map<String,String>> rows  the table rows; each map is column-key -> cell text,
@@ -70,18 +72,16 @@
     gg.jte.Content actions   OPTIONAL toolbar slot rendered next to the title (filters,
                              a date range, an export button); null => no toolbar.
 
-  Usage (controller serialises the data; nothing hardcoded here):
+  Usage (the controller derives the typed data; nothing hardcoded here):
     @@template.blocks.dashboard(
       title = "Overview",
-      stats = kpis,                              // List<Map<String,String>>
+      stats = kpis,                                       // List<Map<String,String>>
       chartTitle = "Listings closed",
-      chartType = "area",
-      chartCategories = categoriesJson,          // e.g. ["Gen","Feb","Mar",...]
-      chartSeries = seriesJson,                  // [{"key":"closed","label":"Closed","data":[...]}]
+      chartCategories = categories,                       // String[] e.g. {"Gen","Feb","Mar"}
+      chartValues = closed,                               // int[] aligned with categories
       chart2Title = "Leads by source",
-      chart2Type = "bar",
-      chart2Categories = sourcesJson,
-      chart2Series = leadsJson,
+      chart2Categories = sources,                         // String[]
+      chart2Values = leads,                               // int[]
       rowsTitle = "Recent activity",
       rowColumns = List.of("Ref", "Agent", "Stage", "Value"),
       rows = recentRows
@@ -91,14 +91,12 @@
 @param int headingLevel = 2
 @param List<Map<String, String>> stats = java.util.List.of()
 @param String chartTitle = "Trend"
-@param String chartType = "area"
 @param String chartLabel = null
-@param String chartCategories = "[]"
-@param String chartSeries = "[]"
+@param String[] chartCategories = new String[0]
+@param int[] chartValues = new int[0]
 @param String chart2Title = null
-@param String chart2Type = "bar"
-@param String chart2Categories = "[]"
-@param String chart2Series = "[]"
+@param String[] chart2Categories = new String[0]
+@param int[] chart2Values = new int[0]
 @param String rowsTitle = "Recent items"
 @param List<String> rowColumns = java.util.List.of()
 @param List<Map<String, String>> rows = java.util.List.of()
@@ -152,10 +150,10 @@
               ${label}
             </span>
             @if(delta != null && !delta.isBlank())
-              <lv-badge variant="${badgeVariant}">
+              @template.badge(variant = badgeVariant, content = @`
                 @template.icon(name = iconName, size = "var(--lv-text-sm)", cssClass = "shrink-0")
                 <span>${delta}</span>
-              </lv-badge>
+              `)
             @endif
           </div>
           <span class="text-[length:var(--lv-text-3xl)] font-[var(--lv-font-semibold)] tabular-nums leading-none">
@@ -175,7 +173,7 @@
     </div>
   </section>
 
-  <%-- Charts row: one or two <lv-chart> islands, data driven by JSON-string params --%>
+  <%-- Charts row: one or two server-rendered chart partials, data driven by typed-array params --%>
   <section aria-labelledby="lv-dashboard-charts-title" class="flex flex-col gap-[var(--lv-space-4)]">
     <div role="heading" aria-level="${subLevel}" id="lv-dashboard-charts-title" class="sr-only">Charts</div>
     <div class="grid grid-cols-1 gap-[var(--lv-space-4)] ${chartCols}">
@@ -187,12 +185,11 @@
         <div role="heading" aria-level="${subLevel}" id="lv-dashboard-chart-1-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
           ${chartTitle}
         </div>
-        <lv-chart
-          type="${chartType}"
-          label="${chartLabel == null ? chartTitle : chartLabel}"
-          categories="${chartCategories}"
-          series="${chartSeries}"
-        ></lv-chart>
+        @template.chart(
+          label = chartLabel == null ? chartTitle : chartLabel,
+          categories = chartCategories,
+          values = chartValues
+        )
       </section>
 
       @if(hasSecondChart)
@@ -204,12 +201,11 @@
           <div role="heading" aria-level="${subLevel}" id="lv-dashboard-chart-2-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
             ${chart2Title}
           </div>
-          <lv-chart
-            type="${chart2Type}"
-            label="${chart2Title}"
-            categories="${chart2Categories}"
-            series="${chart2Series}"
-          ></lv-chart>
+          @template.chart(
+            label = chart2Title,
+            categories = chart2Categories,
+            values = chart2Values
+          )
         </section>
       @endif
     </div>

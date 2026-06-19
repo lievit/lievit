@@ -9,23 +9,21 @@
   representative login PATTERN, parameterised so the shadcn login-01..05 variants are
   options of ONE template, never copies.
 
-  TIER: STATIC presentational -> JTE block. It is a real <form method="post"> the server
-  renders and the browser submits; no SPA, no client state. The only interactivity an
-  adopter adds (a password reveal toggle, inline async validation) rides their own Lit
-  island or htmx on top -- the block does not assume it.
+  TIER: STATIC presentational -> JTE block (ADR-0012 server-first). It is a real
+  <form method="post"> the server renders and the browser submits; no SPA, no client state,
+  no custom-element tags. The only interactivity an adopter adds (a password reveal toggle,
+  inline async validation) rides their own enhancer or htmx on top -- the block does not assume it.
 
-  WHY native inputs (not the <lv-input> island): a login form must POST named fields. The
-  <lv-input> island is a wire-bound control that emits events and carries no `name`, so it
-  would submit nothing. The block therefore uses the `input-group` partial (a real
-  <input name>) for email + password: token styling + the focus-within ring + a real
-  label binding, and the values actually post. (scientific rule: criterion 5 robustness +
-  SSR-friendliness beats the island here; the page must work before any JS boots.)
+  WHY native inputs: a login form must POST named fields. The block uses the `input-group`
+  partial (a real input with a name) for email + password: token styling + the focus-within
+  ring + a real label binding, and the values actually post. (scientific rule: criterion 5
+  robustness + SSR-friendliness; the page must work before any JS boots.)
 
-  WHY the card chrome is inlined (not the <lv-card> island): a login page is the one page
-  that must render correctly with zero JS, and <lv-card> is a Lit island that only takes a
-  `heading` string (no description region). The block renders the card surface with the
-  SAME tokens the island uses (--lv-color-card / --lv-radius-xl / --lv-shadow-sm) plus the
-  shadcn title+description header, server-side. shadcn wins the markup ergonomics; Radix
+  WHY the card chrome is inlined (not the card partial directly): a login page is the one page
+  that must render correctly with zero JS, and the card partial takes only a `heading` string
+  (no description region). The block renders the card surface with the
+  SAME tokens the card partial uses (--lv-color-card / --lv-radius-xl / --lv-shadow-sm) plus
+  the shadcn title+description header, server-side. shadcn wins the markup ergonomics; Radix
   has no behaviour for a static surface.
 
   VARIANTS (@param variant) -- the shadcn login family folded into options:

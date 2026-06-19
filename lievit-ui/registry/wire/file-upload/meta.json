@@ -1,0 +1,23 @@
+{
+  "name": "file-upload",
+  "type": "registry:wire",
+  "description": "A server-rendered drag-and-drop dropzone + file list whose upload runs over the wire upload path: a native <input type=file l:upload> POSTs the bytes out-of-band, the endpoint returns a signed temp-file reference, and the wire sets the server-held file list (the bytes never ride the snapshot). Remove drops a file from the server-held list. Server-first WIRE component (ADR-0012); replaces the <lv-file-upload> Lit island. WAI-ARIA dropzone-as-button + labelled file list. The runtime upload directive (l:upload) is ready (runtime/features/uploads.ts).",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/file-upload/FileUploadComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/FileUploadComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/file-upload/file-upload.jte",
+      "type": "registry:wire",
+      "target": "lievit/file-upload.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register FileUploadComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). The native input carries l:upload=\"files\": install the wire upload runtime (installUploads from runtime/features/uploads.ts) and wire the SERVER half (the /lievit/upload controller that validates + stores to temp + returns the signed ref). The dropzone + file list render server-side from the `files` field; a remove arms the file name via $set then the removePending action drops it. If you prefer a plain multipart POST, swap the l:upload input for <input type=file name=...> inside <form method=post enctype=multipart/form-data>. Adjust the template name freely once copied (the source is yours)."
+}

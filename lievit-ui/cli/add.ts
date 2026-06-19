@@ -2,7 +2,12 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
-import { resolve, collectNpmDependencies, type Registry } from "./registry.js";
+import {
+  resolve,
+  collectNpmDependencies,
+  type Registry,
+  type FileRoot,
+} from "./registry.js";
 
 /**
  * The `lievit add <component>` core: plan and apply a copy-in.
@@ -21,6 +26,18 @@ import { resolve, collectNpmDependencies, type Registry } from "./registry.js";
 export interface AddConfig {
   /** alias root for component files, e.g. "src" so a target "components/ui/x.ts" lands at "src/components/ui/x.ts". */
   root: string;
+  /**
+   * Java source root for `registry:wire` Java classes (file.root === "java"), e.g.
+   * "src/main/java" so a target "io/lievit/wire/Collapsible.java" lands there. Defaults to
+   * `src/main/java` when absent (a presentation-only adopter never sets it).
+   */
+  javaRoot?: string;
+  /**
+   * JTE templates root for `registry:wire` + `registry:jte` templates (file.root === "jte"),
+   * e.g. "src/main/jte" so a target "lievit/collapsible.jte" lands there. Defaults to
+   * `src/main/jte` when absent.
+   */
+  jteRoot?: string;
 }
 
 export type AddActionKind = "copy" | "skip" | "overwrite";
@@ -42,10 +59,27 @@ export interface AddPlan {
   docs: string[];
 }
 
-/** Join an alias root with a target path using forward slashes (registry paths are POSIX). */
+/** Join a root with a target path using forward slashes (registry paths are POSIX). */
 function joinDest(root: string, target: string): string {
   const left = root.replace(/\/+$/, "");
   return left.length === 0 ? target : `${left}/${target}`;
+}
+
+/**
+ * Pick the adopter root a file resolves under (ADR-0012 server-first two-root copy-in).
+ *
+ * `"java"`/`"jte"` route a `registry:wire` component's two files into the Java source tree and
+ * the templates tree; everything else (absent or `"alias"`) keeps the single alias root, so a
+ * presentation-only adopter and every legacy item behave exactly as before.
+ */
+function rootFor(config: AddConfig, root: FileRoot | undefined): string {
+  if (root === "java") {
+    return config.javaRoot ?? "src/main/java";
+  }
+  if (root === "jte") {
+    return config.jteRoot ?? "src/main/jte";
+  }
+  return config.root;
 }
 
 /**
@@ -70,7 +104,7 @@ export function planAdd(
 
   for (const item of items) {
     for (const file of item.files) {
-      const dest = joinDest(config.root, file.target);
+      const dest = joinDest(rootFor(config, file.root), file.target);
       const content = file.content ?? "";
       let kind: AddActionKind;
       if (existing.has(dest)) {

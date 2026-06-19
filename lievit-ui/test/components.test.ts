@@ -1,193 +1,78 @@
 /*
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Static JTE partial, Wave 4 (ADR-0012 server-first pivot): the badge DISPLAY island
+ * converted to a JTE partial. Its Lit island (registry/components/badge) was removed; the
+ * partial registry/jte/badge.jte is the to-be form, and the kit's Cell.Badge + the blocks
+ * rewrite depend on it.
+ *
+ * Like the static-partials-w1a suite, this Node harness has no JTE compiler, so it asserts on
+ * the partial SOURCE as text: the @param API, the variant-to-token mapping, the label /
+ * content slot, token-driven styling (no hardcoded hex), the JTE comment syntax, and that no
+ * inline <script> / on* handler ships (the strict CSP refuses them). The real-compiler golden
+ * runs out of band via `npm run test:jte-compile` (gg.jte 3.2.4 precompileAll).
  */
-import { describe, test, expect, afterEach } from "vitest";
-import "../registry/components/button/button.js";
-import "../registry/components/input/input.js";
-import "../registry/components/textarea/textarea.js";
-import "../registry/components/label/label.js";
-import "../registry/components/badge/badge.js";
-import "../registry/components/card/card.js";
-import "../registry/components/separator/separator.js";
-import "../registry/components/spinner/spinner.js";
-import "../registry/components/alert/alert.js";
+import { describe, test, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-async function mount<T extends HTMLElement>(tag: string, set?: (el: T) => void): Promise<T> {
-  const el = document.createElement(tag) as T;
-  set?.(el);
-  document.body.appendChild(el);
-  await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-  return el;
-}
+const jteDir = join(import.meta.dirname, "..", "registry", "jte");
+const read = (name: string) => readFileSync(join(jteDir, `${name}.jte`), "utf8");
 
-afterEach(() => {
-  document.body.innerHTML = "";
-});
+describe("badge (server-first JTE partial; the <lv-badge> island is gone)", () => {
+  const src = read("badge");
 
-describe("light DOM", () => {
-  test("every primitive renders into the light DOM (no shadow root to pierce)", async () => {
-    for (const tag of [
-      "lv-button",
-      "lv-input",
-      "lv-textarea",
-      "lv-label",
-      "lv-badge",
-      "lv-card",
-      "lv-separator",
-      "lv-spinner",
-      "lv-alert",
-    ]) {
-      const el = await mount(tag);
-      expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
-    }
-  });
-});
-
-describe("lv-button", () => {
-  test("renders a native button carrying the role for free", async () => {
-    const el = await mount("lv-button");
-    const btn = el.querySelector("button");
-    expect(btn).not.toBeNull();
-    expect(btn?.tagName).toBe("BUTTON");
+  test("ships and carries a usage-doc comment (<%-- --%> syntax) with the @param API + a call snippet", () => {
+    expect(src, "missing <%-- --%> jte comment block").toContain("<%--");
+    expect(src, "comment block must close").toContain("--%>");
+    expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
+    expect(src, "missing Usage section").toMatch(/Usage:/);
+    expect(src, "usage snippet must show the @template call").toContain("@@template.badge(");
+    expect(src, "missing param declaration").toMatch(/@param /);
   });
 
-  test("variant maps to a token class", async () => {
-    const el = await mount<HTMLElement & { variant: string }>("lv-button", (e) => {
-      e.variant = "danger";
-    });
-    expect(el.querySelector("button")?.classList.contains("lv-btn--danger")).toBe(true);
+  test("declares the documented param API: variant + label + a content slot", () => {
+    expect(src).toContain("@param String variant");
+    expect(src).toContain("@param String label");
+    expect(src).toContain("@param gg.jte.Content content");
   });
 
-  test("disabled reflects onto the native button", async () => {
-    const el = await mount<HTMLElement & { disabled: boolean }>("lv-button", (e) => {
-      e.disabled = true;
-    });
-    expect((el.querySelector("button") as HTMLButtonElement).disabled).toBe(true);
-  });
-});
-
-describe("lv-input", () => {
-  test("emits a bubbling lv-input event with the new value (events up)", async () => {
-    const el = await mount("lv-input");
-    let detail: string | undefined;
-    el.addEventListener("lv-input", (e) => {
-      detail = (e as CustomEvent<string>).detail;
-    });
-    const input = el.querySelector("input") as HTMLInputElement;
-    input.value = "parma";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(detail).toBe("parma");
+  test("variant maps to a status-token fill + foreground pair (success/warning/danger/info), neutral default", () => {
+    expect(src).toContain("var(--lv-color-success)");
+    expect(src).toContain("var(--lv-color-success-fg)");
+    expect(src).toContain("var(--lv-color-warning)");
+    expect(src).toContain("var(--lv-color-danger)");
+    expect(src).toContain("var(--lv-color-info)");
+    // neutral default reads the surface fill + muted foreground tokens
+    expect(src).toContain("var(--lv-color-surface)");
+    expect(src).toContain("var(--lv-color-muted)");
   });
 
-  test("invalid sets aria-invalid and the invalid class", async () => {
-    const el = await mount<HTMLElement & { invalid: boolean }>("lv-input", (e) => {
-      e.invalid = true;
-    });
-    const input = el.querySelector("input") as HTMLInputElement;
-    expect(input.getAttribute("aria-invalid")).toBe("true");
-    expect(input.classList.contains("lv-input--invalid")).toBe(true);
-  });
-});
-
-describe("lv-textarea", () => {
-  test("emits lv-input on change", async () => {
-    const el = await mount("lv-textarea");
-    let detail: string | undefined;
-    el.addEventListener("lv-input", (e) => {
-      detail = (e as CustomEvent<string>).detail;
-    });
-    const ta = el.querySelector("textarea") as HTMLTextAreaElement;
-    ta.value = "note";
-    ta.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(detail).toBe("note");
-  });
-});
-
-describe("lv-label", () => {
-  test("renders a native label with the for association", async () => {
-    const el = await mount<HTMLElement & { for: string }>("lv-label", (e) => {
-      e.for = "email";
-    });
-    expect((el.querySelector("label") as HTMLLabelElement).htmlFor).toBe("email");
+  test("keeps the lv-badge--<variant> class hook the island used so existing CSS still applies", () => {
+    expect(src).toContain("lv-badge lv-badge--${variant}");
+    expect(src).toContain('data-variant="${variant}"');
   });
 
-  test("required marker is hidden from assistive tech", async () => {
-    const el = await mount<HTMLElement & { required: boolean }>("lv-label", (e) => {
-      e.required = true;
-    });
-    const marker = el.querySelector(".lv-label__required");
-    expect(marker?.getAttribute("aria-hidden")).toBe("true");
-  });
-});
-
-describe("lv-badge", () => {
-  test("variant maps to a status token class", async () => {
-    const el = await mount<HTMLElement & { variant: string }>("lv-badge", (e) => {
-      e.variant = "success";
-    });
-    expect(el.querySelector(".lv-badge--success")).not.toBeNull();
-  });
-});
-
-describe("lv-card", () => {
-  test("with a heading is a labelled region", async () => {
-    const el = await mount<HTMLElement & { heading: string }>("lv-card", (e) => {
-      e.heading = "Listings";
-    });
-    const region = el.querySelector('[role="region"]') as HTMLElement;
-    expect(region).not.toBeNull();
-    const labelledBy = region.getAttribute("aria-labelledby");
-    expect(labelledBy).toBeTruthy();
-    expect(el.querySelector(`#${labelledBy}`)?.textContent).toBe("Listings");
+  test("the label renders, with the content slot taking precedence when supplied", () => {
+    expect(src).toContain("@if(content != null)${content}@else${label}@endif");
   });
 
-  test("without a heading carries no region role", async () => {
-    const el = await mount("lv-card");
-    expect(el.querySelector('[role="region"]')).toBeNull();
-  });
-});
-
-describe("lv-separator", () => {
-  test("carries role=separator and orientation", async () => {
-    const el = await mount<HTMLElement & { orientation: string }>("lv-separator", (e) => {
-      e.orientation = "vertical";
-    });
-    const sep = el.querySelector('[role="separator"]') as HTMLElement;
-    expect(sep.getAttribute("aria-orientation")).toBe("vertical");
-  });
-});
-
-describe("lv-spinner", () => {
-  test("carries role=status and an accessible label", async () => {
-    const el = await mount<HTMLElement & { label: string }>("lv-spinner", (e) => {
-      e.label = "Saving";
-    });
-    const status = el.querySelector('[role="status"]') as HTMLElement;
-    expect(status.getAttribute("aria-label")).toBe("Saving");
-  });
-});
-
-describe("lv-alert", () => {
-  test("danger is assertive (role=alert)", async () => {
-    const el = await mount<HTMLElement & { variant: string }>("lv-alert", (e) => {
-      e.variant = "danger";
-    });
-    expect(el.querySelector('[role="alert"]')).not.toBeNull();
+  test("renders a plain <span> pill (a status pill is decorative text, no live-region role)", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<span[\s\n]/);
+    expect(markup).not.toMatch(/role=/);
   });
 
-  test("info is polite (role=status)", async () => {
-    const el = await mount<HTMLElement & { variant: string }>("lv-alert", (e) => {
-      e.variant = "info";
-    });
-    expect(el.querySelector('[role="status"]')).not.toBeNull();
-    expect(el.querySelector('[role="alert"]')).toBeNull();
+  test("styling is token-driven: no hardcoded hex, no Lit residue, no inline script/handler", () => {
+    expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles|import .*\blit\b/);
+    expect(src).not.toMatch(/<script/i);
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup, "inline on* handler (CSP refuses them)").not.toMatch(/\son[a-z]+=/i);
   });
 
-  test("renders the heading when set", async () => {
-    const el = await mount<HTMLElement & { heading: string }>("lv-alert", (e) => {
-      e.heading = "Saved";
-    });
-    expect(el.querySelector(".lv-alert__heading")?.textContent).toBe("Saved");
+  test("never reaches for Font Awesome / wa-icon", () => {
+    expect(src.toLowerCase()).not.toMatch(/font-?awesome|wa-icon|fa-/);
   });
 });

@@ -25,7 +25,7 @@
             <tr data-admin-row="${row.id()}">
                 @for(Cell cell : row.cells())
                     @if(cell instanceof Cell.Badge badge)
-                        <td><lv-badge variant="${badge.variant()}">${badge.text()}</lv-badge></td>
+                        <td>@template.lievit.badge(variant = badge.variant(), label = badge.text())</td>
                     @elseif(cell instanceof Cell.Link link)
                         @if(link.newTab())
                             <td><a href="${link.href()}" target="_blank" rel="noopener noreferrer">${link.text()}</a></td>
@@ -33,7 +33,7 @@
                             <td><a href="${link.href()}">${link.text()}</a></td>
                         @endif
                     @elseif(cell instanceof Cell.Icon icon)
-                        <td><lv-icon name="${icon.name()}" data-color="${icon.color()}"></lv-icon>@if(!icon.text().isEmpty())<span>${icon.text()}</span>@endif</td>
+                        <td>@template.icon(name = icon.name(), cssClass = icon.color().isEmpty() ? "" : "text-[var(--lv-color-" + icon.color() + ")]")@if(!icon.text().isEmpty())<span>${icon.text()}</span>@endif</td>
                     @else
                         <td>${cell.text()}</td>
                     @endif
