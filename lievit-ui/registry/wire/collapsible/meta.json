@@ -1,0 +1,23 @@
+{
+  "name": "collapsible",
+  "type": "registry:wire",
+  "description": "A single trigger that expands/collapses one content region. Server-first WIRE component (ADR-0012): open state lives in typed Java, the server re-renders, the client morphs. Replaces the <lv-collapsible> Lit island. WAI-ARIA APG disclosure (button[aria-expanded] + region[aria-labelledby]).",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "wire/collapsible/CollapsibleComponent.java",
+      "type": "registry:wire",
+      "target": "io/lievit/wire/CollapsibleComponent.java",
+      "root": "java"
+    },
+    {
+      "path": "wire/collapsible/collapsible.jte",
+      "type": "registry:wire",
+      "target": "lievit/collapsible.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Register CollapsibleComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount/`@template.lievit.collapsible(...)`; pass the panel body as the `content` slot (an @`...` block). The `@LievitComponent(template=\"lievit/collapsible\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+}

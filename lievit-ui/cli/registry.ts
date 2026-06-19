@@ -16,14 +16,38 @@
 export type RegistryItemType =
   | "registry:ui"
   | "registry:lib"
-  | "registry:tokens";
+  | "registry:tokens"
+  | "registry:jte"
+  | "registry:wire";
+
+/**
+ * Which adopter root a copied file lands under (ADR-0012 server-first).
+ *
+ * A presentation-only registry needed exactly one root: the `src` alias. A server-first
+ * `registry:wire` component is TWO files that belong in TWO different adopter roots: the Java
+ * class under the project's Java source root, the JTE template under the templates root. So a
+ * file declares which root resolves its `target`:
+ *   - `"alias"` (the default, omitted on every legacy item) = the single `src` alias root, the
+ *     pre-ADR-0012 behaviour, kept byte-for-byte so `registry:ui`/`registry:lib`/`registry:jte`
+ *     resolution does not change.
+ *   - `"java"` = the adopter's Java source root (`lievit.json.roots.java`, default
+ *     `src/main/java`).
+ *   - `"jte"` = the adopter's JTE templates root (`lievit.json.roots.jte`, default
+ *     `src/main/jte`).
+ */
+export type FileRoot = "alias" | "java" | "jte";
 
 export interface RegistryFile {
   /** Source path relative to the registry root (e.g. "components/button/button.ts"). */
   path: string;
   type: RegistryItemType;
-  /** Destination relative to the adopter's alias root (e.g. "components/ui/button.ts"). */
+  /** Destination relative to the resolved root (e.g. "components/ui/button.ts"). */
   target: string;
+  /**
+   * Which adopter root resolves `target`. Absent = `"alias"` (the legacy single-root behaviour),
+   * so existing meta.json files are untouched and back-compatible.
+   */
+  root?: FileRoot;
   /** Inlined file content; present in the built registry.json, absent in authored meta.json. */
   content?: string;
 }

@@ -1,0 +1,17 @@
+{
+  "name": "icon",
+  "type": "registry:jte",
+  "description": "Inline Lucide <svg> by name, sized + coloured by --lv-* tokens. Zero JS, CSP-clean. The root PARTIAL: every partial/wire template that needs a glyph composes it via @template.lievit.icon(name=...).",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/icon.jte",
+      "type": "registry:jte",
+      "target": "lievit/icon.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["icon", "color"],
+  "docs": "Copies the icon partial to your JTE root at lievit/icon.jte, reached as @template.lievit.icon(name=...). It imports a static LievitIcons.body(name) icon map: vendor your Lucide SVGs and generate that map (see registry/icons/generate-icon-map.mjs), or point the @import at your own icon-body source. The source is yours: edit the package/import freely."
+}

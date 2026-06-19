@@ -3,7 +3,10 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 import { describe, test, expect, afterEach } from "vitest";
-import "../registry/components/collapsible/collapsible.js";
+// collapsible was converted to a server-first WIRE component (ADR-0012, Wave 0); its Lit island
+// is gone. Its behaviour now lives in registry/wire/collapsible (Java + JTE), tested in
+// test/wire-collapsible.test.ts (registry resolution) + the lievit-kit IT (render + state). The
+// toggle / toggle-group islands stay until their own wave.
 import "../registry/components/toggle/toggle.js";
 import "../registry/components/toggle-group/toggle-group.js";
 
@@ -28,87 +31,11 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 describe("disclosure light DOM", () => {
   test("every disclosure primitive renders into the light DOM (no shadow root)", async () => {
-    for (const tag of ["lv-collapsible", "lv-toggle", "lv-toggle-group"]) {
+    // lv-collapsible dropped: now a server-first WIRE component (ADR-0012).
+    for (const tag of ["lv-toggle", "lv-toggle-group"]) {
       const el = await mount(tag);
       expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-collapsible
-// ---------------------------------------------------------------------------
-type LvCollapsibleEl = HTMLElement & { label: string; open: boolean; disabled: boolean };
-
-describe("lv-collapsible", () => {
-  test("trigger is a button carrying aria-expanded + aria-controls", async () => {
-    const el = await mount<LvCollapsibleEl>("lv-collapsible", (e) => {
-      e.label = "Details";
-    });
-    const trigger = el.querySelector(".lv-collapsible__trigger") as HTMLButtonElement;
-    expect(trigger.tagName).toBe("BUTTON");
-    expect(trigger.getAttribute("aria-expanded")).toBe("false");
-    const controls = trigger.getAttribute("aria-controls");
-    expect(controls).toBeTruthy();
-    expect((el.querySelector(`#${controls}`) as HTMLElement)?.getAttribute("role")).toBe("region");
-  });
-
-  test("collapsed: the content region is hidden (removed from a11y tree + tab order)", async () => {
-    const el = await mount<LvCollapsibleEl>("lv-collapsible", (e) => {
-      e.label = "Details";
-    });
-    const region = el.querySelector(".lv-collapsible__panel") as HTMLElement;
-    expect(region.hasAttribute("hidden")).toBe(true);
-  });
-
-  test("clicking the trigger expands it: aria-expanded=true, region visible, emits lv-change(true)", async () => {
-    const el = await mount<LvCollapsibleEl>("lv-collapsible", (e) => {
-      e.label = "Details";
-    });
-    let detail: unknown;
-    el.addEventListener("lv-change", (e) => { detail = (e as CustomEvent).detail; });
-    (el.querySelector(".lv-collapsible__trigger") as HTMLButtonElement).click();
-    await settle(el);
-    expect(detail).toBe(true);
-    expect(el.querySelector(".lv-collapsible__trigger")?.getAttribute("aria-expanded")).toBe("true");
-    expect((el.querySelector(".lv-collapsible__panel") as HTMLElement).hasAttribute("hidden")).toBe(false);
-    expect(el.querySelector(".lv-collapsible__region--open")).not.toBeNull();
-  });
-
-  test("clicking again collapses it and emits lv-change(false)", async () => {
-    const el = await mount<LvCollapsibleEl>("lv-collapsible", (e) => {
-      e.open = true;
-      e.label = "Details";
-    });
-    let detail: unknown;
-    el.addEventListener("lv-change", (e) => { detail = (e as CustomEvent).detail; });
-    (el.querySelector(".lv-collapsible__trigger") as HTMLButtonElement).click();
-    await settle(el);
-    expect(detail).toBe(false);
-    expect((el.querySelector(".lv-collapsible__panel") as HTMLElement).hasAttribute("hidden")).toBe(true);
-  });
-
-  test("region is labelled by the trigger", async () => {
-    const el = await mount<LvCollapsibleEl>("lv-collapsible", (e) => { e.label = "Details"; });
-    const trigger = el.querySelector(".lv-collapsible__trigger") as HTMLElement;
-    const region = el.querySelector(".lv-collapsible__panel") as HTMLElement;
-    expect(region.getAttribute("aria-labelledby")).toBe(trigger.id);
-  });
-
-  test("disabled prevents toggling", async () => {
-    const el = await mount<LvCollapsibleEl>("lv-collapsible", (e) => {
-      e.label = "Details";
-      e.disabled = true;
-    });
-    (el.querySelector(".lv-collapsible__trigger") as HTMLButtonElement).click();
-    await settle(el);
-    expect(el.open).toBe(false);
-  });
-
-  test("renders a Lucide chevron svg (not Font Awesome)", async () => {
-    const el = await mount<LvCollapsibleEl>("lv-collapsible", (e) => { e.label = "Details"; });
-    expect(el.querySelector(".lv-collapsible__icon svg")).not.toBeNull();
-    expect(el.querySelector("i.fa, i.fas, wa-icon")).toBeNull();
   });
 });
 

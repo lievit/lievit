@@ -14,7 +14,14 @@ import type { Registry, RegistryItem } from "./registry.js";
  * `--check` mode fails on drift, keeping the committed registry.json honest.
  */
 
-const ITEM_DIRS = ["tokens", "icons", "components"] as const;
+// tokens/ + icons/ are single-item dirs (one meta.json at the top); components/, jte/ + wire/
+// each hold many item subdirs. The server-first tiers (ADR-0012): jte/ partials register as
+// `registry:jte` items via a jte/<name>/meta.json subdir (the flat jte/*.jte authoring files
+// stay untouched and are referenced by `path`); wire/ holds `registry:wire` components, each a
+// Java class + its JTE template + meta.json. Subdir scanning is directory-only, so the flat
+// jte/*.jte files (no meta.json) are simply not items, exactly as before.
+const ITEM_DIRS = ["tokens", "icons", "components", "jte", "wire"] as const;
+const SINGLE_ITEM_DIRS = new Set(["tokens", "icons"]);
 
 /** Walk the registry tree and load every `meta.json`, inlining its files' content. */
 export function buildRegistry(registryRoot: string): Registry {
@@ -25,14 +32,11 @@ export function buildRegistry(registryRoot: string): Registry {
     if (!existsSync(topDir)) {
       continue;
     }
-    // tokens/ and icons/ are each themselves one item dir (a single meta.json at the
-    // top level); components/ holds many item dirs.
-    const candidateDirs =
-      top === "tokens" || top === "icons"
-        ? [topDir]
-        : readdirSync(topDir, { withFileTypes: true })
-            .filter((e) => e.isDirectory())
-            .map((e) => join(topDir, e.name));
+    const candidateDirs = SINGLE_ITEM_DIRS.has(top)
+      ? [topDir]
+      : readdirSync(topDir, { withFileTypes: true })
+          .filter((e) => e.isDirectory())
+          .map((e) => join(topDir, e.name));
 
     for (const dir of candidateDirs) {
       const metaPath = join(dir, "meta.json");

@@ -83,16 +83,18 @@ Anatomy verified against the real examples
      <button type="button" l:click="doThing">Go</button>
    </div>
    ```
-   One `@param` per `@Wire` field (name matches exactly) + the always-present `@param ComponentMetadata _component`.
+   One `@param` per `@Wire` field (name matches exactly) + the always-present `@param ComponentMetadata _component` (and `@param <Type> _instance` when the template reads a non-serialized derived view off the live instance, as `listing-list.jte` does).
    `l:model` binds an input to a field (`.live` / `.lazy` / `.debounce.Xms` variants for the hot paths);
    `l:click` / `l:submit` / `l:keydown.enter` invoke actions;
    `$set('field', value)` mutates a field without a dedicated action (the confirm-arming pattern).
    The server re-renders the template to HTML; the client morphs (Idiomorph), preserving focus and scroll.
 
+   **The body/"children" of a wire component is OWNED template markup, NOT a JTE `Content` slot (Wave 0 finding, verified).** `JteTemplateAdapter.render()` builds the model from ONLY the `@Wire` fields + `_component` + `_instance`; there is no way to pass a `gg.jte.Content` at wire-call time, so a `@param Content content` in a wire template fails to render. The server-first equivalent of children is therefore: put the body markup directly in the wire template's owned region (the adopter edits it, it is copy-in source), or drive it from a `@Wire` field / a getter on `_instance`. This is the correct mental model for every Wave 2 stateful component that "wraps" content (dialog body, drawer/sheet body, accordion panels): the content lives in the component's own template, server-rendered, never projected through a slot. Use boolean `@Wire` flags rendered as JTE boolean attributes (`hidden="${!open}"`), NOT the smart-attribute null-drop (`"${cond ? null : "x"}"`) which JTE rejects on a boolean attribute.
+
 3. **`meta.json`** `registry/wire/<name>/meta.json`
    The copy-in manifest entry: `name`, `type: registry:wire`, the file list with `target` paths for BOTH the `.java` and the `.jte`, `registryDependencies` (tokens + any partials the template composes, e.g. `icon`), npm deps (none for wire), and post-copy `docs`.
 
-   Convention extension required (the registry is presentation-only today): add a `registry:wire` item type that carries two files (Java + JTE) and resolves them into the adopter's `src/main/java/.../wire/` and `src/main/jte/` roots respectively. This is the one new mechanism the refactor introduces. (See risk R5.)
+   Convention extension (BUILT in Wave 0): the `registry:wire` item type carries two files (Java + JTE), each with a `root` discriminator (`"java"` / `"jte"`), resolved into the adopter's Java source root + JTE root. `lievit.json` declares `roots: { java, jte }` (defaults `src/main/java`, `src/main/jte`); a file with no `root` keeps the legacy single alias-root behaviour, so `registry:ui`/`registry:lib`/`registry:jte` are byte-for-byte unchanged. `build-registry.ts` walks a new `wire/` (and `jte/`) item dir; `add.ts` routes each file to its root. (See risk R5, now closed.)
 
 ### 1.c Copy-in layout + how `lievit add` resolves each
 
@@ -298,8 +300,8 @@ gest's `ht-calendar` wraps `@event-calendar/core` (Svelte 5, CSP-clean) with dra
 **R4 - the popover/overlay seam is load-bearing.**
 dropdown-menu, context-menu, command, calendar-filter all need anchored floating UI. The server-pure path is the native `popover` attribute + CSS Anchor Positioning (no `@floating-ui/dom`, no Lit). This is a thinner-training area; build and visually verify ONE popover seam in Wave 3 before the dependents rely on it. If Anchor Positioning support is insufficient, the fallback is a tiny typed-vanilla positioning module (CSP-clean), NOT Alpine.
 
-**R5 - the `registry:wire` two-file copy-in is new mechanism [FLAG].**
-The registry + `lievit add` ship presentation only today. The refactor adds a wire item type that copies a `.java` AND a `.jte` into two different adopter roots. This is Wave 0 and gates everything. Risk: the CLI resolution + golden-file tests must cover two-root targets. Build and unit-test it first; do not fan out Wave 2 until it is green and exercised by one real wire component end to end (the never-executed-equals-wannabe rule).
+**R5 - the `registry:wire` two-file copy-in is new mechanism [CLOSED in Wave 0].**
+Built + tested: the `registry:wire` item type copies a `.java` AND a `.jte` into two adopter roots via a per-file `root` discriminator (`java`/`jte`), defaulting to `src/main/{java,jte}`, with `lievit.json.roots` overrides; legacy single-root items are unchanged. Golden tests (`test/wire-collapsible.test.ts`) cover resolution + the two-root copy + byte-identity + back-compat. Exercised end to end by the first wire component (collapsible) through the REAL runtime in `lievit-kit` `CollapsibleComponentIT` (mount -> toggle -> re-render, render-asserting). Wave 2 may fan out. Findings folded into convention 1.b: (a) the body is owned template markup, not a `Content` slot; (b) boolean state renders as a JTE boolean attribute, not the smart-attribute null-drop.
 
 **R6 - silent-render regression (the original bug class).**
 The whole pivot exists because client render failed silently and tests asserted structure not projection. Mitigation is mandatory and encoded in G6 and in every wave's exit gate: PARTIALs and WIRE templates get render-asserting tests (the rendered HTML/text is asserted, and the gest surfaces get Playwright). A wave is not done until its components have a test that would have caught a non-projected slot.
