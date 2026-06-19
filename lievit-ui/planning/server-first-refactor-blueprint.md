@@ -320,3 +320,27 @@ Override of the blueprint's "keep ht-calendar as escape-hatch island" recommenda
 - The one irreducible client bit (event drag-resize) = a small TYPED VANILLA TS module (CSP-clean) that fires a wire action on drop. NOT a Lit island, NOT @event-calendar.
 - The month/week/day grid = server-rendered HTML (JTE) from the typed model.
 Consequence: the calendar is the single heaviest piece of the refactor (gest's ht-calendar + @event-calendar dependency is retired). It gets its OWN dedicated, careful phase (not a fast wave), built with the debounce/optimization toolkit above. The escape-hatch for genuinely-heavy widgets becomes "a typed-TS micro-enhancement", not "a shipped Lit island"; lievit-ui ships no calendar island.
+
+---
+
+## STATUS: COMPLETE (2026-06-19)
+
+All waves executed on `refactor/server-first-pivot`. Final inventory: **40 JTE partials + 14 wire
+components + 0 Lit islands** (`registry/components/` is empty). Gates green on the merged tree:
+vitest 876, `check:registry` / `typecheck` / `test:jte-compile` clean, `lievit-kit` verify =
+499 units + 82 ITs BUILD SUCCESS.
+
+- Wave 0: `registry:wire` two-root copy-in mechanism (collapsible) + CollapsibleComponentIT.
+- Wave 1: ~20 presentation islands -> JTE partials (alert/card/button/input/checkbox/... select->native).
+- Wave 2: ~13 leaf stateful islands -> wire (dialog/drawer/sheet/tabs/accordion/toggle-group/command/
+  context-menu/navigation-menu/rich-select/file-upload/input-otp), each with a kit IT.
+- Wave 3: alert-dialog (on the dialog wire) + popover seam (native popover + CSS anchor) +
+  dropdown-menu (native) + sidebar (partial + TS collapse) + toast (partial + enhancer).
+- Wave 4: badge/breadcrumb partials; chart (server SVG) + date-picker (native input); data-table
+  (server-sorted partial aligned to the kit Table); calendar (server wire grid + debounce/lazy/loading
+  + typed-TS drag); DROP carousel/menubar/resizable/scroll-area; kit Cell.Badge/Icon -> partial markup;
+  4 blocks rewritten to compose partials; final DROP of the light-dom Lit helper.
+
+Remaining (separate efforts, not part of this library refactor): gest re-alignment phases G1-G6
+(the dogfood, ending in mandatory Playwright E2E asserting real rendered DOM), and folding in the
+parked docs/CSP branches.
