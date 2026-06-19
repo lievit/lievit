@@ -4,7 +4,6 @@
  */
 import { describe, test, expect, afterEach, vi } from "vitest";
 import "../registry/components/popover/popover.js";
-import "../registry/components/hover-card/hover-card.js";
 
 // @floating-ui/dom calls getBoundingClientRect/getComputedStyle which happy-dom
 // stubs to zeros; computePosition still resolves, so position() runs without throwing.
@@ -29,11 +28,11 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Light DOM check (both overlays)
+// Light DOM check
 // ---------------------------------------------------------------------------
 describe("overlays light DOM", () => {
   test("every overlay renders into the light DOM (no shadow root to pierce)", async () => {
-    for (const tag of ["lv-popover", "lv-hover-card"]) {
+    for (const tag of ["lv-popover"]) {
       const el = await mount(tag);
       expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
     }
@@ -184,132 +183,5 @@ describe("lv-popover", () => {
     const ev = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
     p.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-hover-card
-// ---------------------------------------------------------------------------
-type LvHoverCardEl = HTMLElement & {
-  placement: string;
-  openDelay: number;
-  closeDelay: number;
-};
-
-const hcTrigger = (el: HTMLElement) =>
-  el.querySelector(".lv-hover-card__trigger") as HTMLElement;
-const hcPanel = (el: HTMLElement) =>
-  el.querySelector(".lv-hover-card__panel") as HTMLElement;
-
-describe("lv-hover-card", () => {
-  test("the preview card carries NO ARIA role and is aria-hidden (Radix preview model)", async () => {
-    const el = await mount("lv-hover-card");
-    const p = hcPanel(el);
-    expect(p.getAttribute("role")).toBeNull();
-    expect(p.getAttribute("aria-hidden")).toBe("true");
-  });
-
-  test("the trigger has data-state but NOT aria-haspopup (not an announced popup)", async () => {
-    const el = await mount("lv-hover-card");
-    const t = hcTrigger(el);
-    expect(t.getAttribute("data-state")).toBe("closed");
-    expect(t.getAttribute("aria-haspopup")).toBeNull();
-  });
-
-  test("card is hidden by default (no --open class)", async () => {
-    const el = await mount("lv-hover-card");
-    expect(el.querySelector(".lv-hover-card__panel--open")).toBeNull();
-  });
-
-  test("pointer-enter opens the card only AFTER open-delay elapses", async () => {
-    vi.useFakeTimers();
-    const el = await mount<LvHoverCardEl>("lv-hover-card", (e) => {
-      e.openDelay = 300;
-    });
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
-    // not open yet (delay pending)
-    expect(el.querySelector(".lv-hover-card__panel--open")).toBeNull();
-    vi.advanceTimersByTime(300);
-    await settle(el);
-    expect(el.querySelector(".lv-hover-card__panel--open")).not.toBeNull();
-  });
-
-  test("focus also opens after the delay (keyboard users get the preview)", async () => {
-    vi.useFakeTimers();
-    const el = await mount<LvHoverCardEl>("lv-hover-card", (e) => {
-      e.openDelay = 300;
-    });
-    hcTrigger(el).dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    vi.advanceTimersByTime(300);
-    await settle(el);
-    expect(el.querySelector(".lv-hover-card__panel--open")).not.toBeNull();
-  });
-
-  test("pointer-leave closes the card after close-delay", async () => {
-    vi.useFakeTimers();
-    const el = await mount<LvHoverCardEl>("lv-hover-card", (e) => {
-      e.openDelay = 0;
-      e.closeDelay = 300;
-    });
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
-    vi.advanceTimersByTime(0);
-    await settle(el);
-    expect(el.querySelector(".lv-hover-card__panel--open")).not.toBeNull();
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerleave", { bubbles: true }));
-    // still open (close pending)
-    expect(el.querySelector(".lv-hover-card__panel--open")).not.toBeNull();
-    vi.advanceTimersByTime(300);
-    await settle(el);
-    expect(el.querySelector(".lv-hover-card__panel--open")).toBeNull();
-  });
-
-  test("moving the pointer onto the card before close cancels the close (gap is crossable)", async () => {
-    vi.useFakeTimers();
-    const el = await mount<LvHoverCardEl>("lv-hover-card", (e) => {
-      e.openDelay = 0;
-      e.closeDelay = 300;
-    });
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
-    vi.advanceTimersByTime(0);
-    await settle(el);
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerleave", { bubbles: true }));
-    // re-enter on the card itself cancels the pending close
-    hcPanel(el).dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
-    vi.advanceTimersByTime(300);
-    await settle(el);
-    expect(el.querySelector(".lv-hover-card__panel--open")).not.toBeNull();
-  });
-
-  test("Escape closes immediately (no delay)", async () => {
-    vi.useFakeTimers();
-    const el = await mount<LvHoverCardEl>("lv-hover-card", (e) => {
-      e.openDelay = 0;
-    });
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
-    vi.advanceTimersByTime(0);
-    await settle(el);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    await settle(el);
-    expect(el.querySelector(".lv-hover-card__panel--open")).toBeNull();
-  });
-
-  test("opening emits lv-open, closing emits lv-close", async () => {
-    vi.useFakeTimers();
-    const el = await mount<LvHoverCardEl>("lv-hover-card", (e) => {
-      e.openDelay = 0;
-      e.closeDelay = 0;
-    });
-    let opened = false;
-    let closed = false;
-    el.addEventListener("lv-open", () => (opened = true));
-    el.addEventListener("lv-close", () => (closed = true));
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
-    vi.advanceTimersByTime(0);
-    await settle(el);
-    expect(opened).toBe(true);
-    hcTrigger(el).dispatchEvent(new PointerEvent("pointerleave", { bubbles: true }));
-    vi.advanceTimersByTime(0);
-    await settle(el);
-    expect(closed).toBe(true);
   });
 });

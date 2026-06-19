@@ -33,21 +33,19 @@
     },
     {
       "name": "alert",
-      "type": "registry:ui",
-      "description": "An inline message banner; severity drives both colour and the ARIA live role.",
-      "dependencies": [
-        "lit"
-      ],
+      "type": "registry:jte",
+      "description": "An inline message banner; severity drives both colour and the ARIA live role (danger/warning are assertive role=alert, info/success are polite role=status). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/alert/alert.ts",
-          "type": "registry:ui",
-          "target": "components/ui/alert.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-alert>`: an inline message banner.\n *\n * The ARIA role tracks severity: `danger` and `warning` use `role=\"alert\"` (assertive, the\n * APG pattern for time-sensitive errors), while `info` and `success` use `role=\"status\"`\n * (polite), so screen readers interrupt only for the urgent kinds (WAI-ARIA alert pattern,\n * research 4.3). An optional `heading` is announced first. Owned source, copied in by\n * `lievit add alert`. Light-DOM rendered.\n */\n@customElement(\"lv-alert\")\nexport class LvAlert extends LitElement {\n  /** Severity, drives both colour and the ARIA live role. */\n  @property() variant: \"info\" | \"success\" | \"warning\" | \"danger\" = \"info\";\n\n  /** Optional bold heading rendered above the message. */\n  @property() heading = \"\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-alert\", LvAlert.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-alert {\n      display: block;\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      line-height: var(--lv-leading);\n      padding: var(--lv-space-3) var(--lv-space-4);\n      border-radius: var(--lv-radius-md);\n      border: 1px solid transparent;\n    }\n    .lv-alert__heading { font-weight: 600; margin-bottom: var(--lv-space-1); }\n    .lv-alert--info {\n      background: color-mix(in srgb, var(--lv-color-info) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-info);\n      color: var(--lv-color-fg);\n    }\n    .lv-alert--success {\n      background: color-mix(in srgb, var(--lv-color-success) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-success);\n      color: var(--lv-color-fg);\n    }\n    .lv-alert--warning {\n      background: color-mix(in srgb, var(--lv-color-warning) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-warning);\n      color: var(--lv-color-fg);\n    }\n    .lv-alert--danger {\n      background: color-mix(in srgb, var(--lv-color-danger) 12%, var(--lv-color-bg));\n      border-color: var(--lv-color-danger);\n      color: var(--lv-color-fg);\n    }\n  `;\n\n  /** Urgent variants interrupt; informational ones are polite. */\n  private ariaRole(): \"alert\" | \"status\" {\n    return this.variant === \"danger\" || this.variant === \"warning\" ? \"alert\" : \"status\";\n  }\n\n  render() {\n    return html`\n      <div class=\"lv-alert lv-alert--${this.variant}\" role=${this.ariaRole()}>\n        ${this.heading\n          ? html`<div class=\"lv-alert__heading\">${this.heading}</div>`\n          : null}\n        <slot></slot>\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-alert\": LvAlert;\n  }\n}\n"
+          "path": "jte/alert.jte",
+          "type": "registry:jte",
+          "target": "lievit/alert.jte",
+          "root": "jte",
+          "content": "@import gg.jte.Content\n<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui alert partial -- an inline message banner whose severity drives colour + role.\n\n  TIER: STATIC presentational -> JTE partial. The former <lv-alert> island held no client\n  state; severity-to-colour and severity-to-role are both pure functions of the variant, so\n  the server renders the whole thing.\n\n  STRUCTURE (scientific decision rule): WAI-ARIA alert / status pattern. shadcn renders a\n  bordered tinted panel keyed on variant; the live-region ROLE is the load-bearing decision\n  and is taken from the APG: time-sensitive errors (danger / warning) are assertive\n  (role=\"alert\"), informational kinds (info / success) are polite (role=\"status\"), so a\n  screen reader interrupts only for the urgent kinds. The tint uses color-mix over the\n  severity token so one token drives border + background coherently.\n\n  A11y (WAI-ARIA alert/status): danger|warning => role=\"alert\" (assertive); info|success =>\n  role=\"status\" (polite). An optional heading is rendered first; the message is the content slot.\n\n  Params:\n    String variant         = \"info\"   \"info\" | \"success\" | \"warning\" | \"danger\".\n    String heading         = null     optional bold heading rendered above the message.\n    gg.jte.Content content            the message body.\n    String cssClass        = \"\"       extra utility classes on the banner.\n\n  Usage:\n    @@template.alert(variant = \"danger\", content = @@`Could not save the listing.`)\n    @@template.alert(variant = \"success\", heading = \"Saved\", content = @@`Your changes are live.`)\n--%>\n@param String variant = \"info\"\n@param String heading = null\n@param gg.jte.Content content\n@param String cssClass = \"\"\n\n!{var urgent = \"danger\".equals(variant) || \"warning\".equals(variant);}\n!{var tone = switch (variant) {\n    case \"success\" -> \"var(--lv-color-success)\";\n    case \"warning\" -> \"var(--lv-color-warning)\";\n    case \"danger\"  -> \"var(--lv-color-danger)\";\n    default        -> \"var(--lv-color-info)\";\n  };}\n\n<div\n  data-slot=\"alert\"\n  data-variant=\"${variant}\"\n  role=\"${urgent ? \"alert\" : \"status\"}\"\n  class=\"block rounded-[var(--lv-radius-md)] border px-[var(--lv-space-4)] py-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-fg)] ${cssClass}\"\n  style=\"font-family:var(--lv-font-sans);border-color:${tone};background:color-mix(in srgb, ${tone} 12%, var(--lv-color-bg));\"\n>\n  @if(heading != null && !heading.isBlank())\n    <div data-slot=\"alert-heading\" class=\"mb-[var(--lv-space-1)] font-[var(--lv-font-semibold)]\">${heading}</div>\n  @endif\n  ${content}\n</div>\n"
         }
       ],
       "tokens": [
@@ -56,7 +54,7 @@
         "radius",
         "type"
       ],
-      "docs": "Register <lv-alert> by importing components/ui/alert.ts from your entry point."
+      "docs": "Copies the alert partial to your JTE root at lievit/alert.jte, reached as @template.lievit.alert(variant=..., content=@`...`). Variant drives colour + live role; pass an optional heading. The source is yours: edit freely."
     },
     {
       "name": "badge",
@@ -115,21 +113,19 @@
     },
     {
       "name": "button",
-      "type": "registry:ui",
-      "description": "A token-styled button primitive that drives a wire action via l:click.",
-      "dependencies": [
-        "lit"
-      ],
+      "type": "registry:jte",
+      "description": "A token-styled button (or link styled as a button); the click is wired by the consuming wire template via l:click, the partial renders only the styled control. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/button/button.ts",
-          "type": "registry:ui",
-          "target": "components/ui/button.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-button>`: a token-styled button primitive.\n *\n * Renders a native `<button>`, which carries the button role, keyboard activation\n * (Enter/Space) and disabled semantics for free (WAI-ARIA APG button pattern, research 4.3),\n * so no manual ARIA is needed. Presentation only: in a lievit template the click drives a\n * wire action via `l:click`; the component never holds domain state.\n *\n * Owned source, copied in by `lievit add button`. Light-DOM rendered so adopter CSS and the\n * `--lv-*` tokens cascade in freely; edit at will.\n */\n@customElement(\"lv-button\")\nexport class LvButton extends LitElement {\n  /** Visual emphasis. `primary` is the default call to action. */\n  @property() variant: \"primary\" | \"ghost\" | \"danger\" = \"primary\";\n\n  /** Disables the control: blocks activation and dims it. */\n  @property({ type: Boolean }) disabled = false;\n\n  /** Native button type. `submit` posts the enclosing form. */\n  @property() type: \"button\" | \"submit\" | \"reset\" = \"button\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-button\", LvButton.css);\n    return this;\n  }\n\n  static readonly css = `\n    lv-button { display: inline-block; }\n    .lv-btn {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      line-height: var(--lv-leading);\n      padding: var(--lv-space-2) var(--lv-space-4);\n      border-radius: var(--lv-radius-md);\n      border: 1px solid transparent;\n      cursor: pointer;\n    }\n    .lv-btn:focus-visible { outline: none; box-shadow: var(--lv-ring); }\n    .lv-btn[disabled] { opacity: 0.5; cursor: not-allowed; }\n    .lv-btn--primary { background: var(--lv-color-primary); color: var(--lv-color-primary-fg); }\n    .lv-btn--ghost {\n      background: transparent;\n      color: var(--lv-color-fg);\n      border-color: var(--lv-color-border);\n    }\n    .lv-btn--danger { background: var(--lv-color-danger); color: var(--lv-color-danger-fg); }\n  `;\n\n  render() {\n    return html`\n      <button\n        class=\"lv-btn lv-btn--${this.variant}\"\n        type=${this.type}\n        ?disabled=${this.disabled}\n      >\n        <slot></slot>\n      </button>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-button\": LvButton;\n  }\n}\n"
+          "path": "jte/button.jte",
+          "type": "registry:jte",
+          "target": "lievit/button.jte",
+          "root": "jte",
+          "content": "@import gg.jte.Content\n<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui button partial -- a token-styled button (or link styled as a button).\n\n  TIER: STATIC presentational -> JTE partial. The former <lv-button> island only styled a\n  native <button>; it held no state. Crucially the CLICK is NOT the partial's concern: the\n  consuming wire template wires the action via l:click on the element (l:click=\"save\"), or a\n  plain form submit / <a href> drives navigation. The partial renders only the styled control.\n\n  STRUCTURE (scientific decision rule): a real native <button> (or <a> when href is given),\n  which carries the button role, Enter/Space activation and disabled semantics for free\n  (WAI-ARIA APG button), so no manual ARIA is needed -- exactly shadcn's Button, whose only\n  job is the cva variant styling. Rendering an <a> when href is set keeps a navigational\n  action a real link (right-click, middle-click, copy-URL all work) instead of a JS-only button.\n\n  A11y (WAI-ARIA button): native <button> => role + keyboard + disabled for free; <a href> =>\n  a real link. focus-visible ring via the --lv-ring token. A disabled link drops href and gets\n  aria-disabled (an <a> cannot be natively disabled).\n\n  Params:\n    String  variant  = \"primary\"   \"primary\" | \"ghost\" | \"danger\".\n    String  type     = \"button\"    \"button\" | \"submit\" | \"reset\" (ignored when href is set).\n    String  href     = null        when set, render an <a href> styled as a button.\n    boolean disabled = false        dims + blocks activation.\n    String  cssClass = \"\"          extra utility classes (e.g. an l:click is added by the caller).\n    gg.jte.Content content          the button label / icon + label.\n\n  Usage: the consuming wire template wires the action via l:click on the rendered element.\n    @@template.button(variant = \"primary\", cssClass = \"...\", content = @@`Save`)\n    @@template.button(href = \"/listings\", variant = \"ghost\", content = @@`Back`)\n--%>\n@param String variant = \"primary\"\n@param String type = \"button\"\n@param String href = null\n@param boolean disabled = false\n@param String cssClass = \"\"\n@param gg.jte.Content content\n\n!{var variantClass = switch (variant) {\n    case \"ghost\"  -> \"bg-transparent text-[var(--lv-color-fg)] border-[var(--lv-color-border)]\";\n    case \"danger\" -> \"bg-[var(--lv-color-danger)] text-[var(--lv-color-danger-fg)]\";\n    default       -> \"bg-[var(--lv-color-primary)] text-[var(--lv-color-primary-fg)]\";\n  };}\n!{var base = \"inline-flex items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-transparent px-[var(--lv-space-4)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] cursor-pointer outline-none focus-visible:shadow-[var(--lv-ring)] disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed\";}\n\n@if(href != null)\n  <a\n    data-slot=\"button\"\n    data-variant=\"${variant}\"\n    href=\"${disabled ? null : href}\"\n    aria-disabled=\"${disabled ? \"true\" : null}\"\n    class=\"${base} ${variantClass} ${cssClass}\"\n    style=\"font-family:var(--lv-font-sans);\"\n  >${content}</a>\n@else\n  <button\n    data-slot=\"button\"\n    data-variant=\"${variant}\"\n    type=\"${type}\"\n    disabled=\"${disabled}\"\n    class=\"${base} ${variantClass} ${cssClass}\"\n    style=\"font-family:var(--lv-font-sans);\"\n  >${content}</button>\n@endif\n"
         }
       ],
       "tokens": [
@@ -139,7 +135,7 @@
         "type",
         "ring"
       ],
-      "docs": "Register <lv-button> by importing components/ui/button.ts from your entry point."
+      "docs": "Copies the button partial to your JTE root at lievit/button.jte, reached as @template.lievit.button(variant=..., content=@`...`). Wire the action with l:click on the rendered element from the consuming wire template, or pass href to render a real link. The source is yours: edit freely."
     },
     {
       "name": "calendar",
@@ -172,21 +168,19 @@
     },
     {
       "name": "card",
-      "type": "registry:ui",
-      "description": "A surface container with optional labelled header region.",
-      "dependencies": [
-        "lit"
-      ],
+      "type": "registry:jte",
+      "description": "A surface container with an optional labelled header region (role=region + aria-labelledby when a heading is set). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/card/card.ts",
-          "type": "registry:ui",
-          "target": "components/ui/card.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-card>`: a surface container with optional header.\n *\n * Pure presentation: an elevated surface (token `--lv-shadow-sm`, research 4.2) with an\n * optional `heading` rendered in a header region and the body supplied via the default slot.\n * When a heading is present the card is given `role=\"region\"` and `aria-labelledby` pointing\n * at the heading, so assistive tech announces the landmark by its title (WAI-ARIA, research\n * 4.3). Owned source, copied in by `lievit add card`. Light-DOM rendered.\n */\n@customElement(\"lv-card\")\nexport class LvCard extends LitElement {\n  /** Optional card title; renders a header region when set. */\n  @property() heading = \"\";\n\n  private static seq = 0;\n  private readonly headingId = `lv-card-heading-${LvCard.seq++}`;\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-card\", LvCard.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-card {\n      display: block;\n      background: var(--lv-color-bg);\n      border: 1px solid var(--lv-color-border);\n      border-radius: var(--lv-radius-md);\n      box-shadow: var(--lv-shadow-sm);\n      overflow: hidden;\n    }\n    .lv-card__header {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-lg);\n      font-weight: 600;\n      color: var(--lv-color-fg);\n      padding: var(--lv-space-4);\n      border-bottom: 1px solid var(--lv-color-border);\n    }\n    .lv-card__body {\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-base);\n      color: var(--lv-color-fg);\n      padding: var(--lv-space-4);\n    }\n  `;\n\n  render() {\n    const hasHeading = this.heading.length > 0;\n    return html`\n      <div\n        class=\"lv-card\"\n        role=${hasHeading ? \"region\" : \"presentation\"}\n        aria-labelledby=${hasHeading ? this.headingId : \"\"}\n      >\n        ${hasHeading\n          ? html`<div class=\"lv-card__header\" id=${this.headingId}>${this.heading}</div>`\n          : null}\n        <div class=\"lv-card__body\"><slot></slot></div>\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-card\": LvCard;\n  }\n}\n"
+          "path": "jte/card.jte",
+          "type": "registry:jte",
+          "target": "lievit/card.jte",
+          "root": "jte",
+          "content": "@import gg.jte.Content\n<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui card partial -- a surface container with an optional labelled header.\n\n  TIER: STATIC presentational -> JTE partial. The former <lv-card> island generated a header\n  id at runtime only to wire aria-labelledby; the server can mint that id deterministically\n  from the caller's `headingId`, so no client is needed.\n\n  STRUCTURE (scientific decision rule): shadcn's Card (elevated surface + optional header +\n  body) maps cleanly to a div with a header region and a content slot. The elevation reads the\n  --lv-shadow-sm token; border + radius read tokens too, so a theme retints the whole surface.\n  When a heading is present the card becomes a labelled landmark (role=\"region\" +\n  aria-labelledby) per WAI-ARIA, so assistive tech announces the section by its title; with no\n  heading the card is presentational only.\n\n  A11y (WAI-ARIA region): heading present => role=\"region\" + aria-labelledby pointing at the\n  header id; no heading => no landmark (a bare surface).\n\n  Params:\n    String heading         = null      optional card title; renders a header region when set.\n    String headingId       = \"lv-card-heading\"  id linking aria-labelledby to the header.\n    gg.jte.Content content             the card body.\n    String cssClass        = \"\"        extra utility classes on the card.\n\n  Usage:\n    @@template.card(content = @@`<p>Plain surface.</p>`)\n    @@template.card(heading = \"Listings\", headingId = \"listings-card\", content = @@`<p>...</p>`)\n--%>\n@param String heading = null\n@param String headingId = \"lv-card-heading\"\n@param gg.jte.Content content\n@param String cssClass = \"\"\n\n!{var hasHeading = heading != null && !heading.isBlank();}\n\n<div\n  data-slot=\"card\"\n  role=\"${hasHeading ? \"region\" : null}\"\n  aria-labelledby=\"${hasHeading ? headingId : null}\"\n  class=\"block overflow-hidden rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-sm)] ${cssClass}\"\n  style=\"font-family:var(--lv-font-sans);\"\n>\n  @if(hasHeading)\n    <div data-slot=\"card-header\" id=\"${headingId}\" class=\"border-b border-[var(--lv-color-border)] p-[var(--lv-space-4)] text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]\">${heading}</div>\n  @endif\n  <div data-slot=\"card-body\" class=\"p-[var(--lv-space-4)] text-[length:var(--lv-text-base)]\">\n    ${content}\n  </div>\n</div>\n"
         }
       ],
       "tokens": [
@@ -196,7 +190,7 @@
         "type",
         "shadow"
       ],
-      "docs": "Register <lv-card> by importing components/ui/card.ts from your entry point."
+      "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Pass a heading + headingId to render a labelled region. The source is yours: edit freely."
     },
     {
       "name": "carousel",
@@ -581,22 +575,19 @@
     },
     {
       "name": "hover-card",
-      "type": "registry:ui",
-      "description": "A hover-triggered floating preview card (Radix hover-card model: preview affordance, no ARIA role, not focus-trapping); open/close delays, positioned by @floating-ui/dom with offset + flip + shift.",
-      "dependencies": [
-        "lit",
-        "@floating-ui/dom"
-      ],
+      "type": "registry:jte",
+      "description": "A hover/focus-triggered preview card, CSS-only (Radix preview model: no ARIA role, aria-hidden, not focus-trapping). Content lives in the DOM, revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/hover-card/hover-card.ts",
-          "type": "registry:ui",
-          "target": "components/ui/hover-card.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property, state } from \"lit/decorators.js\";\nimport { computePosition, flip, shift, offset } from \"@floating-ui/dom\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-hover-card>`: a hover-triggered floating card for preview content.\n *\n * Follows Radix's hover-card model (~/workspaces/ui-refs/radix-primitives hover-card):\n * - It is a PREVIEW affordance for sighted pointer/keyboard users, NOT an essential\n *   announced popup. So the trigger carries `data-state` only (no `aria-haspopup`),\n *   and the card has NO ARIA role and is `aria-hidden` to assistive tech (its content\n *   must also exist in the accessible flow). This mirrors Radix, which gives the\n *   content no role and makes its tabbables non-tabbable.\n * - Opens on pointer-enter and focus after `open-delay` (~300ms); closes on\n *   pointer-leave and blur after `close-delay`. Moving the pointer from trigger onto\n *   the card keeps it open (the card itself re-arms open on enter), so the gap is\n *   crossable. Escape closes immediately.\n * - NOT focus-trapping: it is hover/preview, never modal.\n *\n * Positioned by `@floating-ui/dom` (offset + flip + shift), stacks at `--lv-z-popover`.\n *\n * Usage:\n *   <lv-hover-card>\n *     <a slot=\"trigger\" href=\"/u/ada\">@ada</a>\n *     <div slot=\"content\">Ada Lovelace — first programmer</div>\n *   </lv-hover-card>\n *\n * Owned source, copied in by `lievit add hover-card`. Light-DOM rendered.\n * npm dep: `@floating-ui/dom` (declared in meta.json, installed by `lievit add`).\n */\n@customElement(\"lv-hover-card\")\nexport class LvHoverCard extends LitElement {\n  /** Preferred card placement (flips automatically when space is tight). */\n  @property() placement:\n    | \"top\"\n    | \"top-start\"\n    | \"top-end\"\n    | \"bottom\"\n    | \"bottom-start\"\n    | \"bottom-end\"\n    | \"left\"\n    | \"right\" = \"bottom\";\n\n  /** Delay in ms before opening on hover/focus (Radix-style, lighter default). */\n  @property({ type: Number, attribute: \"open-delay\" }) openDelay = 300;\n\n  /** Delay in ms before closing after the pointer/focus leaves. */\n  @property({ type: Number, attribute: \"close-delay\" }) closeDelay = 300;\n\n  @state() private open = false;\n\n  private openTimer = 0;\n  private closeTimer = 0;\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-hover-card\", LvHoverCard.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-hover-card { position: relative; display: inline-block; }\n    .lv-hover-card__trigger { display: inline-block; }\n    .lv-hover-card__panel {\n      position: fixed;\n      z-index: var(--lv-z-popover);\n      width: 16rem;\n      box-sizing: border-box;\n      background: var(--lv-color-popover);\n      color: var(--lv-color-popover-fg);\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      line-height: var(--lv-leading);\n      border: 1px solid var(--lv-color-border);\n      border-radius: var(--lv-radius-md);\n      box-shadow: var(--lv-shadow-md);\n      padding: var(--lv-space-4);\n      display: none;\n    }\n    .lv-hover-card__panel--open { display: block; }\n  `;\n\n  connectedCallback() {\n    super.connectedCallback();\n    document.addEventListener(\"keydown\", this.handleGlobalKey);\n  }\n\n  disconnectedCallback() {\n    super.disconnectedCallback();\n    document.removeEventListener(\"keydown\", this.handleGlobalKey);\n    this.clearTimers();\n  }\n\n  private clearTimers() {\n    if (this.openTimer) {\n      clearTimeout(this.openTimer);\n      this.openTimer = 0;\n    }\n    if (this.closeTimer) {\n      clearTimeout(this.closeTimer);\n      this.closeTimer = 0;\n    }\n  }\n\n  private handleGlobalKey = (e: KeyboardEvent) => {\n    if (this.open && e.key === \"Escape\") {\n      this.clearTimers();\n      this.open = false;\n    }\n  };\n\n  private scheduleOpen = () => {\n    if (this.closeTimer) {\n      clearTimeout(this.closeTimer);\n      this.closeTimer = 0;\n    }\n    if (this.open || this.openTimer) return;\n    this.openTimer = window.setTimeout(() => {\n      this.openTimer = 0;\n      this.open = true;\n      this.dispatchEvent(\n        new CustomEvent(\"lv-open\", { bubbles: true, composed: true })\n      );\n      this.updateComplete.then(() => this.position());\n    }, this.openDelay);\n  };\n\n  private scheduleClose = () => {\n    if (this.openTimer) {\n      clearTimeout(this.openTimer);\n      this.openTimer = 0;\n    }\n    if (!this.open || this.closeTimer) return;\n    this.closeTimer = window.setTimeout(() => {\n      this.closeTimer = 0;\n      this.open = false;\n      this.dispatchEvent(\n        new CustomEvent(\"lv-close\", { bubbles: true, composed: true })\n      );\n    }, this.closeDelay);\n  };\n\n  private async position() {\n    const trigger = this.querySelector(\n      \".lv-hover-card__trigger\"\n    ) as HTMLElement | null;\n    const panel = this.querySelector(\n      \".lv-hover-card__panel\"\n    ) as HTMLElement | null;\n    if (!trigger || !panel) return;\n\n    const { x, y } = await computePosition(trigger, panel, {\n      placement: this.placement,\n      middleware: [offset(8), flip(), shift({ padding: 4 })],\n    });\n    panel.style.left = `${x}px`;\n    panel.style.top = `${y}px`;\n  }\n\n  render() {\n    const state = this.open ? \"open\" : \"closed\";\n    return html`\n      <div class=\"lv-hover-card\">\n        <span\n          class=\"lv-hover-card__trigger\"\n          data-state=${state}\n          @pointerenter=${this.scheduleOpen}\n          @pointerleave=${this.scheduleClose}\n          @focusin=${this.scheduleOpen}\n          @focusout=${this.scheduleClose}\n        >\n          <slot name=\"trigger\"></slot>\n        </span>\n\n        <div\n          class=\"lv-hover-card__panel ${this.open ? \"lv-hover-card__panel--open\" : \"\"}\"\n          data-state=${state}\n          aria-hidden=\"true\"\n          @pointerenter=${this.scheduleOpen}\n          @pointerleave=${this.scheduleClose}\n        >\n          <slot name=\"content\"></slot>\n        </div>\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-hover-card\": LvHoverCard;\n  }\n}\n"
+          "path": "jte/hover-card.jte",
+          "type": "registry:jte",
+          "target": "lievit/hover-card.jte",
+          "root": "jte",
+          "content": "@import gg.jte.Content\n<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui hover-card partial -- a hover/focus-triggered preview card, CSS-only (no JS).\n\n  TIER: STATIC presentational -> JTE partial. The former <lv-hover-card> island used Floating\n  UI + open/close timers + Lit state. Per ADR-0012 the server-pure path is CSS: the panel\n  content is ALREADY in the DOM and is revealed by the group's :hover / :focus-within, with no\n  client state and no positioning JS. The open/close delay nuance is dropped deliberately (a\n  delay needs a timer = client state); the gap between trigger and panel is kept crossable by\n  laying the panel directly under the trigger with no margin and a small padding bridge.\n\n  STRUCTURE (scientific decision rule): Radix's hover-card MODEL (preview affordance, not an\n  announced popup) rendered with a CSS group-hover reveal. Tailwind's group + group-hover /\n  group-focus-within utilities express \"show the panel when the trigger area is hovered or\n  focused\" without any script -- the canonical CSS-only disclosure. No CSS Anchor Positioning\n  is needed because a preview card sits in normal flow under its trigger (absolute, top-full).\n\n  A11y (Radix preview model): the trigger is a normal interactive element; the panel carries\n  NO ARIA role and is aria-hidden=\"true\" -- it is a sighted-pointer/keyboard preview, so the\n  same information MUST also be reachable in the page flow for assistive tech. Not focus-trapping.\n\n  Params:\n    gg.jte.Content trigger             the trigger element (a link / button / text).\n    gg.jte.Content content             the preview body, revealed on hover/focus.\n    String         cssClass = \"\"       extra utility classes on the wrapper.\n\n  Usage:\n    @@template.hover-card(\n      trigger = @@`<a href=\"/u/ada\">@@ada</a>`,\n      content = @@`<p>Ada Lovelace, first programmer.</p>`\n    )\n--%>\n@param gg.jte.Content trigger\n@param gg.jte.Content content\n@param String cssClass = \"\"\n\n<span data-slot=\"hover-card\" class=\"group relative inline-block ${cssClass}\">\n  <span data-slot=\"hover-card-trigger\" class=\"inline-block\">${trigger}</span>\n  <span\n    data-slot=\"hover-card-panel\"\n    aria-hidden=\"true\"\n    class=\"invisible absolute top-full left-0 z-[var(--lv-z-popover)] mt-[var(--lv-space-1)] box-border block w-[16rem] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] p-[var(--lv-space-4)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-popover-fg)] opacity-0 shadow-[var(--lv-shadow-md)] transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100\"\n    style=\"font-family:var(--lv-font-sans);\"\n  >${content}</span>\n</span>\n"
         }
       ],
       "tokens": [
@@ -607,7 +598,7 @@
         "shadow",
         "z"
       ],
-      "docs": "Register <lv-hover-card> by importing components/ui/hover-card.ts from your entry point. Slot the trigger in slot=\"trigger\" and the preview body in slot=\"content\". It opens on pointer-enter/focus after `open-delay` (ms, default 300) and closes after `close-delay` (default 300); set `placement` (default bottom). It is preview-only: keep the same info reachable in the page flow for assistive tech. Listen for `lv-open`/`lv-close`."
+      "docs": "Copies the hover-card partial to your JTE root at lievit/hover-card.jte, reached as @template.lievit.hover-card(trigger=@`...`, content=@`...`). It is preview-only: keep the same info reachable in the page flow for assistive tech. The source is yours: edit freely."
     },
     {
       "name": "icon",
@@ -841,29 +832,26 @@
     },
     {
       "name": "progress",
-      "type": "registry:ui",
-      "description": "A determinate or indeterminate progress bar with WAI-ARIA progressbar semantics; respects prefers-reduced-motion.",
-      "dependencies": [
-        "lit"
-      ],
+      "type": "registry:jte",
+      "description": "A determinate or indeterminate progress bar with WAI-ARIA progressbar semantics; respects prefers-reduced-motion. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/progress/progress.ts",
-          "type": "registry:ui",
-          "target": "components/ui/progress.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-progress>`: a determinate or indeterminate progress bar.\n *\n * Implements the WAI-ARIA progressbar pattern (research 4.3): `role=\"progressbar\"`,\n * `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, and `aria-label` carry the\n * state to assistive tech without any visual text. When `value` is -1 (the\n * indeterminate sentinel), `aria-valuenow` is omitted and the bar animates.\n * Respects `prefers-reduced-motion`. Pure visual component; no events emitted.\n *\n * Owned source, copied in by `lievit add progress`. Light-DOM rendered.\n */\n@customElement(\"lv-progress\")\nexport class LvProgress extends LitElement {\n  /** Current value (0-100). Use -1 for indeterminate. */\n  @property({ type: Number }) value = -1;\n\n  /** Accessible label. */\n  @property() label = \"Progress\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-progress\", LvProgress.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-progress {\n      display: block;\n      width: 100%;\n      height: 0.5rem;\n      background: var(--lv-color-surface);\n      border-radius: var(--lv-radius-sm);\n      overflow: hidden;\n    }\n    .lv-progress__bar {\n      height: 100%;\n      background: var(--lv-color-primary);\n      border-radius: var(--lv-radius-sm);\n      transition: width 200ms ease;\n    }\n    .lv-progress__bar--indeterminate {\n      width: 40%;\n      animation: lv-progress-slide 1.2s ease-in-out infinite;\n    }\n    @keyframes lv-progress-slide {\n      0%   { transform: translateX(-100%); }\n      100% { transform: translateX(350%); }\n    }\n    @media (prefers-reduced-motion: reduce) {\n      .lv-progress__bar--indeterminate { animation-duration: 0s; }\n    }\n  `;\n\n  render() {\n    const indeterminate = this.value < 0;\n    const pct = indeterminate ? 40 : Math.min(100, Math.max(0, this.value));\n\n    return html`\n      <div\n        class=\"lv-progress\"\n        role=\"progressbar\"\n        aria-label=${this.label}\n        aria-valuemin=\"0\"\n        aria-valuemax=\"100\"\n        aria-valuenow=${indeterminate ? \"\" : String(pct)}\n      >\n        <div\n          class=\"lv-progress__bar ${indeterminate ? \"lv-progress__bar--indeterminate\" : \"\"}\"\n          style=${indeterminate ? \"\" : `width: ${pct}%`}\n        ></div>\n      </div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-progress\": LvProgress;\n  }\n}\n"
+          "path": "jte/progress.jte",
+          "type": "registry:jte",
+          "target": "lievit/progress.jte",
+          "root": "jte",
+          "content": "<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui progress partial -- a determinate or indeterminate progress bar.\n\n  TIER: STATIC presentational -> JTE partial. The former <lv-progress> island computed a width\n  and an ARIA value; both are pure functions of the typed `value`, so the server renders them.\n\n  STRUCTURE (scientific decision rule): a token-styled bar with the WAI-ARIA progressbar\n  pattern rather than the native <progress> element. The native element's fill cannot be\n  themed by the --lv-* tokens cross-browser (its pseudo-elements vary by engine), and an\n  indeterminate native bar gives no styling hook for the reduced-motion guard; a div+role\n  progressbar (shadcn's Radix Progress approach) themes cleanly and keeps the indeterminate\n  animation in CSS (motion-reduce:animate-none). The track + fill read --lv-color tokens.\n\n  A11y (WAI-ARIA progressbar): role=\"progressbar\" + aria-valuemin/max + aria-label; for a\n  determinate bar aria-valuenow carries the percent, for indeterminate (value < 0) it is\n  omitted (the indeterminate convention) and the fill animates.\n\n  Params:\n    int    value    = -1          0..100 determinate; < 0 => indeterminate.\n    String label    = \"Progress\"  accessible name.\n    String cssClass = \"\"          extra utility classes on the track.\n\n  Usage:\n    @@template.progress(value = 42, label = \"Uploading\")\n    @@template.progress()   (no value -> indeterminate)\n--%>\n@param int value = -1\n@param String label = \"Progress\"\n@param String cssClass = \"\"\n\n!{var indeterminate = value < 0;}\n!{var pct = indeterminate ? 0 : Math.min(100, Math.max(0, value));}\n\n<div\n  data-slot=\"progress\"\n  role=\"progressbar\"\n  aria-label=\"${label}\"\n  aria-valuemin=\"0\"\n  aria-valuemax=\"100\"\n  aria-valuenow=\"${indeterminate ? null : String.valueOf(pct)}\"\n  class=\"block h-[0.5rem] w-full overflow-hidden rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-surface)] ${cssClass}\"\n>\n  @if(indeterminate)\n    <div data-slot=\"progress-bar\" class=\"h-full w-[40%] animate-[lv-progress-slide_1.2s_ease-in-out_infinite] rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-primary)] motion-reduce:animate-none\"></div>\n  @else\n    <div data-slot=\"progress-bar\" class=\"h-full rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-primary)] transition-[width]\" style=\"width:${pct}%;\"></div>\n  @endif\n</div>\n"
         }
       ],
       "tokens": [
         "color",
-        "space",
         "radius"
       ],
-      "docs": "Register <lv-progress> by importing components/ui/progress.ts from your entry point."
+      "docs": "Copies the progress partial to your JTE root at lievit/progress.jte, reached as @template.lievit.progress(value=42, label=...). value < 0 renders the indeterminate animation. The source is yours: edit freely."
     },
     {
       "name": "radio-group",
@@ -1009,27 +997,25 @@
     },
     {
       "name": "separator",
-      "type": "registry:ui",
-      "description": "A thin divider with role=separator and orientation.",
-      "dependencies": [
-        "lit"
-      ],
+      "type": "registry:jte",
+      "description": "A thin divider with role=separator + aria-orientation (decorative=true drops it from the a11y tree). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/separator/separator.ts",
-          "type": "registry:ui",
-          "target": "components/ui/separator.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-separator>`: a thin divider line.\n *\n * Carries `role=\"separator\"` and `aria-orientation` so assistive tech announces the divide\n * (WAI-ARIA separator pattern, research 4.3); a purely decorative separator can be hidden by\n * the adopter with `aria-hidden`. Owned source, copied in by `lievit add separator`.\n * Light-DOM rendered.\n */\n@customElement(\"lv-separator\")\nexport class LvSeparator extends LitElement {\n  /** Orientation of the rule. */\n  @property() orientation: \"horizontal\" | \"vertical\" = \"horizontal\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-separator\", LvSeparator.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-separator { background: var(--lv-color-border); border: 0; }\n    .lv-separator--horizontal { width: 100%; height: 1px; }\n    .lv-separator--vertical { width: 1px; height: 100%; display: inline-block; }\n  `;\n\n  render() {\n    return html`\n      <div\n        class=\"lv-separator lv-separator--${this.orientation}\"\n        role=\"separator\"\n        aria-orientation=${this.orientation}\n      ></div>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-separator\": LvSeparator;\n  }\n}\n"
+          "path": "jte/separator.jte",
+          "type": "registry:jte",
+          "target": "lievit/separator.jte",
+          "root": "jte",
+          "content": "<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui separator partial -- a thin divider line between content groups.\n\n  TIER: STATIC presentational -> JTE partial. A separator is a single styled rule with\n  no client state; the former <lv-separator> island held nothing the server cannot render.\n\n  STRUCTURE (scientific decision rule): WAI-ARIA APG separator pattern. shadcn/Radix render\n  a <div role=\"separator\"> with aria-orientation; the platform has no native horizontal-rule\n  element that also carries orientation, so the role-on-div approach wins (it expresses both\n  orientations and stays decoratable). A purely decorative divide passes decorative=true,\n  which drops it from the accessibility tree (aria-hidden) per the APG note that a separator\n  with no semantic meaning should not be announced.\n\n  A11y (WAI-ARIA separator): role=\"separator\" + aria-orientation when announced; when\n  decorative, role and aria-orientation are dropped and aria-hidden=\"true\" hides the rule.\n\n  Params:\n    String orientation = \"horizontal\"   \"horizontal\" | \"vertical\".\n    boolean decorative = false           true => hidden from assistive tech (no role).\n    String cssClass    = \"\"              extra utility classes on the rule.\n\n  Usage:\n    @@template.separator()\n    @@template.separator(orientation = \"vertical\")\n    @@template.separator(decorative = true)\n--%>\n@param String orientation = \"horizontal\"\n@param boolean decorative = false\n@param String cssClass = \"\"\n\n!{var isVertical = \"vertical\".equals(orientation);}\n!{var sizeClass = isVertical ? \"inline-block h-full w-px\" : \"block h-px w-full\";}\n\n<div\n  data-slot=\"separator\"\n  data-orientation=\"${orientation}\"\n  role=\"${decorative ? null : \"separator\"}\"\n  aria-orientation=\"${decorative ? null : orientation}\"\n  aria-hidden=\"${decorative ? \"true\" : null}\"\n  class=\"shrink-0 border-0 bg-[var(--lv-color-border)] ${sizeClass} ${cssClass}\"\n></div>\n"
         }
       ],
       "tokens": [
         "color"
       ],
-      "docs": "Register <lv-separator> by importing components/ui/separator.ts from your entry point."
+      "docs": "Copies the separator partial to your JTE root at lievit/separator.jte, reached as @template.lievit.separator(orientation=...). Pass decorative=true to hide it from assistive tech. The source is yours: edit freely."
     },
     {
       "name": "sheet",
@@ -1121,27 +1107,26 @@
     },
     {
       "name": "spinner",
-      "type": "registry:ui",
-      "description": "A busy indicator with role=status and an accessible label; respects reduced motion.",
-      "dependencies": [
-        "lit"
-      ],
+      "type": "registry:jte",
+      "description": "A busy indicator with role=status and an accessible label; respects prefers-reduced-motion. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/spinner/spinner.ts",
-          "type": "registry:ui",
-          "target": "components/ui/spinner.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property } from \"lit/decorators.js\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-spinner>`: a busy indicator.\n *\n * Carries `role=\"status\"` plus an accessible `label` (default \"Loading\") exposed via\n * `aria-label`, so screen readers announce the busy state without seeing the animation\n * (WAI-ARIA status pattern, research 4.3). The animation respects\n * `prefers-reduced-motion`. Owned source, copied in by `lievit add spinner`. Light-DOM\n * rendered.\n */\n@customElement(\"lv-spinner\")\nexport class LvSpinner extends LitElement {\n  /** Diameter token: small or medium. */\n  @property() size: \"sm\" | \"md\" = \"md\";\n\n  /** Accessible label announced by assistive tech. */\n  @property() label = \"Loading\";\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-spinner\", LvSpinner.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-spinner {\n      display: inline-block;\n      border-radius: 50%;\n      border: 2px solid var(--lv-color-border);\n      border-top-color: var(--lv-color-primary);\n      animation: lv-spin 0.6s linear infinite;\n    }\n    .lv-spinner--sm { width: 1rem; height: 1rem; }\n    .lv-spinner--md { width: 1.5rem; height: 1.5rem; }\n    @keyframes lv-spin { to { transform: rotate(360deg); } }\n    @media (prefers-reduced-motion: reduce) {\n      .lv-spinner { animation-duration: 0s; }\n    }\n  `;\n\n  render() {\n    return html`\n      <span\n        class=\"lv-spinner lv-spinner--${this.size}\"\n        role=\"status\"\n        aria-label=${this.label}\n      ></span>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-spinner\": LvSpinner;\n  }\n}\n"
+          "path": "jte/spinner.jte",
+          "type": "registry:jte",
+          "target": "lievit/spinner.jte",
+          "root": "jte",
+          "content": "<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui spinner partial -- a busy indicator (CSS-animated ring).\n\n  TIER: STATIC presentational -> JTE partial. The former <lv-spinner> island only spun a\n  bordered ring with CSS; the animation is pure CSS and carries no client state.\n\n  STRUCTURE (scientific decision rule): a CSS border-spinner (shadcn/MUI both ship the same\n  rotating-ring primitive). The rotation is a single @keyframes on a Tailwind animate utility;\n  no SVG, no JS. The reduced-motion guard is expressed with motion-reduce:animate-none so the\n  whole thing stays in the markup layer.\n\n  A11y (WAI-ARIA status): role=\"status\" + an accessible label via aria-label, so assistive\n  tech announces the busy state without seeing the animation. Decorative-only ring uses\n  aria-hidden via the surrounding text.\n\n  Params:\n    String size     = \"md\"        \"sm\" | \"md\" -- ring diameter via tokens.\n    String label    = \"Loading\"   accessible name announced by assistive tech.\n    String cssClass = \"\"          extra utility classes on the spinner.\n\n  Usage:\n    @@template.spinner()\n    @@template.spinner(size = \"sm\", label = \"Saving\")\n--%>\n@param String size = \"md\"\n@param String label = \"Loading\"\n@param String cssClass = \"\"\n\n!{var sizeClass = \"sm\".equals(size) ? \"size-[1rem]\" : \"size-[1.5rem]\";}\n\n<span\n  data-slot=\"spinner\"\n  data-size=\"${size}\"\n  role=\"status\"\n  aria-label=\"${label}\"\n  class=\"inline-block animate-spin rounded-[var(--lv-radius-full)] border-2 border-[var(--lv-color-border)] border-t-[var(--lv-color-primary)] motion-reduce:animate-none ${sizeClass} ${cssClass}\"\n></span>\n"
         }
       ],
       "tokens": [
-        "color"
+        "color",
+        "radius"
       ],
-      "docs": "Register <lv-spinner> by importing components/ui/spinner.ts from your entry point."
+      "docs": "Copies the spinner partial to your JTE root at lievit/spinner.jte, reached as @template.lievit.spinner(size=..., label=...). The source is yours: edit freely."
     },
     {
       "name": "switch",
@@ -1329,22 +1314,19 @@
     },
     {
       "name": "tooltip",
-      "type": "registry:ui",
-      "description": "A floating contextual label positioned by @floating-ui/dom; WAI-ARIA tooltip pattern (role=tooltip, aria-describedby).",
-      "dependencies": [
-        "lit",
-        "@floating-ui/dom"
-      ],
+      "type": "registry:jte",
+      "description": "A floating contextual label, CSS-only; WAI-ARIA tooltip pattern (panel role=tooltip + the trigger's aria-describedby). Revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
       "registryDependencies": [
-        "tokens",
-        "light-dom"
+        "tokens"
       ],
       "files": [
         {
-          "path": "components/tooltip/tooltip.ts",
-          "type": "registry:ui",
-          "target": "components/ui/tooltip.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\nimport { LitElement, html } from \"lit\";\nimport { customElement, property, state } from \"lit/decorators.js\";\nimport { computePosition, flip, shift, offset } from \"@floating-ui/dom\";\nimport { adoptLightStyles } from \"../light-dom/light-dom.js\";\n\n/**\n * `<lv-tooltip>`: a floating contextual label.\n *\n * Follows the WAI-ARIA APG tooltip pattern (research 4.3):\n * - The trigger receives `aria-describedby` pointing at the tooltip content.\n * - The tooltip panel has `role=\"tooltip\"`.\n * - Opens on pointer-enter and focus; closes on pointer-leave, blur, and Escape.\n * - Positioned by `@floating-ui/dom` (flip + shift so it stays in-viewport).\n *\n * Usage: wrap any trigger in the default slot and set the `content` prop.\n *   `<lv-tooltip content=\"Save document\"><lv-button>Save</lv-button></lv-tooltip>`\n *\n * Owned source, copied in by `lievit add tooltip`. Light-DOM rendered.\n * npm dep: `@floating-ui/dom` (declared in meta.json, installed by `lievit add`).\n */\n@customElement(\"lv-tooltip\")\nexport class LvTooltip extends LitElement {\n  /** The tooltip text to display. */\n  @property() content = \"\";\n\n  /** Preferred placement (passed to Floating UI; flips automatically). */\n  @property() placement: \"top\" | \"bottom\" | \"left\" | \"right\" = \"top\";\n\n  @state() private visible = false;\n\n  private static seq = 0;\n  private readonly tipId = `lv-tooltip-${LvTooltip.seq++}`;\n\n  createRenderRoot(): this {\n    adoptLightStyles(\"lv-tooltip\", LvTooltip.css);\n    return this;\n  }\n\n  static readonly css = `\n    .lv-tooltip-wrap {\n      display: inline-block;\n      position: relative;\n    }\n    .lv-tooltip-panel {\n      position: absolute;\n      z-index: 9100;\n      background: var(--lv-color-fg);\n      color: var(--lv-color-bg);\n      font-family: var(--lv-font-sans);\n      font-size: var(--lv-text-sm);\n      line-height: var(--lv-leading);\n      padding: var(--lv-space-1) var(--lv-space-2);\n      border-radius: var(--lv-radius-sm);\n      box-shadow: var(--lv-shadow-md);\n      white-space: nowrap;\n      pointer-events: none;\n      visibility: hidden;\n      opacity: 0;\n      transition: opacity 100ms ease;\n    }\n    .lv-tooltip-panel--visible {\n      visibility: visible;\n      opacity: 1;\n    }\n  `;\n\n  private async position() {\n    const trigger = this.querySelector(\".lv-tooltip-trigger\") as HTMLElement | null;\n    const panel = this.querySelector(\".lv-tooltip-panel\") as HTMLElement | null;\n    if (!trigger || !panel) return;\n\n    const { x, y } = await computePosition(trigger, panel, {\n      placement: this.placement,\n      middleware: [offset(6), flip(), shift({ padding: 4 })],\n    });\n    panel.style.left = `${x}px`;\n    panel.style.top = `${y}px`;\n  }\n\n  private show() {\n    this.visible = true;\n    this.updateComplete.then(() => this.position());\n  }\n\n  private hide() {\n    this.visible = false;\n  }\n\n  private onKeyDown(e: KeyboardEvent) {\n    if (e.key === \"Escape\") this.hide();\n  }\n\n  render() {\n    return html`\n      <span class=\"lv-tooltip-wrap\">\n        <span\n          class=\"lv-tooltip-trigger\"\n          aria-describedby=${this.content ? this.tipId : \"\"}\n          @mouseenter=${this.show}\n          @mouseleave=${this.hide}\n          @focusin=${this.show}\n          @focusout=${this.hide}\n          @keydown=${this.onKeyDown}\n        >\n          <slot></slot>\n        </span>\n        <span\n          class=\"lv-tooltip-panel ${this.visible ? \"lv-tooltip-panel--visible\" : \"\"}\"\n          id=${this.tipId}\n          role=\"tooltip\"\n        >${this.content}</span>\n      </span>\n    `;\n  }\n}\n\ndeclare global {\n  interface HTMLElementTagNameMap {\n    \"lv-tooltip\": LvTooltip;\n  }\n}\n"
+          "path": "jte/tooltip.jte",
+          "type": "registry:jte",
+          "target": "lievit/tooltip.jte",
+          "root": "jte",
+          "content": "@import gg.jte.Content\n<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui tooltip partial -- a floating contextual label, CSS-only (no JS).\n\n  TIER: STATIC presentational -> JTE partial. The former <lv-tooltip> island used Floating UI\n  + Lit state to toggle a panel. Per ADR-0012 the server-pure path is CSS: the label text is\n  already in the DOM and revealed by the wrapper's :hover / :focus-within. No positioning JS;\n  the label sits above the trigger in flow (absolute, bottom-full). Escape-to-dismiss (an\n  island nicety needing a listener) is dropped; leaving / blurring the trigger hides it, which\n  satisfies the APG dismissable requirement for a CSS tooltip.\n\n  STRUCTURE (scientific decision rule): WAI-ARIA APG tooltip pattern rendered with Tailwind\n  group-hover / group-focus-within. The trigger references the label via aria-describedby (the\n  APG contract) so assistive tech announces the description on focus; the visual reveal is the\n  CSS group toggle. A real tooltip role + aria-describedby is what makes this a tooltip rather\n  than a decorative title attribute, so both are kept.\n\n  A11y (WAI-ARIA tooltip): panel has role=\"tooltip\" + a stable id; the trigger carries\n  aria-describedby pointing at that id, so the label is announced on hover AND on keyboard focus.\n\n  Params:\n    gg.jte.Content trigger             the element the tooltip describes.\n    String         content             the tooltip label text.\n    String         tipId   = \"lv-tooltip\"  id linking aria-describedby to the label.\n    String         cssClass = \"\"       extra utility classes on the wrapper.\n\n  Usage:\n    @@template.tooltip(content = \"Save document\", tipId = \"save-tip\", trigger = @@`\n      <button aria-describedby=\"save-tip\">Save</button>\n    `)\n--%>\n@param gg.jte.Content trigger\n@param String content\n@param String tipId = \"lv-tooltip\"\n@param String cssClass = \"\"\n\n<span data-slot=\"tooltip\" class=\"group relative inline-block ${cssClass}\">\n  <span data-slot=\"tooltip-trigger\" aria-describedby=\"${tipId}\" class=\"inline-block\">${trigger}</span>\n  <span\n    data-slot=\"tooltip-panel\"\n    id=\"${tipId}\"\n    role=\"tooltip\"\n    class=\"invisible absolute bottom-full left-1/2 z-[var(--lv-z-popover)] mb-[var(--lv-space-1)] -translate-x-1/2 rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-fg)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] whitespace-nowrap text-[var(--lv-color-bg)] opacity-0 shadow-[var(--lv-shadow-md)] transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100\"\n    style=\"font-family:var(--lv-font-sans);\"\n  >${content}</span>\n</span>\n"
         }
       ],
       "tokens": [
@@ -1352,9 +1334,10 @@
         "space",
         "radius",
         "type",
-        "shadow"
+        "shadow",
+        "z"
       ],
-      "docs": "Register <lv-tooltip> by importing components/ui/tooltip.ts from your entry point. Wrap any trigger and set the `content` prop."
+      "docs": "Copies the tooltip partial to your JTE root at lievit/tooltip.jte, reached as @template.lievit.tooltip(content=\"...\", tipId=\"...\", trigger=@`...`). Put aria-describedby=tipId on the interactive trigger so the label is announced on focus. The source is yours: edit freely."
     }
   ]
 }

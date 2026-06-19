@@ -5,10 +5,8 @@
 import { describe, test, expect, afterEach } from "vitest";
 import "../registry/components/checkbox/checkbox.js";
 import "../registry/components/switch/switch.js";
-import "../registry/components/progress/progress.js";
 import "../registry/components/field/field.js";
 import "../registry/components/toast/toast.js";
-import "../registry/components/tooltip/tooltip.js";
 import "../registry/components/select/select.js";
 
 async function mount<T extends HTMLElement>(tag: string, set?: (el: T) => void): Promise<T> {
@@ -31,10 +29,8 @@ describe("tier-2 light DOM", () => {
     for (const tag of [
       "lv-checkbox",
       "lv-switch",
-      "lv-progress",
       "lv-field",
       "lv-toast",
-      "lv-tooltip",
       "lv-select",
     ]) {
       const el = await mount(tag);
@@ -129,45 +125,6 @@ describe("lv-switch", () => {
     el.querySelector("button")?.click();
     await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
     expect((el as HTMLElement & { checked: boolean }).checked).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-progress
-// ---------------------------------------------------------------------------
-describe("lv-progress", () => {
-  test("carries role=progressbar with aria-valuemin/max", async () => {
-    const el = await mount("lv-progress");
-    const bar = el.querySelector('[role="progressbar"]') as HTMLElement;
-    expect(bar).not.toBeNull();
-    expect(bar.getAttribute("aria-valuemin")).toBe("0");
-    expect(bar.getAttribute("aria-valuemax")).toBe("100");
-  });
-
-  test("determinate: aria-valuenow reflects the value", async () => {
-    const el = await mount<HTMLElement & { value: number }>("lv-progress", (e) => {
-      e.value = 42;
-    });
-    const bar = el.querySelector('[role="progressbar"]') as HTMLElement;
-    expect(bar.getAttribute("aria-valuenow")).toBe("42");
-  });
-
-  test("indeterminate (value=-1): aria-valuenow is absent and bar has indeterminate class", async () => {
-    const el = await mount<HTMLElement & { value: number }>("lv-progress", (e) => {
-      e.value = -1;
-    });
-    const bar = el.querySelector('[role="progressbar"]') as HTMLElement;
-    // aria-valuenow should be empty string for indeterminate
-    const now = bar.getAttribute("aria-valuenow");
-    expect(now === null || now === "").toBe(true);
-    expect(el.querySelector(".lv-progress__bar--indeterminate")).not.toBeNull();
-  });
-
-  test("label is reflected via aria-label", async () => {
-    const el = await mount<HTMLElement & { label: string }>("lv-progress", (e) => {
-      e.label = "Uploading";
-    });
-    expect(el.querySelector('[role="progressbar"]')?.getAttribute("aria-label")).toBe("Uploading");
   });
 });
 
@@ -270,58 +227,6 @@ describe("lv-toast", () => {
     el.addEventListener("lv-dismiss", () => { dismissed = true; });
     (el.querySelector(".lv-toast__dismiss") as HTMLButtonElement).click();
     expect(dismissed).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-tooltip
-// ---------------------------------------------------------------------------
-describe("lv-tooltip", () => {
-  test("renders a role=tooltip panel", async () => {
-    const el = await mount<HTMLElement & { content: string }>("lv-tooltip", (e) => {
-      e.content = "Save changes";
-    });
-    const tip = el.querySelector('[role="tooltip"]');
-    expect(tip).not.toBeNull();
-    expect(tip?.textContent).toBe("Save changes");
-  });
-
-  test("tooltip is hidden by default (no --visible class)", async () => {
-    const el = await mount<HTMLElement & { content: string }>("lv-tooltip", (e) => {
-      e.content = "Tip";
-    });
-    expect(el.querySelector(".lv-tooltip-panel--visible")).toBeNull();
-  });
-
-  test("trigger carries aria-describedby pointing at the tooltip id", async () => {
-    const el = await mount<HTMLElement & { content: string }>("lv-tooltip", (e) => {
-      e.content = "Helpful hint";
-    });
-    const trigger = el.querySelector(".lv-tooltip-trigger") as HTMLElement;
-    const tipId = (el.querySelector('[role="tooltip"]') as HTMLElement).id;
-    expect(trigger.getAttribute("aria-describedby")).toBe(tipId);
-  });
-
-  test("mouseenter shows the tooltip (--visible class)", async () => {
-    const el = await mount<HTMLElement & { content: string }>("lv-tooltip", (e) => {
-      e.content = "Tip";
-    });
-    const trigger = el.querySelector(".lv-tooltip-trigger") as HTMLElement;
-    trigger.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    expect(el.querySelector(".lv-tooltip-panel--visible")).not.toBeNull();
-  });
-
-  test("mouseleave hides the tooltip", async () => {
-    const el = await mount<HTMLElement & { content: string }>("lv-tooltip", (e) => {
-      e.content = "Tip";
-    });
-    const trigger = el.querySelector(".lv-tooltip-trigger") as HTMLElement;
-    trigger.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    trigger.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true }));
-    await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-    expect(el.querySelector(".lv-tooltip-panel--visible")).toBeNull();
   });
 });
 

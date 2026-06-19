@@ -1,0 +1,17 @@
+{
+  "name": "alert",
+  "type": "registry:jte",
+  "description": "An inline message banner; severity drives both colour and the ARIA live role (danger/warning are assertive role=alert, info/success are polite role=status). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/alert.jte",
+      "type": "registry:jte",
+      "target": "lievit/alert.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Copies the alert partial to your JTE root at lievit/alert.jte, reached as @template.lievit.alert(variant=..., content=@`...`). Variant drives colour + live role; pass an optional heading. The source is yours: edit freely."
+}

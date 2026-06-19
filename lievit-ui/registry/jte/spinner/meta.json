@@ -1,0 +1,17 @@
+{
+  "name": "spinner",
+  "type": "registry:jte",
+  "description": "A busy indicator with role=status and an accessible label; respects prefers-reduced-motion. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/spinner.jte",
+      "type": "registry:jte",
+      "target": "lievit/spinner.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "radius"],
+  "docs": "Copies the spinner partial to your JTE root at lievit/spinner.jte, reached as @template.lievit.spinner(size=..., label=...). The source is yours: edit freely."
+}

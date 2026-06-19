@@ -1,0 +1,17 @@
+{
+  "name": "separator",
+  "type": "registry:jte",
+  "description": "A thin divider with role=separator + aria-orientation (decorative=true drops it from the a11y tree). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/separator.jte",
+      "type": "registry:jte",
+      "target": "lievit/separator.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color"],
+  "docs": "Copies the separator partial to your JTE root at lievit/separator.jte, reached as @template.lievit.separator(orientation=...). Pass decorative=true to hide it from assistive tech. The source is yours: edit freely."
+}

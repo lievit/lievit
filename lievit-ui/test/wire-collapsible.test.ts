@@ -142,10 +142,10 @@ describe("lievit add collapsible: two-root copy-in", () => {
 });
 
 describe("back-compat: registry:ui add is unaffected by the two-root mechanism", () => {
-  test("lievit add button still lands under the single alias root", () => {
-    run(["button", "--root", "src"], registry, project, out);
+  test("lievit add badge still lands under the single alias root", () => {
+    run(["badge", "--root", "src"], registry, project, out);
     // a presentation item with no file.root keeps the legacy alias-root resolution.
-    expect(existsSync(join(project, "src/components/ui/button.ts"))).toBe(true);
+    expect(existsSync(join(project, "src/components/ui/badge.ts"))).toBe(true);
     // it must NOT leak into the java/jte roots.
     expect(existsSync(join(project, "src/main/java"))).toBe(false);
   });
