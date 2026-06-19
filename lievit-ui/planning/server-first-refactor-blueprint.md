@@ -308,3 +308,15 @@ The whole pivot exists because client render failed silently and tests asserted 
 
 **R7 - `light-dom` deletion ordering.**
 Every island imports `adoptLightStyles`. Deleting `light-dom` before the last island is gone breaks the build. It is the final DROP in Wave 4, after the block rewrite and kit switch remove the last island consumer.
+
+---
+
+## R1 RESOLVED (Francesco, 2026-06-19): calendar is SERVER-FIRST too. No Lit anywhere.
+
+Override of the blueprint's "keep ht-calendar as escape-hatch island" recommendation. Decision: even the calendar goes server-first (wire), with the wire OPTIMIZATION toolkit pre-arranged to absorb round-trip latency, not a Lit/@event-calendar client island.
+- Filters/typeahead: `l:model.debounce` (no round-trip per keystroke).
+- Initial grid: `l:lazy` / wire:init (render after first paint) + `l:loading` states for immediate feedback.
+- Adjacent-week prefetch + optimistic morph where it helps.
+- The one irreducible client bit (event drag-resize) = a small TYPED VANILLA TS module (CSP-clean) that fires a wire action on drop. NOT a Lit island, NOT @event-calendar.
+- The month/week/day grid = server-rendered HTML (JTE) from the typed model.
+Consequence: the calendar is the single heaviest piece of the refactor (gest's ht-calendar + @event-calendar dependency is retired). It gets its OWN dedicated, careful phase (not a fast wave), built with the debounce/optimization toolkit above. The escape-hatch for genuinely-heavy widgets becomes "a typed-TS micro-enhancement", not "a shipped Lit island"; lievit-ui ships no calendar island.
