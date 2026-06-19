@@ -27,19 +27,32 @@ export interface SelectOption {
  *   Home/End jump to first/last; Tab closes.
  *
  * Positioned by `@floating-ui/dom` (flip + size-to-match-trigger-width so it stays
- * in-viewport and is never wider than needed). Data down, events up: emits
- * `lv-change` with the selected value.
+ * in-viewport and is never wider than needed).
+ *
+ * Form-associated (`static formAssociated`): submits the selected `value` under `name` inside a
+ * plain `<form method=post>`, via ElementInternals (`setFormValue`) where supported and a hidden
+ * `<input name>` mirror as the portable fallback (e.g. the happy-dom test runtime), so
+ * `new FormData(form)` sees the field either way. `formResetCallback` returns it to its initial
+ * value; `formDisabledCallback` follows a disabled fieldset. Data down, events up: on selection it
+ * emits the back-compat `lv-change` CustomEvent AND native bubbling `input` + `change` events so the
+ * wire's `l:model` binds with zero config.
  *
  * Owned source, copied in by `lievit add select`. Light-DOM rendered.
  * npm dep: `@floating-ui/dom` (declared in meta.json, installed by `lievit add`).
  */
 @customElement("lv-select")
 export class LvSelect extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** The available options. */
   @property({ type: Array }) options: SelectOption[] = [];
 
   /** Currently selected value. */
   @property() value = "";
+
+  /** Form field name; the control submits its selected value under this name. */
+  @property() name = "";
 
   /** Placeholder shown when nothing is selected. */
   @property() placeholder = "Select…";
@@ -61,6 +74,35 @@ export class LvSelect extends LitElement {
 
   private static seq = 0;
   private readonly listboxId = `lv-select-lb-${LvSelect.seq++}`;
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The value the control resets to on form reset (captured at first connect). */
+  private initialValue = "";
+
+  /** Reports the current value to the form (ElementInternals; the hidden mirror covers the rest). */
+  private syncFormValue() {
+    this.internals?.setFormValue(this.value);
+  }
+
+  /** Reset to the initial value (form-associated lifecycle). */
+  formResetCallback() {
+    this.value = this.initialValue;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-select", LvSelect.css);
@@ -129,6 +171,8 @@ export class LvSelect extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.initialValue = this.value;
+    this.syncFormValue();
     document.addEventListener("mousedown", this.handleOutsideClick);
     document.addEventListener("keydown", this.handleGlobalKey);
   }
@@ -189,9 +233,13 @@ export class LvSelect extends LitElement {
   private selectOption(opt: SelectOption) {
     if (opt.disabled) return;
     this.value = opt.value;
+    this.syncFormValue();
+    // Back-compat CustomEvent plus native input + change so `l:model` (native event listener) binds.
     this.dispatchEvent(
       new CustomEvent("lv-change", { detail: opt.value, bubbles: true, composed: true })
     );
+    this.dispatchEvent(new Event("input", { bubbles: true }));
+    this.dispatchEvent(new Event("change", { bubbles: true }));
     this.closeList();
     const trigger = this.querySelector(".lv-select__trigger") as HTMLElement | null;
     trigger?.focus();
@@ -328,6 +376,9 @@ export class LvSelect extends LitElement {
             </li>
           `)}
         </ul>
+        ${this.internals
+          ? null
+          : html`<input type="hidden" name=${this.name || ""} .value=${this.value} />`}
       </div>
     `;
   }

@@ -30,9 +30,18 @@ export interface RichSelectOption {
  * - Keyboard: ArrowUp/Down navigate; Enter/Space select; Escape/Tab close;
  *   Home/End jump to first/last; typing filters instantly.
  *
+ * Form-associated (`static formAssociated`): submits the selected value(s) under `name` inside a
+ * plain `<form method=post>` (single mode = one entry; multi mode = one entry per selected value),
+ * via ElementInternals (`setFormValue`, a `FormData` in multi mode) where supported and hidden
+ * `<input name>` mirrors as the portable fallback (e.g. the happy-dom test runtime), so
+ * `new FormData(form)` sees the field(s) either way. `formResetCallback` returns it to its initial
+ * value; `formDisabledCallback` follows a disabled fieldset.
+ *
  * Data down, events up:
  * - Single: emits `lv-change` with the selected value string.
  * - Multi: emits `lv-change` with the selected string[] array.
+ * On every change it also dispatches native bubbling `input` + `change` events so the wire's
+ * `l:model` binds with zero config.
  *
  * Positioned by `@floating-ui/dom` (flip + size-to-trigger-width).
  * Owned source, copied in by `lievit add rich-select`. Light-DOM rendered.
@@ -40,11 +49,17 @@ export interface RichSelectOption {
  */
 @customElement("lv-rich-select")
 export class LvRichSelect extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** Available options. */
   @property({ type: Array }) options: RichSelectOption[] = [];
 
   /** Currently selected value (single mode) or values (multi mode). */
   @property({ type: Object }) value: string | string[] = "";
+
+  /** Form field name; the control submits its selected value(s) under this name. */
+  @property() name = "";
 
   /** Allow multiple selection. */
   @property({ type: Boolean }) multiple = false;
@@ -73,6 +88,59 @@ export class LvRichSelect extends LitElement {
 
   private static seq = 0;
   private readonly listboxId = `lv-rich-select-lb-${LvRichSelect.seq++}`;
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The value the control resets to on form reset (captured at first connect). */
+  private initialValue: string | string[] = "";
+
+  /** The selected values as a flat array (single mode = 0..1 entries). */
+  private selectedValues(): string[] {
+    if (this.multiple) return Array.isArray(this.value) ? (this.value as string[]) : [];
+    return this.value ? [this.value as string] : [];
+  }
+
+  /** Reports the current selection to the form (ElementInternals; the hidden mirror covers the rest). */
+  private syncFormValue() {
+    if (!this.internals) return;
+    if (this.multiple) {
+      const fd = new FormData();
+      for (const v of this.selectedValues()) fd.append(this.name || "", v);
+      this.internals.setFormValue(fd);
+    } else {
+      this.internals.setFormValue((this.value as string) ?? "");
+    }
+  }
+
+  /** Set the value, report to the form, emit lv-change plus native input + change events. */
+  private commitValue(next: string | string[]) {
+    this.value = next;
+    this.syncFormValue();
+    this.dispatchEvent(
+      new CustomEvent("lv-change", { detail: next, bubbles: true, composed: true })
+    );
+    this.dispatchEvent(new Event("input", { bubbles: true }));
+    this.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /** Reset to the initial value (form-associated lifecycle). */
+  formResetCallback() {
+    this.value = Array.isArray(this.initialValue) ? [...this.initialValue] : this.initialValue;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-rich-select", LvRichSelect.css);
@@ -189,6 +257,8 @@ export class LvRichSelect extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.initialValue = Array.isArray(this.value) ? [...this.value] : this.value;
+    this.syncFormValue();
     document.addEventListener("mousedown", this.handleOutsideClick);
     document.addEventListener("keydown", this.handleGlobalKey);
   }
@@ -280,15 +350,9 @@ export class LvRichSelect extends LitElement {
       const next = current.includes(opt.value)
         ? current.filter((v) => v !== opt.value)
         : [...current, opt.value];
-      this.value = next;
-      this.dispatchEvent(
-        new CustomEvent("lv-change", { detail: next, bubbles: true, composed: true })
-      );
+      this.commitValue(next);
     } else {
-      this.value = opt.value;
-      this.dispatchEvent(
-        new CustomEvent("lv-change", { detail: opt.value, bubbles: true, composed: true })
-      );
+      this.commitValue(opt.value);
       this.closePanel();
       this.focusTrigger();
     }
@@ -298,10 +362,7 @@ export class LvRichSelect extends LitElement {
     e.stopPropagation();
     if (this.multiple && Array.isArray(this.value)) {
       const next = (this.value as string[]).filter((v) => v !== value);
-      this.value = next;
-      this.dispatchEvent(
-        new CustomEvent("lv-change", { detail: next, bubbles: true, composed: true })
-      );
+      this.commitValue(next);
     }
   }
 
@@ -455,6 +516,11 @@ export class LvRichSelect extends LitElement {
               `)}
           </ul>
         </div>
+        ${this.internals
+          ? null
+          : this.selectedValues().map(
+              (v) => html`<input type="hidden" name=${this.name || ""} .value=${v} />`
+            )}
       </div>
     `;
   }

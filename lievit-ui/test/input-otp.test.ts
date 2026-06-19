@@ -73,6 +73,31 @@ describe("lv-input-otp light DOM + structure", () => {
     expect(hidden.name).toBe("otp");
     expect(hidden.value).toBe("123");
   });
+
+  test("submits its value under name via FormData inside a form", async () => {
+    const form = document.createElement("form");
+    const el = await mount((e) => { e.name = "otp"; e.value = "456"; });
+    form.appendChild(el);
+    document.body.appendChild(form);
+    await el.updateComplete;
+    expect(new FormData(form).get("otp")).toBe("456");
+  });
+
+  test("form.reset() returns the value to its initial value (formResetCallback)", async () => {
+    const form = document.createElement("form");
+    const el = await mount((e) => { e.length = 3; e.name = "otp"; e.value = "12"; });
+    form.appendChild(el);
+    document.body.appendChild(form);
+    await el.updateComplete;
+    await typeInto(el, 2, "3");
+    expect(el.value).toBe("123");
+    // happy-dom does not wire form.reset() to a custom element's formResetCallback (no form-association
+    // support), so drive the documented reset entry point directly; a real browser calls it on reset.
+    (el as unknown as { formResetCallback(): void }).formResetCallback();
+    await el.updateComplete;
+    expect(el.value).toBe("12");
+    expect(new FormData(form).get("otp")).toBe("12");
+  });
 });
 
 describe("lv-input-otp typing + value", () => {
@@ -84,6 +109,23 @@ describe("lv-input-otp typing + value", () => {
     expect(el.value).toBe("5");
     expect(lastInput).toBe("5");
     expect(document.activeElement).toBe(slots(el)[1]);
+  });
+
+  test("typing fires a native input event (l:model binds)", async () => {
+    const el = await mount((e) => { e.length = 4; });
+    let nativeInputs = 0;
+    el.addEventListener("input", () => nativeInputs++);
+    await typeInto(el, 0, "7");
+    expect(nativeInputs).toBeGreaterThanOrEqual(1);
+  });
+
+  test("completing the code fires a native change event (l:model.lazy binds)", async () => {
+    const el = await mount((e) => { e.length = 2; });
+    let nativeChanges = 0;
+    el.addEventListener("change", () => nativeChanges++);
+    await typeInto(el, 0, "1");
+    await typeInto(el, 1, "2");
+    expect(nativeChanges).toBeGreaterThanOrEqual(1);
   });
 
   test("filling every slot emits lv-complete once with the full value", async () => {
