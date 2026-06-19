@@ -1,111 +1,91 @@
 /*
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Static JTE partial, Wave 4 (ADR-0012 server-first pivot): the breadcrumb DISPLAY island
+ * converted to a JTE partial. Its Lit island (registry/components/breadcrumb) was removed; the
+ * partial registry/jte/breadcrumb.jte is the to-be form.
+ *
+ * dialog/drawer (Wave 2 overlays) + tabs/accordion (Wave 2 disclosure) are server-first WIRE
+ * components (ADR-0012), pinned on the JVM side in lievit-kit + the registry shape in
+ * wire-*.test.ts; they never had a Node-side island to assert here.
+ *
+ * Like the static-partials-w1a suite, this Node harness has no JTE compiler, so it asserts on
+ * the partial SOURCE as text: the @param API, the nav landmark + ordered list, the real
+ * <a href> for non-current items, the aria-current="page" non-link current item, the
+ * aria-hidden separators, the single-item case, token-driven styling, and the CSP cleanliness.
+ * The real-compiler golden runs out of band via `npm run test:jte-compile`.
  */
-import { describe, test, expect, afterEach } from "vitest";
-// dialog/drawer (Wave 2 overlays) + tabs/accordion (Wave 2 disclosure) became server-first WIRE
-// components (ADR-0012): no Lit island to import. Their render behaviour is pinned on the JVM side
-// in lievit-kit (DialogComponentIT / DrawerComponentIT / TabsComponentIT / AccordionComponentIT)
-// + the registry shape in wire-*.test.ts. breadcrumb remains an island until Wave 4.
-import "../registry/components/breadcrumb/breadcrumb.js";
+import { describe, test, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-async function mount<T extends HTMLElement>(tag: string, set?: (el: T) => void): Promise<T> {
-  const el = document.createElement(tag) as T;
-  set?.(el);
-  document.body.appendChild(el);
-  await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
-  return el;
-}
+const jteDir = join(import.meta.dirname, "..", "registry", "jte");
+const read = (name: string) => readFileSync(join(jteDir, `${name}.jte`), "utf8");
 
-afterEach(() => {
-  document.body.innerHTML = "";
-});
+describe("breadcrumb (server-first JTE partial; the <lv-breadcrumb> island is gone)", () => {
+  const src = read("breadcrumb");
 
-describe("tier-4 light DOM", () => {
-  test("every tier-4 primitive renders into the light DOM (no shadow root)", async () => {
-    for (const tag of ["lv-breadcrumb"]) {
-      const el = await mount(tag);
-      expect(el.shadowRoot, `${tag} must be light-DOM`).toBeNull();
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// lv-breadcrumb
-// ---------------------------------------------------------------------------
-type BreadcrumbEl = HTMLElement & {
-  items: Array<{ label: string; href?: string }>;
-  separator: string;
-  label: string;
-};
-
-const breadcrumbItems = [
-  { label: "Home", href: "/" },
-  { label: "Properties", href: "/properties" },
-  { label: "Via Roma 12" },
-];
-
-describe("lv-breadcrumb", () => {
-  test("renders a nav with the breadcrumb label", async () => {
-    const el = await mount<BreadcrumbEl>("lv-breadcrumb", (e) => {
-      e.items = breadcrumbItems;
-    });
-    const nav = el.querySelector("nav");
-    expect(nav).not.toBeNull();
-    expect(nav?.getAttribute("aria-label")).toBe("Breadcrumb");
+  test("ships and carries a usage-doc comment (<%-- --%> syntax) with the @param API + a call snippet", () => {
+    expect(src, "missing <%-- --%> jte comment block").toContain("<%--");
+    expect(src, "comment block must close").toContain("--%>");
+    expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
+    expect(src, "missing Usage section").toMatch(/Usage:/);
+    expect(src, "usage snippet must show the @template call").toContain("@@template.breadcrumb(");
+    expect(src, "missing param declaration").toMatch(/@param /);
   });
 
-  test("renders an ordered list with one item per breadcrumb", async () => {
-    const el = await mount<BreadcrumbEl>("lv-breadcrumb", (e) => {
-      e.items = breadcrumbItems;
-    });
-    const items = el.querySelectorAll("li");
-    expect(items.length).toBe(3);
+  test("declares a typed list of items (label + optional href) + separator + label params", () => {
+    expect(src).toContain("@param List<Map<String, String>> items");
+    expect(src).toContain("@param String separator");
+    expect(src).toContain("@param String label");
   });
 
-  test("non-current items are anchor links", async () => {
-    const el = await mount<BreadcrumbEl>("lv-breadcrumb", (e) => {
-      e.items = breadcrumbItems;
-    });
-    const links = el.querySelectorAll("a");
-    expect(links.length).toBe(2);
-    expect(links[0].textContent).toBe("Home");
-    expect(links[1].textContent).toBe("Properties");
+  test("the nav landmark carries the aria-label (default Breadcrumb)", () => {
+    expect(src).toMatch(/<nav[\s\S]*?aria-label="\$\{label\}"/);
+    expect(src).toContain('@param String label = "Breadcrumb"');
   });
 
-  test("current (last) item has aria-current=page and is not a link", async () => {
-    const el = await mount<BreadcrumbEl>("lv-breadcrumb", (e) => {
-      e.items = breadcrumbItems;
-    });
-    const current = el.querySelector('[aria-current="page"]') as HTMLElement;
-    expect(current).not.toBeNull();
-    expect(current.tagName).not.toBe("A");
-    expect(current.textContent).toBe("Via Roma 12");
+  test("the trail is an ordered <ol> list, one <li> per item", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<ol[\s\n]/);
+    expect(markup).toMatch(/<li[\s\n]/);
+    expect(src).toContain("@for(var i = 0; i < items.size(); i++)");
   });
 
-  test("separator is rendered between items and is aria-hidden", async () => {
-    const el = await mount<BreadcrumbEl>("lv-breadcrumb", (e) => {
-      e.items = breadcrumbItems;
-      e.separator = ">";
-    });
-    const separators = el.querySelectorAll(".lv-breadcrumb__separator");
-    expect(separators.length).toBe(2);
-    separators.forEach((s) => expect(s.getAttribute("aria-hidden")).toBe("true"));
+  test("non-current items are real <a href> anchors", () => {
+    expect(src).toContain("@if(isCurrent)");
+    expect(src).toMatch(/<a[\s\S]*?href="\$\{href == null \? "#" : href\}"/);
   });
 
-  test("custom label prop is reflected on the nav aria-label", async () => {
-    const el = await mount<BreadcrumbEl>("lv-breadcrumb", (e) => {
-      e.items = breadcrumbItems;
-      e.label = "Percorso di navigazione";
-    });
-    expect(el.querySelector("nav")?.getAttribute("aria-label")).toBe("Percorso di navigazione");
+  test("the current (last) item is aria-current=page and NOT a link", () => {
+    expect(src).toContain("!{var isCurrent = i == items.size() - 1;}");
+    // the current branch renders a <span aria-current="page">, not an <a>
+    expect(src).toMatch(/<span[^>]*aria-current="page"/);
   });
 
-  test("single-item breadcrumb: no separator, item is current", async () => {
-    const el = await mount<BreadcrumbEl>("lv-breadcrumb", (e) => {
-      e.items = [{ label: "Home", href: "/" }];
-    });
-    expect(el.querySelectorAll(".lv-breadcrumb__separator").length).toBe(0);
-    expect(el.querySelector('[aria-current="page"]')).not.toBeNull();
+  test("the separator is rendered between items only (not before the first) and is aria-hidden", () => {
+    expect(src).toContain("!{var isFirst = i == 0;}");
+    expect(src).toContain("@if(!isFirst)");
+    expect(src).toMatch(/lv-breadcrumb__separator[^"]*"[^>]*aria-hidden="true"/);
+    expect(src).toContain("${separator}");
+  });
+
+  test("single-item case: the lone item is the current page (isCurrent true at i==0) with no separator", () => {
+    // i == size()-1 is true for a one-element list, and i==0 means !isFirst is false => no separator.
+    // Pinned structurally by the two guards above; this test documents the invariant the
+    // real-compiler golden exercises with a single-element list.
+    expect(src).toContain("!{var isCurrent = i == items.size() - 1;}");
+    expect(src).toContain("@if(!isFirst)");
+  });
+
+  test("styling is token-driven: no hardcoded hex, no Lit residue, no inline script/handler", () => {
+    expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(src).toContain("var(--lv-color-primary)");
+    expect(src).toContain("var(--lv-color-muted)");
+    expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles|import .*\blit\b/);
+    expect(src).not.toMatch(/<script/i);
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup, "inline on* handler (CSP refuses them)").not.toMatch(/\son[a-z]+=/i);
   });
 });

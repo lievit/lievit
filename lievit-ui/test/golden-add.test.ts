@@ -39,40 +39,40 @@ describe("parseArgs", () => {
   });
 });
 
-describe("golden add: lievit add badge", () => {
+describe("golden add: lievit add chart", () => {
   test("produces exactly the expected files under the alias root", () => {
-    const code = run(["badge", "--root", "src"], registry, project, out);
+    const code = run(["chart", "--root", "src"], registry, project, out);
     expect(code).toBe(0);
 
-    // the golden file set for `add badge`: its closure is tokens + light-dom + badge
+    // the golden file set for `add chart`: its closure is tokens + light-dom + chart
     const expected = [
       "src/styles/lievit-tokens.css",
       "src/components/ui/light-dom.ts",
-      "src/components/ui/badge.ts",
+      "src/components/ui/chart.ts",
     ];
     for (const rel of expected) {
       expect(existsSync(join(project, rel)), `expected ${rel}`).toBe(true);
     }
   });
 
-  test("the copied badge is byte-identical to the registry source", () => {
-    run(["badge", "--root", "src"], registry, project, out);
-    const copied = readFileSync(join(project, "src/components/ui/badge.ts"), "utf8");
-    const source = readFileSync(join(registryRoot, "components/badge/badge.ts"), "utf8");
+  test("the copied chart is byte-identical to the registry source", () => {
+    run(["chart", "--root", "src"], registry, project, out);
+    const copied = readFileSync(join(project, "src/components/ui/chart.ts"), "utf8");
+    const source = readFileSync(join(registryRoot, "components/chart/chart.ts"), "utf8");
     expect(copied).toBe(source);
   });
 
   test("the copied tokens are byte-identical to the registry tokens", () => {
-    run(["badge", "--root", "src"], registry, project, out);
+    run(["chart", "--root", "src"], registry, project, out);
     const copied = readFileSync(join(project, "src/styles/lievit-tokens.css"), "utf8");
     const source = readFileSync(join(registryRoot, "tokens/lievit-tokens.css"), "utf8");
     expect(copied).toBe(source);
   });
 
   test("reports the resolved closure and the npm dependency", () => {
-    run(["badge", "--root", "src"], registry, project, out);
+    run(["chart", "--root", "src"], registry, project, out);
     const printed = log.join("");
-    expect(printed).toContain("badge.ts");
+    expect(printed).toContain("chart.ts");
     expect(printed).toContain("npm  -> lit");
     expect(printed).toContain("done.");
   });
@@ -80,38 +80,38 @@ describe("golden add: lievit add badge", () => {
 
 describe("dry run writes nothing", () => {
   test("--dry-run plans but does not touch disk", () => {
-    run(["badge", "--root", "src", "--dry-run"], registry, project, out);
-    expect(existsSync(join(project, "src/components/ui/badge.ts"))).toBe(false);
+    run(["chart", "--root", "src", "--dry-run"], registry, project, out);
+    expect(existsSync(join(project, "src/components/ui/chart.ts"))).toBe(false);
     expect(log.join("")).toContain("dry run: no files written.");
   });
 });
 
 describe("owned-edit safety", () => {
   test("an existing file is skipped, the adopter's edits survive", () => {
-    const dest = join(project, "src/components/ui/badge.ts");
+    const dest = join(project, "src/components/ui/chart.ts");
     mkdirSync(join(project, "src/components/ui"), { recursive: true });
-    writeFileSync(dest, "// my own edited badge\n");
+    writeFileSync(dest, "// my own edited chart\n");
 
-    run(["badge", "--root", "src"], registry, project, out);
-    expect(readFileSync(dest, "utf8")).toBe("// my own edited badge\n");
+    run(["chart", "--root", "src"], registry, project, out);
+    expect(readFileSync(dest, "utf8")).toBe("// my own edited chart\n");
     expect(log.join("")).toContain("skip ");
   });
 
   test("--overwrite replaces an existing file", () => {
-    const dest = join(project, "src/components/ui/badge.ts");
+    const dest = join(project, "src/components/ui/chart.ts");
     mkdirSync(join(project, "src/components/ui"), { recursive: true });
     writeFileSync(dest, "// stale\n");
 
-    run(["badge", "--root", "src", "--overwrite"], registry, project, out);
-    expect(readFileSync(dest, "utf8")).toContain("LvBadge");
+    run(["chart", "--root", "src", "--overwrite"], registry, project, out);
+    expect(readFileSync(dest, "utf8")).toContain("LvChart");
   });
 });
 
 describe("config + usage", () => {
   test("reads the alias root from lievit.json when --root is absent", () => {
     writeFileSync(join(project, "lievit.json"), JSON.stringify({ root: "web" }));
-    run(["badge"], registry, project, out);
-    expect(existsSync(join(project, "web/components/ui/badge.ts"))).toBe(true);
+    run(["chart"], registry, project, out);
+    expect(existsSync(join(project, "web/components/ui/chart.ts"))).toBe(true);
   });
 
   test("prints usage and returns non-zero with no component named", () => {
