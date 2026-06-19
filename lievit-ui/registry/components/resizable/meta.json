@@ -1,0 +1,16 @@
+{
+  "name": "resizable",
+  "type": "registry:ui",
+  "description": "A group of panels separated by draggable handles (native equivalent of react-resizable-panels). Pointer drag + keyboard (Arrow/Home/End/Enter on a role=separator with aria-orientation + aria-valuenow/min/max) resize; horizontal or vertical; per-panel min/max and optional collapse. Token-styled handle with an optional Lucide grip.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/resizable/resizable.ts",
+      "type": "registry:ui",
+      "target": "components/ui/resizable.ts"
+    }
+  ],
+  "tokens": ["color", "radius", "type", "ring"],
+  "docs": "Register <lv-resizable> by importing components/ui/resizable.ts from your entry point. Pass `panels` as an array of { id?, size?, min?, max?, collapsible? } (sizes are percentages). Project each panel's content into the matching named slot `panel-0`, `panel-1`, ... Set `direction` to 'horizontal' (default) | 'vertical', toggle `with-handle` for the grip, and listen for `lv-resize` (detail `{ sizes }`)."
+}
