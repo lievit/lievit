@@ -1,5 +1,5 @@
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -84,7 +84,7 @@
           Continua con Google
         </a>`
     )
-*@
+--%>
 @param String action
 @param gg.jte.Content csrf = null
 @param String title = "Accedi al tuo account"
@@ -183,7 +183,7 @@
           <button
             type="submit"
             data-slot="login-submit"
-            @if(describedBy != null)aria-describedby="${describedBy}"@endif
+            aria-describedby="${describedBy}"
             class="inline-flex h-[var(--lv-space-10)] w-full items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] bg-[var(--lv-color-primary)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-primary-fg)] transition-colors outline-none hover:opacity-90 focus-visible:shadow-[var(--lv-ring)]"
           >${submitLabel}</button>
         </form>

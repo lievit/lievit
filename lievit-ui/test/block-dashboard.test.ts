@@ -25,15 +25,16 @@ const HARDCODE_EXCEPTIONS = /tracking-tight|leading-snug|leading-none|tabular-nu
 
 describe("dashboard block (#461) -- shared hygiene", () => {
   test("ships a usage-doc comment with the @param API + a @template call snippet", () => {
-    expect(src, "missing jte comment block").toContain("@*");
+    expect(src, "missing jte comment block").toContain("<%--");
     expect(src, "missing Usage section").toMatch(/Usage/);
     expect(src, "usage snippet must show the @template call").toContain("@template.blocks.dashboard(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
-  test("uses block (<%-- --%>) comment syntax for inline notes", () => {
+  test("uses block (<%-- --%>) comment syntax for inline notes, never @* *@", () => {
     expect(src).toContain("<%--");
     expect(src).toContain("--%>");
+    expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
   });
 
   test("never reaches for Font Awesome / wa-icon", () => {
@@ -147,6 +148,14 @@ describe("dashboard block -- accessibility", () => {
 
   test("section headings give the block a document outline and rank-nest under the page", () => {
     expect(src).toContain("@param int headingLevel");
-    expect(src).toContain('var hTag = "h" + hLevel;');
+    // JTE forbids expressions in HTML tag names (<${hTag}> does not compile), so the
+    // configurable heading rank is expressed via the WAI-ARIA heading role + aria-level,
+    // computed from headingLevel. This keeps the dynamic outline AND compiles.
+    expect(src).toContain('var hLevel = Math.min(Math.max(headingLevel, 2), 5);');
+    expect(src).toContain('var subLevel = Math.min(hLevel + 1, 6);');
+    expect(src).toContain('role="heading" aria-level="${hLevel}"');
+    expect(src).toContain('role="heading" aria-level="${subLevel}"');
+    // never reintroduce the non-compiling dynamic tag name.
+    expect(src, "dynamic <${hTag}> tag name does not compile in JTE").not.toMatch(/<\/?\$\{/);
   });
 });

@@ -1,5 +1,5 @@
 @import static it.housetreespa.gest.ui.LievitIcons.body
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -34,7 +34,7 @@
 
   Add an icon: drop registry/icons/<name>.svg (any Lucide SVG), run
   `node registry/icons/generate-icon-map.mjs`, commit the regenerated map.
-*@
+--%>
 @param String name
 @param String size = "var(--lv-icon-size)"
 @param String cssClass = ""

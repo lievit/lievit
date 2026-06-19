@@ -83,20 +83,20 @@
     data-slot="native-select-control"
     id="${selectId}"
     name="${name}"
-    disabled="${disabled ? "" : null}"
-    required="${required ? "" : null}"
+    disabled="${disabled}"
+    required="${required}"
     aria-label="${ariaLabel}"
     class="h-full w-full min-w-0 cursor-pointer appearance-none border-0 bg-transparent pl-[var(--lv-space-3)] pr-[var(--lv-space-8)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed"
     style="font-family:var(--lv-font-sans);"
   >
     @if(placeholder != null && !placeholder.isBlank())
-      <option value="" disabled hidden selected="${hasValue ? null : ""}">${placeholder}</option>
+      <option value="" disabled hidden selected="${!hasValue}">${placeholder}</option>
     @endif
     @if(content != null)
       ${content}
     @elseif(options != null)
       @for(String opt : options)
-        <option value="${opt}" selected="${opt.equals(value) ? "" : null}">${opt}</option>
+        <option value="${opt}" selected="${opt.equals(value)}">${opt}</option>
       @endfor
     @endif
   </select>

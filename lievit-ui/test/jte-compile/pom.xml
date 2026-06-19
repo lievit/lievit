@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  REAL-COMPILER smoke for the lievit-ui JTE partials + blocks (issue #462, JOB 2).
+
+  The Node/vitest golden tests assert on SOURCE TEXT only; they never run the JTE
+  compiler, so they cannot catch a real JTE syntax error (that is exactly how the
+  `@* *@` comment bug slipped in). This throwaway Maven project runs the SAME
+  `jte-maven-plugin` 3.2.4 `precompile` goal that gest uses against EVERY
+  registry/jte/**/*.jte (all static partials + the 4 blocks). `precompile`
+  generates the template Java AND javac-compiles it, so any JTE syntax error (bad
+  directive, attribute-position @if, comment syntax, unclosed tag) or unresolved
+  reference fails the build.
+
+  The icon partial does `@import static it.housetreespa.gest.ui.LievitIcons.body`,
+  so registry/icons (which holds the single source LievitIcons.java) is wired in as
+  an extra compile source root. No copy is made: the generated map stays its own
+  single source of truth.
+
+  Run:  mvn -q -f test/jte-compile/pom.xml clean process-classes
+  (or:  ./test/jte-compile/run.sh)
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.lievit</groupId>
+  <artifactId>lievit-ui-jte-compile-smoke</artifactId>
+  <version>0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>25</maven.compiler.release>
+    <!-- Keep in lockstep with gest's gg.jte version (apps/gest/pom.xml). -->
+    <jte.version>3.2.4</jte.version>
+  </properties>
+
+  <dependencies>
+    <!-- gg.jte.Content + the runtime types the @param signatures and the
+         precompiled template Java reference. -->
+    <dependency>
+      <groupId>gg.jte</groupId>
+      <artifactId>jte</artifactId>
+      <version>${jte.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- A clean target under the harness dir; never collides with the repo. -->
+    <directory>${project.basedir}/target</directory>
+
+    <plugins>
+      <!-- Add the registry/icons dir as a compile source root so LievitIcons.java
+           (the single generated source, package it.housetreespa.gest.ui) is on the
+           classpath when the icon template's static import is compiled. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-icons-source</id>
+            <phase>generate-sources</phase>
+            <goals><goal>add-source</goal></goals>
+            <configuration>
+              <sources>
+                <source>${project.basedir}/../../registry/icons</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>25</release>
+        </configuration>
+      </plugin>
+
+      <!-- The real gate: precompile generates + javac-compiles every template.
+           Bound to process-classes so the project's own classes (LievitIcons) are
+           already compiled and on the classpath the plugin hands to javac. -->
+      <plugin>
+        <groupId>gg.jte</groupId>
+        <artifactId>jte-maven-plugin</artifactId>
+        <version>${jte.version}</version>
+        <configuration>
+          <sourceDirectory>${project.basedir}/../../registry/jte</sourceDirectory>
+          <targetDirectory>${project.build.directory}/jte-classes</targetDirectory>
+          <contentType>Html</contentType>
+        </configuration>
+        <executions>
+          <execution>
+            <id>precompile-all-partials</id>
+            <phase>process-classes</phase>
+            <goals><goal>precompile</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

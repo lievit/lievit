@@ -1,7 +1,7 @@
 @import java.util.List
 @import java.util.Map
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -86,7 +86,7 @@
       rowColumns = List.of("Ref", "Agent", "Stage", "Value"),
       rows = recentRows
     )
-*@
+--%>
 @param String title = "Dashboard"
 @param int headingLevel = 2
 @param List<Map<String, String>> stats = java.util.List.of()
@@ -105,8 +105,7 @@
 @param gg.jte.Content actions = null
 
 !{var hLevel = Math.min(Math.max(headingLevel, 2), 5);}
-!{var hTag = "h" + hLevel;}
-!{var subTag = "h" + Math.min(hLevel + 1, 6);}
+!{var subLevel = Math.min(hLevel + 1, 6);}
 !{var hasSecondChart = chart2Title != null && !chart2Title.isBlank();}
 !{var chartCols = hasSecondChart ? "lg:grid-cols-2" : "lg:grid-cols-1";}
 
@@ -117,9 +116,9 @@
 >
   <%-- Title row + optional toolbar slot --%>
   <div class="flex flex-col gap-[var(--lv-space-2)] sm:flex-row sm:items-center sm:justify-between">
-    <${hTag} class="text-[length:var(--lv-text-2xl)] font-[var(--lv-font-semibold)] tracking-tight">
+    <div role="heading" aria-level="${hLevel}" class="text-[length:var(--lv-text-2xl)] font-[var(--lv-font-semibold)] tracking-tight">
       ${title}
-    </${hTag}>
+    </div>
     @if(actions != null)
       <div class="flex items-center gap-[var(--lv-space-2)]" data-slot="dashboard-toolbar">
         ${actions}
@@ -129,7 +128,7 @@
 
   <%-- KPI / stat-cards row: each card a labelled region under a hidden group heading --%>
   <section aria-labelledby="lv-dashboard-kpis-title">
-    <${subTag} id="lv-dashboard-kpis-title" class="sr-only">Key metrics</${subTag}>
+    <div role="heading" aria-level="${subLevel}" id="lv-dashboard-kpis-title" class="sr-only">Key metrics</div>
     <div class="grid grid-cols-1 gap-[var(--lv-space-4)] sm:grid-cols-2 lg:grid-cols-4">
       @for(var i = 0; i < stats.size(); i++)
         !{var stat = stats.get(i);}
@@ -178,16 +177,16 @@
 
   <%-- Charts row: one or two <lv-chart> islands, data driven by JSON-string params --%>
   <section aria-labelledby="lv-dashboard-charts-title" class="flex flex-col gap-[var(--lv-space-4)]">
-    <${subTag} id="lv-dashboard-charts-title" class="sr-only">Charts</${subTag}>
+    <div role="heading" aria-level="${subLevel}" id="lv-dashboard-charts-title" class="sr-only">Charts</div>
     <div class="grid grid-cols-1 gap-[var(--lv-space-4)] ${chartCols}">
       <section
         aria-labelledby="lv-dashboard-chart-1-title"
         data-slot="dashboard-chart-card"
         class="flex flex-col gap-[var(--lv-space-4)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-card)] p-[var(--lv-space-4)] text-[var(--lv-color-card-fg)] shadow-[var(--lv-shadow-xs)]"
       >
-        <${subTag} id="lv-dashboard-chart-1-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
+        <div role="heading" aria-level="${subLevel}" id="lv-dashboard-chart-1-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
           ${chartTitle}
-        </${subTag}>
+        </div>
         <lv-chart
           type="${chartType}"
           label="${chartLabel == null ? chartTitle : chartLabel}"
@@ -202,9 +201,9 @@
           data-slot="dashboard-chart-card"
           class="flex flex-col gap-[var(--lv-space-4)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-card)] p-[var(--lv-space-4)] text-[var(--lv-color-card-fg)] shadow-[var(--lv-shadow-xs)]"
         >
-          <${subTag} id="lv-dashboard-chart-2-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
+          <div role="heading" aria-level="${subLevel}" id="lv-dashboard-chart-2-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
             ${chart2Title}
-          </${subTag}>
+          </div>
           <lv-chart
             type="${chart2Type}"
             label="${chart2Title}"
@@ -222,9 +221,9 @@
     data-slot="dashboard-rows-card"
     class="flex flex-col gap-[var(--lv-space-4)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-card)] p-[var(--lv-space-4)] text-[var(--lv-color-card-fg)] shadow-[var(--lv-shadow-xs)]"
   >
-    <${subTag} id="lv-dashboard-rows-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
+    <div role="heading" aria-level="${subLevel}" id="lv-dashboard-rows-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
       ${rowsTitle}
-    </${subTag}>
+    </div>
     @template.table(content = @`
       @template.table.caption(content = @`${rowsTitle}`)
       @template.table.header(content = @`
@@ -238,7 +237,8 @@
         @for(Map<String, String> row : rows)
           @template.table.row(state = row.getOrDefault("state", ""), content = @`
             @for(var c = 0; c < rowColumns.size(); c++)
-              @template.table.cell(content = @`${row.getOrDefault("c" + c, "")}`)
+              !{var cell = row.getOrDefault("c" + c, "");}
+              @template.table.cell(content = @`${cell}`)
             @endfor
           `)
         @endfor

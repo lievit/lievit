@@ -52,7 +52,7 @@ export class LvDrawer extends LitElement {
       position: fixed;
       inset: 0;
       z-index: 9500;
-      background: rgb(0 0 0 / 0.40);
+      background: var(--lv-color-overlay);
     }
     .lv-drawer-backdrop--open { display: block; }
     .lv-drawer {

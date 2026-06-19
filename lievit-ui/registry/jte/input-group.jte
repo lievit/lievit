@@ -1,5 +1,5 @@
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -46,7 +46,7 @@
       leading = @`<span class="text-[var(--lv-color-muted-fg)]">EUR</span>`,
       trailing = @`<span class="text-[var(--lv-color-muted-fg)]">.00</span>`
     )
-*@
+--%>
 @param String name
 @param String id = null
 @param String type = "text"
@@ -77,10 +77,10 @@
     id="${inputId}"
     name="${name}"
     type="${type}"
-    @if(value != null)value="${value}"@endif
-    @if(placeholder != null)placeholder="${placeholder}"@endif
-    @if(disabled)disabled@endif
-    @if(ariaLabel != null)aria-label="${ariaLabel}"@endif
+    value="${value}"
+    placeholder="${placeholder}"
+    disabled="${disabled}"
+    aria-label="${ariaLabel}"
     class="min-w-0 flex-1 border-0 bg-transparent text-[var(--lv-color-fg)] placeholder:text-[var(--lv-color-muted-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed"
   >
   @if(trailing != null)

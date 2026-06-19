@@ -1,5 +1,5 @@
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -87,7 +87,7 @@
           @template.icon(name = "log-in") Sign up with Google
         </button>`
     )
-*@
+--%>
 @param String action
 @param String title = "Create your account"
 @param String description = "Enter your information below to get started"
@@ -109,6 +109,7 @@
 !{var descId = "lv-signup-desc";}
 !{var pwHelpId = "lv-signup-pw-help";}
 !{var hasFormError = formError != null && !formError.isBlank();}
+!{var hasDescription = description != null && !description.isBlank();}
 
 <section
   data-slot="signup"
@@ -121,7 +122,7 @@
 
       <div data-slot="signup-header" class="flex flex-col gap-[var(--lv-space-1)] text-center">
         <h1 id="${titleId}" class="text-[length:var(--lv-text-2xl)] font-[var(--lv-font-bold)] tracking-tight text-[var(--lv-color-fg)]">${title}</h1>
-        @if(description != null && !description.isBlank())
+        @if(hasDescription)
           <p id="${descId}" class="text-[length:var(--lv-text-sm)] leading-[var(--lv-leading-relaxed)] text-[var(--lv-color-muted-fg)]">${description}</p>
         @endif
       </div>
@@ -130,7 +131,7 @@
         method="post"
         action="${action}"
         data-slot="signup-form"
-        @if(description != null && !description.isBlank())aria-describedby="${descId}"@endif
+        aria-describedby="${hasDescription ? descId : null}"
         class="flex flex-col gap-[var(--lv-space-5)]"
       >
         @if(csrf != null)
@@ -144,8 +145,8 @@
           </div>
         @endif
 
-        @*-- one inlined field row per credential; the input-group partial gives the icon +
-            shared-focus box, a real <label for> binds to the input (id defaults to name). --*@
+        <%-- one inlined field row per credential; the input-group partial gives the icon +
+            shared-focus box, a real <label for> binds to the input (id defaults to name). --%>
         @for(var f : new String[][]{
               {"name", "Full name", "text", "user", "Jane Doe", "name"},
               {"email", "Email", "email", "mail", "you@example.com", "email"},
@@ -158,6 +159,7 @@
             !{var hasErr = fErr != null && !fErr.isBlank();}
             !{var isPassword = "password".equals(fName);}
             !{var errId = "lv-signup-" + fName + "-error";}
+            !{var placeholder = (f[4] != null && !f[4].isEmpty()) ? f[4] : null;}
             <div data-slot="signup-field" class="flex flex-col gap-[var(--lv-space-2)]">
               <label for="${fName}" class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]">${f[1]}</label>
               <div
@@ -175,7 +177,7 @@
                   type="${f[2]}"
                   required
                   autocomplete="${f[5]}"
-                  @if(f[4] != null && !f[4].isEmpty())placeholder="${f[4]}"@endif
+                  placeholder="${placeholder}"
                   aria-invalid="${hasErr ? "true" : "false"}"
                   aria-describedby="${hasErr ? errId : (isPassword ? pwHelpId : null)}"
                   class="min-w-0 flex-1 border-0 bg-transparent text-[var(--lv-color-fg)] placeholder:text-[var(--lv-color-muted-fg)] outline-none focus:outline-none focus-visible:outline-none"
@@ -202,7 +204,7 @@
                 value="on"
                 required
                 aria-invalid="${hasTermsErr ? "true" : "false"}"
-                @if(hasTermsErr)aria-describedby="lv-signup-terms-error"@endif
+                aria-describedby="${hasTermsErr ? "lv-signup-terms-error" : null}"
                 class="mt-[var(--lv-space-px)] size-[var(--lv-space-4)] shrink-0 appearance-none rounded-[var(--lv-radius-sm)] border-2 border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] checked:border-[var(--lv-color-primary)] checked:bg-[var(--lv-color-primary)] focus-visible:shadow-[var(--lv-ring)] focus-visible:outline-none"
               >
               <span>

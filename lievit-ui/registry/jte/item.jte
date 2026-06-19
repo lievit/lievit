@@ -1,5 +1,5 @@
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -47,7 +47,7 @@
       @template.item(role = "listitem", content = @`<span>Riga A</span>`)
       @template.item(role = "listitem", content = @`<span>Riga B</span>`)
     </div>
-*@
+--%>
 @param gg.jte.Content content
 @param gg.jte.Content leading = null
 @param gg.jte.Content trailing = null

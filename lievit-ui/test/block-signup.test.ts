@@ -20,15 +20,15 @@ const src = readFileSync(
 );
 
 /**
- * The rendered markup only: the `@* ... *@` doc/usage comment is stripped, so prose that
+ * The rendered markup only: the `<%-- ... --%>` doc/usage comment is stripped, so prose that
  * legitimately names the issue (#459) or the islands it deliberately does NOT use (<lv-input>)
  * is not mistaken for leaked hex colours or posting controls. Body-shape assertions use this.
  */
-const body = src.replace(/@\*[\s\S]*?\*@/g, "");
+const body = src.replace(/<%--[\s\S]*?--%>/g, "");
 
 describe("signup block (#459) -- shared hygiene", () => {
   test("ships a usage-doc comment with the @param API + a @template call snippet", () => {
-    expect(src, "missing jte comment block").toContain("@*");
+    expect(src, "missing jte comment block").toContain("<%--");
     expect(src, "missing Usage section").toMatch(/Usage/);
     expect(src, "usage snippet must show the @template.blocks.signup call").toContain(
       "@template.blocks.signup("
@@ -36,9 +36,10 @@ describe("signup block (#459) -- shared hygiene", () => {
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
-  test("uses JTE comment syntax, never block C-style comments", () => {
-    expect(src).toContain("@*");
-    expect(src).toContain("*@");
+  test("uses JTE comment syntax (<%-- --%>), never @* *@ or block C-style comments", () => {
+    expect(src).toContain("<%--");
+    expect(src).toContain("--%>");
+    expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
   });
 
   test("never reaches for Font Awesome / wa-icon", () => {

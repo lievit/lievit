@@ -20,23 +20,24 @@ const src = readFileSync(
   "utf8"
 );
 
-/** The rendered markup only: the leading `@* ... *@` usage-doc comment stripped away. */
-const markup = src.replace(/@\*[\s\S]*?\*@/g, "");
+/** The rendered markup only: the leading `<%-- ... --%>` usage-doc comment stripped away. */
+const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
 
 /** Tailwind utilities that legitimately carry a fixed / fractional geometry value. */
 const HARDCODE_EXCEPTIONS = /tracking-tight|leading-snug|leading-none|leading-relaxed|h-px|h-full|w-full|min-h-screen/;
 
 describe("login block (#458) -- hygiene", () => {
   test("ships a usage-doc comment with the @param API + a @template call snippet", () => {
-    expect(src, "missing jte comment block").toContain("@*");
+    expect(src, "missing jte comment block").toContain("<%--");
     expect(src, "missing Usage section").toMatch(/Usage:/);
     expect(src, "usage snippet must show the @template call").toContain("@template.blocks.login(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
-  test("uses jte comment syntax, never an HTML/JS comment for the doc block", () => {
-    expect(src).toContain("@*");
-    expect(src).toContain("*@");
+  test("uses jte comment syntax (<%-- --%>), never @* *@ or an HTML/JS comment for the doc block", () => {
+    expect(src).toContain("<%--");
+    expect(src).toContain("--%>");
+    expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
   });
 
   test("never reaches for Font Awesome / wa-icon", () => {

@@ -14,7 +14,8 @@
     "check:registry": "tsx cli/build-registry.ts --check",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:jte-compile": "bash test/jte-compile/run.sh"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",

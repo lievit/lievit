@@ -55,7 +55,7 @@ export class LvDialog extends LitElement {
       position: fixed;
       inset: 0;
       z-index: 9500;
-      background: rgb(0 0 0 / 0.45);
+      background: var(--lv-color-overlay);
       align-items: center;
       justify-content: center;
     }

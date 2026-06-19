@@ -27,8 +27,10 @@ describe("static partials b1 -- shared hygiene", () => {
   for (const name of PARTIALS) {
     const src = read(name);
 
-    test(`${name}: ships and carries a usage-doc comment with the @param API + a call snippet`, () => {
-      expect(src, "missing jte comment block").toContain("@*");
+    test(`${name}: ships and carries a usage-doc comment (<%-- --%> syntax) with the @param API + a call snippet`, () => {
+      expect(src, "missing <%-- --%> jte comment block").toContain("<%--");
+      expect(src, "comment block must close").toContain("--%>");
+      expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
       expect(src, "missing Usage section").toMatch(/Usage:/);
       expect(src, "usage snippet must show the @template call").toContain(`@template.${name}(`);
       expect(src, "missing param declaration").toMatch(/@param /);

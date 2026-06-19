@@ -1,5 +1,5 @@
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -37,7 +37,7 @@
     )
 
     @template.empty(icon = "folder", title = "Cartella vuota")
-*@
+--%>
 @param String title
 @param String description = null
 @param String icon = "info"
@@ -50,7 +50,7 @@
 <div
   data-slot="empty"
   role="${role}"
-  @if(role.equals("status"))aria-live="polite"@endif
+  aria-live="${role.equals("status") ? "polite" : null}"
   class="flex min-w-0 flex-1 flex-col items-center justify-center gap-[var(--lv-space-6)] rounded-[var(--lv-radius-lg)] border border-dashed border-[var(--lv-color-border)] p-[var(--lv-space-8)] text-center"
 >
   <div data-slot="empty-header" class="flex max-w-sm flex-col items-center gap-[var(--lv-space-2)]">

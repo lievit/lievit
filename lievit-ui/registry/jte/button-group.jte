@@ -1,5 +1,5 @@
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -39,7 +39,7 @@
       <button type="button" class="...">Up</button>
       <button type="button" class="...">Down</button>
     `)
-*@
+--%>
 @param gg.jte.Content content
 @param String orientation = "horizontal"
 @param String label = null

@@ -109,6 +109,9 @@
   --lv-color-sidebar-accent: #f3f4f6;
   --lv-color-sidebar-accent-fg: #1f2937;
 
+  /* overlay scrim behind modal surfaces (dialog/drawer backdrop) */
+  --lv-color-overlay: rgb(0 0 0 / 0.45);
+
   /* ----------------------------------------------------------------------- *
    * SPACING (4px / 0.25rem base scale)                                      *
    * ----------------------------------------------------------------------- */

@@ -1,5 +1,5 @@
 @import gg.jte.Content
-@*
+<%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
@@ -43,7 +43,7 @@
       @template.avatar(name = "A", initials = "A", cssClass = "ring-2 ring-[var(--lv-color-bg)]")
       @template.avatar(name = "B", initials = "B", cssClass = "ring-2 ring-[var(--lv-color-bg)]")
     </div>
-*@
+--%>
 @param String name
 @param String src = null
 @param String initials = null
