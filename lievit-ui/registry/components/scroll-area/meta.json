@@ -1,0 +1,16 @@
+{
+  "name": "scroll-area",
+  "type": "registry:ui",
+  "description": "A scrollable viewport with a styled, token-driven scrollbar overlay (Radix scroll-area structure); native scrolling, keyboard, wheel and touch are preserved, the custom thumb is drag- and track-page-able. Vertical, horizontal, or both.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/scroll-area/scroll-area.ts",
+      "type": "registry:ui",
+      "target": "components/ui/scroll-area.ts"
+    }
+  ],
+  "tokens": ["color", "radius", "type", "ring"],
+  "docs": "Register <lv-scroll-area> by importing components/ui/scroll-area.ts from your entry point. Give the element a fixed width/height and put the overflowing content inside its default slot. Set `orientation` to 'vertical' (default) | 'horizontal' | 'both', and `type` to 'hover' (default) | 'scroll' | 'always' to control when the bars appear."
+}

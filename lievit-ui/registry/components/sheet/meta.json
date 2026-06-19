@@ -1,0 +1,16 @@
+{
+  "name": "sheet",
+  "type": "registry:ui",
+  "description": "A modal side panel that slides in from any of the four viewport edges (the shadcn-shaped generalisation of drawer): dialog ARIA, focus trap, Escape and backdrop-click close, structured header/footer/title/description slots, and a built-in Lucide close button. Token-driven overlay + z-index.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/sheet/sheet.ts",
+      "type": "registry:ui",
+      "target": "components/ui/sheet.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Register <lv-sheet> by importing components/ui/sheet.ts from your entry point. Bind `open` to control visibility; set `side` to 'right' (default) | 'left' | 'top' | 'bottom'. Set `heading` + `description` (or project the `title` / `description` slots), the body via the default slot, actions via the `footer` slot. Listen for `lv-close` to update state. Toggle `show-close` and `dismissible` as needed. Note: <lv-drawer> remains for the simpler heading+body shape; <lv-sheet> is the richer composition."
+}
