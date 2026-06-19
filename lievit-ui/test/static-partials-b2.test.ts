@@ -2,8 +2,11 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Static JTE partials, batch b2 (issues #438 pagination, #437 native-select,
- * #429 alert-dialog). These are presentational .jte partials compiled in the Java world,
+ * Static JTE partials, batch b2 (issues #438 pagination, #437 native-select).
+ * (#429 alert-dialog was a presentational partial here until Wave 3 (ADR-0012) turned it into a
+ * registry:wire confirm modal on the dialog wire; its tests now live in registry-json.test.ts +
+ * the lievit-kit AlertDialogComponentIT, render-asserting through the real runtime.)
+ * These are presentational .jte partials compiled in the Java world,
  * so -- as with static-partials-b1 -- the harness asserts on the partial SOURCE as text:
  * it pins the token-driven styling (every colour/space/radius reads a --lv-* var, never a
  * hardcoded value), the accessibility contract (roles/aria), the slot/param API, that
@@ -18,7 +21,7 @@ import { join } from "node:path";
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const read = (name: string) => readFileSync(join(jteDir, `${name}.jte`), "utf8");
 
-const PARTIALS = ["pagination", "native-select", "alert-dialog"];
+const PARTIALS = ["pagination", "native-select"];
 
 /** Tailwind utilities that legitimately carry a fractional / fixed geometry value. */
 const HARDCODE_EXCEPTIONS = /tracking-tight|leading-snug|leading-none|space-x-2|max-w-lg|max-w-sm/;
@@ -127,36 +130,5 @@ describe("native-select (#437)", () => {
   test("Lucide chevron-down indicator, native arrow suppressed (appearance-none)", () => {
     expect(src).toContain('@template.icon(name = "chevron-down"');
     expect(src).toContain("appearance-none");
-  });
-});
-
-describe("alert-dialog (#429)", () => {
-  const src = read("alert-dialog");
-  test("declares the documented param API", () => {
-    for (const p of ["String name", "String title", "String description", "String cancelLabel", "String actionLabel", "boolean destructive"]) {
-      expect(src).toContain(`@param ${p}`);
-    }
-    expect(src).toContain("@param String actionAttrs");
-    expect(src).toContain("@param String cancelAttrs");
-  });
-  test("documents its composition with the existing interactive dialog island", () => {
-    expect(src).toMatch(/lv-dialog/);
-    expect(src.toLowerCase()).toMatch(/dialog island/);
-  });
-  test("a11y: role=alertdialog labelled + described by generated ids", () => {
-    expect(src).toContain('role="alertdialog"');
-    expect(src).toContain('aria-labelledby="${titleId}"');
-    expect(src).toContain('aria-describedby="${hasDescription ? descId : null}"');
-  });
-  test("cancel + action buttons; destructive variant uses the destructive token", () => {
-    expect(src).toContain('data-slot="alert-dialog-cancel"');
-    expect(src).toContain('data-slot="alert-dialog-action"');
-    expect(src).toContain("bg-[var(--lv-color-destructive)]");
-    expect(src).toContain("bg-[var(--lv-color-primary)]");
-    expect(src).toContain('@template.icon(name = "triangle-alert"');
-  });
-  test("focus ring via tokens on both buttons", () => {
-    const rings = src.match(/focus-visible:shadow-\[var\(--lv-ring\)\]/g) ?? [];
-    expect(rings.length).toBeGreaterThanOrEqual(2);
   });
 });

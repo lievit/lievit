@@ -15,9 +15,10 @@ import org.springframework.context.annotation.Scope;
  * instance per stateless wire call, the runtime contract; the signed snapshot is the only state
  * carrier) and lets the lievit starter autoconfigure the wire service + JTE engine.
  *
- * <p>Scoped to the {@code wire} package so it does not pull the hello-admin app's beans. The three
+ * <p>Scoped to the {@code wire} package so it does not pull the hello-admin app's beans. The
  * overlays share one app because they share the same open-state-server model (open / close
- * actions, body in the template); each IT pins its component through the REAL runtime.
+ * actions, body in the template); each IT pins its component through the REAL runtime. Wave 3 adds
+ * the alert-dialog confirm modal (the {@code role=alertdialog} specialization of the dialog wire).
  */
 @SpringBootApplication
 public class OverlayWireTestApp {
@@ -29,6 +30,15 @@ public class OverlayWireTestApp {
     @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
     DialogComponent dialogComponent() {
         return new DialogComponent();
+    }
+
+    /**
+     * @return a fresh alert-dialog (confirm modal) component per wire call
+     */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    AlertDialogComponent alertDialogComponent() {
+        return new AlertDialogComponent();
     }
 
     /**
