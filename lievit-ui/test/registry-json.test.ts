@@ -41,6 +41,16 @@ const TIER_3 = [
   "rich-select",
 ];
 
+// Wave 2 (ADR-0012, server-first inputs): these four interactive inputs are no longer Lit islands.
+// rich-select / command / file-upload became registry:wire (Java + JTE); input-otp became a
+// registry:jte partial + a CSP-clean enhancer. They must NOT ship as a registry:ui (Lit) item.
+const WAVE_2_SERVER_FIRST: Record<string, "registry:wire" | "registry:jte"> = {
+  "rich-select": "registry:wire",
+  command: "registry:wire",
+  "file-upload": "registry:wire",
+  "input-otp": "registry:jte",
+};
+
 describe("built registry.json", () => {
   test("ships every tier-1 primitive the research flagged", () => {
     const names = new Set(built.items.map((i) => i.name));
@@ -60,6 +70,17 @@ describe("built registry.json", () => {
     const names = new Set(built.items.map((i) => i.name));
     for (const t of TIER_3) {
       expect(names, `missing tier-3 component: ${t}`).toContain(t);
+    }
+  });
+
+  test("the Wave-2 interactive inputs ship server-first, not as Lit islands", () => {
+    const byName = new Map(built.items.map((i) => [i.name, i]));
+    for (const [name, type] of Object.entries(WAVE_2_SERVER_FIRST)) {
+      const item = byName.get(name);
+      expect(item, `missing Wave-2 input: ${name}`).toBeDefined();
+      expect(item!.type, `${name} must be ${type}, not a Lit island`).toBe(type);
+      // none of them is a registry:ui (the Lit island tier).
+      expect(item!.type).not.toBe("registry:ui");
     }
   });
 
