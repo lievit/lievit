@@ -85,7 +85,10 @@ describe("signup block -- server-rendered form contract", () => {
   test("every credential is a native named input so the browser posts it", () => {
     expect(src).toMatch(/<input\b/);
     expect(src).toContain('name="${fName}"');
-    // the islands carry no name and must not be the posting controls in the rendered markup
+    // server-first (ADR-0012): NO custom-element <lv-*> tag remains anywhere, not even in the
+    // rationale comment; the posting controls are native inputs only.
+    const islandTags = src.match(/<lv-[a-z-]+/gi) ?? [];
+    expect(islandTags, `island tags must be gone: ${islandTags.join(", ")}`).toEqual([]);
     expect(body).not.toContain("<lv-input");
   });
 
