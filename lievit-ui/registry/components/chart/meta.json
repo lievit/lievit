@@ -1,0 +1,16 @@
+{
+  "name": "chart",
+  "type": "registry:ui",
+  "description": "A token-driven charting wrapper rendering native inline SVG (bar / line / area) coloured by the --lv-color-chart-1..5 tokens. role=img + aria-label plus a visually-hidden data table for screen readers; a token-styled tooltip on hover/focus. Chosen over bundling Recharts: zero heavy dep, tree-shakeable, tokens cascade, SSR-friendly. Light-DOM Lit island.",
+  "dependencies": ["lit"],
+  "registryDependencies": ["tokens", "light-dom"],
+  "files": [
+    {
+      "path": "components/chart/chart.ts",
+      "type": "registry:ui",
+      "target": "components/ui/chart.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Register <lv-chart> by importing components/ui/chart.ts from your entry point. Set `type` 'bar' | 'line' | 'area', pass `categories` (x labels) and `series` as { key, label?, data: number[], color? }[] (color defaults to --lv-color-chart-N). Set `label` for the accessible name (also the data-table caption). Toggle `legend` / `showAxis`. Listen for `lv-point` ({ series, category, value, index }) on hover/focus. The visually-hidden table mirrors the data for screen readers."
+}
