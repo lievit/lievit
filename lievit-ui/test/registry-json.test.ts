@@ -102,6 +102,26 @@ describe("built registry.json", () => {
     }
   });
 
+  test("data-table ships server-first as a registry:jte partial, not a Lit island", () => {
+    const item = built.items.find((i) => i.name === "data-table");
+    expect(item, "data-table must be a registry item").toBeDefined();
+    // Wave 4 (ADR-0012): the client-side sortable/paginated <lv-data-table> Lit island is gone; the
+    // stateful server-sorted/paginated table is owned by lievit-kit's admin list, and lievit-ui ships
+    // the presentational primitive it composes as a JTE partial.
+    expect(item!.type, "data-table must be registry:jte").toBe("registry:jte");
+    expect(item!.type).not.toBe("registry:ui");
+    const jte = item!.files.find((f) => f.path.endsWith("data-table.jte"))?.content ?? "";
+    // server-first sort: real <th scope=col> + aria-sort + a real <a href> re-sort link, NO client sort.
+    expect(jte).toContain('scope="col"');
+    expect(jte).toContain("aria-sort=");
+    expect(jte).toContain('data-slot="data-table-sort"');
+    expect(jte).toMatch(/<a\s[\s\S]*?href="\$\{url\}"/);
+    // no inline script (CSP) and no <lv-data-table> island markup (strip the doc comment first).
+    expect(jte).not.toMatch(/<script/i);
+    const markup = jte.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).not.toContain("<lv-data-table");
+  });
+
   test("the alert-dialog wire composes the dialog wire structure (no <lv-dialog> island)", () => {
     const item = built.items.find((i) => i.name === "alert-dialog");
     expect(item, "alert-dialog must be a registry item").toBeDefined();
