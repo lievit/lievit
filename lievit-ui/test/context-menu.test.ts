@@ -2,205 +2,89 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * <lv-context-menu> (issue #445): right-click context menu. Pins pointer-open, menu/menuitem
- * ARIA, keyboard navigation + typeahead, checkbox/radio items, submenus, and Escape close.
+ * context-menu (issue #445) is now a server-first WIRE component (ADR-0012, Wave 2): the Lit
+ * island is gone. Its open-state, pointer position, items and selection live in typed Java
+ * (registry/wire/context-menu/ContextMenuComponent.java) rendered by JTE (context-menu.jte),
+ * with a tiny CSP-clean typed-TS enhancer (context-menu.ts) for the contextmenu gesture. This
+ * test pins the registry:wire mechanism + the server-purity of the source; the render +
+ * state-transition behaviour is render-asserted on the JVM in lievit-kit
+ * (io.lievit.kit.wire.ContextMenuComponentIT).
  */
-import { describe, test, expect, afterEach } from "vitest";
-import "../registry/components/context-menu/context-menu.js";
+import { describe, test, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { buildRegistry } from "../cli/build-registry.js";
+import { resolve } from "../cli/registry.js";
+import type { Registry } from "../cli/registry.js";
 
-interface Item {
-  key?: string;
-  label?: string;
-  icon?: string;
-  shortcut?: string;
-  disabled?: boolean;
-  type?: "item" | "checkbox" | "radio" | "separator" | "submenu";
-  checked?: boolean;
-  radioGroup?: string;
-  children?: Item[];
-}
+const registryRoot = join(import.meta.dirname, "..", "registry");
+const registry: Registry = buildRegistry(registryRoot);
+const read = (rel: string) => readFileSync(join(registryRoot, rel), "utf8");
 
-type El = HTMLElement & { items: Item[]; updateComplete: Promise<unknown> };
-
-const sample: Item[] = [
-  { key: "back", label: "Back", icon: "arrow-left", shortcut: "⌘[" },
-  { key: "fwd", label: "Forward", disabled: true },
-  { type: "separator" },
-  { key: "show-bar", label: "Show Bookmarks", type: "checkbox", checked: true },
-  { type: "separator" },
-  {
-    label: "More Tools",
-    type: "submenu",
-    children: [
-      { key: "save", label: "Save Page" },
-      { key: "dev", label: "Developer Tools" },
-    ],
-  },
-];
-
-async function mount(items: Item[] = sample): Promise<El> {
-  const el = document.createElement("lv-context-menu") as El;
-  el.items = items;
-  el.innerHTML = "<div>right click me</div>";
-  document.body.appendChild(el);
-  await el.updateComplete;
-  return el;
-}
-
-function trigger(el: El): HTMLElement {
-  return el.querySelector(".lv-context-menu__trigger") as HTMLElement;
-}
-async function openAt(el: El, x = 50, y = 50): Promise<void> {
-  trigger(el).dispatchEvent(
-    new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x, clientY: y })
-  );
-  await el.updateComplete;
-}
-function menu(el: El): HTMLElement | null {
-  return el.querySelector('[role="menu"]');
-}
-function items(el: El, container: HTMLElement | null = el): HTMLElement[] {
-  return Array.from(
-    (container ?? el).querySelectorAll<HTMLElement>(
-      '[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"]'
-    )
-  );
-}
-async function key(el: El, k: string): Promise<void> {
-  const focused = el.querySelector('[role="menu"] [tabindex="0"]') ?? menu(el);
-  focused?.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
-  await el.updateComplete;
-}
-
-afterEach(() => {
-  document.body.innerHTML = "";
-});
-
-describe("lv-context-menu structure + ARIA", () => {
-  test("renders into the light DOM (no shadow root)", async () => {
-    const el = await mount();
-    expect(el.shadowRoot).toBeNull();
+describe("context-menu registry:wire item shape", () => {
+  test("context-menu is a single registry:wire item (the Lit island is gone)", () => {
+    const matches = registry.items.filter((i) => i.name === "context-menu");
+    expect(matches, "exactly one context-menu item").toHaveLength(1);
+    expect(matches[0].type).toBe("registry:wire");
   });
 
-  test("the menu is closed until a contextmenu event on the trigger", async () => {
-    const el = await mount();
-    expect(menu(el)).toBeNull();
-    await openAt(el);
-    expect(menu(el)).not.toBeNull();
-    expect(menu(el)?.getAttribute("role")).toBe("menu");
+  test("it carries three files: a .java (java root), a .jte (jte root), a .ts (alias root)", () => {
+    const item = registry.items.find((i) => i.name === "context-menu")!;
+    const java = item.files.find((f) => f.target.endsWith(".java"))!;
+    const jte = item.files.find((f) => f.target.endsWith(".jte"))!;
+    const ts = item.files.find((f) => f.target.endsWith(".ts"))!;
+    expect(java.root).toBe("java");
+    expect(jte.root).toBe("jte");
+    // the enhancer is an alias-root file (no java/jte root): it lands like the old island did.
+    expect(ts.root).toBeUndefined();
+    expect(ts.target).toBe("components/ui/context-menu.ts");
   });
 
-  test("contextmenu is prevented (we own the menu, not the browser)", async () => {
-    const el = await mount();
-    const ev = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
-    trigger(el).dispatchEvent(ev);
-    expect(ev.defaultPrevented).toBe(true);
+  test("the wire Java holds the state in @Wire fields + @LievitAction open/close", () => {
+    const java = read("wire/context-menu/ContextMenuComponent.java");
+    expect(java).toContain("@Wire");
+    expect(java).toContain("public boolean open");
+    expect(java).toContain("public int x");
+    expect(java).toContain("public int y");
+    expect(java).toContain("@LievitAction");
+    expect(java).toContain("void openAt()");
+    expect(java).toContain("void close()");
+    // the items list is server-derived, kept out of the snapshot (a record list cannot round-trip).
+    expect(java).toMatch(/@LievitProperty\(serialize = false\)[\s\S]*?List<Entry> items/);
   });
 
-  test("renders the correct roles incl. separators and checkbox", async () => {
-    const el = await mount();
-    await openAt(el);
-    const root = menu(el)!;
-    expect(items(el, root).length).toBe(4); // back, fwd, checkbox, submenu (separators excluded)
-    expect(root.querySelectorAll('[role="separator"]').length).toBe(2);
-    expect(root.querySelector('[role="menuitemcheckbox"]')?.getAttribute("aria-checked")).toBe("true");
+  test("the wire template is server-pure: no <slot>, no inline <script>, real menu roles", () => {
+    const jte = read("wire/context-menu/context-menu.jte");
+    const markup = jte.replace(/<%--[\s\S]*?--%>/g, "");
+    // the whole reason for the pivot: no native <slot>, no inline script.
+    expect(markup).not.toMatch(/<slot[\s>]/);
+    expect(markup).not.toMatch(/<script/i);
+    // it renders a real menu of real menu items, and an item arms the selection over the wire.
+    expect(jte).toContain('role="menu"');
+    expect(jte).toContain('role="${entry.role()}"');
+    expect(jte).toContain("$set('selectedKey'");
+    // the right-clickable region is OWNED markup, not a slot.
+    expect(jte).toContain("data-context-menu-trigger");
   });
 
-  test("a disabled item carries aria-disabled", async () => {
-    const el = await mount();
-    await openAt(el);
-    const fwd = items(el)[1];
-    expect(fwd.getAttribute("aria-disabled")).toBe("true");
+  test("the enhancer is CSP-clean: addEventListener only, no inline handler, no Lit/floating-ui", () => {
+    const ts = read("wire/context-menu/context-menu.ts");
+    // strip comments (the doc-comment names lit/floating-ui in prose to explain their absence).
+    const code = ts.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    expect(code).toContain('addEventListener("contextmenu"');
+    expect(code).toContain("preventDefault");
+    // it drives the component through the runtime $lievit object, never an eval'd string.
+    expect(code).toContain("$call(\"openAt\")");
+    expect(code).not.toMatch(/\bnew Function\b|\beval\(/);
+    // no Lit, no @floating-ui/dom IMPORT (the server-pure positioning is CSS).
+    expect(code).not.toMatch(/^import .*(from "lit"|@floating-ui\/dom)/m);
   });
 
-  test("the submenu trigger advertises aria-haspopup + aria-expanded", async () => {
-    const el = await mount();
-    await openAt(el);
-    const sub = items(el).find((i) => i.getAttribute("aria-haspopup") === "menu")!;
-    expect(sub).toBeTruthy();
-    expect(sub.getAttribute("aria-expanded")).toBe("false");
-  });
-
-  test("icons render as inline Lucide svg, never Font Awesome", async () => {
-    const el = await mount();
-    await openAt(el);
-    expect(el.querySelector(".lv-context-menu__icon svg")).not.toBeNull();
-    expect(el.querySelector("i.fa, i.fas")).toBeNull();
-  });
-});
-
-describe("lv-context-menu keyboard", () => {
-  test("ArrowDown skips the disabled item", async () => {
-    const el = await mount();
-    await openAt(el);
-    // first enabled is index 0 (Back); next enabled skips disabled Forward -> checkbox
-    await key(el, "ArrowDown");
-    const active = el.querySelector(".lv-context-menu__item--active");
-    expect(active?.getAttribute("role")).toBe("menuitemcheckbox");
-  });
-
-  test("Enter activates and emits lv-select with the key", async () => {
-    const el = await mount();
-    let got = "";
-    el.addEventListener("lv-select", (e) => (got = (e as CustomEvent).detail));
-    await openAt(el);
-    await key(el, "Enter"); // Back is active by default
-    expect(got).toBe("back");
-  });
-
-  test("activating a checkbox emits lv-checked-change with the toggled value", async () => {
-    const el = await mount();
-    let detail: { key?: string; checked?: boolean } = {};
-    el.addEventListener("lv-checked-change", (e) => (detail = (e as CustomEvent).detail));
-    await openAt(el);
-    await key(el, "ArrowDown"); // -> checkbox (checked:true)
-    await key(el, "Enter");
-    expect(detail).toEqual({ key: "show-bar", checked: false });
-  });
-
-  test("typeahead jumps to the item starting with the typed letter", async () => {
-    const el = await mount();
-    await openAt(el);
-    await key(el, "S"); // "Show Bookmarks"
-    expect(el.querySelector(".lv-context-menu__item--active")?.textContent).toContain("Show Bookmarks");
-  });
-
-  test("ArrowRight opens the submenu; ArrowLeft closes it", async () => {
-    const el = await mount();
-    await openAt(el);
-    await key(el, "End"); // -> the submenu item (last enabled)
-    await key(el, "ArrowRight");
-    expect(el.querySelectorAll('[role="menu"]').length).toBe(2);
-    await key(el, "ArrowLeft");
-    expect(el.querySelectorAll('[role="menu"]').length).toBe(1);
-  });
-
-  test("Escape closes the menu", async () => {
-    const el = await mount();
-    await openAt(el);
-    expect(menu(el)).not.toBeNull();
-    await key(el, "Escape");
-    expect(menu(el)).toBeNull();
-  });
-});
-
-describe("lv-context-menu mouse", () => {
-  test("clicking an item emits lv-select and closes", async () => {
-    const el = await mount();
-    let got = "";
-    el.addEventListener("lv-select", (e) => (got = (e as CustomEvent).detail));
-    await openAt(el);
-    items(el)[0].click(); // Back
-    await el.updateComplete;
-    expect(got).toBe("back");
-    expect(menu(el)).toBeNull();
-  });
-
-  test("a click outside closes the menu", async () => {
-    const el = await mount();
-    await openAt(el);
-    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    await el.updateComplete;
-    expect(menu(el)).toBeNull();
+  test("resolving the wire item pulls its tokens + icon partial dependencies", () => {
+    const closure = resolve(registry, ["context-menu"]).map((i) => i.name);
+    expect(closure).toContain("context-menu");
+    expect(closure).toContain("tokens");
+    expect(closure).toContain("icon");
+    expect(closure.indexOf("icon")).toBeLessThan(closure.indexOf("context-menu"));
   });
 });
