@@ -797,23 +797,6 @@
       "docs": "Copies the label partial to your JTE root at lievit/label.jte, reached as @template.lievit.label(forId=..., text=...). Set `forId` to the control's id for native label association. The source is yours: edit freely."
     },
     {
-      "name": "light-dom",
-      "type": "registry:lib",
-      "description": "Light-DOM styling helper shared by every primitive: adopts a component's base stylesheet once per document. A registry dependency, not a standalone component.",
-      "dependencies": [],
-      "registryDependencies": [],
-      "files": [
-        {
-          "path": "components/light-dom/light-dom.ts",
-          "type": "registry:lib",
-          "target": "components/ui/light-dom.ts",
-          "content": "/*\n * Copyright 2026 Francesco Bilotta\n * Licensed under the Apache License, Version 2.0 (the \"License\").\n */\n\n/**\n * Light-DOM styling helper shared by every lievit-ui primitive.\n *\n * lievit-ui components render into the light DOM (`createRenderRoot() { return this; }`)\n * so adopter CSS and the `--lv-*` tokens cascade in freely and there is no shadow root to\n * pierce (docs/lievit-ui.md, ADR-0005/0009). The catch: Lit's `static styles` only applies\n * inside a shadow root, so a light-DOM component cannot use it. Instead each component\n * registers its base stylesheet once per document via `adoptLightStyles`; the rules are\n * authored against `.lv-*` class names and the tokens, never hardcoded values.\n *\n * This is copy-in source the adopter owns: the very first `lievit add <component>` brings\n * it in alongside the component, and it is referenced by registryDependencies so it is\n * never an orphan.\n */\n\nconst adopted = new Set<string>();\n\n/**\n * Adopt a component's base stylesheet into the document exactly once, keyed by `id`.\n *\n * Uses Constructable Stylesheets (`document.adoptedStyleSheets`) where available and falls\n * back to a `<style>` element otherwise. Idempotent: a second call with the same `id` is a\n * no-op, so connecting many instances of the same component injects one stylesheet.\n *\n * @param id  a stable key for the component's stylesheet (e.g. \"lv-button\")\n * @param css the CSS text, authored against `.lv-*` classes and `--lv-*` tokens\n */\nexport function adoptLightStyles(id: string, css: string): void {\n  if (adopted.has(id)) {\n    return;\n  }\n  adopted.add(id);\n\n  const root = document;\n  const supportsConstructable =\n    \"adoptedStyleSheets\" in Document.prototype &&\n    typeof CSSStyleSheet !== \"undefined\" &&\n    // a constructable sheet supports replaceSync; some test DOMs expose neither\n    typeof (CSSStyleSheet.prototype as { replaceSync?: unknown }).replaceSync ===\n      \"function\";\n\n  if (supportsConstructable) {\n    const sheet = new CSSStyleSheet();\n    sheet.replaceSync(css);\n    root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];\n    return;\n  }\n\n  const style = root.createElement(\"style\");\n  style.setAttribute(\"data-lievit-ui\", id);\n  style.textContent = css;\n  root.head.appendChild(style);\n}\n\n/**\n * Reset the adoption registry. Test-only: lets a suite assert first-adoption behaviour\n * deterministically across cases. Not part of the runtime contract.\n */\nexport function resetAdoptedStylesForTest(): void {\n  adopted.clear();\n}\n"
-        }
-      ],
-      "tokens": [],
-      "docs": "Internal helper; pulled in automatically as a dependency of any lievit-ui component."
-    },
-    {
       "name": "native-select",
       "type": "registry:jte",
       "description": "The one true select: a token-styled wrapper around the real native <select> with a chevron indicator. Submits with a plain form, zero JS, fully accessible for free; value!=label via the content slot, binds via l:model. The redundant Lit `select` island was removed (ADR-0012); this covers it.",

@@ -148,10 +148,12 @@ describe("built registry.json", () => {
     expect(item!.files.some((f) => f.path.endsWith("toast.enhancer.ts"))).toBe(true);
   });
 
-  test("ships the tokens and light-dom base items", () => {
+  test("ships the tokens base item", () => {
     const names = built.items.map((i) => i.name);
     expect(names).toContain("tokens");
-    expect(names).toContain("light-dom");
+    // light-dom (the Lit light-DOM style helper) was dropped with the last island (ADR-0012,
+    // Wave 4 R7): the server-first library ships no Lit runtime, so no component imports it.
+    expect(names).not.toContain("light-dom");
   });
 
   test("every file declares non-empty inlined content with an Apache header", () => {
