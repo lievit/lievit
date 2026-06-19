@@ -29,18 +29,26 @@ const VALIDATION: Record<OtpType, { accept: RegExp; inputMode: string }> = {
  * - paste-fill: pasting distributes the (filtered) characters across the slots from the focused one;
  * - filtering: characters outside the type's accept set are rejected.
  *
- * Form association (the robust, portable approach): a hidden `<input name>` mirrors the joined
- * value, so the component submits inside any plain HTML form with no JS glue and no reliance on
- * ElementInternals (which not every DOM/test env implements). `value` is the controlled prop.
+ * Form-associated (`static formAssociated`): submits the joined `value` under `name` inside a plain
+ * `<form method=post>`. It reports the value through ElementInternals (`setFormValue`) where the
+ * platform supports it and ALSO mirrors it into a hidden `<input name>` (the portable fallback for
+ * environments without ElementInternals, e.g. the happy-dom test runtime), so `new FormData(form)`
+ * sees the field either way. `formResetCallback` returns it to its initial value;
+ * `formDisabledCallback` follows a disabled fieldset. `value` is the controlled prop.
  *
  * Data down, events up:
  * - `lv-input`: fired on every change, detail = the current (possibly partial) value string;
  * - `lv-complete`: fired once when all slots are filled, detail = the full value string.
+ * On every change it also dispatches a native bubbling `input` event (and a native `change` once the
+ * code is complete) so the wire's `l:model` binds with zero config.
  *
  * Light-DOM rendered; token-styled; `--lv-ring` focus on the active slot. Dependency-free (only lit).
  */
 @customElement("lv-input-otp")
 export class LvInputOtp extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** Number of code slots. */
   @property({ type: Number }) length = 6;
 
@@ -66,6 +74,41 @@ export class LvInputOtp extends LitElement {
   @property() label = "One-time code";
 
   @state() private activeIndex = 0;
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The value the control resets to on form reset (captured at first connect). */
+  private initialValue = "";
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.initialValue = this.value;
+    this.syncFormValue();
+  }
+
+  /** Reports the current value to the form (ElementInternals; the hidden mirror covers the rest). */
+  private syncFormValue() {
+    this.internals?.setFormValue(this.value);
+  }
+
+  /** Reset to the initial value (form-associated lifecycle). */
+  formResetCallback() {
+    this.value = this.initialValue;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-input-otp", LvInputOtp.css);
@@ -122,13 +165,18 @@ export class LvInputOtp extends LitElement {
       .join("")
       .slice(0, this.length);
     this.value = clean;
+    this.syncFormValue();
+    // Back-compat CustomEvent plus a native `input` so `l:model` (native event listener) binds.
     this.dispatchEvent(
       new CustomEvent("lv-input", { detail: clean, bubbles: true, composed: true })
     );
+    this.dispatchEvent(new Event("input", { bubbles: true }));
     if (clean.length === this.length) {
       this.dispatchEvent(
         new CustomEvent("lv-complete", { detail: clean, bubbles: true, composed: true })
       );
+      // A native `change` on commit (the code is complete) for `l:model.lazy`/`.change` bindings.
+      this.dispatchEvent(new Event("change", { bubbles: true }));
     }
   }
 
@@ -246,14 +294,16 @@ export class LvInputOtp extends LitElement {
             />
           `)}
         </div>
-        <input
-          class="lv-otp__hidden"
-          type="hidden"
-          name=${this.name || ""}
-          .value=${this.value}
-          tabindex="-1"
-          aria-hidden="true"
-        />
+        ${this.internals
+          ? null
+          : html`<input
+              class="lv-otp__hidden"
+              type="hidden"
+              name=${this.name || ""}
+              .value=${this.value}
+              tabindex="-1"
+              aria-hidden="true"
+            />`}
       </div>
     `;
   }

@@ -1,10 +1,10 @@
 {
   "name": "input",
   "type": "registry:ui",
-  "description": "A token-styled single-line text input that participates in l:model binding.",
+  "description": "A token-styled, form-associated single-line text input: submits its value under `name` in a plain POST form and fires native input/change events, so l:model binds with zero config.",
   "dependencies": ["lit"],
   "registryDependencies": ["tokens", "light-dom"],
   "files": [{ "path": "components/input/input.ts", "type": "registry:ui", "target": "components/ui/input.ts" }],
   "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Register <lv-input> by importing components/ui/input.ts from your entry point."
+  "docs": "Register <lv-input> by importing components/ui/input.ts from your entry point. Set `name` to submit the value in a plain HTML form (form-associated: ElementInternals where supported, hidden mirror otherwise). Bind with l:model (native input/change) or listen for lv-input / lv-change."
 }

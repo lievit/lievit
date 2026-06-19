@@ -9,15 +9,26 @@ import { adoptLightStyles } from "../light-dom/light-dom.js";
 /**
  * `<lv-textarea>`: a token-styled multi-line text input.
  *
- * Same data-down/events-up contract as `<lv-input>`: value in via the property, bubbling
- * `lv-input` event out on change; the wire's `l:model` owns the binding. Sets `aria-invalid`
- * from the `invalid` flag (WAI-ARIA, research 4.3). Owned source, copied in by
+ * Form-associated (`static formAssociated`): submits its `value` under `name` inside a plain
+ * `<form method=post>`, via ElementInternals (`setFormValue`) where supported and a hidden
+ * `<input name>` mirror as the portable fallback (e.g. the happy-dom test runtime), so
+ * `new FormData(form)` sees the field either way. `formResetCallback` returns it to its initial
+ * value; `formDisabledCallback` follows a disabled fieldset. Data down, events up: value in via
+ * the property; on change it emits the back-compat `lv-input` CustomEvent AND a native bubbling
+ * `input` event (a native `change` on commit/blur) so the wire's `l:model` binds with zero config.
+ * Sets `aria-invalid` from the `invalid` flag (WAI-ARIA, research 4.3). Owned source, copied in by
  * `lievit add textarea`. Light-DOM rendered.
  */
 @customElement("lv-textarea")
 export class LvTextarea extends LitElement {
+  /** Marks the element form-associated so it participates in form submission and reset. */
+  static readonly formAssociated = true;
+
   /** Current text value (data down). */
   @property() value = "";
+
+  /** Form field name; the control submits its value under this name. */
+  @property() name = "";
 
   /** Placeholder shown when empty. */
   @property() placeholder = "";
@@ -30,6 +41,41 @@ export class LvTextarea extends LitElement {
 
   /** Disables the control. */
   @property({ type: Boolean }) disabled = false;
+
+  /** ElementInternals where supported (real browsers); undefined in environments without it. */
+  private readonly internals: ElementInternals | null = (() => {
+    try {
+      return (this as { attachInternals?: () => ElementInternals }).attachInternals?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+
+  /** The value the control resets to on form reset (captured at first connect). */
+  private initialValue = "";
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.initialValue = this.value;
+    this.syncFormValue();
+  }
+
+  /** Reports the current value to the form (ElementInternals; the hidden mirror covers the rest). */
+  private syncFormValue() {
+    this.internals?.setFormValue(this.value);
+  }
+
+  /** Reset to the initial value (form-associated lifecycle). */
+  formResetCallback() {
+    this.value = this.initialValue;
+    this.syncFormValue();
+    this.requestUpdate();
+  }
+
+  /** Follow a disabled ancestor fieldset (form-associated lifecycle). */
+  formDisabledCallback(disabled: boolean) {
+    this.disabled = disabled;
+  }
 
   createRenderRoot(): this {
     adoptLightStyles("lv-textarea", LvTextarea.css);
@@ -58,9 +104,22 @@ export class LvTextarea extends LitElement {
   private onInput(e: Event) {
     const value = (e.target as HTMLTextAreaElement).value;
     this.value = value;
+    this.syncFormValue();
+    // Back-compat CustomEvent plus a native `input` so `l:model` (which listens for native input) binds.
     this.dispatchEvent(
       new CustomEvent("lv-input", { detail: value, bubbles: true, composed: true })
     );
+    this.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  private onChange(e: Event) {
+    const value = (e.target as HTMLTextAreaElement).value;
+    this.value = value;
+    this.syncFormValue();
+    this.dispatchEvent(
+      new CustomEvent("lv-change", { detail: value, bubbles: true, composed: true })
+    );
+    this.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   render() {
@@ -73,7 +132,11 @@ export class LvTextarea extends LitElement {
         aria-invalid=${this.invalid ? "true" : "false"}
         .value=${this.value}
         @input=${this.onInput}
+        @change=${this.onChange}
       ></textarea>
+      ${this.internals
+        ? null
+        : html`<input type="hidden" name=${this.name || ""} .value=${this.value} />`}
     `;
   }
 }
