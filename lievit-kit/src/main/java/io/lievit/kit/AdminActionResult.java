@@ -44,7 +44,9 @@ public record AdminActionResult(
         /** A save was blocked by validation (re-render the form with the errors). */
         INVALID,
         /** The authorizer denied the operation. */
-        FORBIDDEN
+        FORBIDDEN,
+        /** A {@code before()} hook (or the body) halted the action: no write, no redirect. */
+        HALTED
     }
 
     /** Compact constructor: defends the error list. */
@@ -113,6 +115,21 @@ public record AdminActionResult(
      */
     public static AdminActionResult forbidden() {
         return new AdminActionResult(Status.FORBIDDEN, List.of(), null);
+    }
+
+    /**
+     * A halted result (the Filament {@code $action->halt()}): a {@code before()} hook (or the body)
+     * stopped the action before it wrote or redirected.
+     *
+     * @return a halted result
+     */
+    public static AdminActionResult halted() {
+        return new AdminActionResult(Status.HALTED, List.of(), null);
+    }
+
+    /** @return whether a hook (or the body) halted the action */
+    public boolean isHalted() {
+        return status == Status.HALTED;
     }
 
     /** @return whether the action ran to completion */

@@ -109,4 +109,10 @@ public final class IconEntry extends Entry<IconEntry> {
         String s = value == null ? "" : String.valueOf(value);
         return s.equals("true") || s.equals("1") || s.equalsIgnoreCase("on");
     }
+
+    /** @return {@code "icon"}: this entry resolves as a icon field. */
+    @Override
+    public String kind() {
+        return "icon";
+    }
 }

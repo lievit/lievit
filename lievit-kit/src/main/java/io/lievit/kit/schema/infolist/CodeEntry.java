@@ -81,4 +81,10 @@ public final class CodeEntry extends Entry<CodeEntry> {
     public boolean hasLineNumbers() {
         return lineNumbers;
     }
+
+    /** @return {@code "code"}: this entry resolves as a code field. */
+    @Override
+    public String kind() {
+        return "code";
+    }
 }

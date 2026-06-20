@@ -29,7 +29,7 @@ import io.lievit.kit.support.EvaluationContext.Operation;
  */
 public final class Infolist {
 
-    private final List<Entry<?>> entries = new ArrayList<>();
+    private final List<InfolistComponent> components = new ArrayList<>();
     private int columns = 1;
 
     private Infolist() {}
@@ -42,23 +42,40 @@ public final class Infolist {
     }
 
     /**
-     * Adds entries to the infolist.
+     * Adds components to the infolist schema (entries AND layout: {@link InfolistSection},
+     * {@link InfolistTabs}, {@link InfolistFieldset}, {@link InfolistGrid}). The carried-over
+     * filament {@code schema()} accepts the same closed set of components a form does, so an infolist
+     * can nest layout instead of being a flat list of entries.
      *
-     * @param toAdd the entries in display order
+     * @param toAdd the components in display order
      * @return this infolist
      */
-    public Infolist schema(Entry<?>... toAdd) {
-        for (Entry<?> entry : toAdd) {
-            entries.add(Objects.requireNonNull(entry, "entry"));
+    public Infolist schema(InfolistComponent... toAdd) {
+        for (InfolistComponent c : toAdd) {
+            components.add(Objects.requireNonNull(c, "component"));
         }
         return this;
     }
 
     /**
-     * @return the entries in display order (unmodifiable)
+     * @return the schema components in display order (unmodifiable)
+     */
+    public List<InfolistComponent> components() {
+        return List.copyOf(components);
+    }
+
+    /**
+     * @return the top-level entries in display order (unmodifiable); a convenience over the schema
+     *     for a host that declared only entries (the back-compat flat case)
      */
     public List<Entry<?>> entries() {
-        return List.copyOf(entries);
+        List<Entry<?>> out = new ArrayList<>();
+        for (InfolistComponent c : components) {
+            if (c instanceof Entry<?> entry) {
+                out.add(entry);
+            }
+        }
+        return List.copyOf(out);
     }
 
     /**
@@ -104,11 +121,46 @@ public final class Infolist {
     public Map<String, String> resolve(Map<String, @Nullable Object> record) {
         EvaluationContext context = contextOver(record);
         Map<String, String> out = new LinkedHashMap<>();
-        for (Entry<?> entry : entries) {
-            if (entry.isVisible()) {
+        for (InfolistComponent c : components) {
+            if (c instanceof Entry<?> entry && entry.isVisible()) {
                 out.put(entry.label(), entry.resolveDisplay(context));
             }
         }
         return out;
+    }
+
+    /**
+     * Resolves the WHOLE schema (layout included) into the structured {@link ResolvedNode} tree a
+     * renderer paints: sections carry their children, tabs carry their tabs, a {@link KeyValueEntry}
+     * carries its resolved map (the path that reaches {@link KeyValueEntry#resolveMap}, instead of
+     * the flat {@link #resolve} that would flatten it to {@code String.valueOf(map)}). Hidden
+     * components are skipped uniformly across leaves and containers.
+     *
+     * @param record the record attributes keyed by path
+     * @return the resolved top-level nodes in display order
+     */
+    public List<ResolvedNode> resolveTree(Map<String, @Nullable Object> record) {
+        EvaluationContext context = contextOver(record);
+        List<ResolvedNode> out = new ArrayList<>();
+        for (InfolistComponent c : components) {
+            if (c.isVisibleComponent()) {
+                out.add(c.resolveNode(context));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * @return whether the schema declares any layout component (a {@link InfolistSection} /
+     *     {@link InfolistTabs} / {@link InfolistFieldset} / {@link InfolistGrid}); a flat
+     *     entries-only infolist can take the simple {@link #resolve} path
+     */
+    public boolean hasLayout() {
+        for (InfolistComponent c : components) {
+            if (!(c instanceof Entry<?>)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

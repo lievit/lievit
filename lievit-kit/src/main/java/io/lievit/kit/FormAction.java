@@ -29,6 +29,7 @@ public final class FormAction<T> extends AdminAction<T> {
     private final Form<T> form;
     private final BiConsumer<T, AdminActionContext<T>> process;
     private ModalConfig modal = ModalConfig.defaults();
+    private boolean disabledForm;
 
     private FormAction(
             String name,
@@ -84,13 +85,36 @@ public final class FormAction<T> extends AdminAction<T> {
     }
 
     /**
-     * Fills the modal form's initial state from a record (edit) or empty (a fresh create-style
-     * modal).
+     * Renders the modal form READ-ONLY (the Filament {@code disabledForm()} / {@code disabled()} on
+     * the action's form): the fields show the prefilled state but cannot be edited, and the action
+     * runs its process on the unchanged record. Use it for a "confirm with context" modal that shows
+     * the record's current values without letting the operator change them.
+     *
+     * @return this action
+     */
+    public FormAction<T> disabledForm() {
+        this.disabledForm = true;
+        return this;
+    }
+
+    /** @return whether the modal form renders read-only (the {@code disabledForm()} flag) */
+    public boolean isFormDisabled() {
+        return disabledForm;
+    }
+
+    /**
+     * Fills the modal form's initial state when the modal mounts. A {@link #mountUsing} closure (the
+     * Filament {@code mountUsing()} / {@code fillForm()}) wins when set; otherwise the state is
+     * derived from the record (edit) or empty (a fresh create-style modal).
      *
      * @param record the record to prefill from, or {@code null} for an empty form
      * @return the per-field initial state
      */
     public Map<String, String> fill(@Nullable T record) {
+        Map<String, String> mounted = mountState(record);
+        if (!mounted.isEmpty()) {
+            return mounted;
+        }
         return record == null ? Map.of() : form.stateOf(record);
     }
 

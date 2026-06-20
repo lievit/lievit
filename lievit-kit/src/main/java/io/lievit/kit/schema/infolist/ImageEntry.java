@@ -110,4 +110,10 @@ public final class ImageEntry extends Entry<ImageEntry> {
     public @Nullable String disk() {
         return disk;
     }
+
+    /** @return {@code "image"}: this entry resolves as a image field. */
+    @Override
+    public String kind() {
+        return "image";
+    }
 }
