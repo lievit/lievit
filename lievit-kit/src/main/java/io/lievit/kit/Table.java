@@ -25,6 +25,7 @@ import org.jspecify.annotations.Nullable;
 public final class Table<T> extends Schema<T, Table<T>> {
 
     private final List<Column<T>> columns = new ArrayList<>();
+    private final List<ColumnGroup<T>> columnGroups = new ArrayList<>();
     private final List<Filter> filters = new ArrayList<>();
     private @Nullable Function<? super T, String> idFunction;
     private Sort defaultSort = Sort.NONE;
@@ -36,6 +37,9 @@ public final class Table<T> extends Schema<T, Table<T>> {
     private final List<Group<T>> groups = new ArrayList<>();
     private @Nullable String defaultGroup;
     private @Nullable String reorderColumn;
+    private FiltersLayout filtersLayout = FiltersLayout.DROPDOWN;
+    private boolean persistFiltersInSession;
+    private FilterState defaultFilters = FilterState.EMPTY;
 
     private Table() {}
 
@@ -75,6 +79,28 @@ public final class Table<T> extends Schema<T, Table<T>> {
     }
 
     /**
+     * Registers a {@link ColumnGroup} and appends its member columns to the table in order (the
+     * Filament {@code ColumnGroup::make(...)} passed to {@code ->columns([...])}). The group's columns
+     * become real table columns (so cells, sort, search, summaries all work as usual); the group
+     * additionally drives the spanning super-header row in the list view-model.
+     *
+     * <p>A column may belong to at most one group; groups render in declaration order, and the columns
+     * between/around them stay ungrouped (rendered under an empty spanning cell so the two header rows
+     * align). Declare groups and bare {@link #column(Column) columns} in the visual left-to-right order.
+     *
+     * @param group the column group
+     * @return this builder
+     */
+    public Table<T> columnGroup(ColumnGroup<T> group) {
+        Objects.requireNonNull(group, "group");
+        columnGroups.add(group);
+        for (Column<T> col : group.columns()) {
+            columns.add(col);
+        }
+        return this;
+    }
+
+    /**
      * Declares how a row maps to its string id (used in the row's edit/view route).
      *
      * @param idFunction extracts the id from a row
@@ -95,6 +121,43 @@ public final class Table<T> extends Schema<T, Table<T>> {
         for (Filter f : fs) {
             filters.add(Objects.requireNonNull(f, "filter"));
         }
+        return this;
+    }
+
+    /**
+     * Sets where the filter controls render (the Filament {@code Table::filtersLayout}); defaults to
+     * {@link FiltersLayout#DROPDOWN}.
+     *
+     * @param layout the filters layout
+     * @return this builder
+     */
+    public Table<T> filtersLayout(FiltersLayout layout) {
+        this.filtersLayout = Objects.requireNonNull(layout, "layout");
+        return this;
+    }
+
+    /**
+     * Persists the active filter values across page reloads in the session (the Filament
+     * {@code Table::persistFiltersInSession}). The kit carries the flag; the host component reads it
+     * to decide whether to restore the saved {@link FilterState} on mount.
+     *
+     * @return this builder
+     */
+    public Table<T> persistFiltersInSession() {
+        this.persistFiltersInSession = true;
+        return this;
+    }
+
+    /**
+     * Sets the filter values applied when the list first loads (the Filament per-filter
+     * {@code ->default(...)}). The host seeds the list request with this {@link FilterState} unless a
+     * session-persisted state overrides it.
+     *
+     * @param filters the default filter state
+     * @return this builder
+     */
+    public Table<T> defaultFilters(FilterState filters) {
+        this.defaultFilters = Objects.requireNonNull(filters, "filters");
         return this;
     }
 
@@ -250,9 +313,102 @@ public final class Table<T> extends Schema<T, Table<T>> {
         return Collections.unmodifiableList(columns);
     }
 
+    /** @return the registered column groups, in declaration order */
+    public List<ColumnGroup<T>> columnGroups() {
+        return Collections.unmodifiableList(columnGroups);
+    }
+
+    /** @return whether any column group is registered (drives the spanning super-header row) */
+    public boolean hasColumnGroups() {
+        return !columnGroups.isEmpty();
+    }
+
+    /**
+     * Computes the spanning super-header row aligned with the flat {@link #columns()} list: one
+     * {@link HeaderGroup} per contiguous run of columns, labelled when the run belongs to a registered
+     * {@link ColumnGroup} and unlabelled (an empty spanning placeholder) for the columns outside any
+     * group. The spans always sum to the column count, so the super-header row and the column-header
+     * row line up cell-for-cell.
+     *
+     * @return the header groups in left-to-right order (empty when no group is registered)
+     */
+    public List<HeaderGroup> headerGroups() {
+        if (columnGroups.isEmpty()) {
+            return List.of();
+        }
+        // Map each grouped column (by identity) to its group label so a scan of the flat column list
+        // can fold contiguous same-group runs and emit empty spans for ungrouped columns.
+        java.util.Map<Column<T>, ColumnGroup<T>> ownerOf = new java.util.IdentityHashMap<>();
+        for (ColumnGroup<T> group : columnGroups) {
+            for (Column<T> col : group.columns()) {
+                ownerOf.put(col, group);
+            }
+        }
+        List<HeaderGroup> out = new ArrayList<>();
+        @Nullable ColumnGroup<T> runOwner = null;
+        int runSpan = 0;
+        for (Column<T> col : columns) {
+            @Nullable ColumnGroup<T> owner = ownerOf.get(col);
+            if (owner != runOwner) {
+                if (runSpan > 0) {
+                    out.add(toHeaderGroup(runOwner, runSpan));
+                }
+                runOwner = owner;
+                runSpan = 0;
+            }
+            runSpan++;
+        }
+        if (runSpan > 0) {
+            out.add(toHeaderGroup(runOwner, runSpan));
+        }
+        return List.copyOf(out);
+    }
+
+    private HeaderGroup toHeaderGroup(@Nullable ColumnGroup<T> owner, int span) {
+        return owner == null
+                ? new HeaderGroup("", span, null)
+                : new HeaderGroup(owner.label(), span, owner.alignment());
+    }
+
+    /**
+     * One cell of the spanning super-header row: a label, the number of columns it spans, and an
+     * optional alignment. An empty {@link #label()} is the placeholder over ungrouped columns.
+     *
+     * @param label     the super-header text (empty for ungrouped columns)
+     * @param span      the number of columns this header spans (the {@code colspan})
+     * @param alignment the alignment token, or {@code null} for the default
+     */
+    public record HeaderGroup(String label, int span, @Nullable String alignment) {
+
+        /** @return whether this cell carries a real (non-empty) group label */
+        public boolean isGroup() {
+            return !label.isBlank();
+        }
+    }
+
     /** @return the registered filters, in declaration order */
     public List<Filter> filters() {
         return Collections.unmodifiableList(filters);
+    }
+
+    /** @return whether any filter is registered (drives whether the filter panel renders) */
+    public boolean hasFilters() {
+        return !filters.isEmpty();
+    }
+
+    /** @return where the filter controls render */
+    public FiltersLayout filtersLayout() {
+        return filtersLayout;
+    }
+
+    /** @return whether the active filters persist across reloads in the session */
+    public boolean persistsFiltersInSession() {
+        return persistFiltersInSession;
+    }
+
+    /** @return the default filter state applied on first load ({@link FilterState#EMPTY} if none) */
+    public FilterState defaultFilters() {
+        return defaultFilters;
     }
 
     /** @return the initial sort order ({@link Sort#NONE} if none declared) */

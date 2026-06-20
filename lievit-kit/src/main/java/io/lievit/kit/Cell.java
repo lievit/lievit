@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
  * without switching on the type.
  */
 public sealed interface Cell
-        permits Cell.Text, Cell.Badge, Cell.Link, Cell.Icon, Cell.Tags, Cell.AvatarStack {
+        permits Cell.Text, Cell.Badge, Cell.Link, Cell.Icon, Cell.Tags, Cell.AvatarStack, Cell.View {
 
     /**
      * @return the cell's display text: the {@link Column#cell(Object) string projection} of the
@@ -138,6 +138,34 @@ public sealed interface Cell
         /** @return whether the {@code "+K"} badge links to the row detail */
         public boolean hasOverflowUrl() {
             return overflowUrl != null && !overflowUrl.isBlank();
+        }
+    }
+
+    /**
+     * A custom-view cell (the Filament {@code ViewColumn::make()}): the escape hatch for arbitrary
+     * cell content. The column's {@link ViewColumn#render(java.util.function.Function) render mapper}
+     * produces a fragment of <strong>already-trusted</strong> HTML from the row (the server-first
+     * analogue of Filament passing the record into a Blade view), and the template stamps it RAW
+     * inside the {@code <td>} (JTE's {@code $unsafe}). {@link #text()} is the same HTML string, so a
+     * no-CSS / text-only consumer still reads the markup verbatim.
+     *
+     * <p>Trust boundary: the fragment is the adopter's own server-rendered markup, NOT user input. A
+     * {@link ViewColumn} that interpolates row data into the fragment is responsible for escaping it
+     * (the same contract as a Blade {@code @php}/{@code {!! !!}} view), exactly as Filament's
+     * {@code ViewColumn} trusts the view file.
+     *
+     * @param html the trusted HTML fragment the template renders raw (never null)
+     */
+    record View(String html) implements Cell {
+
+        /** Compact constructor: defends the fragment (a null becomes the empty string). */
+        public View {
+            html = html == null ? "" : html;
+        }
+
+        @Override
+        public String text() {
+            return html;
         }
     }
 

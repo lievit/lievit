@@ -30,6 +30,7 @@ import org.jspecify.annotations.Nullable;
 public record AdminListView(
         String heading,
         List<HeaderAction> headerActions,
+        List<HeaderGroup> headerGroups,
         List<Header> headerCells,
         List<Row> rows,
         Pagination pagination,
@@ -38,8 +39,31 @@ public record AdminListView(
     /** Compact constructor: defends the lists. */
     public AdminListView {
         headerActions = List.copyOf(headerActions);
+        headerGroups = List.copyOf(headerGroups);
         headerCells = List.copyOf(headerCells);
         rows = List.copyOf(rows);
+    }
+
+    /**
+     * One cell of the spanning super-header row (the rendered {@link Table.HeaderGroup}): a label, the
+     * number of column headers it spans, and an optional alignment. An empty {@link #label()} is the
+     * placeholder over ungrouped columns so the two header rows align cell-for-cell.
+     *
+     * @param label     the super-header text (empty for ungrouped columns)
+     * @param span      the {@code colspan} over the column-header row
+     * @param alignment the alignment token, or {@code null} for the default
+     */
+    public record HeaderGroup(String label, int span, @Nullable String alignment) {
+
+        /** @return whether this cell carries a real (non-empty) group label */
+        public boolean isGroup() {
+            return !label.isBlank();
+        }
+    }
+
+    /** @return whether any spanning super-header row should render (a column group is registered) */
+    public boolean hasHeaderGroups() {
+        return !headerGroups.isEmpty();
     }
 
     /**
@@ -121,14 +145,151 @@ public record AdminListView(
             boolean searchable,
             Sort sort,
             FilterState filters,
+            List<FilterControl> filterControls,
+            FiltersLayout filtersLayout,
+            boolean persistFiltersInSession,
             List<Integer> pageSizeOptions,
             boolean striped,
             String emptyStateHeading,
             @Nullable String emptyStateDescription) {
 
-        /** Compact constructor: defends the page-size list. */
+        /** Compact constructor: defends the lists. */
         public Controls {
+            filterControls = List.copyOf(filterControls);
             pageSizeOptions = List.copyOf(pageSizeOptions);
+        }
+
+        /** @return whether the filter panel should render (any filter is registered) */
+        public boolean hasFilters() {
+            return !filterControls.isEmpty();
+        }
+
+        /** @return the number of currently-active filters (the indicator count Filament shows) */
+        public int activeFilterCount() {
+            int count = 0;
+            for (FilterControl c : filterControls) {
+                if (c.active()) {
+                    count++;
+                }
+            }
+            return count;
+        }
+    }
+
+    /**
+     * One rendered filter control: the data the template stamps for a single {@link Filter} without
+     * re-reading the filter type. It carries the filter's stable name, its human label, its
+     * {@link Kind kind} (so the template picks toggle / select / ternary / trashed markup), its
+     * options (value→label, for select/ternary/trashed), the currently selected value(s), and the
+     * derived {@link #active()} indicator. A select-style control renders an empty leading
+     * {@code ""}-value option only when a {@link #placeholder()} is present.
+     *
+     * @param name        the filter's stable name (the {@link FilterState} key)
+     * @param label       the human filter label
+     * @param kind        the control kind the template renders
+     * @param options     the value→label options in declaration order (empty for a toggle)
+     * @param selected    the currently selected value(s) ({@link FilterState} for this name)
+     * @param placeholder the unselected/all option label for a ternary/select (empty for none)
+     * @param multiple    whether several options may be selected (a multi-select)
+     */
+    public record FilterControl(
+            String name,
+            String label,
+            Kind kind,
+            java.util.Map<String, String> options,
+            List<String> selected,
+            String placeholder,
+            boolean multiple) {
+
+        /** The control shape the template renders. */
+        public enum Kind {
+            /** A boolean toggle (the base {@link Filter}). */
+            TOGGLE,
+            /** A single/multi value {@link SelectFilter}. */
+            SELECT,
+            /** A tri-state {@link TernaryFilter}. */
+            TERNARY,
+            /** A soft-delete {@link TrashedFilter}. */
+            TRASHED
+        }
+
+        /** Compact constructor: defends the maps/lists. */
+        public FilterControl {
+            options = java.util.Map.copyOf(options);
+            selected = List.copyOf(selected);
+        }
+
+        /** @return whether this filter currently has a value (drives the active indicator) */
+        public boolean active() {
+            return !selected.isEmpty();
+        }
+
+        /**
+         * @param value an option value
+         * @return whether that option is currently selected
+         */
+        public boolean isSelected(String value) {
+            return selected.contains(value);
+        }
+
+        /** @return whether the control renders a leading empty placeholder option */
+        public boolean hasPlaceholder() {
+            return !placeholder.isBlank();
+        }
+
+        /**
+         * Builds the rendered control for a filter against the active state.
+         *
+         * @param filter the filter
+         * @param state  the active filter state
+         * @return the rendered control view-model
+         */
+        static FilterControl of(Filter filter, FilterState state) {
+            List<String> selected = state.values(filter.name());
+            if (filter instanceof SelectFilter select) {
+                return new FilterControl(
+                        select.name(),
+                        select.label(),
+                        Kind.SELECT,
+                        select.options(),
+                        selected,
+                        "",
+                        select.isMultiple());
+            }
+            if (filter instanceof TernaryFilter ternary) {
+                java.util.Map<String, String> opts = new java.util.LinkedHashMap<>();
+                opts.put(TernaryFilter.TRUE, ternary.trueLabel());
+                opts.put(TernaryFilter.FALSE, ternary.falseLabel());
+                return new FilterControl(
+                        ternary.name(),
+                        ternary.label(),
+                        Kind.TERNARY,
+                        opts,
+                        selected,
+                        ternary.placeholder(),
+                        false);
+            }
+            if (filter instanceof TrashedFilter trashed) {
+                java.util.Map<String, String> opts = new java.util.LinkedHashMap<>();
+                opts.put("with", "With deleted");
+                opts.put("only", "Only deleted");
+                return new FilterControl(
+                        trashed.name(),
+                        trashed.label(),
+                        Kind.TRASHED,
+                        opts,
+                        selected,
+                        "Without deleted",
+                        false);
+            }
+            return new FilterControl(
+                    filter.name(),
+                    filter.label(),
+                    Kind.TOGGLE,
+                    java.util.Map.of(),
+                    selected,
+                    "",
+                    false);
         }
     }
 
@@ -231,7 +392,10 @@ public record AdminListView(
      * @return the view-model
      */
     public static <T> AdminListView of(Resource<T> resource, int page, int size) {
-        return of(resource, new ListRequest(page, size, Sort.NONE, "", FilterState.EMPTY));
+        // Seed the default filters the table declares (Filament per-filter ->default()), so the first
+        // load reflects them; an explicit ListRequest overload carries the user-driven state instead.
+        FilterState defaults = resource.table().defaultFilters();
+        return of(resource, new ListRequest(page, size, Sort.NONE, "", defaults));
     }
 
     /**
@@ -254,6 +418,14 @@ public record AdminListView(
         for (Column<T> column : columns) {
             SortDirection dir = effectiveSort.directionOf(column.sortKey()).orElse(null);
             headerCells.add(new Header(column.label(), column.sortKey(), column.sortable(), dir));
+        }
+
+        // The spanning super-header row (Filament ColumnGroup): one cell per contiguous run of
+        // columns, labelled for a group and empty for ungrouped columns, the spans summing to the
+        // column count so it lines up with the header row.
+        List<HeaderGroup> headerGroups = new ArrayList<>();
+        for (Table.HeaderGroup hg : table.headerGroups()) {
+            headerGroups.add(new HeaderGroup(hg.label(), hg.span(), hg.alignment()));
         }
 
         // The HEADER/toolbar actions: a header action takes no record (the mapper sees null), so a
@@ -283,6 +455,13 @@ public record AdminListView(
             rows.add(new Row(table.idOf(record), cells));
         }
 
+        // The rendered filter controls (Filament's HasFilters panel): one per registered filter,
+        // pre-projected to the data the template stamps, with each filter's active value read back.
+        List<FilterControl> filterControls = new ArrayList<>();
+        for (Filter filter : table.filters()) {
+            filterControls.add(FilterControl.of(filter, request.filters()));
+        }
+
         String heading = table.heading() == null ? resource.label() : table.heading();
         Pagination pagination = Pagination.of(request.page(), request.size(), dataPage.total());
         Controls controls =
@@ -291,10 +470,14 @@ public record AdminListView(
                         table.hasSearchableColumns(),
                         effectiveSort,
                         request.filters(),
+                        filterControls,
+                        table.filtersLayout(),
+                        table.persistsFiltersInSession(),
                         table.pageSizeOptions(),
                         table.isStriped(),
                         table.emptyStateHeading(),
                         table.emptyStateDescription());
-        return new AdminListView(heading, headerActions, headerCells, rows, pagination, controls);
+        return new AdminListView(
+                heading, headerActions, headerGroups, headerCells, rows, pagination, controls);
     }
 }
