@@ -77,7 +77,39 @@ public final class ListingResource extends Resource<Listing> {
                 .column(
                         IconColumn.<Listing>make("Big", l -> l.city().length() > 5)
                                 .bool("check", "x")
-                                .color(v -> Boolean.TRUE.equals(v) ? "success" : "muted"));
+                                .color(v -> Boolean.TRUE.equals(v) ? "success" : "muted"))
+                // K4: a TagsColumn with overflow. The tags are the city's words/letters (derived, no
+                // schema change): limit(2) renders the first 2 chips + a "+K" badge for the rest.
+                .column(
+                        io.lievit.kit.TagsColumn.<Listing>make("Tags", l -> letters(l.city()))
+                                .limit(2))
+                // K4: an AvatarStackColumn with overflow. The people are derived initials from the
+                // city letters: limit(2) renders 2 avatars + a "+K" badge linking to the row detail.
+                .column(
+                        io.lievit.kit.AvatarStackColumn.<Listing>make("People", l -> letters(l.city()))
+                                .label(o -> String.valueOf(o))
+                                .limit(2)
+                                .url(l -> "/admin/listings/" + l.ref() + "/edit")
+                                .overflowTitle(l -> letters(l.city()).size() + " people"));
+    }
+
+    /** Derives a per-row list of single-letter "tags"/"people" from the city (test fixture data). */
+    private static java.util.List<String> letters(String city) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (char c : city.replace(" ", "").toCharArray()) {
+            out.add(String.valueOf(Character.toUpperCase(c)));
+        }
+        return out;
+    }
+
+    @Override
+    public java.util.List<io.lievit.kit.AdminAction<Listing>> headerActions() {
+        // A HEADER/toolbar URL-navigation action (the Filament header Action::url()): "Open calendar"
+        // opens a page, no per-row record involved. Proves K3's header placement + url navigation.
+        return java.util.List.of(
+                io.lievit.kit.UrlAction.<Listing>make(
+                                "open-calendar", "Open calendar", "/admin/calendar")
+                        .icon("heroicon-o-calendar"));
     }
 
     @Override

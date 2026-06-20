@@ -114,7 +114,9 @@ public final class FormPageDriver<T> {
                         resource, AdminRoutes.of(panelId, resource), authorizer, effects, id, state);
         AdminActionResult result = action.run(context);
         return switch (result.status()) {
-            case COMPLETED -> new Outcome(result, null);
+            // COMPLETED and NAVIGATE both queued their effect (redirect / navigation): the page is
+            // done. A form submit does not navigate, but the switch must stay exhaustive.
+            case COMPLETED, NAVIGATE -> new Outcome(result, null);
             case INVALID ->
                     new Outcome(
                             result,
