@@ -19,8 +19,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
  * kit's write boundary from "permit all" (the v0.1 default) into "deny unless the policy grants it".
  *
  * <p>Each {@link AdminOperation} maps to a permission name (the {@code permission} argument the host's
- * {@code PermissionEvaluator} matches): {@code VIEW_LIST -> "view"}, {@code CREATE -> "create"},
- * {@code UPDATE -> "update"}, {@code DELETE -> "delete"}. The target depends on scope:
+ * {@code PermissionEvaluator} matches), one per Laravel-Policy ability: {@code VIEW_LIST -> "view"},
+ * {@code CREATE -> "create"}, {@code UPDATE -> "update"}, {@code DELETE -> "delete"},
+ * {@code RESTORE -> "restore"}, {@code FORCE_DELETE -> "forceDelete"}, {@code REORDER -> "reorder"}.
+ * The target depends on scope:
  *
  * <ul>
  *   <li><strong>Record-scoped</strong> (a non-null {@code record}, the edit / delete of a specific
@@ -75,6 +77,9 @@ public final class PermissionEvaluatorAdminAuthorizer implements AdminAuthorizer
             case CREATE -> "create";
             case UPDATE -> "update";
             case DELETE -> "delete";
+            case RESTORE -> "restore";
+            case FORCE_DELETE -> "forceDelete";
+            case REORDER -> "reorder";
         };
     }
 }

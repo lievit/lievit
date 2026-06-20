@@ -226,6 +226,39 @@ class PanelConfigTest {
     }
 
     /**
+     * @spec.given a fresh panel and a panel configured with backing auth page models
+     * @spec.when  the auth page accessors are read
+     * @spec.then  a flag-less panel exposes no backing page (the audit's "flag renders nothing"
+     *     default), while the handler-accepting overloads set the flag AND the real page model so
+     *     {@code hasX()} and {@code xPage()} agree (the gap closed: a flag now backs a rendered page)
+     */
+    @Test
+    void auth_flags_back_real_page_models_when_configured_with_a_handler() {
+        Panel bare = Panel.create("admin").registration();
+        assertThat(bare.hasRegistration()).isTrue();
+        // The flag-only path leaves no backing page (the placeholder the audit flagged).
+        assertThat(bare.registerPage()).isEmpty();
+        assertThat(bare.loginPage()).isEmpty();
+
+        io.lievit.kit.auth.AuthHandler handler =
+                credentials -> io.lievit.kit.auth.AuthOutcome.redirect("/admin");
+        Panel wired =
+                Panel.create("admin")
+                        .loginPage(new io.lievit.kit.auth.LoginPage(handler))
+                        .registration(new io.lievit.kit.auth.RegisterPage(handler))
+                        .passwordReset(new io.lievit.kit.auth.PasswordResetPage(handler))
+                        .emailVerification(new io.lievit.kit.auth.EmailVerificationPage(handler));
+
+        assertThat(wired.loginPage()).isPresent();
+        assertThat(wired.hasRegistration()).isTrue();
+        assertThat(wired.registerPage()).isPresent();
+        assertThat(wired.hasPasswordReset()).isTrue();
+        assertThat(wired.passwordResetPage()).isPresent();
+        assertThat(wired.hasEmailVerification()).isTrue();
+        assertThat(wired.emailVerificationPage()).isPresent();
+    }
+
+    /**
      * @spec.given a panel whose access gate admits only an authenticated principal
      * @spec.when  the gate is asked about anonymous and authenticated principals
      * @spec.then  it denies anonymous and admits authenticated
