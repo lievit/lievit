@@ -482,7 +482,37 @@ public final class Rules {
         };
     }
 
+    // ── boolean acceptance (filament accepted / declined) ──────────────────────
+
+    /**
+     * The {@code accepted} rule: the value must be truthy ({@code true}, {@code "1"}, {@code "on"},
+     * {@code "yes"}). The consent gate behind {@link Toggle#accepted()} and {@link Checkbox#accepted()}.
+     *
+     * @return the must-be-on rule
+     */
+    public static Rule accepted() {
+        return (value, ctx) -> isTruthy(value) ? null : "This field must be accepted.";
+    }
+
+    /**
+     * The {@code declined} rule: the value must be falsy ({@code false}, {@code "0"}, {@code "off"},
+     * {@code "no"}, or absent). The inverse consent gate behind {@link Toggle#declined()}.
+     *
+     * @return the must-be-off rule
+     */
+    public static Rule declined() {
+        return (value, ctx) -> isTruthy(value) ? "This field must be declined." : null;
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────────
+
+    private static boolean isTruthy(@Nullable Object value) {
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        String s = value == null ? "" : String.valueOf(value).trim().toLowerCase(java.util.Locale.ROOT);
+        return s.equals("true") || s.equals("1") || s.equals("on") || s.equals("yes");
+    }
 
     private static boolean isBlank(@Nullable Object value) {
         return value == null || String.valueOf(value).isBlank();

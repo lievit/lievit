@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
@@ -60,6 +61,9 @@ public abstract class SchemaComponent<T extends @Nullable Object, SELF extends S
 
     private boolean dehydrated = true;
     private boolean dehydratedWhenHidden = false;
+
+    private @Nullable BiFunction<T, EvaluationContext, ? extends @Nullable Object> formatState;
+    private @Nullable BiFunction<T, EvaluationContext, ? extends @Nullable Object> dehydrateState;
 
     /** Package-visible: concrete components in this package extend it. */
     protected SchemaComponent() {}
@@ -384,6 +388,69 @@ public abstract class SchemaComponent<T extends @Nullable Object, SELF extends S
         return true;
     }
 
+    // ── state transforms (filament formatStateUsing / dehydrateStateUsing) ──────
+
+    /**
+     * Sets a transform applied to the hydrated value for DISPLAY only (the filament
+     * {@code formatStateUsing}): the closure receives the typed value and the live context and
+     * returns what the field shows. It never changes what persists ({@link #dehydrate} reads the
+     * raw value), so it is the display-side twin of {@link #dehydrateStateUsing}.
+     *
+     * @param format the display transform (value, context) to the shown representation
+     * @return this component
+     */
+    public SELF formatStateUsing(
+            BiFunction<T, EvaluationContext, ? extends @Nullable Object> format) {
+        this.formatState = Objects.requireNonNull(format, "format");
+        return self();
+    }
+
+    /**
+     * Resolves the value shown for this component: the raw value transformed by
+     * {@link #formatStateUsing} when one is set, otherwise the raw value unchanged.
+     *
+     * @param state the live schema state
+     * @param context the live evaluation context
+     * @return the display representation (may differ from the persisted value)
+     */
+    public @Nullable Object formattedState(SchemaState state, EvaluationContext context) {
+        @Nullable T value = read(state);
+        if (formatState == null) {
+            return value;
+        }
+        return formatState.apply(value, context);
+    }
+
+    /**
+     * @return {@code true} if a display transform is set
+     */
+    public boolean hasFormatState() {
+        return formatState != null;
+    }
+
+    /**
+     * Sets a transform applied to the value just before it persists (the filament
+     * {@code dehydrateStateUsing}): the closure receives the typed value and the live context and
+     * returns the raw value written to the persisted data. Unlike {@link #formatStateUsing} this
+     * DOES change what persists; it runs after the cast's {@code dehydrate}, so the closure sees the
+     * already-raw form (for example trimming a string, or stamping a normalized value).
+     *
+     * @param dehydrate the persist transform (value, context) to the stored representation
+     * @return this component
+     */
+    public SELF dehydrateStateUsing(
+            BiFunction<T, EvaluationContext, ? extends @Nullable Object> dehydrate) {
+        this.dehydrateState = Objects.requireNonNull(dehydrate, "dehydrate");
+        return self();
+    }
+
+    /**
+     * @return {@code true} if a persist transform is set
+     */
+    public boolean hasDehydrateState() {
+        return dehydrateState != null;
+    }
+
     // ── lifecycle ──────────────────────────────────────────────────────────────
 
     /**
@@ -441,6 +508,10 @@ public abstract class SchemaComponent<T extends @Nullable Object, SELF extends S
         }
         @Nullable T value = read(state);
         @Nullable Object raw = cast != null ? cast.dehydrate(value) : value;
+        if (dehydrateState != null) {
+            // The persist transform sees the already-raw form and replaces what is written.
+            raw = dehydrateState.apply(value, context);
+        }
         sink.accept(statePath, raw);
     }
 }

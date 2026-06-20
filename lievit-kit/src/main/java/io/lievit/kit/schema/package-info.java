@@ -28,9 +28,11 @@
  *
  * <p><strong>Fields</strong>: {@link io.lievit.kit.schema.SchemaField} (the input base: label,
  * helper-text/hint/affixes, rule set), {@link io.lievit.kit.schema.TextInput} (type / length / mask
- * / datalist / revealable / icon affixes), {@link io.lievit.kit.schema.Checkbox},
+ * / datalist / revealable / icon affixes), {@link io.lievit.kit.schema.Textarea} (rows / autosize /
+ * readOnly / length / trim), {@link io.lievit.kit.schema.Checkbox} (inline / accepted / declined),
+ * {@link io.lievit.kit.schema.Toggle} (boolean switch: on/off icon + color, accepted / declined),
  * {@link io.lievit.kit.schema.Radio}, {@link io.lievit.kit.schema.CheckboxList},
- * {@link io.lievit.kit.schema.Select} (searchable / multiple / reactive options),
+ * {@link io.lievit.kit.schema.Select} (searchable / multiple / reactive options / disableOptionWhen),
  * {@link io.lievit.kit.schema.FileUpload}, {@link io.lievit.kit.schema.KeyValue} (ordered map),
  * {@link io.lievit.kit.schema.Repeater} (a repeated sub-schema with indexed per-item validation),
  * {@link io.lievit.kit.schema.RichEditor} / {@link io.lievit.kit.schema.MarkdownEditor}, and the

@@ -7,6 +7,7 @@ package io.lievit.kit.schema;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
@@ -26,6 +27,8 @@ public final class Select extends SchemaField<Object, Select> {
     private boolean multiple;
     private boolean searchable;
     private boolean preload;
+    private boolean native_ = true;
+    private @Nullable BiPredicate<String, EvaluationContext> disableOptionWhen;
 
     private Select(String name) {
         super(name);
@@ -125,6 +128,59 @@ public final class Select extends SchemaField<Object, Select> {
      */
     public boolean isPreload() {
         return preload;
+    }
+
+    /**
+     * Switches between the browser-native {@code <select>} and the custom rendered dropdown (the
+     * filament {@code native(false)}). A custom dropdown is what allows rich option labels, search,
+     * and per-option disabling beyond what a native control supports.
+     *
+     * @param isNative {@code false} to render the custom dropdown
+     * @return this field
+     */
+    public Select native_(boolean isNative) {
+        this.native_ = isNative;
+        return this;
+    }
+
+    /**
+     * @return {@code true} if the select renders as a browser-native control (the default)
+     */
+    public boolean isNative() {
+        return native_;
+    }
+
+    /**
+     * Disables individual options reactively (the filament {@code disableOptionWhen}): the predicate
+     * receives an option's value and the live context, and a {@code true} return greys that option
+     * out (still rendered, not selectable). The per-option twin of the field-wide {@code disabled}
+     * closure, recomputed from the live state.
+     *
+     * @param predicate {@code (optionValue, context)} to whether THAT option is disabled
+     * @return this field
+     */
+    public Select disableOptionWhen(BiPredicate<String, EvaluationContext> predicate) {
+        this.disableOptionWhen = Objects.requireNonNull(predicate, "predicate");
+        return this;
+    }
+
+    /**
+     * Resolves whether a specific option is disabled against the live context.
+     *
+     * @param optionValue the option's submitted value
+     * @param context the live evaluation context
+     * @return {@code true} if that option is disabled
+     */
+    public boolean isOptionDisabled(String optionValue, EvaluationContext context) {
+        return disableOptionWhen != null
+                && disableOptionWhen.test(Objects.requireNonNull(optionValue, "optionValue"), context);
+    }
+
+    /**
+     * @return {@code true} if a per-option disable predicate is set
+     */
+    public boolean hasDisableOptionWhen() {
+        return disableOptionWhen != null;
     }
 
     /** Adapts the list-valued multi cast to this field's {@code Object} value type. */
