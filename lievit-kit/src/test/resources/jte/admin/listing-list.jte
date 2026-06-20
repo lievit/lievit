@@ -10,6 +10,19 @@
 !{AdminListView view = _instance.view();}
 <div data-lievit-component="${_component.className()}" data-admin-list>
     <h1 data-admin-heading>${view.heading()}</h1>
+    <div data-admin-toolbar>
+        @for(AdminListView.HeaderAction action : view.headerActions())
+            @if(action.hasUrl())
+                @if(action.newTab())
+                    <a data-admin-header-action="${action.name()}" href="${action.url()}" target="_blank" rel="noopener noreferrer">${action.label()}</a>
+                @else
+                    <a data-admin-header-action="${action.name()}" href="${action.url()}">${action.label()}</a>
+                @endif
+            @else
+                <button l:click="${action.name()}" data-admin-header-action="${action.name()}">${action.label()}</button>
+            @endif
+        @endfor
+    </div>
     <a data-admin-create href="${createUrl}">New</a>
     <table>
         <thead>
@@ -34,6 +47,10 @@
                         @endif
                     @elseif(cell instanceof Cell.Icon icon)
                         <td>@template.icon(name = icon.name(), cssClass = icon.color().isEmpty() ? "" : "text-[var(--lv-color-" + icon.color() + ")]")@if(!icon.text().isEmpty())<span>${icon.text()}</span>@endif</td>
+                    @elseif(cell instanceof Cell.Tags tags)
+                        <td><span data-tags-cell>@for(String tag : tags.visible())<span data-tag>${tag}</span>@endfor@if(tags.hasOverflow())<span data-tags-overflow>+${tags.overflow()}</span>@endif</span></td>
+                    @elseif(cell instanceof Cell.AvatarStack stack)
+                        <td><span data-avatar-stack data-shape="${stack.circular() ? "circular" : "square"}">@for(io.lievit.kit.AvatarStackColumn.Avatar avatar : stack.visible())@if(avatar.hasImage())<img data-avatar src="${avatar.image()}" alt="${avatar.label()}">@else<span data-avatar data-initials title="${avatar.label()}">${avatar.label()}</span>@endif@endfor@if(stack.hasOverflow())@if(stack.hasOverflowUrl())<a data-avatar-overflow href="${stack.overflowUrl()}" title="${stack.overflowTitle()}">+${stack.overflow()}</a>@else<span data-avatar-overflow title="${stack.overflowTitle()}">+${stack.overflow()}</span>@endif@endif</span></td>
                     @else
                         <td>${cell.text()}</td>
                     @endif

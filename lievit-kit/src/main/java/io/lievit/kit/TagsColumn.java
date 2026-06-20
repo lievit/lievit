@@ -33,6 +33,8 @@ public final class TagsColumn<T> extends Column<T> {
         return new TagsColumn<>(label, extractor);
     }
 
+    private @Nullable Integer limit;
+
     private TagsColumn(String label, Function<? super T, ?> extractor) {
         super(label, extractor);
     }
@@ -46,6 +48,80 @@ public final class TagsColumn<T> extends Column<T> {
     public TagsColumn<T> separator(String sep) {
         this.separator = Objects.requireNonNull(sep, "sep");
         return this;
+    }
+
+    /**
+     * Caps the number of tags rendered (the Filament {@code TagsColumn::limit()}): the column shows
+     * the first {@code n} tags and a {@code "+K"} overflow badge for the rest, instead of all tags.
+     * Without it, every tag renders.
+     *
+     * @param n the maximum number of tags to render before the overflow badge (at least 1)
+     * @return this column
+     */
+    public TagsColumn<T> limit(int n) {
+        if (n < 1) {
+            throw new IllegalArgumentException("limit must be >= 1, got: " + n);
+        }
+        this.limit = n;
+        return this;
+    }
+
+    /** @return the configured render limit, or {@code null} if every tag renders */
+    public @Nullable Integer limit() {
+        return limit;
+    }
+
+    /**
+     * The tags actually rendered for a row, honouring {@link #limit(int)}: the first {@code limit}
+     * tags (or all of them when no limit is set, or the row has fewer than the limit).
+     *
+     * @param row the row
+     * @return the visible tags (never null)
+     */
+    public List<String> visibleTagsFor(T row) {
+        List<String> all = tagsFor(row);
+        if (limit == null || all.size() <= limit) {
+            return all;
+        }
+        return List.copyOf(all.subList(0, limit));
+    }
+
+    /**
+     * The overflow count for a row (the {@code K} in the {@code "+K"} badge): how many tags the limit
+     * hides. Zero when no limit is set or the row fits within the limit.
+     *
+     * @param row the row
+     * @return the number of tags beyond the limit (never negative)
+     */
+    public int overflowCountFor(T row) {
+        if (limit == null) {
+            return 0;
+        }
+        return Math.max(0, tagsFor(row).size() - limit);
+    }
+
+    /**
+     * @param row the row
+     * @return whether the row's tags overflow the limit (so the {@code "+K"} badge renders)
+     */
+    public boolean hasOverflowFor(T row) {
+        return overflowCountFor(row) > 0;
+    }
+
+    /**
+     * Renders a {@link Cell.Tags} carrying the {@linkplain #visibleTagsFor(Object) visible tags} and
+     * the {@linkplain #overflowCountFor(Object) overflow count} (the {@code "+K"} badge), with the
+     * flat comma-joined projection of all tags as the no-CSS fallback. A declared
+     * {@link #url(java.util.function.Function) url mapper} still wraps it as a {@link Cell.Link}.
+     */
+    @Override
+    public Cell cellFor(T row) {
+        return linkify(
+                row,
+                new Cell.Tags(
+                        visibleTagsFor(row),
+                        overflowCountFor(row),
+                        String.join(", ", tagsFor(row))));
     }
 
     /**

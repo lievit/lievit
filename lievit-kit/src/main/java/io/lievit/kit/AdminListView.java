@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
  * through {@link RecordRepository#page}, never the whole table.
  *
  * @param heading the table heading
+ * @param headerActions the table HEADER/toolbar actions (resource-scoped, e.g. "New" / "Open
+ *     calendar"), in render order
  * @param headerCells the column headers, in order (label + sort key + sort state)
  * @param rows one row per record on the current page
  * @param pagination the page state (current / total pages, totals, prev / next)
@@ -27,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record AdminListView(
         String heading,
+        List<HeaderAction> headerActions,
         List<Header> headerCells,
         List<Row> rows,
         Pagination pagination,
@@ -34,8 +37,39 @@ public record AdminListView(
 
     /** Compact constructor: defends the lists. */
     public AdminListView {
+        headerActions = List.copyOf(headerActions);
         headerCells = List.copyOf(headerCells);
         rows = List.copyOf(rows);
+    }
+
+    /**
+     * One table HEADER/toolbar action, pre-rendered to the data the template stamps (the Filament
+     * header action): its stable name, label, icon, semantic colour, the navigation URL it targets (a
+     * {@link UrlAction}'s {@link AdminAction#urlFor(Object) url} for a {@code null} record, since a
+     * header action takes no row), and whether it opens in a new tab. A toolbar button, never a
+     * per-row one.
+     *
+     * @param name the stable action name
+     * @param label the human button label
+     * @param icon the icon name, or {@code null} if none
+     * @param color the semantic colour, or {@code null} for the host neutral
+     * @param url the navigation URL the header action targets, or {@code null} if it is not a
+     *     URL-navigation header action (a non-navigation header action is dispatched by name over the
+     *     wire instead)
+     * @param newTab whether the navigation opens in a new browser tab
+     */
+    public record HeaderAction(
+            String name,
+            String label,
+            @Nullable String icon,
+            @Nullable String color,
+            @Nullable String url,
+            boolean newTab) {
+
+        /** @return whether this header action navigates to a URL (vs. dispatching by name) */
+        public boolean hasUrl() {
+            return url != null && !url.isBlank();
+        }
     }
 
     /**
@@ -222,6 +256,21 @@ public record AdminListView(
             headerCells.add(new Header(column.label(), column.sortKey(), column.sortable(), dir));
         }
 
+        // The HEADER/toolbar actions: a header action takes no record (the mapper sees null), so a
+        // UrlAction resolves its static/query URL here and a non-navigation header action carries a
+        // null url (dispatched by name over the wire).
+        List<HeaderAction> headerActions = new ArrayList<>();
+        for (AdminAction<T> action : resource.headerActions()) {
+            headerActions.add(
+                    new HeaderAction(
+                            action.name(),
+                            action.label(),
+                            action.icon(),
+                            action.color(),
+                            action.urlFor(null).orElse(null),
+                            action.opensUrlInNewTab()));
+        }
+
         RecordRepository.Query query = request.toQuery().withSort(effectiveSort);
         RecordRepository.Page<T> dataPage = resource.repository().page(query);
 
@@ -246,6 +295,6 @@ public record AdminListView(
                         table.isStriped(),
                         table.emptyStateHeading(),
                         table.emptyStateDescription());
-        return new AdminListView(heading, headerCells, rows, pagination, controls);
+        return new AdminListView(heading, headerActions, headerCells, rows, pagination, controls);
     }
 }

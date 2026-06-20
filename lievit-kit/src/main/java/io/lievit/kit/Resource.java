@@ -74,6 +74,21 @@ public abstract class Resource<T> {
     public abstract Table<T> table();
 
     /**
+     * The table HEADER/toolbar actions (the Filament {@code getHeaderActions()}): resource-scoped
+     * actions placed above the table rather than per-row or bulk, typically navigations ("New",
+     * "Open calendar", "Export") declared as {@link UrlAction}s. Defaults to none.
+     *
+     * <p>These are the {@link ActionPlacement#HEADER} actions surfaced on the {@link AdminListView}
+     * so the list template can stamp a toolbar; they take no record (the mapper sees {@code null}),
+     * so a static-URL navigation or a query-scoped export is the natural shape.
+     *
+     * @return the header actions, in render order (empty by default)
+     */
+    public List<AdminAction<T>> headerActions() {
+        return List.of();
+    }
+
+    /**
      * Builds the form (create / edit) view. Defaults to an empty form so a read-only,
      * list-only resource (the hello-admin skeleton) need not declare one.
      *

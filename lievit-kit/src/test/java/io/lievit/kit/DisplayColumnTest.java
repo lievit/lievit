@@ -94,6 +94,51 @@ class DisplayColumnTest {
     }
 
     /**
+     * @spec.given a tags column with limit(2) over a row of 5 tags (the Filament TagsColumn::limit)
+     * @spec.when  the visible tags and the overflow count are read
+     * @spec.then  only the first 2 tags render and the overflow count is 3 (the "+K" badge)
+     */
+    @Test
+    void tags_column_limit_shows_first_n_tags_and_a_plus_k_overflow() {
+        TagsColumn<Item> col = TagsColumn.<Item>make("Tags", Item::tags).limit(2);
+
+        Item item = new Item(false, "", "", List.of("a", "b", "c", "d", "e"), 0, "");
+        assertThat(col.visibleTagsFor(item)).containsExactly("a", "b");
+        assertThat(col.overflowCountFor(item)).isEqualTo(3);
+        assertThat(col.hasOverflowFor(item)).isTrue();
+    }
+
+    /**
+     * @spec.given a tags column with limit(2) over a row of exactly 2 tags
+     * @spec.when  the visible tags and the overflow are read
+     * @spec.then  both tags render and there is no overflow badge
+     */
+    @Test
+    void tags_column_limit_shows_all_tags_and_no_overflow_when_within_the_limit() {
+        TagsColumn<Item> col = TagsColumn.<Item>make("Tags", Item::tags).limit(2);
+
+        Item item = new Item(false, "", "", List.of("a", "b"), 0, "");
+        assertThat(col.visibleTagsFor(item)).containsExactly("a", "b");
+        assertThat(col.overflowCountFor(item)).isZero();
+        assertThat(col.hasOverflowFor(item)).isFalse();
+    }
+
+    /**
+     * @spec.given a tags column with no limit declared
+     * @spec.when  the visible tags are read for a many-tag row
+     * @spec.then  every tag renders (limit is opt-in) and there is no overflow
+     */
+    @Test
+    void tags_column_renders_every_tag_when_no_limit_is_set() {
+        TagsColumn<Item> col = TagsColumn.make("Tags", Item::tags);
+
+        Item item = new Item(false, "", "", List.of("a", "b", "c"), 0, "");
+        assertThat(col.limit()).isNull();
+        assertThat(col.visibleTagsFor(item)).containsExactly("a", "b", "c");
+        assertThat(col.overflowCountFor(item)).isZero();
+    }
+
+    /**
      * @spec.given a text column formatting cents as EUR money
      * @spec.when  a row is rendered
      * @spec.then  the cell shows a formatted currency amount
