@@ -7,6 +7,8 @@ package io.lievit.kit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -109,6 +111,57 @@ public abstract class Resource<T> {
      */
     public Optional<ResourcePages> pages() {
         return Optional.empty();
+    }
+
+    // ── Detail (view) page derivation (the Filament HasInfolist / ViewRecord seam) ───────────────
+
+    /**
+     * Builds the read-only {@link io.lievit.kit.schema.infolist.Infolist Infolist} the resource's
+     * View (detail) page renders over one record (the Filament {@code Resource::infolist}). Defaults
+     * to none: a resource that does not declare an infolist has no detail page (its
+     * {@link ResourcePages#view()} is {@code null}). Override to opt a resource into a detail view.
+     *
+     * @return the configured infolist, or empty if this resource has no detail page
+     */
+    public Optional<io.lievit.kit.schema.infolist.Infolist> infolist() {
+        return Optional.empty();
+    }
+
+    /**
+     * Flattens a record into the attribute map the {@link #infolist() infolist} resolves against (the
+     * boundary where a domain object becomes the {@code Map<String, Object>} an entry reads by path,
+     * mirroring Filament's Eloquent-attribute access). The default reflects a Java {@code record}'s
+     * components (the common row type, e.g. the hello-admin {@code Listing}); a resource over a
+     * non-record row, or one needing relation attributes, overrides this.
+     *
+     * @param record the loaded record
+     * @return the record's attributes keyed by path, in component declaration order
+     */
+    public Map<String, @Nullable Object> recordAttributes(T record) {
+        Objects.requireNonNull(record, "record");
+        Map<String, @Nullable Object> attributes = new java.util.LinkedHashMap<>();
+        Class<?> type = record.getClass();
+        if (type.isRecord()) {
+            for (java.lang.reflect.RecordComponent component : type.getRecordComponents()) {
+                try {
+                    java.lang.reflect.Method accessor = component.getAccessor();
+                    // The accessor is public, but the declaring record may be a non-exported /
+                    // nested type (e.g. a test fixture), so make it accessible before invoking.
+                    accessor.setAccessible(true);
+                    attributes.put(component.getName(), accessor.invoke(record));
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(
+                            "cannot read record component " + component.getName(), e);
+                }
+            }
+            return attributes;
+        }
+        throw new IllegalStateException(
+                "Resource."
+                        + slug()
+                        + " declares an infolist over a non-record row ("
+                        + type.getName()
+                        + "); override recordAttributes(T) to flatten it");
     }
 
     // ── Navigation derivation (the Filament HasNavigation seam) ──────────────────────────────────
