@@ -16,8 +16,13 @@
       "type": "registry:wire",
       "target": "lievit/alert-dialog.jte",
       "root": "jte"
+    },
+    {
+      "path": "wire/dialog/overlay.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/overlay.enhancer.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
-  "docs": "Register AlertDialogComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.alert-dialog(...)`. The open state is server-owned: fire `open` from a trigger to show the prompt, `confirm` (the destructive/primary action) or `cancel` to close. Do the real destructive work server-side by overriding `confirm()` (with authz) before it closes, or read the `confirmed` wire flag on the host after the round-trip. An alertdialog is interruptive: the backdrop does NOT dismiss it, only the explicit buttons do. Focus-trap + Escape: wire a small typed-TS module keyed off [data-lv-alert-dialog] that traps Tab within [data-lv-alert-dialog-panel] while not [hidden] and dispatches the `cancel` action on Escape; the open-state itself stays server (wire). The `@LievitComponent(template=\"lievit/alert-dialog\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+  "docs": "Register AlertDialogComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.alert-dialog(...)`. The open state is server-owned: fire `open` from a trigger to show the prompt, `confirm` (the destructive/primary action) or `cancel` to close. Do the real destructive work server-side by overriding `confirm()` (with authz) before it closes, or read the `confirmed` wire flag on the host after the round-trip. An alertdialog is interruptive: the backdrop does NOT dismiss it, only the explicit buttons do. Focus-trap + Escape + return-focus ship as the shared CSP-clean overlay.enhancer.ts (one module for dialog/sheet/drawer/alert-dialog): import it once in your entry module and call enhanceAllOverlays() on load and after any DOM swap. It traps Tab within [data-lv-alert-dialog-panel] while the overlay is shown, routes Escape to the `cancel` path (it clicks the rendered l:click=cancel button, which is also the initial-focus element via data-lv-autofocus -- the focus-on-cancel default for an interruptive prompt), and returns focus to the trigger on close. The open-state itself stays server (wire). The `@LievitComponent(template=\"lievit/alert-dialog\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
 }

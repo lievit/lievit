@@ -16,8 +16,13 @@
       "type": "registry:wire",
       "target": "lievit/dialog.jte",
       "root": "jte"
+    },
+    {
+      "path": "wire/dialog/overlay.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/overlay.enhancer.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
-  "docs": "Register DialogComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.dialog(...)`. The open state is server-owned: fire `open` to show it and `close` (backdrop / Escape / close button) to hide it. Put your dialog body + footer markup directly in the data-lv-dialog-body / data-lv-dialog-footer regions of the copied template (they are owned source, NOT slots). Focus-trap + Escape: wire a small typed-TS module keyed off [data-lv-dialog] that traps Tab within [data-lv-dialog-panel] while not [hidden] and dispatches the `close` action on Escape; the open-state itself stays server (wire). The `@LievitComponent(template=\"lievit/dialog\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
+  "docs": "Register DialogComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.dialog(...)`. The open state is server-owned: fire `open` to show it and `close` (backdrop / Escape / close button) to hide it. Put your dialog body + footer markup directly in the data-lv-dialog-body / data-lv-dialog-footer regions of the copied template (they are owned source, NOT slots). Focus-trap + Escape + return-focus ship as the shared CSP-clean overlay.enhancer.ts (one module for dialog/sheet/drawer/alert-dialog): import it once in your entry module and call enhanceAllOverlays() on load and after any DOM swap. It traps Tab within [data-lv-dialog-panel] while the overlay is shown, routes Escape to the server `close` path (it clicks the rendered l:click=close button, so Escape and the button take the same wire path), and returns focus to the trigger on close. The open-state itself stays server (wire). The `@LievitComponent(template=\"lievit/dialog\")` name assumes the .jte landed at your JTE root under lievit/; adjust the package + template name freely once copied (the source is yours)."
 }

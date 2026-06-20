@@ -212,6 +212,26 @@ class AlertDialogComponentIT {
     }
 
     /**
+     * @spec.given an opened alert-dialog rendered through the real runtime
+     * @spec.when  its rendered HTML is inspected
+     * @spec.then  the cancel button carries {@code data-lv-autofocus}: the shared overlay enhancer
+     *     reads that marker to land initial focus on cancel (the focus-on-cancel default for an
+     *     interruptive prompt, WAI-ARIA APG alertdialog), proving the focus contract the enhancer
+     *     relies on actually PROJECTS through the real render -- not just an enhancer-side assumption
+     * @spec.adr   ADR-0012
+     */
+    @Test
+    void the_cancel_button_is_marked_as_the_initial_focus_target() {
+        WireCallResult opened =
+                wireService.mountStamped(COMPONENT, Map.of("open", true));
+
+        assertThat(opened.html())
+                // the autofocus marker rides the same button as the cancel action.
+                .containsPattern("data-lv-alert-dialog-cancel\\b[^>]*\\bdata-lv-autofocus\\b")
+                .contains("data-lv-autofocus");
+    }
+
+    /**
      * @spec.given a fresh alert-dialog instance
      * @spec.when  open then confirm are invoked directly
      * @spec.then  the open state moves true then false and confirmed moves false then true: the

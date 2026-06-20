@@ -16,8 +16,13 @@
       "type": "registry:wire",
       "target": "lievit/drawer.jte",
       "root": "jte"
+    },
+    {
+      "path": "wire/dialog/overlay.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/overlay.enhancer.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
-  "docs": "Register DrawerComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.drawer(...)`. The open state is server-owned: fire `open` to show it and `close` (backdrop / Escape / close button) to hide it; set `side` to 'right' (default) | 'left' | 'top' | 'bottom'. Put your drawer body markup directly in the data-lv-drawer-body region of the copied template (owned source, NOT a slot). Focus-trap + Escape: wire a small typed-TS module keyed off [data-lv-drawer] that traps Tab within [data-lv-drawer-panel] while not [hidden] and dispatches the `close` action on Escape; the open-state itself stays server (wire). For the richer header/description/footer four-side panel use the sheet wire instead. Adjust the package + template name freely once copied (the source is yours)."
+  "docs": "Register DrawerComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / `@template.lievit.drawer(...)`. The open state is server-owned: fire `open` to show it and `close` (backdrop / Escape / close button) to hide it; set `side` to 'right' (default) | 'left' | 'top' | 'bottom'. Put your drawer body markup directly in the data-lv-drawer-body region of the copied template (owned source, NOT a slot). Focus-trap + Escape + return-focus ship as the shared CSP-clean overlay.enhancer.ts (one module for dialog/sheet/drawer/alert-dialog): import it once in your entry module and call enhanceAllOverlays() on load and after any DOM swap. It traps Tab within [data-lv-drawer-panel] while the overlay is shown, routes Escape to the server `close` path (it clicks the rendered l:click=close button), and returns focus to the trigger on close. The open-state itself stays server (wire). For the richer header/description/footer four-side panel use the sheet wire instead. Adjust the package + template name freely once copied (the source is yours)."
 }

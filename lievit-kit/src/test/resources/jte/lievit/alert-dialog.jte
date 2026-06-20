@@ -106,6 +106,7 @@
             <button
                 type="button"
                 data-lv-alert-dialog-cancel
+                data-lv-autofocus
                 l:click="cancel"
                 class="inline-flex items-center justify-center"
                 style="height: var(--lv-space-10); padding: 0 var(--lv-space-4); background: var(--lv-color-bg); border: 1px solid var(--lv-color-input); border-radius: var(--lv-radius-md); font-size: var(--lv-text-sm); font-weight: var(--lv-font-medium); color: var(--lv-color-fg); box-shadow: var(--lv-shadow-xs); cursor: pointer;"
