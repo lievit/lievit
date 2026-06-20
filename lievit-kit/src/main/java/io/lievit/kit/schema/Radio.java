@@ -7,8 +7,12 @@ package io.lievit.kit.schema;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiPredicate;
+
+import org.jspecify.annotations.Nullable;
 
 import io.lievit.kit.SelectOption;
+import io.lievit.kit.support.EvaluationContext;
 
 /**
  * A radio-button group (the filament-forms {@code Radio} carried over): a single-choice field over
@@ -19,6 +23,7 @@ public final class Radio extends SchemaField<String, Radio> {
 
     private final List<SelectOption> options = new ArrayList<>();
     private boolean inline;
+    private @Nullable BiPredicate<String, EvaluationContext> disableOptionWhen;
 
     private Radio(String name) {
         super(name);
@@ -65,5 +70,39 @@ public final class Radio extends SchemaField<String, Radio> {
      */
     public boolean isInline() {
         return inline;
+    }
+
+    /**
+     * Disables individual options reactively (the filament {@code disableOptionWhen}): the predicate
+     * receives an option's value and the live context, and a {@code true} return greys that option
+     * out (still rendered, not selectable). This is the per-option twin of the field-wide
+     * {@code disabled} closure, so one option can lock while the rest stay open, recomputed from the
+     * live state.
+     *
+     * @param predicate {@code (optionValue, context)} to whether THAT option is disabled
+     * @return this field
+     */
+    public Radio disableOptionWhen(BiPredicate<String, EvaluationContext> predicate) {
+        this.disableOptionWhen = Objects.requireNonNull(predicate, "predicate");
+        return this;
+    }
+
+    /**
+     * Resolves whether a specific option is disabled against the live context.
+     *
+     * @param optionValue the option's submitted value
+     * @param context the live evaluation context
+     * @return {@code true} if that option is disabled
+     */
+    public boolean isOptionDisabled(String optionValue, EvaluationContext context) {
+        return disableOptionWhen != null
+                && disableOptionWhen.test(Objects.requireNonNull(optionValue, "optionValue"), context);
+    }
+
+    /**
+     * @return {@code true} if a per-option disable predicate is set
+     */
+    public boolean hasDisableOptionWhen() {
+        return disableOptionWhen != null;
     }
 }
