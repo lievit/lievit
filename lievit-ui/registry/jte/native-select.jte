@@ -23,9 +23,15 @@
   the <select> keeps its own focus ring through the wrapper's focus-within.
 
   OPTIONS: pass either a List<String> via `options` (each becomes an <option> whose value ==
-  label) OR a `content` slot of hand-authored <option>/<optgroup> markup for value!=label,
-  grouping, or per-option disabled. `content` takes precedence; this keeps the simple case a
-  one-liner and the rich case fully expressive (data down, the caller owns the option markup).
+  label), a Map<String, List<String>> via `optionGroups` (group label -> options, each rendered
+  inside a native <optgroup>), OR a `content` slot of hand-authored <option>/<optgroup> markup for
+  value!=label or per-option disabled. Precedence: `content` > `optionGroups` > `options`. This
+  keeps the simple case a one-liner, the common grouped case typed (data down from the model), and
+  the fully custom case expressive.
+
+  SIZE: `size` mirrors shadcn's native-select sizes -- "sm" (compact), "default", "lg" (tall),
+  each height driven by an --lv-space token. The chevron + padding track the height so every size
+  reads as the same control.
 
   Accessibility: a real <select> with its own id/name, so a <label for> binds directly. The
   optional `label` renders a real <label for> above the control; when no visible label is
@@ -37,11 +43,13 @@
     String name                  the select's name attribute.
     String id          = name    the select's id (for a <label for>); defaults to name.
     java.util.List<String> options = null  simple value==label option list.
-    gg.jte.Content content = null  hand-authored <option>/<optgroup> markup (wins over options).
+    java.util.Map<String, java.util.List<String>> optionGroups = null  group label -> options (<optgroup>).
+    gg.jte.Content content = null  hand-authored <option>/<optgroup> markup (wins over the maps).
     String value       = null    the selected value (matched against option values).
     String label       = null    visible <label> text rendered above the control.
     String ariaLabel   = null    aria-label when there is no visible label.
     String placeholder = null    a disabled/hidden first option shown when value is empty.
+    String size        = "default"  "sm" | "default" | "lg" control height.
     boolean disabled   = false   disables the control + dims the wrapper.
     boolean required   = false   marks the control required.
     boolean invalid    = false   danger border + aria-invalid="true".
@@ -54,9 +62,12 @@
 
   Usage:
     @@template.native-select(
-      name = "stato", label = "Stato", placeholder = "Seleziona...",
+      name = "stato", label = "Stato", placeholder = "Seleziona...", size = "sm",
       options = java.util.List.of("Attivo", "Sospeso", "Chiuso"), value = contatto.stato()
     )
+
+    @@template.native-select(name = "citta", label = "Citta", optionGroups =
+      java.util.Map.of("Emilia", java.util.List.of("Parma", "Reggio"), "Lombardia", java.util.List.of("Milano")))
 
     @@template.native-select(name = "agente", ariaLabel = "Agente", content = @@`
       <option value="">Tutti</option>
@@ -68,11 +79,13 @@
 @param String name
 @param String id = null
 @param java.util.List<String> options = null
+@param java.util.Map<String, java.util.List<String>> optionGroups = null
 @param gg.jte.Content content = null
 @param String value = null
 @param String label = null
 @param String ariaLabel = null
 @param String placeholder = null
+@param String size = "default"
 @param boolean disabled = false
 @param boolean required = false
 @param boolean invalid = false
@@ -89,7 +102,8 @@
   data-slot="native-select"
   data-disabled="${disabled}"
   data-invalid="${invalid}"
-  class="relative flex h-[var(--lv-space-10)] w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-danger)] ${cssClass}"
+  data-size="${size}"
+  class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-danger)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=default]:h-[var(--lv-space-10)] data-[size=lg]:h-[var(--lv-space-12)] ${cssClass}"
 >
   <select
     data-slot="native-select-control"
@@ -108,6 +122,14 @@
     @endif
     @if(content != null)
       ${content}
+    @elseif(optionGroups != null)
+      @for(java.util.Map.Entry<String, java.util.List<String>> grp : optionGroups.entrySet())
+        <optgroup label="${grp.getKey()}">
+          @for(String opt : grp.getValue())
+            <option value="${opt}" selected="${opt.equals(value)}">${opt}</option>
+          @endfor
+        </optgroup>
+      @endfor
     @elseif(options != null)
       @for(String opt : options)
         <option value="${opt}" selected="${opt.equals(value)}">${opt}</option>

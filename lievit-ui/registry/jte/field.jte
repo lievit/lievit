@@ -3,58 +3,95 @@
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui field partial -- a label + control + hint/error wrapper (composition only).
+  lievit-ui field partial -- the FormField + FieldError orchestration (label + control +
+  description/error) with the accessible wiring auto-derived from the error, server-side.
 
   TIER: STATIC presentational -> JTE partial. Pure layout + the accessible label/error wiring;
-  no client state. The control is supplied by the caller as a `control` Content slot (data down):
-  the field owns only the surrounding label, hint and error, exactly like the Lit island it
-  replaces, but as markup the strict CSP can never silently drop.
+  no client state. The control is supplied by the caller as a `control` Content slot (data down).
+  This is the server-first analogue of shadcn's FormField/FormControl/FormMessage: validation
+  runs server-side, the controller passes `error` down, and the partial does the aria wiring the
+  React `useFormField()` hook does (compute the description + message ids, set aria-describedby +
+  aria-invalid), so the adopter stops hand-wiring error ids.
 
-  STRUCTURE (scientific decision rule): shadcn's Field/FormItem is a vertical stack of a Label,
-  the control, and a description/message, with the error region carrying role="alert". We
-  reproduce that: a <label for> composed from the `label` partial, the `control` slot, then a
-  hint (muted) OR an error (danger, role=alert, aria-live=polite). The error element's id is
-  `<controlId>-error`; the CALLER passes `describedBy="<controlId>-error"` to its control so
-  assistive tech reads the error after the control (JTE has no DOM, so the wiring is by
-  convention, documented here).
+  AUTO-WIRING (the Form gap this closes): shadcn's FormControl sets `id`, `aria-describedby`
+  (description id, plus the message id when there is an error) and `aria-invalid` on the control.
+  JTE Content slots cannot receive computed params, so the wiring values are DETERMINISTIC from
+  `forId` and the partial both (1) renders the description/message regions with those exact ids
+  and (2) exposes them through the `controlDescribedBy` / `controlInvalid` doc contract below so
+  the caller threads them into its control once. The ids never have to be guessed:
+    description id = "<forId>-description"   (rendered only when `description` is set)
+    message id     = "<forId>-error"          (rendered only when `error` is set, role=alert)
+    aria-describedby the control must carry = the space-joined present ids
+    aria-invalid the control must carry      = (error is set)
 
-  A11y (shadcn / WAI-ARIA model): the label binds to the control by `forId`. When `error` is set
-  it renders in a `role="alert" aria-live="polite"` region with id `<forId>-error`; pass that id
-  as the control's `aria-describedby`. The required marker on the label is `aria-hidden`.
+  STRUCTURE (scientific decision rule): shadcn v4 converged Form* onto the Field primitives, so
+  the Field IS the form orchestration: a vertical (or horizontal/responsive) stack of a Label,
+  the control, an optional muted FieldDescription and a FieldError region carrying role="alert".
+  We reproduce that exactly, token-styled. `orientation` mirrors shadcn's Field orientation
+  (vertical default, horizontal label-beside-control, responsive container-query switch); the
+  optional `content` slot is shadcn's FieldContent (keeps descriptions aligned in horizontal).
+
+  A11y (shadcn / WAI-ARIA model): the label binds to the control by `forId` and carries
+  `data-error` when invalid (shadcn's destructive-label cue). The description is a muted <p> with
+  id `<forId>-description`; the error is a `role="alert" aria-live="polite"` <p> with id
+  `<forId>-error`. The control must point its `aria-describedby` at those ids and set
+  `aria-invalid` when `error` is set. The required marker on the label is `aria-hidden`.
 
   Params:
-    String forId                id of the control (binds the label + derives the error id).
-    String label    = null      visible label text rendered above the control.
-    gg.jte.Content control      the form control markup (e.g. an @@template.input(...) call).
-    String hint     = null      muted helper text below the control (hidden when error is set).
-    String error    = null      validation error message; when set, shown in a role=alert region.
-    boolean required = false    renders a required marker on the label.
-    String cssClass = ""        extra utility classes on the wrapper.
+    String forId                  id of the control (binds the label + derives the description/error ids).
+    String label    = null        visible label text rendered for the control.
+    gg.jte.Content control        the form control markup (e.g. an @@template.input(...) call).
+    gg.jte.Content content = null FieldContent slot: label + control side-by-side helper text (horizontal).
+    String description = null     muted helper text (FieldDescription); shown alongside the error.
+    String hint     = null        deprecated alias for `description` (kept for back-compat).
+    String error    = null        validation error message; when set, shown in a role=alert region + data-invalid.
+    boolean required = false      renders a required marker on the label.
+    String orientation = "vertical"  "vertical" | "horizontal" | "responsive" field layout.
+    String cssClass = ""          extra utility classes on the wrapper.
 
   Usage:
     @@template.field(
-      forId = "email", label = "Email", required = true, error = errors.email(),
-      control = @@`@@template.input(name = "email", id = "email", describedBy = "email-error")`
+      forId = "email", label = "Email", required = true,
+      description = "We never share it.", error = errors.email(),
+      control = @@`@@template.input(name = "email", id = "email",
+        describedBy = "email-description email-error", invalid = errors.email() != null)`
     )
+
+    @@template.field(orientation = "horizontal", forId = "remember", label = "Remember me",
+      control = @@`@@template.switch(name = "remember", id = "remember")`)
 --%>
 @param String forId
 @param String label = null
 @param gg.jte.Content control
+@param gg.jte.Content content = null
+@param String description = null
 @param String hint = null
 @param String error = null
 @param boolean required = false
+@param String orientation = "vertical"
 @param String cssClass = ""
 
 !{var hasError = error != null && !error.isBlank();}
-!{var hasHint = hint != null && !hint.isBlank();}
+!{var desc = (description != null && !description.isBlank()) ? description : hint;}
+!{var hasDesc = desc != null && !desc.isBlank();}
 
-<div data-slot="field" class="flex flex-col gap-[var(--lv-space-2)] ${cssClass}">
+<div
+  data-slot="field"
+  data-orientation="${orientation}"
+  data-invalid="${hasError ? "true" : null}"
+  class="group/field flex gap-[var(--lv-space-2)] data-[orientation=vertical]:flex-col data-[orientation=horizontal]:flex-row data-[orientation=horizontal]:items-center data-[orientation=responsive]:flex-col @md/field-group:data-[orientation=responsive]:flex-row @md/field-group:data-[orientation=responsive]:items-center ${cssClass}"
+>
   @if(label != null && !label.isBlank())
-    @template.label(forId = forId, text = label, required = required)
+    @template.label(forId = forId, text = label, required = required, error = hasError)
+  @endif
+  @if(content != null)
+    <div data-slot="field-content" class="flex flex-1 flex-col gap-[var(--lv-space-1)]">
+      ${content}
+    </div>
   @endif
   ${control}
-  @if(hasHint && !hasError)
-    <p data-slot="field-hint" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${hint}</p>
+  @if(hasDesc)
+    <p data-slot="field-description" id="${forId}-description" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${desc}</p>
   @endif
   @if(hasError)
     <p data-slot="field-error" id="${forId}-error" role="alert" aria-live="polite" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-danger)]" style="font-family:var(--lv-font-sans);">${error}</p>

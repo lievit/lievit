@@ -23,6 +23,7 @@
     boolean checked  = false    initial selected state.
     boolean disabled = false    disables this option.
     boolean required = false    marks the radio required.
+    boolean invalid  = false    danger ring + aria-invalid="true" (group error state).
     String model    = null      l:model expression bound on the radio.
 
   Usage:
@@ -35,6 +36,7 @@
 @param boolean checked = false
 @param boolean disabled = false
 @param boolean required = false
+@param boolean invalid = false
 @param String model = null
 
 !{var radioId = (id != null && !id.isBlank()) ? id : name + "-" + value;}
@@ -55,8 +57,9 @@
     checked="${checked}"
     disabled="${disabled}"
     required="${required}"
+    aria-invalid="${invalid ? "true" : null}"
     l:model="${model}"
-    class="size-[var(--lv-space-4)] shrink-0 cursor-pointer appearance-none rounded-full border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] checked:bg-[radial-gradient(circle,var(--lv-color-primary)_40%,transparent_45%)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed"
+    class="size-[var(--lv-space-4)] shrink-0 cursor-pointer appearance-none rounded-full border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] checked:bg-[radial-gradient(circle,var(--lv-color-primary)_40%,transparent_45%)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed aria-[invalid=true]:border-[var(--lv-color-danger)]"
   >
   @if(label != null && !label.isBlank())
     <span data-slot="radio-group-option-label">${label}</span>

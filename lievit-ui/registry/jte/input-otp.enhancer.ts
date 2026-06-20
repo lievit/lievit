@@ -18,7 +18,11 @@
  *   - backspace: clears the current slot, or steps back when already empty;
  *   - arrows / Home / End: move between slots;
  *   - paste: distributes the filtered characters across the slots from the focused one;
- *   - filtering: characters outside the type's accept set are rejected.
+ *   - filtering: characters outside the type's accept set are rejected;
+ *   - onComplete: when the root declares `data-otp-complete`, a `lievit:otp-complete` CustomEvent
+ *     (detail = the joined value) fires once every slot is filled; `data-otp-complete="submit"`
+ *     also submits the enclosing <form>. The completion fires once per filled state (it re-arms
+ *     when the value drops below full), so editing a complete code does not re-submit on every key.
  *
  * Idempotent: call {@link enhanceInputOtp} once (it marks each root) and again after a DOM swap;
  * already-enhanced roots are skipped. {@link enhanceAllInputOtp} wires every root on the page.
@@ -53,6 +57,33 @@ function mirrorOf(root: HTMLElement): HTMLInputElement | null {
   return root.querySelector<HTMLInputElement>("[data-otp-mirror]");
 }
 
+/** Track whether a root has already fired its completion for the current filled state. */
+const COMPLETED = new WeakSet<HTMLElement>();
+
+/**
+ * Fire the onComplete behaviour when every slot is filled, exactly once per filled state.
+ * Declared by `data-otp-complete` on the root ("submit" also submits the enclosing form).
+ * Re-arms (clears the latch) as soon as the value is no longer full, so editing a complete
+ * code does not re-fire on every keystroke.
+ */
+function maybeComplete(root: HTMLElement, joined: string): void {
+  const mode = root.getAttribute("data-otp-complete");
+  const expected = Number(root.getAttribute("data-otp-length") ?? slotsOf(root).length);
+  const full = joined.length === expected && expected > 0;
+  if (!full) {
+    COMPLETED.delete(root);
+    return;
+  }
+  if (!mode || COMPLETED.has(root)) return;
+  COMPLETED.add(root);
+  root.dispatchEvent(
+    new CustomEvent("lievit:otp-complete", { bubbles: true, detail: joined }),
+  );
+  if (mode === "submit") {
+    mirrorOf(root)?.closest("form")?.requestSubmit();
+  }
+}
+
 /** Recompute the mirror value from the slots and fire `input`/`change` on it for any wire/listener. */
 function syncMirror(root: HTMLElement): void {
   const mirror = mirrorOf(root);
@@ -65,6 +96,7 @@ function syncMirror(root: HTMLElement): void {
     mirror.dispatchEvent(new Event("input", { bubbles: true }));
     mirror.dispatchEvent(new Event("change", { bubbles: true }));
   }
+  maybeComplete(root, joined);
 }
 
 /** Focus a slot by index, clamped to range. */

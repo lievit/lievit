@@ -21,8 +21,19 @@
   joined value with zero JS. Native inputs beat a custom widget: the platform owns focus, IME, paste
   and autofill; the enhancer only nudges focus between slots.
 
+  SEPARATOR + GROUPS: `groupSize` splits the slots into explicit visual groups (shadcn's
+  InputOTPGroup), with an InputOTPSeparator (a Lucide dash) rendered between groups. `groupSize=3`
+  on a length-6 code gives `***-***`. The separator is decorative (aria-hidden); the slots stay one
+  continuous keyboard + value sequence (the enhancer indexes by data-otp-slot, not by group).
+
+  onComplete: when set, the enhancer fires a `lievit:otp-complete` CustomEvent (detail = the joined
+  value) on the root once every slot is filled, and -- if `onComplete="submit"` -- submits the
+  enclosing <form>. Wire it to a wire action via the data-otp-complete attribute (the consuming
+  wire template reads it), or listen for the event. Server-first: still no per-keystroke round-trip.
+
   A11y (WAI one-time-password-field): div[role=group][aria-label] wrapping N inputs each
-  aria-label="Character N of M"; aria-invalid mirrored on the group + slots.
+  aria-label="Character N of M"; aria-invalid mirrored on the group + slots. Separators are
+  aria-hidden decorations between visual groups.
 
   Params:
     name      String   submit field name; the joined value POSTs under it via the hidden mirror
@@ -32,10 +43,13 @@
     mask      boolean   render slots as password fields (default false)
     disabled  boolean   disable every slot (default false)
     invalid   boolean   error ring + aria-invalid (default false)
+    groupSize int       split slots into groups of this size with a separator between (0 = no grouping)
+    onComplete String   "submit" submits the form when filled; any non-blank value enables the complete event
     label     String   accessible label for the slot group (default "One-time code")
 
   Usage:
     @template.lievit.input-otp(name = "otp", length = 6, type = "numeric")
+    @template.lievit.input-otp(name = "otp", length = 6, groupSize = 3, onComplete = "submit")
     import the enhancer once from your entry module: import "./lievit/input-otp.enhancer";
 --%>
 @param String name
@@ -45,11 +59,15 @@
 @param boolean mask = false
 @param boolean disabled = false
 @param boolean invalid = false
+@param int groupSize = 0
+@param String onComplete = null
 @param String label = "One-time code"
 !{var inputMode = type.equals("numeric") ? "numeric" : "text";}
 !{var pattern = type.equals("numeric") ? "[0-9]*" : (type.equals("alpha") ? "[a-zA-Z]*" : "[a-zA-Z0-9]*");}
 !{var slotType = mask ? "password" : "text";}
-<div data-lievit-otp data-otp-type="${type}" data-otp-length="${length}" style="display: inline-flex; align-items: center; gap: var(--lv-space-2); font-family: var(--lv-font-sans);">
+!{var grouped = groupSize > 0;}
+!{var hasComplete = onComplete != null && !onComplete.isBlank();}
+<div data-lievit-otp data-otp-type="${type}" data-otp-length="${length}" data-otp-complete="${hasComplete ? onComplete : null}" style="display: inline-flex; align-items: center; gap: var(--lv-space-2); font-family: var(--lv-font-sans);">
     <div
         role="group"
         aria-label="${label}"
@@ -58,6 +76,11 @@
         style="display: inline-flex; align-items: center; gap: var(--lv-space-2);"
     >
         @for(int i = 0; i < length; i++)
+            @if(grouped && i > 0 && i % groupSize == 0)
+                <span data-otp-separator aria-hidden="true" style="display: inline-flex; align-items: center; color: var(--lv-color-muted-fg);">
+                    @template.icon(name = "minus", size = "1rem")
+                </span>
+            @endif
             !{var ch = i < value.length() ? String.valueOf(value.charAt(i)) : "";}
             <input
                 type="${slotType}"

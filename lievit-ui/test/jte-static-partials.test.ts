@@ -36,6 +36,10 @@ const ALL = [
   "textarea.jte",
   "label.jte",
   "field.jte",
+  "field/group.jte",
+  "field/set.jte",
+  "field/separator.jte",
+  "form.jte",
   "checkbox.jte",
   "radio-group.jte",
   "radio-group/option.jte",
@@ -51,6 +55,10 @@ const FORM_CONTROLS = [
   "textarea.jte",
   "label.jte",
   "field.jte",
+  "field/group.jte",
+  "field/set.jte",
+  "field/separator.jte",
+  "form.jte",
   "checkbox.jte",
   "radio-group.jte",
   "radio-group/option.jte",
@@ -58,6 +66,7 @@ const FORM_CONTROLS = [
   "slider.jte",
   "toggle.jte",
   "native-select.jte",
+  "input-otp.jte",
 ] as const;
 
 describe("static JTE partials: house rules", () => {
@@ -194,6 +203,18 @@ describe("input.jte", () => {
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
+  test("built-in helper text: a hint renders below + auto-wires aria-describedby", () => {
+    expect(src).toMatch(/@param String hint/);
+    expect(src).toContain('id="${inputId}-hint"');
+    expect(src).toContain("hasHint ? inputId");
+    expect(src).toContain('aria-describedby="${describedByValue}"');
+  });
+  test("file inputs get the shadcn file affordance (accept/multiple + the file: chip)", () => {
+    expect(src).toMatch(/@param String accept/);
+    expect(src).toMatch(/@param boolean multiple/);
+    expect(src).toContain('"file".equals(type)');
+    expect(src).toContain("file:text-[var(--lv-color-fg)]");
+  });
 });
 
 describe("textarea.jte", () => {
@@ -208,6 +229,12 @@ describe("textarea.jte", () => {
   test("the value renders as the element's text content, not a value attribute", () => {
     expect(src).toContain(">${value}</textarea>");
   });
+  test("built-in helper text: a hint renders below + auto-wires aria-describedby", () => {
+    expect(src).toMatch(/@param String hint/);
+    expect(src).toContain('id="${areaId}-hint"');
+    expect(src).toContain("hasHint ? areaId");
+    expect(src).toContain('aria-describedby="${describedByValue}"');
+  });
 });
 
 describe("label.jte", () => {
@@ -220,9 +247,14 @@ describe("label.jte", () => {
   test("the required marker is hidden from assistive tech", () => {
     expect(src).toContain('<span aria-hidden="true" class="text-[var(--lv-color-danger)]">*</span>');
   });
+  test("supports the error cue: data-error + a destructive label colour (shadcn's invalid label)", () => {
+    expect(src).toMatch(/@param boolean error/);
+    expect(src).toContain('data-error="${error ? "true" : null}"');
+    expect(src).toContain("data-[error=true]:text-[var(--lv-color-danger)]");
+  });
 });
 
-describe("field.jte", () => {
+describe("field.jte (FormField + FieldError orchestration)", () => {
   const src = read("field.jte");
   test("composes the label partial + slots the control + renders an error as role=alert", () => {
     expect(src).toContain("@template.label(");
@@ -230,8 +262,64 @@ describe("field.jte", () => {
     expect(src).toContain('role="alert"');
     expect(src).toContain('aria-live="polite"');
   });
-  test("the error element id is derived from the control id (aria-describedby target)", () => {
+  test("the description + error ids are derived from the control id (aria-describedby targets)", () => {
     expect(src).toContain('id="${forId}-error"');
+    expect(src).toContain('id="${forId}-description"');
+  });
+  test("auto-derives the invalid state from the error: data-invalid wrapper + error-coloured label", () => {
+    expect(src).toContain("var hasError = error != null");
+    expect(src).toContain('data-invalid="${hasError ? "true" : null}"');
+    // the label receives the error flag so it shows shadcn's destructive-label cue
+    expect(src).toContain("error = hasError");
+  });
+  test("supports vertical / horizontal / responsive orientation + a FieldContent slot", () => {
+    expect(src).toMatch(/@param String orientation/);
+    expect(src).toContain('data-orientation="${orientation}"');
+    expect(src).toContain("data-[orientation=horizontal]:flex-row");
+    expect(src).toContain("data-[orientation=responsive]");
+    expect(src).toContain('data-slot="field-content"');
+  });
+});
+
+describe("field/* sub-primitives (FieldGroup / FieldSet+Legend / FieldSeparator)", () => {
+  test("field/group establishes the container-query context the responsive field reads", () => {
+    const src = read("field/group.jte");
+    expect(src).toContain('data-slot="field-group"');
+    expect(src).toContain("@container/field-group");
+    expect(src).toContain("${content}");
+  });
+  test("field/set is a native <fieldset> + <legend> with an optional description, disable cascades", () => {
+    const src = read("field/set.jte");
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<fieldset[\s\n]/);
+    expect(markup).toMatch(/<legend[\s\n]/);
+    expect(markup).toContain('disabled="${disabled}"');
+    expect(markup).toContain('data-slot="field-set-description"');
+  });
+  test("field/separator is a role=separator rule with an optional centred label", () => {
+    const src = read("field/separator.jte");
+    expect(src).toContain('role="separator"');
+    expect(src).toContain('aria-orientation="horizontal"');
+    expect(src).toContain('data-slot="field-separator-content"');
+  });
+});
+
+describe("form.jte (server-first Form + form-level FormMessage)", () => {
+  const src = read("form.jte");
+  test("renders a native <form> that POSTs, with a form-level error region role=alert", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<form[\s\n]/);
+    expect(markup).toContain('method="${method}"');
+    expect(markup).toContain('data-slot="form-error"');
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain('aria-live="assertive"');
+  });
+  test("the form references its error region via aria-describedby only when present", () => {
+    expect(src).toContain('id="${errorId}"');
+    expect(src).toContain('aria-describedby="${hasError ? errorId : null}"');
+  });
+  test("slots the field body", () => {
+    expect(src).toContain("${content}");
   });
 });
 
@@ -246,6 +334,22 @@ describe("checkbox.jte", () => {
   test("the check glyph comes from the icon partial (Lucide), token-styled", () => {
     expect(src).toContain('@template.icon(name = "check"');
     expect(src).toContain("var(--lv-color-primary)");
+  });
+  test("supports the invalid state: aria-invalid + a danger box border, with describedBy", () => {
+    expect(src).toMatch(/@param boolean invalid/);
+    expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
+    expect(src).toContain("aria-[invalid=true]:border-[var(--lv-color-danger)]");
+    expect(src).toMatch(/@param String describedBy/);
+    expect(src).toContain('aria-describedby="${describedBy}"');
+  });
+  test("supports the indeterminate (mixed) tri-state: aria-checked=mixed + a dash glyph", () => {
+    expect(src).toMatch(/@param boolean indeterminate/);
+    expect(src).toContain('aria-checked="${indeterminate ? "mixed" : null}"');
+    expect(src).toContain('data-indeterminate="${indeterminate ? "true" : null}"');
+    expect(src).toContain('@template.icon(name = "minus"');
+    // the check glyph hides while indeterminate, the dash shows
+    expect(src).toContain("peer-data-[indeterminate=true]:hidden");
+    expect(src).toContain("peer-data-[indeterminate=true]:flex");
   });
 });
 
@@ -263,6 +367,17 @@ describe("radio-group.jte", () => {
     expect(markup).toMatch(/<input[\s\S]*?type="radio"/);
     expect(markup).toContain('name="${name}"');
     expect(markup).toContain('l:model="${model}"');
+  });
+  test("supports the invalid/error state: aria-invalid on the group + danger option rings", () => {
+    expect(src).toMatch(/@param boolean invalid/);
+    expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
+    expect(src).toMatch(/@param String describedBy/);
+    expect(src).toContain('aria-describedby="${describedBy}"');
+    // the invalid flag propagates to each option
+    expect(src).toContain("invalid = invalid");
+    const optMarkup = opt.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(optMarkup).toContain('aria-invalid="${invalid ? "true" : null}"');
+    expect(optMarkup).toContain("aria-[invalid=true]:border-[var(--lv-color-danger)]");
   });
 });
 
@@ -289,6 +404,28 @@ describe("slider.jte", () => {
     expect(src).toContain('min="${min}"');
     expect(src).toContain('max="${max}"');
     expect(src).toContain('step="${step}"');
+  });
+  test("supports a two-thumb RANGE variant: two native ranges POSTing <name>Min/<name>Max", () => {
+    expect(src).toMatch(/@param boolean range/);
+    expect(src).toContain("@if(range)");
+    expect(src).toContain('name="${name}Min"');
+    expect(src).toContain('name="${name}Max"');
+    expect(src).toContain('data-thumb="min"');
+    expect(src).toContain('data-thumb="max"');
+  });
+  test("supports vertical orientation via the native vertical range (writing-mode), not a rotate hack", () => {
+    expect(src).toMatch(/@param String orientation/);
+    expect(src).toContain('data-orientation="${orientation}"');
+    expect(src).toContain("writing-mode: vertical");
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).not.toMatch(/rotate\(/);
+  });
+  test("controlled: value / valueMin / valueMax are server-rendered (data down)", () => {
+    expect(src).toMatch(/@param int value/);
+    expect(src).toMatch(/@param Integer valueMin/);
+    expect(src).toMatch(/@param Integer valueMax/);
+    expect(src).toContain('value="${lo}"');
+    expect(src).toContain('value="${hi}"');
   });
 });
 
@@ -322,5 +459,36 @@ describe("native-select.jte (the one true select after the fold)", () => {
   test("supports the invalid state folded in from the removed select island", () => {
     expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
     expect(src).toContain("data-[invalid=true]:border-[var(--lv-color-danger)]");
+  });
+  test("supports typed <optgroup> grouping via optionGroups (group label -> options)", () => {
+    expect(src).toMatch(/@param java\.util\.Map<String, java\.util\.List<String>> optionGroups/);
+    expect(src).toContain("@elseif(optionGroups != null)");
+    expect(src).toContain('<optgroup label="${grp.getKey()}">');
+  });
+  test("supports sm / default / lg size variants driving the control height", () => {
+    expect(src).toMatch(/@param String size/);
+    expect(src).toContain('data-size="${size}"');
+    expect(src).toContain("data-[size=sm]:h-[var(--lv-space-8)]");
+    expect(src).toContain("data-[size=lg]:h-[var(--lv-space-12)]");
+  });
+});
+
+describe("input-otp.jte (server-first segmented code)", () => {
+  const src = read("input-otp.jte");
+  test("renders N native single-char slots + a hidden name mirror (no inline script)", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toContain("data-otp-slot");
+    expect(markup).toContain("data-otp-mirror");
+    expect(markup).not.toMatch(/<script/i);
+  });
+  test("supports explicit groups + a decorative Lucide separator between them", () => {
+    expect(src).toMatch(/@param int groupSize/);
+    expect(src).toContain("@if(grouped && i > 0 && i % groupSize == 0)");
+    expect(src).toContain("data-otp-separator");
+    expect(src).toContain('@template.icon(name = "minus"');
+  });
+  test("declares onComplete on the root so the enhancer can fire/submit when filled", () => {
+    expect(src).toMatch(/@param String onComplete/);
+    expect(src).toContain('data-otp-complete="${hasComplete ? onComplete : null}"');
   });
 });

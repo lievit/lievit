@@ -19,7 +19,8 @@
   A11y (shadcn / WAI-ARIA model): a real <textarea> with its own id/name so a <label for> and
   validation bind to it directly. `ariaLabel` provides an accessible name when there is no
   visible label; `invalid` toggles `aria-invalid="true"` + a danger border; `describedBy` points
-  at an external hint/error element.
+  at an external hint/error element. The built-in `hint` renders a muted helper line below and is
+  auto-wired into aria-describedby via id `<areaId>-hint`.
 
   Params:
     String name                   the textarea's name attribute (POSTs under this name).
@@ -27,6 +28,7 @@
     String value       = null     current value (rendered as the element's text content).
     String placeholder = null     placeholder text.
     int rows           = 3        visible rows.
+    String hint        = null     built-in muted helper text below the textarea (auto aria-describedby).
     String ariaLabel   = null     aria-label when there is no visible <label for>.
     String describedBy = null     id of an external hint/error element (aria-describedby).
     boolean invalid    = false    danger border + aria-invalid="true".
@@ -38,13 +40,14 @@
 
   Usage:
     @@template.textarea(name = "note", rows = 5, value = contatto.note())
-    @@template.textarea(name = "bio", placeholder = "Raccontaci...", model = "bio")
+    @@template.textarea(name = "bio", placeholder = "Raccontaci...", hint = "Max 280 chars")
 --%>
 @param String name
 @param String id = null
 @param String value = null
 @param String placeholder = null
 @param int rows = 3
+@param String hint = null
 @param String ariaLabel = null
 @param String describedBy = null
 @param boolean invalid = false
@@ -55,6 +58,8 @@
 @param String cssClass = ""
 
 !{var areaId = (id != null && !id.isBlank()) ? id : name;}
+!{var hasHint = hint != null && !hint.isBlank();}
+!{var describedByValue = (describedBy != null && !describedBy.isBlank()) ? describedBy : (hasHint ? areaId + "-hint" : null);}
 
 <textarea
   data-slot="textarea"
@@ -63,7 +68,7 @@
   rows="${rows}"
   placeholder="${placeholder}"
   aria-label="${ariaLabel}"
-  aria-describedby="${describedBy}"
+  aria-describedby="${describedByValue}"
   aria-invalid="${invalid ? "true" : null}"
   disabled="${disabled}"
   required="${required}"
@@ -72,3 +77,6 @@
   class="flex min-h-[calc(var(--lv-space-10)*1.6)] w-full min-w-0 resize-y rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)] ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >${value}</textarea>
+@if(hasHint)
+  <p data-slot="textarea-hint" id="${areaId}-hint" class="mt-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${hint}</p>
+@endif

@@ -20,14 +20,26 @@
   A11y (shadcn / WAI-ARIA model): a real <input> with its own id/name so a <label for> and
   validation bind to it directly. `ariaLabel` provides an accessible name when there is no
   visible label. `invalid` toggles `aria-invalid="true"` + a danger border so assistive tech is
-  told about validation state. `describedBy` points at an external hint/error element.
+  told about validation state. `describedBy` points at an external hint/error element; when the
+  built-in `hint` is used instead, the input auto-references it via id `<inputId>-hint`.
+
+  FILE INPUTS: `type="file"` gets shadcn's file affordance (the `file:` pseudo styles the native
+  "Choose file" button as a token-styled inline chip, no border/shadow on the field itself), so a
+  file picker reads as part of the family without a custom widget.
+
+  HELPER TEXT (built-in): pass `hint` to render a muted helper line below the input wired into the
+  control's aria-describedby automatically (id `<inputId>-hint`). For the field's full
+  label+error orchestration use @@template.field instead; `hint` is the standalone shorthand.
 
   Params:
     String name                   the input's name attribute (POSTs under this name).
     String id          = name     the input's id (for a <label for>); defaults to name.
-    String type        = "text"   native input type (text, search, email, password, number...).
+    String type        = "text"   native input type (text, search, email, password, number, file...).
     String value       = null     current value.
     String placeholder = null     placeholder text.
+    String hint        = null     built-in muted helper text below the input (auto aria-describedby).
+    String accept      = null     file-input accept filter (only meaningful for type="file").
+    boolean multiple   = false    allow multiple files (only meaningful for type="file").
     String ariaLabel   = null     aria-label when there is no visible <label for>.
     String describedBy = null     id of an external hint/error element (aria-describedby).
     String autocomplete = null    native autocomplete hint.
@@ -41,12 +53,16 @@
   Usage:
     @@template.input(name = "nome", type = "text", value = contatto.nome())
     @@template.input(name = "q", type = "search", placeholder = "Cerca...", model = "query")
+    @@template.input(name = "avatar", type = "file", accept = "image/*", hint = "PNG or JPG, max 2MB")
 --%>
 @param String name
 @param String id = null
 @param String type = "text"
 @param String value = null
 @param String placeholder = null
+@param String hint = null
+@param String accept = null
+@param boolean multiple = false
 @param String ariaLabel = null
 @param String describedBy = null
 @param String autocomplete = null
@@ -58,6 +74,10 @@
 @param String cssClass = ""
 
 !{var inputId = (id != null && !id.isBlank()) ? id : name;}
+!{var hasHint = hint != null && !hint.isBlank();}
+!{var isFile = "file".equals(type);}
+!{var describedByValue = (describedBy != null && !describedBy.isBlank()) ? describedBy : (hasHint ? inputId + "-hint" : null);}
+!{var fileClasses = isFile ? " file:mr-[var(--lv-space-3)] file:h-full file:border-0 file:bg-transparent file:text-[length:var(--lv-text-sm)] file:font-[var(--lv-font-medium)] file:text-[var(--lv-color-fg)] py-0 cursor-pointer file:cursor-pointer" : "";}
 
 <input
   data-slot="input"
@@ -66,14 +86,19 @@
   type="${type}"
   value="${value}"
   placeholder="${placeholder}"
+  accept="${isFile ? accept : null}"
+  multiple="${isFile && multiple}"
   aria-label="${ariaLabel}"
-  aria-describedby="${describedBy}"
+  aria-describedby="${describedByValue}"
   aria-invalid="${invalid ? "true" : null}"
   autocomplete="${autocomplete}"
   disabled="${disabled}"
   required="${required}"
   readonly="${readonly}"
   l:model="${model}"
-  class="flex h-[var(--lv-space-10)] w-full min-w-0 rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)] ${cssClass}"
+  class="flex h-[var(--lv-space-10)] w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)]${fileClasses} ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
+@if(hasHint)
+  <p data-slot="input-hint" id="${inputId}-hint" class="mt-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${hint}</p>
+@endif
