@@ -67,13 +67,28 @@ public final class ListingResource extends Resource<Listing> {
                 .column(
                         TextColumn.make("Ref", Listing::ref)
                                 .url(l -> "/admin/listings/" + l.ref() + "/edit"))
-                .column("City", Listing::city)
-                // A coloured badge derived from the city: a BadgeCell rendered by the server-first
-                // badge partial as <span class="lv-badge lv-badge--<variant>"> (ADR-0012).
+                // A header column group (Filament ColumnGroup): "Location" arches over City + Zone as
+                // a spanning super-header. The member columns stay real table columns.
+                .columnGroup(
+                        io.lievit.kit.ColumnGroup.make(
+                                "Location",
+                                io.lievit.kit.TextColumn.<Listing>make("City", Listing::city),
+                                // A coloured badge derived from the city: a BadgeCell rendered by the
+                                // server-first badge partial as <span class="lv-badge ..."> (ADR-0012).
+                                BadgeColumn.<Listing>make(
+                                                "Zone", l -> l.city().length() > 5 ? "large" : "small")
+                                        .color(zone -> "large".equals(zone) ? "info" : "gray")))
+                // A ViewColumn escape hatch (Filament ViewColumn): an arbitrary trusted HTML fragment
+                // the adopter renders from the row, stamped raw in the cell (a mini progress bar).
                 .column(
-                        BadgeColumn.<Listing>make(
-                                        "Zone", l -> l.city().length() > 5 ? "large" : "small")
-                                .color(zone -> "large".equals(zone) ? "info" : "gray"))
+                        io.lievit.kit.ViewColumn.<Listing>make(
+                                "Score",
+                                l ->
+                                        "<div data-score-bar style=\"width:"
+                                                + Math.min(100, l.city().length() * 10)
+                                                + "%\">"
+                                                + l.city().length() * 10
+                                                + "</div>"))
                 // An icon derived from the city length: an IconCell rendered by the server-first
                 // icon partial as an inline <svg> (ADR-0012), never an <lv-icon> island tag.
                 .column(
@@ -92,7 +107,27 @@ public final class ListingResource extends Resource<Listing> {
                                 .label(o -> String.valueOf(o))
                                 .limit(2)
                                 .url(l -> "/admin/listings/" + l.ref() + "/edit")
-                                .overflowTitle(l -> letters(l.city()).size() + " people"));
+                                .overflowTitle(l -> letters(l.city()).size() + " people"))
+                // Filters panel (Filament HasFilters): a SelectFilter over the city, a fully-configured
+                // TernaryFilter (per-state labels + attribute + query closure), the layout pinned above
+                // the content and persisted in session, with a default-active filter.
+                .filters(
+                        io.lievit.kit.SelectFilter.make("city")
+                                .options(
+                                        new java.util.LinkedHashMap<>(
+                                                java.util.Map.of(
+                                                        "Parma", "Parma",
+                                                        "Reggio Emilia", "Reggio Emilia"))),
+                        io.lievit.kit.TernaryFilter.make("big")
+                                .trueLabel("Big cities")
+                                .falseLabel("Small cities")
+                                .placeholder("Any size")
+                                .attribute("city_is_big")
+                                .query(big -> io.lievit.kit.FilterState.EMPTY.with(
+                                        "city_is_big", big ? "true" : "false")))
+                .filtersLayout(io.lievit.kit.FiltersLayout.ABOVE_CONTENT)
+                .persistFiltersInSession()
+                .defaultFilters(io.lievit.kit.FilterState.EMPTY.with("big", "true"));
     }
 
     /** Derives a per-row list of single-letter "tags"/"people" from the city (test fixture data). */
