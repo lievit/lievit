@@ -14,6 +14,7 @@ import java.util.Objects;
  * <pre>
  *   /{panel}/{slug}            list
  *   /{panel}/{slug}/create     create
+ *   /{panel}/{slug}/{id}       view (detail)
  *   /{panel}/{slug}/{id}/edit  edit
  * </pre>
  *
@@ -48,6 +49,18 @@ public record AdminRoutes(String panelId, String slug) {
     /** @return the create page URL ({@code /{panel}/{slug}/create}) */
     public String create() {
         return list() + "/create";
+    }
+
+    /**
+     * The detail (view) page URL. Mirrors Filament's {@code ViewRecord} route: the bare id under the
+     * resource slug, with {@link #edit(String)} appending {@code /edit} on top, so a detail page is
+     * URL-addressable and bookmarkable.
+     *
+     * @param id the record id
+     * @return the view page URL ({@code /{panel}/{slug}/{id}})
+     */
+    public String view(String id) {
+        return list() + "/" + Objects.requireNonNull(id, "id");
     }
 
     /**

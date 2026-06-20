@@ -23,6 +23,8 @@ import io.lievit.kit.ResourcePages;
 import io.lievit.kit.Table;
 import io.lievit.kit.TextColumn;
 import io.lievit.kit.TextField;
+import io.lievit.kit.schema.infolist.Infolist;
+import io.lievit.kit.schema.infolist.TextEntry;
 
 /**
  * The hello-admin worked example: one {@link Resource} for the {@link Listing} entity exercising the
@@ -90,12 +92,25 @@ public final class ListingResource extends Resource<Listing> {
     }
 
     @Override
+    public Optional<Infolist> infolist() {
+        // The detail (View) page over one listing: ref + city, two columns. Resolved against the
+        // Listing record's attributes (the default reflection-based recordAttributes) under VIEW.
+        return Optional.of(
+                Infolist.make()
+                        .schema(
+                                TextEntry.make("ref"),
+                                TextEntry.make("city").placeholder("—"))
+                        .columns(2));
+    }
+
+    @Override
     public Optional<ResourcePages> pages() {
         return Optional.of(
                 ResourcePages.of(
                         ListingListComponent.class,
                         ListingCreateComponent.class,
-                        ListingEditComponent.class));
+                        ListingEditComponent.class,
+                        ListingViewComponent.class));
     }
 
     /** Maps the form's {@code city} string field to and from a {@link Listing}. */

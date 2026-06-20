@@ -79,4 +79,14 @@ public class HelloAdminTestApp {
     ListingEditComponent listingEditComponent(ListingResource resource) {
         return new ListingEditComponent(resource);
     }
+
+    /**
+     * @param resource the admin resource
+     * @return a fresh view (detail) page component per wire call
+     */
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    ListingViewComponent listingViewComponent(ListingResource resource) {
+        return new ListingViewComponent(resource);
+    }
 }
