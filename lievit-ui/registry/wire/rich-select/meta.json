@@ -1,7 +1,7 @@
 {
   "name": "rich-select",
   "type": "registry:wire",
-  "description": "A searchable single-select whose options are filtered SERVER-SIDE: the query binds l:model.debounce, the server re-filters the catalog and re-renders the listbox (the canonical wire/htmx typeahead, no client filtering). The selected value lives server-side and is set via the $set magic action. Server-first WIRE component (ADR-0012); replaces the <lv-rich-select> Lit island. WAI-ARIA APG combobox + listbox.",
+  "description": "A searchable Combobox (Filament Select parity, roadmap L1) whose options are filtered SERVER-SIDE: the query binds l:model.debounce, the server re-filters the catalog and re-renders the listbox (the canonical wire/htmx typeahead, no client filtering). Supports single-select (the `selected` string, set via $set) AND multiple-select with removable chips (the `selectedValues` list, toggled via $set('toggleValue',...)), preload (eager full-catalog on mount for small sets) vs lazy debounced search (large sets), inline create-option (a no-match query arms a new value), and rich option labels (avatar/icon + subtext). A tiny CSP-clean typed-TS enhancer adds APG keyboard nav (ArrowUp/Down/Home/End/Enter). Server-first WIRE component (ADR-0012); replaces the <lv-rich-select> Lit island. WAI-ARIA APG combobox + listbox.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -16,8 +16,13 @@
       "type": "registry:wire",
       "target": "lievit/rich-select.jte",
       "root": "jte"
+    },
+    {
+      "path": "wire/rich-select/rich-select.ts",
+      "type": "registry:wire",
+      "target": "components/ui/rich-select.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Register RichSelectComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `allOptions` from your repository in the constructor or a @LievitRender hook (the seed list is placeholder data). The query filters server-side via l:model.debounce; selection sets the `selected` field via $set('selected', '<value>'). The rendered hidden input (name=...) submits the selection in a plain POST form. The `@LievitComponent(template=\"lievit/rich-select\")` name assumes the .jte landed under lievit/; adjust freely once copied (the source is yours)."
+  "docs": "Register RichSelectComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `allOptions` from your repository in the constructor or a @LievitRender hook (the seed list is placeholder data). The query filters server-side via l:model.debounce. Single mode: selection sets the `selected` field via $set('selected', '<value>'). Multiple mode (multiple=true): each pick / chip-remove toggles membership of its value in `selectedValues` via $set('toggleValue', '<value>'); the chosen options render as removable chips and submit as repeated hidden inputs (name=...). Preload (preload=true) shows the full catalog on mount for SMALL sets; leave it false and narrow `allOptions` server-side per keystroke for LARGE sets. allowCreate=true offers a 'Create \"<query>\"' affordance on a no-match query (value creation only; wire createOptionUsing server-side for a full form). Rich labels: an Option carries optional avatar (image URL) / icon (Lucide name) + subtext. Call enhanceRichSelects(runtime) once from main.ts after startLievit() for APG keyboard navigation. The `@LievitComponent(template=\"lievit/rich-select\")` name assumes the .jte landed under lievit/; adjust freely once copied (the source is yours)."
 }

@@ -5,6 +5,10 @@
 package io.lievit.kit;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * A first-class admin action (the filament-internals.md "Action as a first-class object"): a named,
@@ -39,6 +43,8 @@ public abstract class AdminAction<T> {
     private boolean outlined;
     private boolean disabled;
     private java.util.function.Predicate<@org.jspecify.annotations.Nullable Object> hidden = r -> false;
+    private @Nullable Function<@Nullable Object, @Nullable String> url;
+    private boolean urlNewTab;
 
     /**
      * @param name the action name (stable id, the {@code @LievitAction}-side handle the page wires)
@@ -216,6 +222,77 @@ public abstract class AdminAction<T> {
         return hidden.test(record);
     }
 
+    // --- URL navigation (Filament Action::url(): the action is a quick "open X" link) ---
+
+    /**
+     * Makes this action a <strong>URL navigation</strong> (the Filament {@code Action::url()}):
+     * instead of mutating the domain, running it navigates the host to the URL the mapper derives
+     * from the action's record (open a detail page, the calendar on a date, an external link). The
+     * mapper receives the resolved record (or {@code null} for a resource/header-scoped action) and
+     * returns the target URL. Authorization still runs first; the outcome is
+     * {@link AdminActionResult#navigate(String)}.
+     *
+     * @param mapper maps the (nullable) record to the navigation URL
+     * @return this action
+     */
+    public AdminAction<T> url(Function<@Nullable Object, @Nullable String> mapper) {
+        this.url = Objects.requireNonNull(mapper, "mapper");
+        return this;
+    }
+
+    /**
+     * Makes this action navigate to a static URL (the record-independent Filament {@code Action::url()}):
+     * a header "Export"/"Open calendar" toolbar button, or a row action whose target ignores the row.
+     *
+     * @param staticUrl the navigation URL (must be non-blank)
+     * @return this action
+     */
+    public AdminAction<T> url(String staticUrl) {
+        Objects.requireNonNull(staticUrl, "staticUrl");
+        if (staticUrl.isBlank()) {
+            throw new IllegalArgumentException("staticUrl must be non-blank");
+        }
+        return url(record -> staticUrl);
+    }
+
+    /**
+     * Opens this action's URL navigation in a new browser tab (the Filament
+     * {@code Action::url($url, shouldOpenInNewTab: true)}). Only meaningful together with
+     * {@link #url(java.util.function.Function) a url}.
+     *
+     * @return this action
+     */
+    public AdminAction<T> openUrlInNewTab() {
+        this.urlNewTab = true;
+        return this;
+    }
+
+    /** @return whether this action navigates to a URL (a url mapper was declared) */
+    public boolean isUrlNavigation() {
+        return url != null;
+    }
+
+    /** @return whether this action's URL navigation opens in a new tab */
+    public boolean opensUrlInNewTab() {
+        return urlNewTab;
+    }
+
+    /**
+     * The navigation URL this action targets for a record, when it carries a {@link #url url mapper}
+     * that yields a non-blank URL.
+     *
+     * @param record the resolved record (or {@code null} for a resource/header-scoped action)
+     * @return the navigation URL, or empty if this action is not a URL navigation (or the mapper
+     *     yields null/blank)
+     */
+    public Optional<String> urlFor(@Nullable Object record) {
+        if (url == null) {
+            return Optional.empty();
+        }
+        @Nullable String href = url.apply(record);
+        return href == null || href.isBlank() ? Optional.empty() : Optional.of(href);
+    }
+
     /**
      * The default semantic colour for this action's kind, used when none is set. The base default
      * is {@code null} (the host's neutral); destructive actions and built-ins override.
@@ -258,17 +335,32 @@ public abstract class AdminAction<T> {
     }
 
     /**
-     * Runs the action: checks authorization, performs the operation, and emits the success effects
+     * Runs the action: checks authorization, then either navigates (a {@link #url url}-bearing
+     * action, the Filament {@code Action::url()}) or performs the operation and emits its effects
      * (flash + redirect) onto the context's effects sink.
      *
+     * <p>A URL navigation short-circuits {@link #perform}: once authorized, it queues the redirect
+     * effect onto the sink and returns {@link AdminActionResult#navigate}. The mapper is fed the
+     * authorized record (already resolved for the gate), so a row "open detail" action reaches the
+     * row's URL without a second lookup.
+     *
      * @param context the per-invocation context (resource, routes, authorizer, effects, inputs)
-     * @return the outcome (completed / invalid / forbidden)
+     * @return the outcome (navigate / completed / invalid / forbidden)
      */
     public final AdminActionResult run(AdminActionContext<T> context) {
         Objects.requireNonNull(context, "context");
         Object record = authorizationRecord(context);
         if (!context.authorizer().isAllowed(operation, context.resource(), record)) {
             return AdminActionResult.forbidden();
+        }
+        if (isUrlNavigation()) {
+            return urlFor(record)
+                    .map(
+                            href -> {
+                                context.effects().redirect(href);
+                                return AdminActionResult.navigate(href, urlNewTab);
+                            })
+                    .orElseGet(() -> AdminActionResult.completed(null));
         }
         return perform(context);
     }

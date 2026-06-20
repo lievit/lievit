@@ -25,12 +25,15 @@ import org.jspecify.annotations.Nullable;
  * so the simplest template path, and any consumer that only wants the text, reads it uniformly
  * without switching on the type.
  */
-public sealed interface Cell permits Cell.Text, Cell.Badge, Cell.Link, Cell.Icon {
+public sealed interface Cell
+        permits Cell.Text, Cell.Badge, Cell.Link, Cell.Icon, Cell.Tags, Cell.AvatarStack {
 
     /**
      * @return the cell's display text: the {@link Column#cell(Object) string projection} of the
      *     value, to be HTML-escaped by the template. Never {@code null} (empty string for a missing
-     *     value). For an {@link Icon} cell this is the optional adjacent label (may be empty).
+     *     value). For an {@link Icon} cell this is the optional adjacent label (may be empty). For a
+     *     {@link Tags} / {@link AvatarStack} cell this is a flat, comma-joined text projection (the
+     *     accessibility/no-CSS fallback).
      */
     String text();
 
@@ -75,6 +78,68 @@ public sealed interface Cell permits Cell.Text, Cell.Badge, Cell.Link, Cell.Icon
      * @param color the optional semantic colour token, empty for the default colour
      */
     record Icon(String name, String text, String color) implements Cell {}
+
+    /**
+     * A tags cell (the Filament {@code TagsColumn}, with K4 overflow): the template renders the
+     * {@link #visible()} tags as chips, then a {@code "+K"} overflow badge when {@link #overflow()} is
+     * positive (the {@link TagsColumn#limit(int) limit}). {@link #text()} is the flat comma-joined
+     * projection of ALL tags (visible + hidden) for the no-CSS / accessibility fallback.
+     *
+     * @param visible the tags rendered as chips (the first {@code limit}, or all when unlimited)
+     * @param overflow the number of tags hidden beyond the limit (0 when none); drives the {@code "+K"} badge
+     * @param text the flat comma-joined projection of all tags
+     */
+    record Tags(java.util.List<String> visible, int overflow, String text) implements Cell {
+
+        /** Compact constructor: defends the tag list. */
+        public Tags {
+            visible = java.util.List.copyOf(visible);
+        }
+
+        /** @return whether the {@code "+K"} overflow badge renders */
+        public boolean hasOverflow() {
+            return overflow > 0;
+        }
+    }
+
+    /**
+     * A stacked-avatar cell (the Filament stacked image column, K4): the template renders the
+     * {@link #visible()} avatars overlapping, then a {@code "+K"} overflow badge (carrying the
+     * {@link #overflowUrl()} link to the row detail and the {@link #overflowTitle()} tooltip) when
+     * {@link #overflow()} is positive. {@link #text()} is the flat comma-joined projection of the
+     * visible avatars' labels.
+     *
+     * @param visible the avatars rendered in the stack (the first {@code limit})
+     * @param overflow the number of items hidden beyond the limit (0 when none); drives the {@code "+K"} badge
+     * @param circular whether the avatars render circular
+     * @param overflowUrl the detail URL the {@code "+K"} badge (and stack) links to, empty if unlinked
+     * @param overflowTitle the {@code "+K"} badge hover title (the limitedRemainingText), empty if none
+     * @param text the flat comma-joined projection of the visible avatars' labels
+     */
+    record AvatarStack(
+            java.util.List<AvatarStackColumn.Avatar> visible,
+            int overflow,
+            boolean circular,
+            String overflowUrl,
+            String overflowTitle,
+            String text)
+            implements Cell {
+
+        /** Compact constructor: defends the avatar list. */
+        public AvatarStack {
+            visible = java.util.List.copyOf(visible);
+        }
+
+        /** @return whether the {@code "+K"} overflow badge renders */
+        public boolean hasOverflow() {
+            return overflow > 0;
+        }
+
+        /** @return whether the {@code "+K"} badge links to the row detail */
+        public boolean hasOverflowUrl() {
+            return overflowUrl != null && !overflowUrl.isBlank();
+        }
+    }
 
     /**
      * A plain text cell.

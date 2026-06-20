@@ -111,6 +111,65 @@ class HelloAdminIT {
     }
 
     /**
+     * @spec.given the worked ListingResource declaring a HEADER/toolbar URL-navigation action
+     *     ("Open calendar" -&gt; /admin/calendar)
+     * @spec.when  its list component is mounted and rendered by JTE through the real runtime
+     * @spec.then  the header action renders in the toolbar as a real {@code <a href>} (a toolbar
+     *     button, NOT a per-row action): it sits under data-admin-toolbar, points at the navigation
+     *     URL, and is not stamped inside any data-admin-row
+     * @spec.adr   ADR-0008
+     */
+    @Test
+    void renders_a_header_toolbar_action_in_the_toolbar_not_per_row() {
+        String html = wireService.mount(LIST).html();
+
+        // The toolbar exists and carries the header action as a navigation anchor.
+        assertThat(html)
+                .contains("data-admin-toolbar")
+                .contains("data-admin-header-action=\"open-calendar\"")
+                .contains("href=\"/admin/calendar\"")
+                .contains(">Open calendar</a>");
+
+        // It is NOT a per-row action: the header action survives only before the first row.
+        String beforeFirstRow = html.substring(0, html.indexOf("data-admin-row="));
+        assertThat(beforeFirstRow).contains("data-admin-header-action=\"open-calendar\"");
+        String rowsRegion = html.substring(html.indexOf("data-admin-row="));
+        assertThat(rowsRegion).doesNotContain("data-admin-header-action");
+    }
+
+    /**
+     * @spec.given the worked ListingResource whose table declares a TagsColumn.limit(2) and an
+     *     AvatarStackColumn.limit(2), both derived from the city (Reggio Emilia &gt; 2 letters)
+     * @spec.when  its list component is mounted and rendered by JTE through the real runtime
+     * @spec.then  the tags cell renders the first 2 chips + a "+K" overflow badge, and the avatar
+     *     stack renders 2 avatars + a "+K" badge linking to the row's detail (the K4 stacked column
+     *     parity), proving the typed cells survive the end-to-end JTE compile + render
+     * @spec.adr   ADR-0008
+     */
+    @Test
+    void renders_tags_overflow_and_avatar_stack_overflow_through_jte() {
+        String html = wireService.mount(LIST).html();
+
+        // TagsColumn.limit(2): "Reggio Emilia" -> 12 letters, 2 chips + "+10".
+        assertThat(html)
+                .contains("data-tags-cell")
+                .contains("data-tag")
+                .contains("data-tags-overflow")
+                .contains(">+10</span>");
+
+        // AvatarStackColumn.limit(2): 2 stacked avatars + a "+10" overflow badge linking to the
+        // row's detail (ref 2 = Reggio Emilia), carrying the limitedRemainingText title.
+        assertThat(html)
+                .contains("data-avatar-stack")
+                .contains("data-shape=\"circular\"")
+                .contains("data-avatar")
+                .contains("data-avatar-overflow")
+                .contains("href=\"/admin/listings/2/edit\"")
+                .contains("title=\"12 people\"")
+                .contains(">+10</a>");
+    }
+
+    /**
      * @spec.given a mounted create component and valid form state (a non-blank city)
      * @spec.when  the state is set over the wire and the save action is called
      * @spec.then  the action redirects to the list (the Lievit-Effects redirect) and flashes a

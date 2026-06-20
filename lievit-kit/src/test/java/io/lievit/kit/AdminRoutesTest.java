@@ -27,7 +27,23 @@ class AdminRoutesTest {
 
         assertThat(routes.list()).isEqualTo("/admin/listings");
         assertThat(routes.create()).isEqualTo("/admin/listings/create");
+        assertThat(routes.view("42")).isEqualTo("/admin/listings/42");
         assertThat(routes.edit("42")).isEqualTo("/admin/listings/42/edit");
+    }
+
+    /**
+     * @spec.given a panel id and a resource slug
+     * @spec.when  the bare detail (view) URL is derived
+     * @spec.then  it is the bare id under the slug ({@code /{panel}/{slug}/{id}}), the
+     *     URL-addressable detail page the Filament ViewRecord mounts (edit appends /edit on top)
+     * @spec.adr   ADR-0008
+     */
+    @Test
+    void derives_the_url_addressable_detail_route() {
+        AdminRoutes routes = new AdminRoutes("admin", "listings");
+
+        assertThat(routes.view("7")).isEqualTo("/admin/listings/7");
+        assertThat(routes.edit("7")).startsWith(routes.view("7"));
     }
 
     /**
