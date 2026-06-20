@@ -25,6 +25,10 @@
   `content` slot of hand-authored option markup (each composing @@template.radio-group.option) for
   per-option disabled / rich labels. `content` wins.
 
+  INVALID: `invalid` sets aria-invalid="true" on the radiogroup (and each option's radio gets the
+  danger ring), shadcn's radio-group error state; pass `describedBy` to point the group at an
+  external error element (e.g. `<name>-error` from @@template.field).
+
   Params:
     String name                       the shared radio name (POSTs the selected value).
     java.util.Map<String,String> options = null  ordered value->label option map.
@@ -32,8 +36,10 @@
     String value      = null          the currently selected value.
     String label      = null          visible <legend> text.
     String ariaLabel  = null          aria-label on the fieldset when no visible legend.
+    String describedBy = null         id of an external hint/error element (aria-describedby).
     boolean disabled  = false         disables the whole group.
     boolean required  = false         marks the group required.
+    boolean invalid   = false         aria-invalid="true" + danger option rings (error state).
     String orientation = "vertical"   "vertical" | "horizontal" option layout.
     String model      = null          l:model expression bound on each radio.
     String cssClass   = ""            extra utility classes on the fieldset.
@@ -51,8 +57,10 @@
 @param String value = null
 @param String label = null
 @param String ariaLabel = null
+@param String describedBy = null
 @param boolean disabled = false
 @param boolean required = false
+@param boolean invalid = false
 @param String orientation = "vertical"
 @param String model = null
 @param String cssClass = ""
@@ -60,6 +68,9 @@
 <fieldset
   data-slot="radio-group"
   aria-label="${ariaLabel}"
+  aria-describedby="${describedBy}"
+  aria-invalid="${invalid ? "true" : null}"
+  data-invalid="${invalid ? "true" : null}"
   disabled="${disabled}"
   class="m-0 min-w-0 border-0 p-0 ${cssClass}"
 >
@@ -71,7 +82,7 @@
       ${content}
     @elseif(options != null)
       @for(java.util.Map.Entry<String, String> opt : options.entrySet())
-        @template.radio-group.option(name = name, value = opt.getKey(), label = opt.getValue(), checked = opt.getKey().equals(value), required = required, model = model)
+        @template.radio-group.option(name = name, value = opt.getKey(), label = opt.getValue(), checked = opt.getKey().equals(value), required = required, invalid = invalid, model = model)
       @endfor
     @endif
   </div>

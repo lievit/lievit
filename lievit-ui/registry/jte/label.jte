@@ -25,6 +25,7 @@
     String text     = null     label text (when no content slot is given).
     gg.jte.Content content = null  rich label content (wins over text).
     boolean required = false   renders a danger asterisk after the text.
+    boolean error    = false   sets data-error + a destructive label colour (shadcn's invalid cue).
     String cssClass = ""       extra utility classes on the label.
 
   Usage:
@@ -35,12 +36,14 @@
 @param String text = null
 @param gg.jte.Content content = null
 @param boolean required = false
+@param boolean error = false
 @param String cssClass = ""
 
 <label
   for="${forId}"
   data-slot="label"
-  class="inline-flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] select-none ${cssClass}"
+  data-error="${error ? "true" : null}"
+  class="inline-flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] select-none data-[error=true]:text-[var(--lv-color-danger)] ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
   @if(content != null)${content}@else${text}@endif

@@ -1,7 +1,7 @@
 {
   "name": "field",
   "type": "registry:jte",
-  "description": "A label + control + hint/error wrapper (composition only): composes the label partial, slots the caller's control, and renders an error in a role=alert/aria-live region. Server-first replacement for the Lit island.",
+  "description": "The FormField + FieldError orchestration: a label + control + description/error wrapper that auto-derives the accessible wiring (aria-invalid, the description/error ids the control points its aria-describedby at, the destructive label cue) from the per-field error, the server-first analogue of shadcn's FormControl/FormMessage. Supports vertical/horizontal/responsive orientation and a FieldContent slot. Ships the FieldGroup, FieldSet/FieldLegend and FieldSeparator child partials.",
   "dependencies": [],
   "registryDependencies": ["tokens", "label"],
   "files": [
@@ -10,8 +10,26 @@
       "type": "registry:jte",
       "target": "lievit/field.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/field/group.jte",
+      "type": "registry:jte",
+      "target": "lievit/field/group.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/field/set.jte",
+      "type": "registry:jte",
+      "target": "lievit/field/set.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/field/separator.jte",
+      "type": "registry:jte",
+      "target": "lievit/field/separator.jte",
+      "root": "jte"
     }
   ],
   "tokens": ["color", "space", "type"],
-  "docs": "Copies the field partial to your JTE root at lievit/field.jte, reached as @template.lievit.field(forId=..., label=..., control=@`...`). Pass the control markup as the `control` Content slot; set the control's aria-describedby to `<forId>-error` so the error is announced. The source is yours: edit freely."
+  "docs": "Copies the field partial (+ its field/group, field/set and field/separator children) to your JTE root at lievit/field.jte, reached as @template.lievit.field(forId=..., label=..., error=..., control=@`...`). The error/description ids are deterministic from forId (`<forId>-error`, `<forId>-description`); set the control's aria-describedby to the space-joined present ids and its invalid flag to (error != null) so the message is announced. Group fields with @template.lievit.field.group / field.set; divide them with field.separator. The source is yours: edit freely."
 }

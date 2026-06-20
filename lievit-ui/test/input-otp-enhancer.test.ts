@@ -13,11 +13,16 @@ import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import { enhanceInputOtp, enhanceAllInputOtp } from "../registry/jte/input-otp.enhancer.js";
 
 /** Build a DOM that matches the server-rendered input-otp partial (numeric, length slots). */
-function renderOtp(length = 6, type: "numeric" | "alphanumeric" | "alpha" = "numeric"): HTMLElement {
+function renderOtp(
+  length = 6,
+  type: "numeric" | "alphanumeric" | "alpha" = "numeric",
+  complete?: string,
+): HTMLElement {
   const root = document.createElement("div");
   root.setAttribute("data-lievit-otp", "");
   root.setAttribute("data-otp-type", type);
   root.setAttribute("data-otp-length", String(length));
+  if (complete) root.setAttribute("data-otp-complete", complete);
   const group = document.createElement("div");
   group.setAttribute("role", "group");
   for (let i = 0; i < length; i++) {
@@ -133,5 +138,74 @@ describe("input-otp enhancer behaviour", () => {
     enhanceAllInputOtp();
     type(slots(second)[0], "9");
     expect(mirror(second).value).toBe("9");
+  });
+});
+
+describe("input-otp onComplete", () => {
+  test("fires lievit:otp-complete (with the joined value) once every slot is filled", () => {
+    const root = renderOtp(3, "numeric", "event");
+    enhanceInputOtp(root);
+    const events: string[] = [];
+    root.addEventListener("lievit:otp-complete", (e) =>
+      events.push((e as CustomEvent<string>).detail),
+    );
+    const s = slots(root);
+    type(s[0], "1");
+    type(s[1], "2");
+    expect(events).toHaveLength(0); // not yet full
+    type(s[2], "3");
+    expect(events).toEqual(["123"]);
+  });
+
+  test("does NOT re-fire on every keystroke once complete; re-arms only after dropping below full", () => {
+    const root = renderOtp(2, "numeric", "event");
+    enhanceInputOtp(root);
+    let fires = 0;
+    root.addEventListener("lievit:otp-complete", () => {
+      fires += 1;
+    });
+    const s = slots(root);
+    type(s[0], "1");
+    type(s[1], "2");
+    expect(fires).toBe(1);
+    // overtype the last slot while still full -> no second fire
+    type(s[1], "5");
+    expect(fires).toBe(1);
+    // clear a slot (drop below full) then refill -> re-arms, fires again
+    s[1].value = "";
+    s[1].dispatchEvent(new Event("input", { bubbles: true }));
+    type(s[1], "9");
+    expect(fires).toBe(2);
+  });
+
+  test('onComplete="submit" requestSubmits the enclosing form when filled', () => {
+    const form = document.createElement("form");
+    const root = renderOtp(2, "numeric", "submit");
+    form.appendChild(root);
+    document.body.appendChild(form);
+    let submitted = 0;
+    // jsdom/happy-dom: requestSubmit dispatches a submit event we can observe
+    form.requestSubmit = () => {
+      submitted += 1;
+    };
+    enhanceInputOtp(root);
+    const s = slots(root);
+    type(s[0], "4");
+    expect(submitted).toBe(0);
+    type(s[1], "2");
+    expect(submitted).toBe(1);
+  });
+
+  test("a root with no data-otp-complete never fires the event", () => {
+    const root = renderOtp(2); // no complete attribute
+    enhanceInputOtp(root);
+    let fires = 0;
+    root.addEventListener("lievit:otp-complete", () => {
+      fires += 1;
+    });
+    const s = slots(root);
+    type(s[0], "1");
+    type(s[1], "2");
+    expect(fires).toBe(0);
   });
 });
