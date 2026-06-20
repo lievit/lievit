@@ -1,0 +1,17 @@
+{
+  "name": "scroll-area",
+  "type": "registry:jte",
+  "description": "A scrollable viewport with a token-styled native scrollbar (standardised scrollbar-width + scrollbar-color, no JS, no <style> block). type modes (auto / always / hover / scroll) map to scrollbar visibility + gutter; orientation is vertical / horizontal / both. The viewport is a focusable role=region (named when label is set). Server-first PARTIAL (ADR-0012): no client state, no Lit island, no wire component. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/scroll-area.jte",
+      "type": "registry:jte",
+      "target": "lievit/scroll-area.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "radius", "ring"],
+  "docs": "Copies the scroll-area partial to your JTE root at lievit/scroll-area.jte, reached as @template.lievit.scroll-area(content=@`...`). Set orientation (vertical/horizontal/both), type (auto/always/hover/scroll), maxHeight, and an optional label for a named region. The hover/scroll reveal-on-hover thumb needs one :hover rule in your own stylesheet (documented in the partial header); without it the viewport still scrolls with a hidden scrollbar. The source is yours: edit freely."
+}

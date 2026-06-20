@@ -74,9 +74,20 @@ describe("static partials b2 -- shared hygiene", () => {
 describe("pagination (#438)", () => {
   const src = read("pagination");
   test("declares the documented param API", () => {
-    for (const p of ["int current", "int total", "String hrefPattern", "int siblings", "String ariaLabel"]) {
+    for (const p of ["int current", "int total", "String hrefPattern", "int siblings", "String ariaLabel", "String linkAttrs"]) {
       expect(src).toContain(`@param ${p}`);
     }
+  });
+
+  test("asChild / router-Link: linkAttrs is injected as raw markup ($unsafe) on every navigable link, not the disabled spans/ellipsis", () => {
+    expect(src).toContain("@param String linkAttrs");
+    // injected with $unsafe so it lands as attribute markup; once per navigable <a>: prev + numbered (active + inactive) + next = 4
+    const injections = src.match(/\$unsafe\{linkAttrs\}/g) ?? [];
+    expect(injections.length).toBe(4);
+    // the disabled boundary spans + the ellipsis span must NOT carry it (they are not links)
+    const ellipsisBlock = src.slice(src.indexOf('data-slot="pagination-ellipsis"'));
+    const ellipsisSpan = ellipsisBlock.slice(0, ellipsisBlock.indexOf("</span>"));
+    expect(ellipsisSpan).not.toContain("$unsafe{linkAttrs}");
   });
   test("a11y: a labelled nav landmark, active page is aria-current, ellipsis is hidden", () => {
     expect(src).toContain('role="navigation"');

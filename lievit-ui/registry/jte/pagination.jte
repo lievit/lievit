@@ -38,9 +38,21 @@
     String nextLabel    sr-only text for the next control. Default "Next page".
     String klass        extra classes on the <nav>.
 
+  asChild / router-Link (server-first): shadcn's PaginationLink takes `asChild` so the page
+  links can be a framework router-Link instead of a bare <a>. Server-side the element stays a
+  real <a href> (no-JS correctness), but the caller can OPT IN extra attributes on every
+  navigable link via `linkAttrs` (a raw attribute string, output with $unsafe so it lands as
+  markup, not escaped text), e.g. an htmx/Turbo/router hook that upgrades the anchor to an
+  in-place navigation: `linkAttrs = "hx-boost=\"true\" hx-target=\"#list\""`. This is the
+  server-first analogue of asChild: same accessible anchor, with the adopter's router wiring
+  attached. Left blank, nothing is injected. Only the navigable links (prev / numbered / next)
+  receive it; the disabled boundary spans and the ellipsis do not.
+
   Usage:
     @@template.pagination(current = 3, total = 10, hrefPattern = "/contatti?page=%d")
     @@template.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d&q=" + query, siblings = 2)
+    @@template.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d",
+      linkAttrs = "hx-boost=\"true\" hx-target=\"#list\"")
 --%>
 @param int current
 @param int total
@@ -49,6 +61,7 @@
 @param String ariaLabel = "Pagination"
 @param String prevLabel = "Previous page"
 @param String nextLabel = "Next page"
+@param String linkAttrs = ""
 @param String klass = ""
 
 !{var page = Math.max(1, Math.min(current, total));}
@@ -80,6 +93,7 @@
       @if(hasPrev)
         <a
           href="${hrefPattern.formatted(page - 1)}"
+          $unsafe{linkAttrs}
           aria-label="${prevLabel}"
           data-slot="pagination-previous"
           class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
@@ -115,6 +129,7 @@
         @elseif(p == page)
           <a
             href="${hrefPattern.formatted(p)}"
+            $unsafe{linkAttrs}
             aria-current="page"
             data-slot="pagination-link"
             data-active="true"
@@ -123,6 +138,7 @@
         @else
           <a
             href="${hrefPattern.formatted(p)}"
+            $unsafe{linkAttrs}
             aria-label="Go to page ${p}"
             data-slot="pagination-link"
             class="inline-flex h-[var(--lv-space-10)] w-[var(--lv-space-10)] items-center justify-center rounded-[var(--lv-radius-md)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
@@ -136,6 +152,7 @@
       @if(hasNext)
         <a
           href="${hrefPattern.formatted(page + 1)}"
+          $unsafe{linkAttrs}
           aria-label="${nextLabel}"
           data-slot="pagination-next"
           class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"

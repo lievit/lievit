@@ -35,9 +35,10 @@ describe("breadcrumb (server-first JTE partial; the <lv-breadcrumb> island is go
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
-  test("declares a typed list of items (label + optional href) + separator + label params", () => {
+  test("declares a typed list of items (label + optional href) + separator + maxItems + label params", () => {
     expect(src).toContain("@param List<Map<String, String>> items");
     expect(src).toContain("@param String separator");
+    expect(src).toContain("@param int maxItems");
     expect(src).toContain("@param String label");
   });
 
@@ -46,11 +47,11 @@ describe("breadcrumb (server-first JTE partial; the <lv-breadcrumb> island is go
     expect(src).toContain('@param String label = "Breadcrumb"');
   });
 
-  test("the trail is an ordered <ol> list, one <li> per item", () => {
+  test("the trail is an ordered <ol> list, one <li> per rendered crumb (driven by a render plan)", () => {
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<ol[\s\n]/);
     expect(markup).toMatch(/<li[\s\n]/);
-    expect(src).toContain("@for(var i = 0; i < items.size(); i++)");
+    expect(src).toContain("@for(var pos = 0; pos < plan.size(); pos++)");
   });
 
   test("non-current items are real <a href> anchors", () => {
@@ -59,24 +60,35 @@ describe("breadcrumb (server-first JTE partial; the <lv-breadcrumb> island is go
   });
 
   test("the current (last) item is aria-current=page and NOT a link", () => {
-    expect(src).toContain("!{var isCurrent = i == items.size() - 1;}");
+    expect(src).toContain("!{var isCurrent = idx == n - 1;}");
     // the current branch renders a <span aria-current="page">, not an <a>
     expect(src).toMatch(/<span[^>]*aria-current="page"/);
   });
 
-  test("the separator is rendered between items only (not before the first) and is aria-hidden", () => {
-    expect(src).toContain("!{var isFirst = i == 0;}");
+  test("the separator is rendered between crumbs only (not before the first) and is aria-hidden", () => {
+    expect(src).toContain("!{var isFirst = pos == 0;}");
     expect(src).toContain("@if(!isFirst)");
     expect(src).toMatch(/lv-breadcrumb__separator[^"]*"[^>]*aria-hidden="true"/);
     expect(src).toContain("${separator}");
   });
 
-  test("single-item case: the lone item is the current page (isCurrent true at i==0) with no separator", () => {
-    // i == size()-1 is true for a one-element list, and i==0 means !isFirst is false => no separator.
-    // Pinned structurally by the two guards above; this test documents the invariant the
-    // real-compiler golden exercises with a single-element list.
-    expect(src).toContain("!{var isCurrent = i == items.size() - 1;}");
-    expect(src).toContain("@if(!isFirst)");
+  test("collapse: maxItems>0 + an over-length trail keeps the root + tail and renders one ellipsis", () => {
+    // the plan keeps index 0 (root), a -1 sentinel (ellipsis), then the last maxItems-1 crumbs
+    expect(src).toContain("var collapse = maxItems > 0 && n > maxItems;");
+    expect(src).toContain("!{plan.add(0);}");
+    expect(src).toContain("!{plan.add(-1);}");
+    expect(src).toContain("var tailStart = n - (maxItems - 1);");
+    // the ellipsis item is a decorative BreadcrumbEllipsis with an sr-only "More"
+    expect(src).toContain('data-slot="breadcrumb-ellipsis"');
+    expect(src).toMatch(/breadcrumb-ellipsis"[\s\S]*?aria-hidden="true"/);
+    expect(src).toContain('<span class="sr-only">More</span>');
+    expect(src).toContain('@template.icon(name = "ellipsis"');
+  });
+
+  test("no collapse by default (maxItems = 0 renders every crumb)", () => {
+    expect(src).toContain("@param int maxItems = 0");
+    // when not collapsing the plan is the full 0..n-1 range
+    expect(src).toContain("@for(int i = 0; i < n; i++)");
   });
 
   test("styling is token-driven: no hardcoded hex, no Lit residue, no inline script/handler", () => {
