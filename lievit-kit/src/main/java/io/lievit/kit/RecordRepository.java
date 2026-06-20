@@ -85,6 +85,46 @@ public interface RecordRepository<T> {
     }
 
     /**
+     * Reads up to {@code limit} rows whose {@code label} matches the search {@code term}, the
+     * <strong>lazy</strong> read path of a searchable relation field ({@link BelongsToField} in
+     * {@code searchable} + non-{@code preload} mode, roadmap K5). This is the server-side narrowing a
+     * 10k-row {@code persone} / {@code immobili} relationship needs: typing a few characters in the
+     * combobox queries the backend with a {@code LIMIT}, so the option catalog never loads all rows
+     * every render (the {@code getSearchResultsUsing} closure of Filament's {@code Select}).
+     *
+     * <p>The default is correct but unbounded at the read: it filters {@link #findAll()} by a
+     * case-insensitive {@code contains} on the {@code label} the field supplies, then caps the result
+     * at {@code limit}. That keeps every existing repository working without a code change (small
+     * sets are fine). A real adopter over a large table <strong>overrides</strong> this with a
+     * {@code WHERE label ILIKE ? LIMIT ?} query so the database does the narrowing.
+     *
+     * <p>An empty / blank {@code term} returns the first {@code limit} rows (the preload-less combobox
+     * shows a bounded head of the catalog before the user types).
+     *
+     * @param term the search term typed into the combobox (empty returns the bounded head)
+     * @param limit the maximum number of rows to return (clamped to {@code >= 1})
+     * @param label extracts the searchable label from a row (the text the {@code term} matches)
+     * @return up to {@code limit} matching rows, in the repository's natural order
+     */
+    default List<T> search(
+            String term, int limit, java.util.function.Function<T, String> label) {
+        java.util.Objects.requireNonNull(label, "label");
+        int cap = limit < 1 ? 1 : limit;
+        String needle = term == null ? "" : term.trim().toLowerCase(java.util.Locale.ROOT);
+        List<T> matched = new java.util.ArrayList<>(cap);
+        for (T row : findAll()) {
+            if (needle.isEmpty()
+                    || label.apply(row).toLowerCase(java.util.Locale.ROOT).contains(needle)) {
+                matched.add(row);
+                if (matched.size() >= cap) {
+                    break;
+                }
+            }
+        }
+        return List.copyOf(matched);
+    }
+
+    /**
      * The read window for {@link #page(Query)}: a zero-based row offset and a maximum row count,
      * plus the requested {@link Sort sort order}, global {@link #search() search term}, and active
      * {@link FilterState filters}. The kit never executes the sort/search/filter: it carries the
