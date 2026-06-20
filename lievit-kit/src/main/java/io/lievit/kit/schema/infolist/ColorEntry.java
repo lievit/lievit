@@ -42,4 +42,10 @@ public final class ColorEntry extends Entry<ColorEntry> {
     public boolean isCopyable() {
         return copyable;
     }
+
+    /** @return {@code "color"}: this entry resolves as a color field. */
+    @Override
+    public String kind() {
+        return "color";
+    }
 }

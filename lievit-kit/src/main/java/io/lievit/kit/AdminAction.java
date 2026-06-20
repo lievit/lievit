@@ -4,9 +4,13 @@
  */
 package io.lievit.kit;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import org.jspecify.annotations.Nullable;
 
@@ -43,8 +47,17 @@ public abstract class AdminAction<T> {
     private boolean outlined;
     private boolean disabled;
     private java.util.function.Predicate<@org.jspecify.annotations.Nullable Object> hidden = r -> false;
+    private java.util.function.Predicate<@org.jspecify.annotations.Nullable Object> visible = r -> true;
     private @Nullable Function<@Nullable Object, @Nullable String> url;
     private boolean urlNewTab;
+
+    // --- mounting lifecycle (Filament before/after/halt + mountUsing + arguments) ---
+    private @Nullable Consumer<AdminActionContext<T>> before;
+    private @Nullable Consumer<AdminActionContext<T>> after;
+    private @Nullable Function<@Nullable Object, Map<String, String>> mountUsing;
+    private final Map<String, String> arguments = new LinkedHashMap<>();
+    private @Nullable Function<AdminActionContext<T>, AdminNotification> successNotification;
+    private @Nullable Function<AdminActionContext<T>, AdminNotification> failureNotification;
 
     /**
      * @param name the action name (stable id, the {@code @LievitAction}-side handle the page wires)
@@ -215,11 +228,145 @@ public abstract class AdminAction<T> {
     }
 
     /**
+     * Shows the action only when the predicate matches the host record (the Filament
+     * {@code Action::visible()}, the positive twin of {@link #hidden}): the action is rendered only
+     * for records the closure accepts. Combined with {@link #hidden}, an action is shown iff
+     * {@code visible} accepts AND {@code hidden} rejects the record (a per-record authorization gate
+     * on top of the binary {@link AdminAuthorizer}).
+     *
+     * @param predicate matches a record to show the action for it
+     * @return this action
+     */
+    public AdminAction<T> visible(java.util.function.Predicate<@org.jspecify.annotations.Nullable Object> predicate) {
+        this.visible = Objects.requireNonNull(predicate, "predicate");
+        return this;
+    }
+
+    /**
      * @param record the host record (or {@code null} for a resource-scoped action)
      * @return whether the action is hidden for that record
      */
     public boolean isHiddenFor(@org.jspecify.annotations.Nullable Object record) {
         return hidden.test(record);
+    }
+
+    /**
+     * Whether the action renders for a record: the visibility closure accepts it AND the hidden
+     * closure rejects it (the Filament {@code visible()} / {@code hidden()} composition).
+     *
+     * @param record the host record (or {@code null} for a resource-scoped action)
+     * @return whether the action is shown for that record
+     */
+    public boolean isVisibleFor(@org.jspecify.annotations.Nullable Object record) {
+        return visible.test(record) && !hidden.test(record);
+    }
+
+    // --- mounting lifecycle (Filament before() / after() / halt() / mountUsing() / arguments()) ---
+
+    /**
+     * Runs a hook BEFORE the action body, after authorization passed (the Filament {@code before()}).
+     * The hook may {@link AdminActionContext#halt() halt} the action: a halted action stops without
+     * running its body, returning {@link AdminActionResult#halted()}.
+     *
+     * @param hook the before hook
+     * @return this action
+     */
+    public AdminAction<T> before(Consumer<AdminActionContext<T>> hook) {
+        this.before = Objects.requireNonNull(hook, "hook");
+        return this;
+    }
+
+    /**
+     * Runs a hook AFTER the action body completed successfully (the Filament {@code after()}): send a
+     * follow-up notification, dispatch an event, redirect elsewhere.
+     *
+     * @param hook the after hook
+     * @return this action
+     */
+    public AdminAction<T> after(Consumer<AdminActionContext<T>> hook) {
+        this.after = Objects.requireNonNull(hook, "hook");
+        return this;
+    }
+
+    /**
+     * Fills the action modal's initial form state when the modal mounts (the Filament
+     * {@code mountUsing()} / {@code fillForm()}): the function receives the resolved record (or
+     * {@code null} for a resource-scoped action) and returns the per-field initial state. A
+     * {@link FormAction} that sets this overrides its record-derived default fill.
+     *
+     * @param fill maps the (nullable) record to the initial form state
+     * @return this action
+     */
+    public AdminAction<T> mountUsing(
+            Function<@Nullable Object, Map<String, String>> fill) {
+        this.mountUsing = Objects.requireNonNull(fill, "fill");
+        return this;
+    }
+
+    /**
+     * The initial form state this action mounts with for a record: the {@link #mountUsing} result
+     * when set, otherwise an empty map (a concrete action may override its own default).
+     *
+     * @param record the resolved record, or {@code null}
+     * @return the initial per-field state
+     */
+    public Map<String, String> mountState(@Nullable Object record) {
+        return mountUsing == null ? Map.of() : Map.copyOf(mountUsing.apply(record));
+    }
+
+    /**
+     * Sets a static argument carried into the action's context (the Filament {@code arguments()}): a
+     * side channel of {@code String} parameters the action body and its notifications read, distinct
+     * from the form state.
+     *
+     * @param key the argument key
+     * @param value the argument value
+     * @return this action
+     */
+    public AdminAction<T> argument(String key, String value) {
+        arguments.put(Objects.requireNonNull(key, "key"), Objects.requireNonNull(value, "value"));
+        return this;
+    }
+
+    /** @return the static arguments declared on this action (unmodifiable) */
+    public Map<String, String> arguments() {
+        return Map.copyOf(arguments);
+    }
+
+    /**
+     * Sets the notification raised when the action completes (the Filament
+     * {@code successNotificationTitle()} / {@code successNotification()}); the builder receives the
+     * invocation context (its {@code arguments()} + {@code formState()}) and returns the notification
+     * flashed on completion.
+     *
+     * @param builder builds the success notification from the context
+     * @return this action
+     */
+    public AdminAction<T> successNotification(Function<AdminActionContext<T>, AdminNotification> builder) {
+        this.successNotification = Objects.requireNonNull(builder, "builder");
+        return this;
+    }
+
+    /**
+     * Sets the notification raised when the action is denied or fails validation (the Filament
+     * {@code failureNotification()}); flashed on a {@code FORBIDDEN} or {@code INVALID} outcome.
+     *
+     * @param builder builds the failure notification from the context
+     * @return this action
+     */
+    public AdminAction<T> failureNotification(Function<AdminActionContext<T>, AdminNotification> builder) {
+        this.failureNotification = Objects.requireNonNull(builder, "builder");
+        return this;
+    }
+
+    /** @return the configured success-notification builder, or {@code null} */
+    public @Nullable Function<AdminActionContext<T>, AdminNotification> successNotificationBuilder() {
+        return successNotification;
+    }
+
+    /** @return the configured failure-notification builder, or {@code null} */
+    public @Nullable Function<AdminActionContext<T>, AdminNotification> failureNotificationBuilder() {
+        return failureNotification;
     }
 
     // --- URL navigation (Filament Action::url(): the action is a quick "open X" link) ---
@@ -351,6 +498,7 @@ public abstract class AdminAction<T> {
         Objects.requireNonNull(context, "context");
         Object record = authorizationRecord(context);
         if (!context.authorizer().isAllowed(operation, context.resource(), record)) {
+            flashFailure(context);
             return AdminActionResult.forbidden();
         }
         if (isUrlNavigation()) {
@@ -362,7 +510,40 @@ public abstract class AdminAction<T> {
                             })
                     .orElseGet(() -> AdminActionResult.completed(null));
         }
-        return perform(context);
+        // before() hook + body: either may halt the action (Filament $action->halt()), signalled by
+        // an internal control-flow exception that never escapes run().
+        AdminActionResult result;
+        try {
+            if (before != null) {
+                before.accept(context);
+            }
+            result = perform(context);
+        } catch (AdminActionContext.ActionHalt halt) {
+            return AdminActionResult.halted();
+        }
+        if (result.isCompleted() || result.isNavigation()) {
+            flashSuccess(context);
+            if (after != null) {
+                after.accept(context);
+            }
+        } else if (result.status() == AdminActionResult.Status.INVALID) {
+            flashFailure(context);
+        }
+        return result;
+    }
+
+    /** Flashes the per-action success notification, when one was configured. */
+    private void flashSuccess(AdminActionContext<T> context) {
+        if (successNotification != null) {
+            successNotification.apply(context).flashOnto(context.effects());
+        }
+    }
+
+    /** Flashes the per-action failure notification, when one was configured. */
+    private void flashFailure(AdminActionContext<T> context) {
+        if (failureNotification != null) {
+            failureNotification.apply(context).flashOnto(context.effects());
+        }
     }
 
     /**

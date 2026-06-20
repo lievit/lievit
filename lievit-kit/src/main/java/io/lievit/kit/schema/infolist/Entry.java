@@ -24,12 +24,15 @@ import io.lievit.kit.support.EvaluationContext;
  *
  * @param <SELF> the concrete entry type, for fluent returns
  */
-public abstract class Entry<SELF extends Entry<SELF>> {
+public abstract sealed class Entry<SELF extends Entry<SELF>> implements InfolistComponent
+        permits TextEntry, IconEntry, ImageEntry, ColorEntry, CodeEntry, ViewEntry,
+                KeyValueEntry, RepeatableEntry {
 
     private final String name;
     private final String label;
     private @Nullable String placeholder;
     private boolean visible = true;
+    private int columnSpan = 1;
     private Function<@Nullable Object, @Nullable Object> formatState = v -> v;
 
     /**
@@ -96,6 +99,59 @@ public abstract class Entry<SELF extends Entry<SELF>> {
      */
     public boolean isVisible() {
         return visible;
+    }
+
+    @Override
+    public final boolean isVisibleComponent() {
+        return visible;
+    }
+
+    /**
+     * Sets how many parent grid columns this entry spans (the filament {@code columnSpan}); the
+     * default is 1. A wide entry (a description, a key-value table) spans the full grid via
+     * {@code columnSpan(layoutColumns)}.
+     *
+     * @param columnSpan the span (at least 1)
+     * @return this entry
+     */
+    public SELF columnSpan(int columnSpan) {
+        if (columnSpan < 1) {
+            throw new IllegalArgumentException("columnSpan must be at least 1");
+        }
+        this.columnSpan = columnSpan;
+        return self();
+    }
+
+    /**
+     * @return the number of parent grid columns this entry spans (default 1)
+     */
+    public int columnSpan() {
+        return columnSpan;
+    }
+
+    /**
+     * The entry-kind tag a renderer branches on (the filament entry type). The base is
+     * {@code "text"}; visual entries override ({@code "icon"} / {@code "image"} / {@code "color"} /
+     * {@code "code"}).
+     *
+     * @return the entry kind tag
+     */
+    public String kind() {
+        return "text";
+    }
+
+    /**
+     * Resolves this entry into a {@link ResolvedNode.Field} (label + projected display + kind +
+     * span). {@link KeyValueEntry} overrides to a {@link ResolvedNode.KeyValue} so its map is finally
+     * reached. A hidden entry never reaches here (the container skips it via
+     * {@link #isVisibleComponent()}).
+     *
+     * @param context the live evaluation context
+     * @return the resolved field node
+     */
+    @Override
+    public ResolvedNode resolveNode(EvaluationContext context) {
+        return new ResolvedNode.Field(label(), resolveDisplay(context), kind(), columnSpan);
     }
 
     /**

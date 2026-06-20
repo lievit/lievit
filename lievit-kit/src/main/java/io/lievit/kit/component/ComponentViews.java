@@ -90,7 +90,7 @@ public final class ComponentViews {
      */
     public static ModalView forModalConfig(ModalConfig config) {
         ModalView view = ModalView.make(config.heading() != null ? config.heading() : "");
-        view.width(widthFromToken(config.width()));
+        view.width(widthFromToken(config.widthToken()));
         view.closeByClickingAway(config.closeByClickingAway());
         view.closeByEscaping(config.closeByEscaping());
         return view;

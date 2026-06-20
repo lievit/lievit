@@ -91,4 +91,23 @@ public final class KeyValueEntry extends Entry<KeyValueEntry> {
         }
         return out;
     }
+
+    /** @return {@code "keyvalue"}: this entry resolves as a key-value table, not a flat field. */
+    @Override
+    public String kind() {
+        return "keyvalue";
+    }
+
+    /**
+     * Resolves into a {@link ResolvedNode.KeyValue} carrying the ordered key-value pairs, the path
+     * that finally invokes {@link #resolveMap} (the audit's "unwired" correctness fix: the structured
+     * resolve reaches the map instead of flattening it to {@code String.valueOf(map)}).
+     *
+     * @param context the live evaluation context
+     * @return the resolved key-value node
+     */
+    @Override
+    public ResolvedNode resolveNode(EvaluationContext context) {
+        return new ResolvedNode.KeyValue(label(), resolveMap(context), keyLabel(), valueLabel());
+    }
 }

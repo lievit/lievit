@@ -117,6 +117,10 @@ public final class FormPageDriver<T> {
             // COMPLETED and NAVIGATE both queued their effect (redirect / navigation): the page is
             // done. A form submit does not navigate, but the switch must stay exhaustive.
             case COMPLETED, NAVIGATE -> new Outcome(result, null);
+            // HALTED: a before()-hook stopped the action without writing; re-render the form as-is.
+            case HALTED ->
+                    new Outcome(
+                            result, AdminFormView.of(resource.form(), editing, state, List.of()));
             case INVALID ->
                     new Outcome(
                             result,

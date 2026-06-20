@@ -52,4 +52,24 @@ public record AdminActionContext<T>(
     public RecordRepository<T> repository() {
         return resource.repository();
     }
+
+    /**
+     * Halts the running action (the Filament {@code $action->halt()}): a {@code before()} hook (or
+     * the action body) calls this to stop the action without writing or redirecting. It signals via
+     * an internal control-flow exception that {@link AdminAction#run} catches, turning the outcome
+     * into {@link AdminActionResult#halted()}. The exception never escapes {@code run}.
+     */
+    public void halt() {
+        throw new ActionHalt();
+    }
+
+    /**
+     * The internal control-flow signal {@link #halt()} raises; {@link AdminAction#run} catches it.
+     * Package-private and stackless (no stack trace cost on the hot path).
+     */
+    static final class ActionHalt extends RuntimeException {
+        ActionHalt() {
+            super(null, null, false, false);
+        }
+    }
 }
