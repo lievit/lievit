@@ -106,15 +106,35 @@ describe("alert", () => {
 
 describe("card", () => {
   const src = read("card");
-  test("optional heading + headingId + a body content slot", () => {
+  test("optional heading + headingId + a body content slot (back-compat)", () => {
     expect(src).toContain("@param String heading");
     expect(src).toContain("@param String headingId");
     expect(src).toContain("@param gg.jte.Content content");
     expect(src).toContain("${content}");
   });
-  test("a heading makes it a labelled region; no heading => no landmark", () => {
-    expect(src).toContain('role="${hasHeading ? "region" : null}"');
-    expect(src).toContain('aria-labelledby="${hasHeading ? headingId : null}"');
+  test("ships the full shadcn slot set: title / description / action / content / footer", () => {
+    // each distinct shadcn sub-component maps to a Content slot param + a data-slot region
+    expect(src).toContain("@param gg.jte.Content title");
+    expect(src).toContain("@param gg.jte.Content description");
+    expect(src).toContain("@param gg.jte.Content action");
+    expect(src).toContain("@param gg.jte.Content footer");
+    expect(src).toContain('data-slot="card-header"');
+    expect(src).toContain('data-slot="card-title"');
+    expect(src).toContain('data-slot="card-description"');
+    expect(src).toContain('data-slot="card-action"');
+    expect(src).toContain('data-slot="card-content"');
+    expect(src).toContain('data-slot="card-footer"');
+  });
+  test("each optional slot renders only when supplied (no empty regions)", () => {
+    expect(src).toContain("@if(description != null)");
+    expect(src).toContain("@if(action != null)");
+    expect(src).toContain("@if(footer != null)");
+    // the rich title slot wins over the plain heading (content-over-scalar)
+    expect(src).toContain("@if(title != null)${title}@else${heading}@endif");
+  });
+  test("a title makes it a labelled region; no title => no landmark", () => {
+    expect(src).toContain('role="${hasTitle ? "region" : null}"');
+    expect(src).toContain('aria-labelledby="${hasTitle ? headingId : null}"');
     expect(src).toContain('id="${headingId}"');
   });
   test("elevated surface via the shadow token", () => {

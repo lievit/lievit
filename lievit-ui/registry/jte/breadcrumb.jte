@@ -25,12 +25,21 @@
   same List<Map<String,String>> idiom the dashboard block uses, so it compiles against the
   bare jte runtime with no custom record type to ship.
 
+  COLLAPSE / ELLIPSIS (shadcn BreadcrumbEllipsis): a long trail collapses its MIDDLE to an
+  ellipsis item when `maxItems` > 0 and the trail is longer than it. The server keeps the FIRST
+  crumb (the root, the most useful anchor) + the LAST `maxItems - 1` crumbs (the tail, ending at
+  the current page) and renders one BreadcrumbEllipsis (an aria-hidden glyph + an sr-only "More")
+  in place of the hidden middle. This is the server-pure analogue of shadcn's collapsed dropdown:
+  no JS, no client state, the glyph is decorative and the dropped crumbs simply are not rendered
+  (the root + tail are what a user navigates by). maxItems = 0 (default) never collapses.
+
   CSS COMPAT: keeps the `lv-breadcrumb*` class names the island used so any stylesheet that
   targeted them still applies; the partial is self-styling via token-driven utilities.
 
   Params:
     List<Map<String,String>> items   the trail, root-to-current; each map: label (+ optional href).
     String separator = "/"           the glyph between items (aria-hidden).
+    int    maxItems  = 0             > 0 => collapse the middle to an ellipsis past this many crumbs.
     String label     = "Breadcrumb"  aria-label for the <nav> landmark.
     String cssClass  = ""            extra utility classes on the <nav>.
 
@@ -39,11 +48,31 @@
       java.util.Map.of("label", "Home", "href", "/"),
       java.util.Map.of("label", "Properties", "href", "/properties"),
       java.util.Map.of("label", "Via Roma 12")))
+    @@template.breadcrumb(items = deepTrail, maxItems = 3)   // root ... + last two crumbs
 --%>
 @param List<Map<String, String>> items = java.util.List.of()
 @param String separator = "/"
+@param int maxItems = 0
 @param String label = "Breadcrumb"
 @param String cssClass = ""
+
+<%-- Build the render plan: a list of indices into `items`, with -1 marking the collapsed ellipsis.
+     No collapse when maxItems <= 0 or the trail already fits; otherwise keep first + last maxItems-1. --%>
+!{var plan = new java.util.ArrayList<Integer>();}
+!{var n = items.size();}
+!{var collapse = maxItems > 0 && n > maxItems;}
+@if(collapse)
+  !{plan.add(0);}
+  !{plan.add(-1);}
+  !{var tailStart = n - (maxItems - 1);}
+  @for(int i = tailStart; i < n; i++)
+    !{plan.add(i);}
+  @endfor
+@else
+  @for(int i = 0; i < n; i++)
+    !{plan.add(i);}
+  @endfor
+@endif
 
 <nav
   data-slot="breadcrumb"
@@ -52,21 +81,34 @@
   style="font-family:var(--lv-font-sans);"
 >
   <ol data-slot="breadcrumb-list" class="lv-breadcrumb__list m-0 flex list-none flex-wrap items-center p-0">
-    @for(var i = 0; i < items.size(); i++)
-      !{var item = items.get(i);}
-      !{var isCurrent = i == items.size() - 1;}
-      !{var isFirst = i == 0;}
-      !{var href = item.get("href");}
-      <li data-slot="breadcrumb-item" class="lv-breadcrumb__item inline-flex items-center">
-        @if(!isFirst)
-          <span class="lv-breadcrumb__separator select-none px-[var(--lv-space-2)] text-[var(--lv-color-muted)]" aria-hidden="true">${separator}</span>
-        @endif
-        @if(isCurrent)
-          <span data-slot="breadcrumb-current" class="lv-breadcrumb__current font-[var(--lv-font-medium)] text-[var(--lv-color-muted)]" aria-current="page">${item.getOrDefault("label", "")}</span>
-        @else
-          <a data-slot="breadcrumb-link" class="lv-breadcrumb__link rounded-[var(--lv-radius-sm)] text-[var(--lv-color-primary)] no-underline hover:underline focus-visible:shadow-[var(--lv-ring)] focus-visible:outline-none" href="${href == null ? "#" : href}">${item.getOrDefault("label", "")}</a>
-        @endif
-      </li>
+    @for(var pos = 0; pos < plan.size(); pos++)
+      !{var idx = plan.get(pos);}
+      !{var isFirst = pos == 0;}
+      @if(idx == -1)
+        <li data-slot="breadcrumb-item" class="lv-breadcrumb__item inline-flex items-center">
+          @if(!isFirst)
+            <span class="lv-breadcrumb__separator select-none px-[var(--lv-space-2)] text-[var(--lv-color-muted)]" aria-hidden="true">${separator}</span>
+          @endif
+          <span data-slot="breadcrumb-ellipsis" role="presentation" aria-hidden="true" class="lv-breadcrumb__ellipsis inline-flex items-center text-[var(--lv-color-muted)]">
+            @template.icon(name = "ellipsis", size = "1rem")
+          </span>
+          <span class="sr-only">More</span>
+        </li>
+      @else
+        !{var item = items.get(idx);}
+        !{var isCurrent = idx == n - 1;}
+        !{var href = item.get("href");}
+        <li data-slot="breadcrumb-item" class="lv-breadcrumb__item inline-flex items-center">
+          @if(!isFirst)
+            <span class="lv-breadcrumb__separator select-none px-[var(--lv-space-2)] text-[var(--lv-color-muted)]" aria-hidden="true">${separator}</span>
+          @endif
+          @if(isCurrent)
+            <span data-slot="breadcrumb-current" class="lv-breadcrumb__current font-[var(--lv-font-medium)] text-[var(--lv-color-muted)]" aria-current="page">${item.getOrDefault("label", "")}</span>
+          @else
+            <a data-slot="breadcrumb-link" class="lv-breadcrumb__link rounded-[var(--lv-radius-sm)] text-[var(--lv-color-primary)] no-underline hover:underline focus-visible:shadow-[var(--lv-ring)] focus-visible:outline-none" href="${href == null ? "#" : href}">${item.getOrDefault("label", "")}</a>
+          @endif
+        </li>
+      @endif
     @endfor
   </ol>
 </nav>

@@ -1,7 +1,7 @@
 {
   "name": "card",
   "type": "registry:jte",
-  "description": "A surface container with an optional labelled header region (role=region + aria-labelledby when a heading is set). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A surface container with the full shadcn slot set: title / description / action compose the header, content is the body, footer the optional bottom region (each a Content slot, the server-first equivalent of CardTitle/CardDescription/CardAction/CardContent/CardFooter). A title makes it a labelled region (role=region + aria-labelledby). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow"],
-  "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Pass a heading + headingId to render a labelled region. The source is yours: edit freely."
+  "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Compose the header from title + description + action slots (or the plain-text heading + headingId for back-compat) and add a footer slot; a title renders a labelled region. The source is yours: edit freely."
 }

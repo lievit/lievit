@@ -49,8 +49,36 @@ describe("badge (server-first JTE partial; the <lv-badge> island is gone)", () =
     expect(src).toContain("var(--lv-color-muted)");
   });
 
+  test("ships the shadcn variant taxonomy (default/secondary/destructive/outline) mapped to tokens", () => {
+    // default => primary fill, secondary => secondary tokens, destructive => destructive tokens
+    expect(src).toContain('case "default"');
+    expect(src).toContain("var(--lv-color-primary)");
+    expect(src).toContain("var(--lv-color-primary-fg)");
+    expect(src).toContain('case "secondary"');
+    expect(src).toContain("var(--lv-color-secondary)");
+    expect(src).toContain("var(--lv-color-secondary-fg)");
+    expect(src).toContain('case "destructive"');
+    expect(src).toContain("var(--lv-color-destructive)");
+    expect(src).toContain("var(--lv-color-destructive-fg)");
+    // outline => transparent fill + a real border colour token (the only bordered variant)
+    expect(src).toContain('case "outline"');
+    expect(src).toContain('"outline".equals(variant) ? "var(--lv-color-border)"');
+  });
+
+  test("asChild polymorphism: a non-blank href renders a real <a> link, else an inert <span>", () => {
+    expect(src).toContain("@param String href");
+    expect(src).toContain("var isLink = href != null && !href.isBlank();");
+    expect(src).toContain("@if(isLink)");
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    // both branches present: the <a href> link branch and the <span> branch
+    expect(markup).toMatch(/<a[\s\n][^>]*href="\$\{href\}"/);
+    expect(markup).toMatch(/<span[\s\n]/);
+    // the link branch is focusable + carries a focus-visible ring
+    expect(src).toContain("focus-visible:shadow-[var(--lv-ring)]");
+  });
+
   test("keeps the lv-badge--<variant> class hook the island used so existing CSS still applies", () => {
-    expect(src).toContain("lv-badge lv-badge--${variant}");
+    expect(src).toContain('"lv-badge lv-badge--" + variant');
     expect(src).toContain('data-variant="${variant}"');
   });
 
@@ -58,10 +86,11 @@ describe("badge (server-first JTE partial; the <lv-badge> island is gone)", () =
     expect(src).toContain("@if(content != null)${content}@else${label}@endif");
   });
 
-  test("renders a plain <span> pill (a status pill is decorative text, no live-region role)", () => {
+  test("renders a plain <span> pill (no live-region role); only an href promotes it to an <a>", () => {
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<span[\s\n]/);
-    expect(markup).not.toMatch(/role=/);
+    // no role attribute anywhere: a badge is decorative text, an href-link is a plain anchor
+    expect(markup).not.toMatch(/\srole=/);
   });
 
   test("styling is token-driven: no hardcoded hex, no Lit residue, no inline script/handler", () => {
