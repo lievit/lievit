@@ -19,11 +19,16 @@ import org.springframework.context.annotation.Scope;
 public class RichSelectWireTestApp {
 
     /**
-     * @return a fresh rich-select component per wire call
+     * @return a fresh rich-select component per wire call, seeded with a rich option (icon + subtext)
+     *     alongside the plain apple/banana/cherry seed so the render-asserting IT can prove the rich
+     *     label projects through the real runtime
      */
     @Bean
     @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
     RichSelectComponent richSelectComponent() {
-        return new RichSelectComponent();
+        RichSelectComponent c = new RichSelectComponent();
+        c.allOptions.add(
+                RichSelectComponent.Option.rich("durian", "Durian", "leaf", "Spiky and pungent"));
+        return c;
     }
 }
