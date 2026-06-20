@@ -7,7 +7,7 @@ package io.lievit.kit;
 /**
  * The built-in bulk restore (the Filament {@code RestoreBulkAction}): restores every authorized
  * selected record through the {@link SoftDeleteRepository}, gating each as an
- * {@link AdminOperation#UPDATE}. Confirmed, used on a trashed (only-trashed) list view.
+ * {@link AdminOperation#RESTORE}. Confirmed, used on a trashed (only-trashed) list view.
  *
  * @param <T> the resource row type
  */
@@ -20,7 +20,7 @@ public final class RestoreBulkAction<T> extends BulkAction<T> {
         super(
                 "restore-selected",
                 "Restore selected",
-                AdminOperation.UPDATE,
+                AdminOperation.RESTORE,
                 (records, context) -> {
                     Table<T> table = context.resource().table();
                     for (T record : records) {

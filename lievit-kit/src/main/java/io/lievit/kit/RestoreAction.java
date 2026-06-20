@@ -9,8 +9,9 @@ package io.lievit.kit;
  * through a {@link SoftDeleteRepository}, then flashes success and returns to the list. Visible only
  * on a trashed record ({@link #isHiddenFor(Object)} hides it on live rows).
  *
- * <p>It gates as a {@link AdminOperation#UPDATE} (restoring is a state change, not a create), and
- * reads the targeted id from {@link AdminActionContext#recordId()}. The trashed-state visibility is
+ * <p>It gates as a {@link AdminOperation#RESTORE} (its own policy verb, distinct from update so a
+ * policy can allow editing but forbid resurrecting a trashed row), and reads the targeted id from
+ * {@link AdminActionContext#recordId()}. The trashed-state visibility is
  * the repository's {@link SoftDeleteRepository#isTrashed(Object)} so the kit never guesses.
  *
  * @param <T> the resource row type
@@ -23,7 +24,7 @@ public final class RestoreAction<T> extends AdminAction<T> {
      * @param repository the soft-delete-aware repository the restore calls
      */
     public RestoreAction(SoftDeleteRepository<T> repository) {
-        super("restore", "Restore", AdminOperation.UPDATE);
+        super("restore", "Restore", AdminOperation.RESTORE);
         this.repository = java.util.Objects.requireNonNull(repository, "repository");
         icon("heroicon-o-arrow-uturn-left");
         color("success");

@@ -75,7 +75,9 @@ class SoftDeleteActionTest {
     /**
      * @spec.given the soft-delete actions
      * @spec.when  their gating metadata is read
-     * @spec.then  restore gates UPDATE and confirms; force-delete is destructive and confirms
+     * @spec.then  restore gates its own RESTORE verb and confirms; force-delete gates its own
+     *     FORCE_DELETE verb, is destructive and confirms (the per-verb policy map: restore is not
+     *     update and force-delete is not delete, so a policy can grant one without the other)
      */
     @Test
     void soft_delete_actions_gate_and_confirm_correctly() {
@@ -83,9 +85,9 @@ class SoftDeleteActionTest {
         RestoreAction<Doc> restore = new RestoreAction<>(repo);
         ForceDeleteAction<Doc> force = new ForceDeleteAction<>(repo);
 
-        assertThat(restore.operation()).isEqualTo(AdminOperation.UPDATE);
+        assertThat(restore.operation()).isEqualTo(AdminOperation.RESTORE);
         assertThat(restore.requiresConfirmation()).isTrue();
-        assertThat(force.operation()).isEqualTo(AdminOperation.DELETE);
+        assertThat(force.operation()).isEqualTo(AdminOperation.FORCE_DELETE);
         assertThat(force.isDestructive()).isTrue();
         assertThat(force.requiresConfirmation()).isTrue();
     }

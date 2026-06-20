@@ -7,7 +7,8 @@ package io.lievit.kit;
 /**
  * The built-in bulk force-delete (the Filament {@code ForceDeleteBulkAction}): permanently removes
  * every authorized selected record through the {@link SoftDeleteRepository#forceDelete(String)},
- * bypassing the soft-delete marker. Destructive and confirmed.
+ * bypassing the soft-delete marker, gating each as {@link AdminOperation#FORCE_DELETE}. Destructive
+ * and confirmed.
  *
  * @param <T> the resource row type
  */
@@ -20,7 +21,7 @@ public final class ForceDeleteBulkAction<T> extends BulkAction<T> {
         super(
                 "force-delete-selected",
                 "Force delete selected",
-                AdminOperation.DELETE,
+                AdminOperation.FORCE_DELETE,
                 (records, context) -> {
                     Table<T> table = context.resource().table();
                     for (T record : records) {

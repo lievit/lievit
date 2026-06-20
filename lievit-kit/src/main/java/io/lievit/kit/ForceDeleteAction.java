@@ -9,6 +9,9 @@ package io.lievit.kit;
  * record through a {@link SoftDeleteRepository#forceDelete(String)}, bypassing the soft-delete
  * marker, then flashes success and returns to the list. Visible only on a trashed record.
  *
+ * <p>It gates as {@link AdminOperation#FORCE_DELETE}, its own policy verb distinct from
+ * {@link AdminOperation#DELETE} so a policy can allow soft-deleting but forbid permanent erasure.
+ *
  * <p>Destructive and {@link #requiresConfirmation() requires confirmation}; the warning that it
  * cannot be undone is the default destructive confirmation copy.
  *
@@ -22,7 +25,7 @@ public final class ForceDeleteAction<T> extends AdminAction<T> {
      * @param repository the soft-delete-aware repository the force-delete calls
      */
     public ForceDeleteAction(SoftDeleteRepository<T> repository) {
-        super("forceDelete", "Force delete", AdminOperation.DELETE);
+        super("forceDelete", "Force delete", AdminOperation.FORCE_DELETE);
         this.repository = java.util.Objects.requireNonNull(repository, "repository");
         icon("heroicon-o-trash");
         hidden(record -> record != null && !repository.isTrashed(cast(record)));

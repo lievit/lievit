@@ -15,6 +15,10 @@ import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
 
+import io.lievit.kit.auth.EmailVerificationPage;
+import io.lievit.kit.auth.LoginPage;
+import io.lievit.kit.auth.PasswordResetPage;
+import io.lievit.kit.auth.RegisterPage;
 import io.lievit.kit.cluster.Cluster;
 import io.lievit.kit.tenancy.Tenancy;
 
@@ -51,10 +55,17 @@ public final class Panel {
     private boolean topNavigation;
     private @Nullable String maxContentWidth;
 
-    // Auth scaffolding (issue #325) — all disabled by default (parity with Filament).
+    // Auth scaffolding (issue #325) — all disabled by default (parity with Filament). The boolean
+    // flag and the backing page model (the audit gap: a flag rendered nothing) move together: the
+    // handler-accepting overloads set both, so hasX() answers the flag while xPage() returns the
+    // real AuthPage the panel routes to.
     private boolean registration;
     private boolean passwordReset;
     private boolean emailVerification;
+    private @Nullable LoginPage loginPage;
+    private @Nullable RegisterPage registerPage;
+    private @Nullable PasswordResetPage passwordResetPage;
+    private @Nullable EmailVerificationPage emailVerificationPage;
 
     // Authorization (issue #325/#327): the gate decides who may reach the panel at all.
     private PanelAccessGate accessGate = PanelAccessGate.permitAll();
@@ -490,6 +501,77 @@ public final class Panel {
     /** @return whether the email-verification page is enabled */
     public boolean hasEmailVerification() {
         return emailVerification;
+    }
+
+    /**
+     * Sets the backing {@link LoginPage} the panel routes {@code /<panel>/login}
+     * to (the always-on auth page). Until set, the panel has no real login surface, only the flag the
+     * audit flagged; setting it is what turns "auth" from a placeholder into a rendered page.
+     *
+     * @param loginPage the login page model
+     * @return this panel
+     */
+    public Panel loginPage(LoginPage loginPage) {
+        this.loginPage = Objects.requireNonNull(loginPage, "loginPage");
+        return this;
+    }
+
+    /**
+     * Enables registration AND sets its backing {@link RegisterPage} (the flag and
+     * the page move together, so {@link #hasRegistration()} and {@link #registerPage()} agree).
+     *
+     * @param registerPage the register page model
+     * @return this panel
+     */
+    public Panel registration(RegisterPage registerPage) {
+        this.registerPage = Objects.requireNonNull(registerPage, "registerPage");
+        this.registration = true;
+        return this;
+    }
+
+    /**
+     * Enables password reset AND sets its backing {@link PasswordResetPage}.
+     *
+     * @param passwordResetPage the password-reset page model
+     * @return this panel
+     */
+    public Panel passwordReset(PasswordResetPage passwordResetPage) {
+        this.passwordResetPage = Objects.requireNonNull(passwordResetPage, "passwordResetPage");
+        this.passwordReset = true;
+        return this;
+    }
+
+    /**
+     * Enables email verification AND sets its backing
+     * {@link EmailVerificationPage}.
+     *
+     * @param emailVerificationPage the email-verification page model
+     * @return this panel
+     */
+    public Panel emailVerification(EmailVerificationPage emailVerificationPage) {
+        this.emailVerificationPage = Objects.requireNonNull(emailVerificationPage, "emailVerificationPage");
+        this.emailVerification = true;
+        return this;
+    }
+
+    /** @return the backing login page model, if one was set */
+    public Optional<LoginPage> loginPage() {
+        return Optional.ofNullable(loginPage);
+    }
+
+    /** @return the backing register page model, if registration was enabled with one */
+    public Optional<RegisterPage> registerPage() {
+        return Optional.ofNullable(registerPage);
+    }
+
+    /** @return the backing password-reset page model, if password reset was enabled with one */
+    public Optional<PasswordResetPage> passwordResetPage() {
+        return Optional.ofNullable(passwordResetPage);
+    }
+
+    /** @return the backing email-verification page model, if email verification was enabled with one */
+    public Optional<EmailVerificationPage> emailVerificationPage() {
+        return Optional.ofNullable(emailVerificationPage);
     }
 
     /**
