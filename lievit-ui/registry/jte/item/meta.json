@@ -1,0 +1,59 @@
+{
+  "name": "item",
+  "type": "registry:jte",
+  "description": "A composable list/menu row with the full shadcn compound vocabulary: the core item exposes leading (media) / content / trailing (actions) slots and variant (default | outline | muted) + size (default | sm); the typed child partials mirror shadcn's ItemTitle / ItemDescription / ItemHeader / ItemFooter / ItemGroup (role=list) / ItemSeparator / ItemMedia (default | icon | image), each its own data-slot. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/item.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/item/title.jte",
+      "type": "registry:jte",
+      "target": "lievit/item/title.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/item/description.jte",
+      "type": "registry:jte",
+      "target": "lievit/item/description.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/item/header.jte",
+      "type": "registry:jte",
+      "target": "lievit/item/header.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/item/footer.jte",
+      "type": "registry:jte",
+      "target": "lievit/item/footer.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/item/group.jte",
+      "type": "registry:jte",
+      "target": "lievit/item/group.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/item/separator.jte",
+      "type": "registry:jte",
+      "target": "lievit/item/separator.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/item/media.jte",
+      "type": "registry:jte",
+      "target": "lievit/item/media.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Copies the item partial (+ its item/title, item/description, item/header, item/footer, item/group, item/separator and item/media children) to your JTE root at lievit/item.jte, reached as @template.lievit.item(content=@`...`). Compose the content column from item.title + item.description (typed sub-parts, not free markup), span the row with item.header / item.footer, wrap a list of rows in item.group (role=list, give each item role=\"listitem\") and divide them with item.separator. Put a leading icon/image tile via item.media (variant icon | image). The source is yours: edit freely."
+}
