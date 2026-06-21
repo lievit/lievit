@@ -84,6 +84,17 @@ describe("chart (server-rendered static SVG bar chart)", () => {
     expect(src).toContain('aria-label="${cat}: ${v}"');
   });
 
+  test("shadcn fidelity: the per-bar <rect> does NOT nest role=img inside the parent svg role=img", () => {
+    // The accessible name stays per bar (aria-label); the redundant child role is dropped
+    // (a nested role=img inside a role=img graphic, issue #463 ⑦). Only the <svg> carries the role.
+    const rect = markupOf(src).match(/<rect[\s\S]*?<\/rect>/)?.[0] ?? "";
+    expect(rect, "rect block not found").not.toBe("");
+    expect(rect, "child <rect> must not carry its own role").not.toContain("role=");
+    expect(rect, "the per-bar aria-label is kept").toContain('aria-label="${cat}: ${v}"');
+    // the parent svg still owns the single img role
+    expect(markupOf(src)).toContain('role="img"');
+  });
+
   test("axis: category labels render under the plot (and are aria-hidden, not double-announced)", () => {
     expect(src).toContain("@param boolean showAxis");
     expect(src).toMatch(/<text\b/);
@@ -141,6 +152,19 @@ describe("date-picker (native <input type=date>)", () => {
     expect(src).toContain("border-[var(--lv-color-input)]");
     expect(src).toContain("focus-visible:shadow-[var(--lv-ring)]");
     expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  test("shadcn fidelity: invalid border uses the destructive token (not the legacy danger alias)", () => {
+    // issue #463 ② -- the variant token is --lv-color-destructive library-wide.
+    expect(src).toContain("aria-[invalid=true]:border-[var(--lv-color-destructive)]");
+    expect(src).toContain("text-[var(--lv-color-destructive)]"); // the required-marker asterisk
+    expect(src, "the legacy danger alias must be gone").not.toContain("--lv-color-danger");
+  });
+
+  test("shadcn fidelity: control baseline height is the 36px h-9 token (--lv-space-9)", () => {
+    // issue #463 ④ -- the shadcn-faithful compact baseline (h-9), not the old 40px space-10.
+    expect(src).toContain("h-[var(--lv-space-9)]");
+    expect(src).not.toContain("h-[var(--lv-space-10)]");
   });
 
   test("binds to a wire field via l:model (the live cases) and POSTs the ISO date under name", () => {

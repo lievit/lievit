@@ -12,6 +12,7 @@
 @param String klass = ""
 @param gg.jte.Content content
 <tr
+  data-slot="table-row"
   data-state="${state.isEmpty() ? null : state}"
   class="lv-table-row border-b transition-colors hover:bg-[color-mix(in_srgb,var(--lv-color-surface)_60%,var(--lv-color-bg))] data-[state=selected]:bg-[color-mix(in_srgb,var(--lv-color-surface)_85%,var(--lv-color-bg))] ${klass}"
   style="border-color:var(--lv-color-border);"

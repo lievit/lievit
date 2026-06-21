@@ -6,6 +6,6 @@
 --%>
 @param String klass = ""
 @param gg.jte.Content content
-<tbody class="lv-table-body [&_tr:last-child]:border-0 ${klass}">
+<tbody data-slot="table-body" class="lv-table-body [&_tr:last-child]:border-0 ${klass}">
   ${content}
 </tbody>

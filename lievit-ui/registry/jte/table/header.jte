@@ -6,6 +6,6 @@
 --%>
 @param String klass = ""
 @param gg.jte.Content content
-<thead class="lv-table-header ${klass}">
+<thead data-slot="table-header" class="lv-table-header ${klass}">
   ${content}
 </thead>

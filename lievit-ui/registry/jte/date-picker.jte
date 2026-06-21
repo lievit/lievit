@@ -28,7 +28,7 @@
   element is the correct primitive.
 
   A11y (native): a real <label for> names the control; the browser's date control carries its own
-  keyboard calendar and screen-reader semantics. `invalid` toggles aria-invalid + a danger border;
+  keyboard calendar and screen-reader semantics. `invalid` toggles aria-invalid + a destructive border;
   `describedBy` points at an external hint/error element; `required` is the native attribute (the
   constraint, conveyed to assistive tech by the platform).
 
@@ -42,7 +42,7 @@
     boolean required    = false   marks the control required (native constraint).
     boolean disabled    = false   disables + dims the control.
     boolean readonly    = false   marks the control read-only.
-    boolean invalid     = false   danger border + aria-invalid="true".
+    boolean invalid     = false   destructive border + aria-invalid="true".
     String  describedBy = null    id of an external hint/error element (aria-describedby).
     String  model       = null    l:model expression to bind this input to a wire field.
     String  cssClass    = ""      extra utility classes on the input.
@@ -78,7 +78,7 @@
     >
       ${label}
       @if(required)
-        <span aria-hidden="true" class="text-[var(--lv-color-danger)]">*</span>
+        <span aria-hidden="true" class="text-[var(--lv-color-destructive)]">*</span>
       @endif
     </label>
   @endif
@@ -96,7 +96,7 @@
     required="${required}"
     readonly="${readonly}"
     l:model="${model}"
-    class="flex h-[var(--lv-space-10)] w-full min-w-0 rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)] ${cssClass}"
+    class="flex h-[var(--lv-space-9)] w-full min-w-0 rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-destructive)] ${cssClass}"
     style="font-family:var(--lv-font-sans);"
   >
 </div>

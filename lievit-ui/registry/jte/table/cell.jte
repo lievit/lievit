@@ -5,6 +5,6 @@
 --%>
 @param String klass = ""
 @param gg.jte.Content content
-<td class="lv-table-cell p-2 align-middle whitespace-nowrap ${klass}">
+<td data-slot="table-cell" class="lv-table-cell p-2 align-middle whitespace-nowrap ${klass}">
   ${content}
 </td>

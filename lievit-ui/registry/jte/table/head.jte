@@ -12,7 +12,8 @@
 @param gg.jte.Content content
 <th
   scope="${scope}"
-  class="lv-table-head h-10 px-2 text-left align-middle font-medium whitespace-nowrap ${klass}"
+  data-slot="table-head"
+  class="lv-table-head h-[var(--lv-space-9)] px-2 text-left align-middle font-medium whitespace-nowrap ${klass}"
   style="color:var(--lv-color-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg));"
 >
   ${content}

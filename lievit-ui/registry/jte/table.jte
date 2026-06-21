@@ -57,8 +57,9 @@
 --%>
 @param String klass = ""
 @param gg.jte.Content content
-<div class="lv-table-container relative w-full overflow-x-auto">
+<div data-slot="table-container" class="lv-table-container relative w-full overflow-x-auto">
   <table
+    data-slot="table"
     class="lv-table w-full caption-bottom text-[var(--lv-text-sm)] ${klass}"
     style="font-family:var(--lv-font-sans);color:var(--lv-color-fg);border-collapse:collapse;"
   >

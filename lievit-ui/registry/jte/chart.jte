@@ -96,7 +96,6 @@
       x="${x}" y="${y}" width="${Math.max(bw, 1)}" height="${Math.max(barH, 0)}"
       rx="2"
       fill="${color}"
-      role="img"
       aria-label="${cat}: ${v}"
     ></rect>
     @if(showAxis)

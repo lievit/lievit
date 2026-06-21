@@ -7,6 +7,7 @@
 @param String klass = ""
 @param gg.jte.Content content
 <tfoot
+  data-slot="table-footer"
   class="lv-table-footer border-t font-medium [&>tr]:last:border-b-0 ${klass}"
   style="border-color:var(--lv-color-border);background-color:color-mix(in srgb, var(--lv-color-surface) 60%, var(--lv-color-bg));"
 >

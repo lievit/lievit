@@ -6,6 +6,6 @@
 --%>
 @param String klass = ""
 @param gg.jte.Content content
-<caption class="lv-table-caption mt-4 text-[var(--lv-text-sm)] ${klass}" style="color:var(--lv-color-muted);">
+<caption data-slot="table-caption" class="lv-table-caption mt-4 text-[var(--lv-text-sm)] ${klass}" style="color:var(--lv-color-muted);">
   ${content}
 </caption>

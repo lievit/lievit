@@ -81,6 +81,12 @@ describe("data-table.jte -- server-first table contract", () => {
     expect(markup).toMatch(/<th\b[\s\S]*?scope="col"/);
   });
 
+  test("shadcn fidelity: the column header baseline is the 36px h-9 token (--lv-space-9)", () => {
+    // issue #463 ④ -- the shadcn-faithful compact baseline (h-9), not the old 40px space-10.
+    expect(markup).toContain("h-[var(--lv-space-9)]");
+    expect(markup).not.toContain("h-[var(--lv-space-10)]");
+  });
+
   test("each column header carries aria-sort (the WAI-ARIA sortable-table signal)", () => {
     expect(markup).toContain("aria-sort=");
     // the active sort maps to ascending/descending; unsorted columns to none.
