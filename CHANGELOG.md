@@ -27,6 +27,20 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Typed JTE component facade (jte-models)**: the `lievit-ui` registry partials now generate a
+  typed `gg.jte.generated.precompiled.Templates` interface (one compile-checked method per partial,
+  parameters derived from each `@param`) via the `jte-models` `ModelExtension`, so an adopter's IDE
+  indexes the components from the jar (`templates.button(..)`, `templates.badge(..)`,
+  `templates.chip(..)`) instead of stringly-typed template names. The `test/jte-compile` harness
+  generates + javac-compiles the facade and proves it through `TypedFacadeTest` (renders real
+  components through `StaticTemplates`); see `lievit-ui/test/jte-compile/README.md` for the adopter
+  copy-paste. `switch.jte` is excluded from the facade only (reserved Java word; still ships +
+  compiles).
+- **lievit-ui component-API increments** (in-flight, across the current registry wave): a removable
+  `chip` partial (Filament active-filter pill / shadcn dismissible badge), an icon SPI for pluggable
+  icon sets, a size scale on `input`, and a safe-attributes pass-through on `button`. Each lands
+  with its source-contract test and is covered by the real-compiler + typed-facade gate above. See
+  the per-component entries below as they are filled in by the wave.
 - **Typed-state round-trip** (ADR-0020, the confirmed kit-CRUD blocker): a `Synthesizer<T>` SPI +
   `SynthesizerRegistry` (`io.lievit.wire.synth`) so a non-primitive `@Wire` property (record, enum,
   `LocalDate`/`LocalDateTime`/`LocalTime`/`Instant`, `BigDecimal`/`BigInteger`, `UUID`, `Set`, a

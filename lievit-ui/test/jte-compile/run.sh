@@ -3,10 +3,11 @@
 # Copyright 2026 Francesco Bilotta
 # Licensed under the Apache License, Version 2.0 (the "License").
 #
-# Real-compiler smoke for the lievit-ui JTE partials + blocks (issue #462, JOB 2).
-# Precompiles EVERY registry/jte/**/*.jte with the same gg.jte 3.2.4 compiler gest
-# uses and FAILS on any JTE syntax / resolution error. The vitest golden tests assert
-# on source text only and cannot catch a real JTE compile error; this closes that gap.
+# Real-compiler smoke + typed-facade gate for the lievit-ui JTE partials + blocks.
+# Generates + javac-compiles EVERY registry/jte/**/*.jte with the same gg.jte 3.2.4 the
+# gest target uses (FAILS on any JTE syntax / resolution error the vitest golden tests
+# cannot catch), AND generates the jte-models typed `Templates` facade for the partials,
+# then runs TypedFacadeTest which resolves real components through it (compile-checked).
 #
 # Also runs the JUnit RENDER test (XssEscapingTest): it source-renders button.jte with a
 # hostile dataAttrs value and proves the dynamic data-* channel is HTML-escaped (a
@@ -14,7 +15,7 @@
 # precompile gate) first, then compiles + runs the render test.
 #
 # Usage:  ./test/jte-compile/run.sh        (from the lievit-ui dir, or anywhere)
-# CI:     same command; non-zero exit = at least one template failed to compile.
+# CI:     same command; non-zero exit = a template failed to compile OR the typed API broke.
 #
 set -eo pipefail
 
@@ -28,7 +29,8 @@ set -u
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "[jte-compile] precompiling every registry/jte/**/*.jte + render-escaping test (gg.jte 3.2.4) ..."
+echo "[jte-compile] generating + compiling every registry/jte/**/*.jte + the jte-models facade,"
+echo "[jte-compile] then the typed-facade test + the button XSS-escaping render test (gg.jte 3.2.4) ..."
 mvn -q -f "$HERE/pom.xml" clean test
 
-echo "[jte-compile] OK: all JTE partials + blocks compiled clean; button XSS-escaping render test green."
+echo "[jte-compile] OK: all JTE partials + blocks compiled clean; typed facade + XSS-escaping proven."
