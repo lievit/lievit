@@ -1,0 +1,17 @@
+{
+  "name": "slide-over",
+  "type": "registry:jte",
+  "description": "A modal panel that slides in from a viewport edge (right | left | top | bottom) -- the shadcn Sheet, STATIC + trigger-driven, with ZERO JS. The modal partial pinned to an edge: same native HTML <dialog> seam (trigger <button command=\"show-modal\" commandfor>, close via native <form method=\"dialog\"> + the browser's Escape default), so the browser owns top-layer rendering, focus-trap, ::backdrop and AT-modal exposure -- CSP-clean, no enhancer. The `side` (data-side) pins + sizes the panel to the chosen edge; the markup carries the shadcn sheet-* data-slot contract. WAI-ARIA APG Dialog (role=dialog + aria-modal + aria-labelledby/aria-describedby). Header / body / footer are OWNED Content slots, never <slot>. The static presentation shell behind the kit's edge-anchored panels: io.lievit.kit.SlideOver (right-anchored detail) and any ModalConfig.asSlideOver(). The trigger-driven static counterpart of the server-state-held wire drawer / sheet (registry/wire/drawer/, registry/wire/sheet/), named slide-over to avoid the bare drawer/sheet wire item names. Plain HTML + Tailwind + --lv-* tokens.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/slide-over.jte",
+      "type": "registry:jte",
+      "target": "lievit/slide-over.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Copies the slide-over partial to your JTE root at lievit/slide-over.jte, reached as @template.lievit.slide-over(...). Pass a unique `id` (the commandfor target), the `trigger` content and the `content` panel body (server-rendered, never a <slot>); choose the `side` (\"right\" | \"left\" | \"top\" | \"bottom\", reflected on data-side), add an optional `heading` + `description` (a labelled dialog) and a `footer` slot. Tune `closeButton`, `closeByClickingAway`. The browser owns open/close (native <dialog> showModal + Escape + focus-trap + return-focus): no JS, no enhancer. The source is yours: edit freely. For a panel whose open-state lives server-side (the SlideOver \"view in panel\" outcome the server drives), use the wire drawer / sheet component instead."
+}
