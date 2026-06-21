@@ -1,7 +1,7 @@
 {
   "name": "input",
   "type": "registry:jte",
-  "description": "A token-styled single-line native <input>. Carries a real name (POSTs JS-off), binds via l:model on the native input/change events, aria-invalid from the invalid flag. Server-first replacement for the never-form-associated Lit island.",
+  "description": "A token-styled single-line native <input>. Carries a real name (POSTs JS-off), binds via l:model on the native input/change events, aria-invalid from the invalid flag, height-based `size` (sm/md/lg) that aligns to the button + native-select in a toolbar row. Server-first replacement for the never-form-associated Lit island.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the input partial to your JTE root at lievit/input.jte, reached as @template.lievit.input(name=...). The native <input> POSTs under `name` with zero JS; bind to a wire field with `model`. The source is yours: edit freely."
+  "docs": "Copies the input partial to your JTE root at lievit/input.jte, reached as @template.lievit.input(name=...). The native <input> POSTs under `name` with zero JS; bind to a wire field with `model`. `size` (sm=h-8, md=h-10 default, lg=h-12) is height-based so the input lines up flush with a button / native-select of the matching size in a toolbar. The source is yours: edit freely."
 }
