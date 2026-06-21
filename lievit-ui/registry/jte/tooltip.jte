@@ -40,7 +40,7 @@
 <span data-slot="tooltip" class="group relative inline-block ${cssClass}">
   <span data-slot="tooltip-trigger" aria-describedby="${tipId}" class="inline-block">${trigger}</span>
   <span
-    data-slot="tooltip-panel"
+    data-slot="tooltip-content"
     id="${tipId}"
     role="tooltip"
     class="invisible absolute bottom-full left-1/2 z-[var(--lv-z-popover)] mb-[var(--lv-space-1)] -translate-x-1/2 rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-fg)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] whitespace-nowrap text-[var(--lv-color-bg)] opacity-0 shadow-[var(--lv-shadow-md)] transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"

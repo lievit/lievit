@@ -17,19 +17,19 @@
   aria-hidden via the surrounding text.
 
   Params:
-    String size     = "md"        "sm" | "md" -- ring diameter via tokens.
+    String size     = "sm"        "sm" (16px, shadcn default) | "md" (24px) -- ring diameter via tokens.
     String label    = "Loading"   accessible name announced by assistive tech.
     String cssClass = ""          extra utility classes on the spinner.
 
   Usage:
     @@template.lievit.spinner()
-    @@template.lievit.spinner(size = "sm", label = "Saving")
+    @@template.lievit.spinner(size = "md", label = "Saving")
 --%>
-@param String size = "md"
+@param String size = "sm"
 @param String label = "Loading"
 @param String cssClass = ""
 
-!{var sizeClass = "sm".equals(size) ? "size-[1rem]" : "size-[1.5rem]";}
+!{var sizeClass = "md".equals(size) ? "size-[1.5rem]" : "size-[1rem]";}
 
 <span
   data-slot="spinner"

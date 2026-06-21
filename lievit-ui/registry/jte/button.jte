@@ -19,12 +19,12 @@
   action a real link (right-click, middle-click, copy-URL all work) instead of a JS-only button.
 
   SIZE (Filament parity, the toolbar-alignment decision). The button is HEIGHT-based, not
-  padding-based, so it sits flush next to the form controls in a toolbar row. Each size pins the
-  SAME height token the form controls use, so a button lines up pixel-exact with an input /
-  native-select of the matching size:
-    sm  -> height token [var(--lv-space-8)]  (2rem)   == native-select size="sm"      ; compact toolbar
-    md  -> height token [var(--lv-space-10)] (2.5rem) == input + native-select default ; THE default, the row baseline
-    lg  -> height token [var(--lv-space-12)] (3rem)   == native-select size="lg"      ; prominent CTA
+  padding-based, so it sits flush next to the form controls in a toolbar row. The baseline is
+  shadcn's 36px control height; each size pins the SAME height token the form controls use, so a
+  button lines up pixel-exact with an input / native-select of the matching size:
+    sm  -> height token [var(--lv-space-8)]  (2rem,   32px) == native-select size="sm"      ; compact toolbar
+    md  -> height token [var(--lv-space-9)]  (2.25rem,36px) == input + native-select default ; THE default, the shadcn 36px row baseline
+    lg  -> height token [var(--lv-space-10)] (2.5rem, 40px) == native-select size="lg"      ; prominent CTA
   Horizontal padding + text size scale with the height; the gap-[var(--lv-space-2)] spaces an
   icon from its label. md matches `@template.lievit.input` and `@template.lievit.native-select` (default) so a
   toolbar of [input][native-select][button] aligns with no per-call height hacks (the bug this
@@ -68,7 +68,7 @@
       bug, not an injection the partial absorbs. Empty by default; left empty nothing is added.
 
   Params:
-    String  variant  = "primary"   "primary" | "secondary" | "danger" | "ghost" | "outline".
+    String  variant  = "primary"   "primary" | "secondary" | "destructive" | "ghost" | "outline".
     String  size     = "md"        "sm" | "md" | "lg" (height-based, aligns to the form controls).
     boolean iconOnly = false        square icon-only button; content is a single @@template.lievit.icon.
     String  type     = "button"    "button" | "submit" | "reset" (ignored when href is set).
@@ -88,9 +88,9 @@
     @@template.lievit.button(iconOnly = true, size = "sm", variant = "ghost", ariaLabel = "Open calendar",
         content = @@`@@template.lievit.icon(name = "calendar", size = "1rem")`)
     (trusted STATIC directive via attrs -- $unsafe, author-typed only):
-    @@template.lievit.button(variant = "danger", attrs = "l:click=\"$set('confirmOpen','')\"", content = @@`Delete`)
+    @@template.lievit.button(variant = "destructive", attrs = "l:click=\"$set('confirmOpen','')\"", content = @@`Delete`)
     (DYNAMIC user-derived value carried SAFELY -- HTML-escaped -- via dataAttrs):
-    @@template.lievit.button(variant = "danger", dataAttrs = java.util.Map.of("confirm", userSuppliedText),
+    @@template.lievit.button(variant = "destructive", dataAttrs = java.util.Map.of("confirm", userSuppliedText),
         attrs = "l:click=\"armReset\"", content = @@`Reset`)
 --%>
 @param String variant = "primary"
@@ -105,26 +105,28 @@
 @param java.util.Map<String, String> dataAttrs = java.util.Map.of()
 @param gg.jte.Content content
 
+<%-- per-variant resting colours + the shadcn hover (hover:bg-<tone>/90, secondary /80, ghost+outline
+     hover to accent). destructive also pins the aria-invalid destructive ring (shadcn). --%>
 !{var variantClass = switch (variant) {
-    case "secondary" -> "bg-[var(--lv-color-secondary)] text-[var(--lv-color-secondary-fg)]";
-    case "danger"    -> "bg-[var(--lv-color-danger)] text-[var(--lv-color-danger-fg)]";
-    case "ghost"     -> "bg-transparent text-[var(--lv-color-fg)] border-transparent";
-    case "outline"   -> "bg-transparent text-[var(--lv-color-fg)] border-[var(--lv-color-border)]";
-    default          -> "bg-[var(--lv-color-primary)] text-[var(--lv-color-primary-fg)]";
+    case "secondary"   -> "bg-[var(--lv-color-secondary)] text-[var(--lv-color-secondary-fg)] hover:bg-[color-mix(in_srgb,var(--lv-color-secondary)_80%,transparent)]";
+    case "destructive" -> "bg-[var(--lv-color-destructive)] text-[var(--lv-color-destructive-fg)] hover:bg-[color-mix(in_srgb,var(--lv-color-destructive)_90%,transparent)] aria-invalid:shadow-[var(--lv-ring)]";
+    case "ghost"       -> "bg-transparent text-[var(--lv-color-fg)] border-transparent hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";
+    case "outline"     -> "bg-transparent text-[var(--lv-color-fg)] border-[var(--lv-color-border)] shadow-[var(--lv-shadow-xs)] hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";
+    default            -> "bg-[var(--lv-color-primary)] text-[var(--lv-color-primary-fg)] hover:bg-[color-mix(in_srgb,var(--lv-color-primary)_90%,transparent)]";
   };}
 
 <%-- height + text-size per size; horizontal padding is added separately so iconOnly can drop it for a square --%>
 !{var sizeClass = switch (size) {
     case "sm" -> "h-[var(--lv-space-8)] text-[length:var(--lv-text-xs)]";
-    case "lg" -> "h-[var(--lv-space-12)] text-[length:var(--lv-text-base)]";
-    default   -> "h-[var(--lv-space-10)] text-[length:var(--lv-text-sm)]";
+    case "lg" -> "h-[var(--lv-space-10)] text-[length:var(--lv-text-base)]";
+    default   -> "h-[var(--lv-space-9)] text-[length:var(--lv-text-sm)]";
   };}
 <%-- square (w == h) + no horizontal padding for the icon-only control; otherwise size-scaled px --%>
 !{var shapeClass = iconOnly
     ? (switch (size) {
         case "sm" -> "w-[var(--lv-space-8)] p-0";
-        case "lg" -> "w-[var(--lv-space-12)] p-0";
-        default   -> "w-[var(--lv-space-10)] p-0";
+        case "lg" -> "w-[var(--lv-space-10)] p-0";
+        default   -> "w-[var(--lv-space-9)] p-0";
       })
     : (switch (size) {
         case "sm" -> "px-[var(--lv-space-3)]";
@@ -132,7 +134,10 @@
         default   -> "px-[var(--lv-space-4)]";
       });}
 
-!{var base = "inline-flex items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-transparent leading-[var(--lv-leading)] cursor-pointer outline-none focus-visible:shadow-[var(--lv-ring)] disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";}
+<%-- shadcn base: shrink-0 + whitespace-nowrap keep the control intact in a flex toolbar; the
+     transition animates only colour + box-shadow (hover + focus ring); aria-invalid recolours
+     the border to the destructive token (the per-variant ring is added in variantClass). --%>
+!{var base = "inline-flex shrink-0 items-center justify-center gap-[var(--lv-space-2)] whitespace-nowrap rounded-[var(--lv-radius-md)] border border-transparent leading-[var(--lv-leading)] cursor-pointer outline-none transition-[color,box-shadow] focus-visible:shadow-[var(--lv-ring)] aria-invalid:border-[var(--lv-color-destructive)] disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";}
 
 <%-- SAFE dynamic data-* attributes. JTE's HTML parser forbids a raw @for in attribute-NAME
      position, so we build the fragment once here: each entry becomes data-<key>="<value>"

@@ -16,19 +16,21 @@
 
   A11y (WAI-ARIA separator): role="separator" + aria-orientation when announced; when
   decorative, role and aria-orientation are dropped and aria-hidden="true" hides the rule.
+  shadcn/Radix default decorative=true (a divider carries no semantic meaning by default),
+  so this defaults to true; pass decorative=false to announce a meaningful divide.
 
   Params:
     String orientation = "horizontal"   "horizontal" | "vertical".
-    boolean decorative = false           true => hidden from assistive tech (no role).
+    boolean decorative = true            true => hidden from assistive tech (no role); shadcn default.
     String cssClass    = ""              extra utility classes on the rule.
 
   Usage:
     @@template.lievit.separator()
     @@template.lievit.separator(orientation = "vertical")
-    @@template.lievit.separator(decorative = true)
+    @@template.lievit.separator(decorative = false)
 --%>
 @param String orientation = "horizontal"
-@param boolean decorative = false
+@param boolean decorative = true
 @param String cssClass = ""
 
 !{var isVertical = "vertical".equals(orientation);}

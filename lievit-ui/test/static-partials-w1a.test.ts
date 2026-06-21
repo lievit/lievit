@@ -97,8 +97,8 @@ describe("alert", () => {
     expect(src).toContain("@param gg.jte.Content content");
     expect(src).toContain("${content}");
   });
-  test("severity drives the live role: danger/warning assertive, info/success polite", () => {
-    expect(src).toMatch(/"danger"\.equals\(variant\)/);
+  test("severity drives the live role: destructive/warning assertive, info/success polite", () => {
+    expect(src).toMatch(/"destructive"\.equals\(variant\)/);
     expect(src).toMatch(/"warning"\.equals\(variant\)/);
     expect(src).toContain('role="${urgent ? "alert" : "status"}"');
   });
@@ -108,7 +108,7 @@ describe("alert", () => {
   });
   test("tint is token-driven via color-mix over the severity token", () => {
     expect(src).toContain("color-mix(in srgb");
-    expect(src).toContain("var(--lv-color-danger)");
+    expect(src).toContain("var(--lv-color-destructive)");
     expect(src).toContain("var(--lv-color-bg)");
   });
 });
@@ -213,9 +213,10 @@ describe("hover-card (CSS-only, Radix preview model)", () => {
     expect(src).toContain("${trigger}");
     expect(src).toContain("${content}");
   });
-  test("preview model: panel has NO role and is aria-hidden", () => {
+  test("preview model: content panel has NO role and is aria-hidden", () => {
     expect(src).toContain('aria-hidden="true"');
-    expect(src).not.toMatch(/data-slot="hover-card-panel"[^>]*role=/);
+    expect(src).toContain('data-slot="hover-card-content"');
+    expect(src).not.toMatch(/data-slot="hover-card-content"[^>]*role=/);
   });
   test("revealed purely by CSS group-hover / group-focus-within (no JS, no Floating UI)", () => {
     expect(src).toContain("group-hover:visible");
@@ -275,6 +276,6 @@ describe("button (the click is wired by the consumer via l:click)", () => {
   test("focus ring + variant colours read tokens", () => {
     expect(src).toContain("focus-visible:shadow-[var(--lv-ring)]");
     expect(src).toContain("bg-[var(--lv-color-primary)]");
-    expect(src).toContain("bg-[var(--lv-color-danger)]");
+    expect(src).toContain("bg-[var(--lv-color-destructive)]");
   });
 });

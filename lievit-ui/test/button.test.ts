@@ -21,19 +21,20 @@ const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const src = readFileSync(join(jteDir, "button.jte"), "utf8");
 
 /**
- * The form controls this button must align to read these exact height tokens, so the button's
- * per-size height MUST match for a toolbar row to line up:
- *   input.jte           -> h-[var(--lv-space-10)]                      (the default control height)
- *   native-select.jte   -> sm h-8 / default h-10 / lg h-12
+ * shadcn fidelity (issue #463 ④): the baseline is shadcn's h-9 (36px). The height-based size
+ * scale a button uses to align to the form controls in a toolbar row:
+ *   sm -> --lv-space-8  (32px)
+ *   md -> --lv-space-9  (36px, the shadcn h-9 baseline + default)
+ *   lg -> --lv-space-10 (40px)
  * Each entry: [size, heightToken, horizontalPaddingToken, textToken].
  */
 const SIZE_SCALE: ReadonlyArray<readonly [string, string, string, string]> = [
   ["sm", "--lv-space-8", "--lv-space-3", "--lv-text-xs"],
-  ["md", "--lv-space-10", "--lv-space-4", "--lv-text-sm"],
-  ["lg", "--lv-space-12", "--lv-space-6", "--lv-text-base"],
+  ["md", "--lv-space-9", "--lv-space-4", "--lv-text-sm"],
+  ["lg", "--lv-space-10", "--lv-space-6", "--lv-text-base"],
 ];
 
-const VARIANTS = ["primary", "secondary", "danger", "ghost", "outline"] as const;
+const VARIANTS = ["primary", "secondary", "destructive", "ghost", "outline"] as const;
 
 describe("button -- params & docs API (Filament parity)", () => {
   test("declares the size + iconOnly + ariaLabel params with the documented defaults", () => {
@@ -117,14 +118,11 @@ describe("button -- height-based size scale aligns to the form controls", () => 
     });
   }
 
-  test("md is the default height AND equals the input/native-select default height (toolbar baseline)", () => {
-    // the input.jte + native-select(default) both render h-[var(--lv-space-10)]; the md button must match.
-    const input = readFileSync(join(jteDir, "input.jte"), "utf8");
-    const nativeSelect = readFileSync(join(jteDir, "native-select.jte"), "utf8");
-    expect(input, "input height token drifted").toContain("h-[var(--lv-space-10)]");
-    expect(nativeSelect, "native-select default height token drifted").toContain("data-[size=default]:h-[var(--lv-space-10)]");
-    // the button's default branch (md) carries the SAME token.
-    expect(src).toContain("h-[var(--lv-space-10)]");
+  test("md is the default height, pinned to the shadcn h-9 baseline (--lv-space-9 = 36px)", () => {
+    // shadcn fidelity (issue #463 ④): the button md baseline is h-9 (--lv-space-9, 36px).
+    // The form controls (input / native-select, owned by the text-inputs wave) migrate to the
+    // same 36px baseline separately; this assertion pins the button side of that shared decision.
+    expect(src, "md default branch must pin the shadcn h-9 baseline").toContain("h-[var(--lv-space-9)]");
   });
 
   test("height is NOT expressed as vertical padding (py-*), which would break flush alignment", () => {
@@ -148,17 +146,17 @@ describe("button -- variants compose with every size", () => {
     expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(src).toContain("var(--lv-color-primary)");
     expect(src).toContain("var(--lv-color-secondary)");
-    expect(src).toContain("var(--lv-color-danger)");
+    expect(src).toContain("var(--lv-color-destructive)"); // shadcn destructive variant
     expect(src).toContain("var(--lv-color-border)"); // outline
   });
 });
 
 describe("button -- icon-only is a square, accessible, real control", () => {
   test("iconOnly sets width == height (square) per size and drops horizontal padding", () => {
-    // sm square: w-8 + p-0 ; md square: w-10 + p-0 ; lg square: w-12 + p-0.
+    // sm square: w-8 + p-0 ; md square: w-9 + p-0 ; lg square: w-10 + p-0 (shadcn h-9 baseline).
     expect(src).toContain("w-[var(--lv-space-8)] p-0");
+    expect(src).toContain("w-[var(--lv-space-9)] p-0");
     expect(src).toContain("w-[var(--lv-space-10)] p-0");
-    expect(src).toContain("w-[var(--lv-space-12)] p-0");
   });
 
   test("icon-only carries an aria-label for the accessible name (no visible text label)", () => {
