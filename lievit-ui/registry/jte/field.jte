@@ -33,8 +33,9 @@
 
   A11y (shadcn / WAI-ARIA model): the label binds to the control by `forId` and carries
   `data-error` when invalid (shadcn's destructive-label cue). The description is a muted <p> with
-  id `<forId>-description`; the error is a `role="alert" aria-live="polite"` <p> with id
-  `<forId>-error`. The control must point its `aria-describedby` at those ids and set
+  id `<forId>-description`; the error is a `role="alert"` <p> with id `<forId>-error` (role=alert
+  already implies an assertive live region, so no extra aria-live). The control must point its
+  `aria-describedby` at those ids and set
   `aria-invalid` when `error` is set. The required marker on the label is `aria-hidden`.
 
   Params:
@@ -77,9 +78,10 @@
 
 <div
   data-slot="field"
+  role="group"
   data-orientation="${orientation}"
   data-invalid="${hasError ? "true" : null}"
-  class="group/field flex gap-[var(--lv-space-2)] data-[orientation=vertical]:flex-col data-[orientation=horizontal]:flex-row data-[orientation=horizontal]:items-center data-[orientation=responsive]:flex-col @md/field-group:data-[orientation=responsive]:flex-row @md/field-group:data-[orientation=responsive]:items-center ${cssClass}"
+  class="group/field flex gap-[var(--lv-space-3)] data-[orientation=vertical]:flex-col data-[orientation=horizontal]:flex-row data-[orientation=horizontal]:items-center data-[orientation=responsive]:flex-col @md/field-group:data-[orientation=responsive]:flex-row @md/field-group:data-[orientation=responsive]:items-center ${cssClass}"
 >
   @if(label != null && !label.isBlank())
     @template.lievit.label(forId = forId, text = label, required = required, error = hasError)
@@ -94,6 +96,6 @@
     <p data-slot="field-description" id="${forId}-description" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${desc}</p>
   @endif
   @if(hasError)
-    <p data-slot="field-error" id="${forId}-error" role="alert" aria-live="polite" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-danger)]" style="font-family:var(--lv-font-sans);">${error}</p>
+    <p data-slot="field-error" id="${forId}-error" role="alert" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-danger)]" style="font-family:var(--lv-font-sans);">${error}</p>
   @endif
 </div>

@@ -85,12 +85,12 @@
       aria-checked="${indeterminate ? "mixed" : null}"
       data-indeterminate="${indeterminate ? "true" : null}"
       l:model="${model}"
-      class="peer size-full cursor-pointer appearance-none rounded-[var(--lv-radius-sm)] border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] checked:bg-[var(--lv-color-primary)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed aria-[invalid=true]:border-[var(--lv-color-danger)] data-[indeterminate=true]:border-[var(--lv-color-primary)] data-[indeterminate=true]:bg-[var(--lv-color-primary)]"
+      class="peer size-full cursor-pointer appearance-none rounded-[var(--lv-radius-sm)] border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] checked:bg-[var(--lv-color-primary)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed aria-[invalid=true]:border-[var(--lv-color-danger)] aria-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)] data-[indeterminate=true]:border-[var(--lv-color-primary)] data-[indeterminate=true]:bg-[var(--lv-color-primary)]"
     >
-    <span aria-hidden="true" class="pointer-events-none absolute hidden text-[var(--lv-color-primary-fg)] peer-checked:flex peer-data-[indeterminate=true]:hidden">
+    <span data-slot="checkbox-indicator" aria-hidden="true" class="pointer-events-none absolute hidden text-[var(--lv-color-primary-fg)] peer-checked:flex peer-data-[indeterminate=true]:hidden">
       @template.lievit.icon(name = "check", size = "0.75rem")
     </span>
-    <span aria-hidden="true" class="pointer-events-none absolute hidden text-[var(--lv-color-primary-fg)] peer-data-[indeterminate=true]:flex">
+    <span data-slot="checkbox-indicator" aria-hidden="true" class="pointer-events-none absolute hidden text-[var(--lv-color-primary-fg)] peer-data-[indeterminate=true]:flex">
       @template.lievit.icon(name = "minus", size = "0.75rem")
     </span>
   </span>

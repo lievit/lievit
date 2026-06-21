@@ -48,19 +48,22 @@
   class="inline-flex items-center gap-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50"
   style="font-family:var(--lv-font-sans);"
 >
-  <input
-    data-slot="radio-group-control"
-    type="radio"
-    id="${radioId}"
-    name="${name}"
-    value="${value}"
-    checked="${checked}"
-    disabled="${disabled}"
-    required="${required}"
-    aria-invalid="${invalid ? "true" : null}"
-    l:model="${model}"
-    class="size-[var(--lv-space-4)] shrink-0 cursor-pointer appearance-none rounded-full border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] checked:bg-[radial-gradient(circle,var(--lv-color-primary)_40%,transparent_45%)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed aria-[invalid=true]:border-[var(--lv-color-danger)]"
-  >
+  <span class="relative inline-flex size-[var(--lv-space-4)] shrink-0 items-center justify-center">
+    <input
+      data-slot="radio-group-control"
+      type="radio"
+      id="${radioId}"
+      name="${name}"
+      value="${value}"
+      checked="${checked}"
+      disabled="${disabled}"
+      required="${required}"
+      aria-invalid="${invalid ? "true" : null}"
+      l:model="${model}"
+      class="peer size-full cursor-pointer appearance-none rounded-full border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed aria-[invalid=true]:border-[var(--lv-color-danger)] aria-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)]"
+    >
+    <span data-slot="radio-group-indicator" aria-hidden="true" class="pointer-events-none absolute hidden size-[0.5rem] rounded-full bg-[var(--lv-color-primary)] peer-checked:block"></span>
+  </span>
   @if(label != null && !label.isBlank())
     <span data-slot="radio-group-option-label">${label}</span>
   @endif
