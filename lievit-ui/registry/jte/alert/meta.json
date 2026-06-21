@@ -1,17 +1,35 @@
 {
   "name": "alert",
   "type": "registry:jte",
-  "description": "An inline message banner; severity drives both colour and the ARIA live role (destructive/warning are assertive role=alert, info/success are polite role=status). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "An inline message banner; severity drives both colour and the ARIA live role (destructive/warning are assertive role=alert, info/success are polite role=status), laid out as the shadcn icon + CSS GRID: an optional leading Lucide SVG in column 1, title + description + action in column 2 (col-start-2). Title / description / action are real data-slots (alert-title / alert-description / alert-action), each also a standalone sub-partial. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
-  "registryDependencies": ["tokens"],
+  "registryDependencies": ["tokens", "icon"],
   "files": [
     {
       "path": "jte/alert.jte",
       "type": "registry:jte",
       "target": "lievit/alert.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/alert/title.jte",
+      "type": "registry:jte",
+      "target": "lievit/alert/title.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/alert/description.jte",
+      "type": "registry:jte",
+      "target": "lievit/alert/description.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/alert/action.jte",
+      "type": "registry:jte",
+      "target": "lievit/alert/action.jte",
+      "root": "jte"
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the alert partial to your JTE root at lievit/alert.jte, reached as @template.lievit.alert(variant=..., content=@`...`). Variant drives colour + live role; pass an optional heading. The source is yours: edit freely."
+  "docs": "Copies the alert family to your JTE root (lievit/alert.jte + lievit/alert/{title,description,action}.jte), reached as @template.lievit.alert(variant=..., content=@`...`). Variant drives colour + live role; pass an optional `icon` (Lucide name, the leading grid column) and rich `title` / `description` / `action` slots (or the plain-text `heading` + `content` for back-compat). The source is yours: edit freely."
 }
