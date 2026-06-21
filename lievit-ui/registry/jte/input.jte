@@ -82,6 +82,10 @@
 @param boolean readonly = false
 @param String model = null
 @param String cssClass = ""
+<%-- Trusted, static raw attributes rendered verbatim on the <input> (e.g. l:* wire directives,
+     data-* hooks, inputmode). Author-typed only: emitted via $unsafe, so never pass user data
+     here. Mirrors button.jte's `attrs`. --%>
+@param String attrs = ""
 
 !{var inputId = (id != null && !id.isBlank()) ? id : name;}
 !{var hasHint = hint != null && !hint.isBlank();}
@@ -115,6 +119,7 @@
   l:model="${model}"
   class="flex ${sizeClass} w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)]${fileClasses} ${cssClass}"
   style="font-family:var(--lv-font-sans);"
+  $unsafe{attrs}
 >
 @if(hasHint)
   <p data-slot="input-hint" id="${inputId}-hint" class="mt-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${hint}</p>
