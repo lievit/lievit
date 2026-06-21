@@ -1,0 +1,37 @@
+{
+  "name": "kit-form",
+  "type": "registry:jte",
+  "description": "The canonical Filament FORM chrome, rendered from a lievit-kit AdminFormView/KitFormView onto the lievit-ui form/field/label/input/textarea/native-select/combobox/checkbox/radio-group/switch/date-picker/button partials. Ships the create/edit page server-first (a native <form> that POSTs JS-off, every control bound with l:model so it commits over the wire when the runtime is present, strict-CSP clean, no inline script): the form heading, the form-level (record) error region, one field per FieldView through the field-type dispatch wrapped in the shared field-wrapper (label + error(s) + aria wiring), and the footer submit/cancel action row. The field dispatch (kit/form/field.jte) switches on the field's normalized control tag: text->input, email/number/password->input(type), textarea->textarea, select->native-select, belongsTo->native-select (eager) or combobox (searchable), checkbox->checkbox, radio->radio-group, toggle->switch, date->date-picker, hidden->bare hidden input, and a graceful disabled placeholder + '(field type X: island pending)' note for the heavy island field types whose lievit-ui primitive is not yet built (file-upload, rich-editor, markdown, code, repeater, builder, tags, key-value, color). The form-side twin of kit-table: same kit-render pattern.",
+  "dependencies": ["io.github.lievit:lievit-kit"],
+  "registryDependencies": [
+    "tokens",
+    "form",
+    "field",
+    "label",
+    "input",
+    "textarea",
+    "native-select",
+    "combobox",
+    "checkbox",
+    "radio-group",
+    "switch",
+    "date-picker",
+    "button"
+  ],
+  "files": [
+    {
+      "path": "../../../src/main/resources/jte/kit/form.jte",
+      "type": "registry:jte",
+      "target": "kit/form.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/form/field.jte",
+      "type": "registry:jte",
+      "target": "kit/form/field.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Copies the kit form chrome to your JTE root under kit/: kit/form.jte (+ kit/form/field.jte), reached as @template.kit.form(...). It renders a KitFormView (the bundle io.lievit.kit.page.KitFormComponent produces from any Resource's Form): pass `form` (the KitFormView). The KitFormView wraps a pure AdminFormView (heading, editing flag, fields, record-level errors) with the render-time facts the template needs: the native <form> POST action url (the resource's create/update route, KitFormComponent fills it from the resource's AdminRoutes), the cancel-action href back to the list, and the submit/cancel labels (defaulted from the editing flag). Each AdminFormView.FieldView now carries the type-specific render knobs (FieldOptions: the select option list, the textarea rows, the date format, the toggle on/off labels, the relation combobox mode, the island-pending note) the flat (name,label,type,value,errors) tuple could not, so the field dispatch picks the matching lievit-ui control with full detail. The kit COMPOSES the lievit-ui form/field/input/etc partials, so copy those in too (they are the registryDependencies). It path-depends on the io.github.lievit:lievit-kit jar (the AdminFormView/KitFormView view-models the template imports). The source is yours: edit freely (Filament's publish-views model, the engine in the jar, the views overridable)."
+}
