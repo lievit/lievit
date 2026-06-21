@@ -18,8 +18,13 @@
   announces the legend with each contained control. The optional description sits below the
   legend and is referenced by the controls' own descriptions, not the fieldset.
 
+  LEGEND VARIANT (shadcn's FieldLegend variant): `legendVariant` picks the legend size, mirroring
+  shadcn's FieldLegend variant="legend" (text-base, the default) vs variant="label" (text-sm, a
+  compact legend used when the group reads like a single labelled field rather than a section).
+
   Params:
     String legend   = null      visible <legend> text naming the group.
+    String legendVariant = "legend"  "legend" (text-base, default) | "label" (text-sm, compact).
     String description = null   muted helper text below the legend.
     boolean disabled = false    native fieldset disable: cascades to every nested control.
     gg.jte.Content content      the grouped fields (usually wrapped in @@template.lievit.field.group).
@@ -34,6 +39,7 @@
     `)
 --%>
 @param String legend = null
+@param String legendVariant = "legend"
 @param String description = null
 @param boolean disabled = false
 @param gg.jte.Content content
@@ -47,7 +53,7 @@
   class="m-0 flex min-w-0 flex-col gap-[var(--lv-space-4)] border-0 p-0 ${cssClass}"
 >
   @if(legend != null && !legend.isBlank())
-    <legend data-slot="field-legend" class="float-left mb-[var(--lv-space-1)] w-full p-0 text-[length:var(--lv-text-base)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]" style="font-family:var(--lv-font-sans);">${legend}</legend>
+    <legend data-slot="field-legend" data-variant="${legendVariant}" class="float-left mb-[var(--lv-space-1)] w-full p-0 font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] data-[variant=legend]:text-[length:var(--lv-text-base)] data-[variant=label]:text-[length:var(--lv-text-sm)]" style="font-family:var(--lv-font-sans);">${legend}</legend>
   @endif
   @if(hasDesc)
     <p data-slot="field-set-description" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${description}</p>

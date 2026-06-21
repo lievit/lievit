@@ -17,6 +17,20 @@
   focus nicety is JS, omitted here (static tier) -- clicking the input itself focuses, and the
   whole box is visually one field, so no behaviour is lost for the common case.
 
+  ADDON ALIGNMENT (shadcn's InputGroupAddon align): each addon carries a `data-align`. The default
+  is inline (inline-start / inline-end, beside the control); `block-start` / `block-end` stack the
+  addon ABOVE / BELOW the control instead (shadcn's block alignment, e.g. a toolbar row above a
+  textarea). When a block addon is present the wrapper flips to a column + auto height via the
+  `has-[>[data-align=block-*]]` selectors, exactly like shadcn.
+
+  INVALID (shadcn parity with the input's aria-[invalid] cue): the `invalid` flag puts the group
+  into the error state -- destructive border + a destructive ring on the WRAPPER (the group owns the
+  ring, so the error shows on the box, matching @@template.lievit.input's aria-[invalid=true] treatment).
+
+  TEXTAREA VARIANT: @@template.lievit.input-group.textarea is the same group wrapping a <textarea>
+  instead of an <input> (shadcn's InputGroupTextarea): a resize-none, borderless textarea filling
+  the box, typically paired with block-start/block-end addons.
+
   A11y (shadcn model): role="group" + an aria-label so the compound field is announced as a
   unit. The inner control is a real <input> with its own id/name/aria-* so a <label for> and
   validation still bind to it directly. Addon icons are decorative (Lucide partial,
@@ -41,6 +55,9 @@
     String ariaLabel   = null     aria-label for the group (and the input if no visible label).
     gg.jte.Content leading  = null leading addon slot (icon or text), rendered before the input.
     gg.jte.Content trailing = null trailing addon slot (icon, text, or a small button).
+    String leadingAlign = "inline-start"  leading addon alignment: "inline-start" (beside, default) | "block-start" (stacked ABOVE the input).
+    String trailingAlign = "inline-end"   trailing addon alignment: "inline-end" (beside, default) | "block-end" (stacked BELOW the input).
+    boolean invalid    = false    error state: destructive border + ring on the group (mirrors input's aria-[invalid] cue).
     boolean disabled   = false    disables the input + dims the group.
     String cssClass    = ""       extra utility classes on the wrapper.
 
@@ -76,6 +93,9 @@
 @param String ariaLabel = null
 @param gg.jte.Content leading = null
 @param gg.jte.Content trailing = null
+@param String leadingAlign = "inline-start"
+@param String trailingAlign = "inline-end"
+@param boolean invalid = false
 @param boolean disabled = false
 @param String cssClass = ""
 @param String model = null
@@ -95,11 +115,12 @@
   aria-label="${ariaLabel}"
   data-slot="input-group"
   data-size="${size}"
+  data-invalid="${invalid ? "true" : null}"
   data-disabled="${disabled}"
-  class="relative flex ${sizeClass} w-full min-w-0 items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:text-[var(--lv-color-muted-fg)] ${cssClass}"
+  class="relative flex ${sizeClass} w-full min-w-0 items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col data-[invalid=true]:border-[var(--lv-color-destructive)] data-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)] data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:text-[var(--lv-color-muted-fg)] ${cssClass}"
 >
   @if(leading != null)
-    <span data-slot="input-group-addon" data-align="inline-start" class="flex shrink-0 items-center gap-[var(--lv-space-2)] text-[var(--lv-color-muted-fg)] select-none">
+    <span data-slot="input-group-addon" data-align="${leadingAlign}" class="flex shrink-0 items-center gap-[var(--lv-space-2)] text-[var(--lv-color-muted-fg)] select-none data-[align=block-start]:order-first data-[align=block-start]:w-full data-[align=block-start]:justify-start data-[align=block-start]:pt-[var(--lv-space-2)]">
       ${leading}
     </span>
   @endif
@@ -112,12 +133,13 @@
     placeholder="${placeholder}"
     disabled="${disabled}"
     aria-label="${ariaLabel}"
+    aria-invalid="${invalid ? "true" : null}"
     class="h-full min-w-0 flex-1 border-0 bg-transparent text-[var(--lv-color-fg)] placeholder:text-[var(--lv-color-muted-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed"
     l:model="${model}"
     $unsafe{attrs}
   >
   @if(trailing != null)
-    <span data-slot="input-group-addon" data-align="inline-end" class="flex shrink-0 items-center gap-[var(--lv-space-2)] text-[var(--lv-color-muted-fg)] select-none">
+    <span data-slot="input-group-addon" data-align="${trailingAlign}" class="flex shrink-0 items-center gap-[var(--lv-space-2)] text-[var(--lv-color-muted-fg)] select-none data-[align=block-end]:order-last data-[align=block-end]:w-full data-[align=block-end]:justify-start data-[align=block-end]:pb-[var(--lv-space-2)]">
       ${trailing}
     </span>
   @endif

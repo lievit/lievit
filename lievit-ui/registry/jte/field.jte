@@ -31,6 +31,15 @@
   (vertical default, horizontal label-beside-control, responsive container-query switch); the
   optional `content` slot is shadcn's FieldContent (keeps descriptions aligned in horizontal).
 
+  INVALID CASCADE (shadcn parity): the Field ROOT carries `data-[invalid=true]:text-[var(--lv-color-destructive)]`
+  (shadcn's `data-[invalid=true]:text-destructive`), so when the field is invalid its descendant labels /
+  titles tint destructive from the root, not just the per-element data-error cue.
+
+  MULTI-ERROR (shadcn's FieldError errors array): pass `errors` (a List<String>) to render several
+  messages; they are deduped (first occurrence wins, like shadcn's Map-by-message) and shown as a
+  <ul> INSIDE the same single role=alert region (one live region, not one per message). The single
+  `error` String path is unchanged for back-compat. `errors` (non-empty) wins over `error`.
+
   A11y (shadcn / WAI-ARIA model): the label binds to the control by `forId` and carries
   `data-error` when invalid (shadcn's destructive-label cue). The description is a muted <p> with
   id `<forId>-description`; the error is a `role="alert"` <p> with id `<forId>-error` (role=alert
@@ -45,7 +54,10 @@
     gg.jte.Content content = null FieldContent slot: label + control side-by-side helper text (horizontal).
     String description = null     muted helper text (FieldDescription); shown alongside the error.
     String hint     = null        deprecated alias for `description` (kept for back-compat).
-    String error    = null        validation error message; when set, shown in a role=alert region + data-invalid.
+    String error    = null        single validation error message; when set, shown in a role=alert region + data-invalid.
+    java.util.List<String> errors = null  MULTI-error list (shadcn's FieldError errors array); deduped + rendered as a
+                                  <ul> inside the same role=alert region. Wins over `error` when non-empty. The single
+                                  `error` String path stays for back-compat (one message).
     boolean required = false      renders a required marker on the label.
     String orientation = "vertical"  "vertical" | "horizontal" | "responsive" field layout.
     String cssClass = ""          extra utility classes on the wrapper.
@@ -68,11 +80,17 @@
 @param String description = null
 @param String hint = null
 @param String error = null
+@param java.util.List<String> errors = null
 @param boolean required = false
 @param String orientation = "vertical"
 @param String cssClass = ""
 
-!{var hasError = error != null && !error.isBlank();}
+<%-- dedupe the multi-error list (first occurrence wins, shadcn's Map-by-message), drop blanks --%>
+!{var errorList = errors == null ? java.util.List.<String>of()
+    : errors.stream().filter(e -> e != null && !e.isBlank()).distinct().collect(java.util.stream.Collectors.toList());}
+!{var hasErrorList = !errorList.isEmpty();}
+!{var hasSingleError = error != null && !error.isBlank();}
+!{var hasError = hasErrorList || hasSingleError;}
 !{var desc = (description != null && !description.isBlank()) ? description : hint;}
 !{var hasDesc = desc != null && !desc.isBlank();}
 
@@ -81,7 +99,7 @@
   role="group"
   data-orientation="${orientation}"
   data-invalid="${hasError ? "true" : null}"
-  class="group/field flex gap-[var(--lv-space-3)] data-[orientation=vertical]:flex-col data-[orientation=horizontal]:flex-row data-[orientation=horizontal]:items-center data-[orientation=responsive]:flex-col @md/field-group:data-[orientation=responsive]:flex-row @md/field-group:data-[orientation=responsive]:items-center ${cssClass}"
+  class="group/field flex gap-[var(--lv-space-3)] data-[invalid=true]:text-[var(--lv-color-destructive)] data-[orientation=vertical]:flex-col data-[orientation=horizontal]:flex-row data-[orientation=horizontal]:items-center data-[orientation=responsive]:flex-col @md/field-group:data-[orientation=responsive]:flex-row @md/field-group:data-[orientation=responsive]:items-center ${cssClass}"
 >
   @if(label != null && !label.isBlank())
     @template.lievit.label(forId = forId, text = label, required = required, error = hasError)
@@ -95,7 +113,19 @@
   @if(hasDesc)
     <p data-slot="field-description" id="${forId}-description" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${desc}</p>
   @endif
-  @if(hasError)
+  @if(hasErrorList)
+    <div data-slot="field-error" id="${forId}-error" role="alert" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-destructive)]" style="font-family:var(--lv-font-sans);">
+      @if(errorList.size() == 1)
+        ${errorList.get(0)}
+      @else
+        <ul class="ml-[var(--lv-space-4)] flex list-disc flex-col gap-[var(--lv-space-1)]">
+          @for(String msg : errorList)
+            <li>${msg}</li>
+          @endfor
+        </ul>
+      @endif
+    </div>
+  @elseif(hasSingleError)
     <p data-slot="field-error" id="${forId}-error" role="alert" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-destructive)]" style="font-family:var(--lv-font-sans);">${error}</p>
   @endif
 </div>
