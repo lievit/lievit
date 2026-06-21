@@ -43,6 +43,17 @@
             <artifactId>lievit-compiler</artifactId>
         </dependency>
 
+        <!--
+            Jackson to parse the bundled registry.json (the copy-in commands: add/diff/update/init).
+            Version managed by the spring-boot-dependencies BOM imported in the parent. It is already
+            on the runtime classpath transitively (via jjwt-jackson); declared explicitly here at
+            compile scope because the CLI uses it directly (depend-on-what-you-use).
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
         <!-- Tests. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -68,6 +79,21 @@
     </dependencies>
 
     <build>
+        <!--
+            Bundle the consolidated registry.json (the copy-in manifest with every component's inlined
+            content) onto the CLI classpath at /registry.json. The single source of truth stays the
+            `npm run build:registry` output under lievit-ui/registry/; this copies it into the jar so
+            `lievit add` needs NO network. targetPath="" lands it at the classpath root.
+        -->
+        <resources>
+            <resource>
+                <directory>${project.basedir}/../lievit-ui/registry</directory>
+                <targetPath>.</targetPath>
+                <includes>
+                    <include>registry.json</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <!--
                 picocli-codegen annotation processor: generates GraalVM native-image
