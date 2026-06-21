@@ -3,23 +3,33 @@
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  REAL-COMPILER smoke for the lievit-ui JTE partials + blocks (issue #462, JOB 2).
+  REAL-COMPILER smoke + TYPED-FACADE generation for the lievit-ui JTE partials.
 
-  The Node/vitest golden tests assert on SOURCE TEXT only; they never run the JTE
-  compiler, so they cannot catch a real JTE syntax error (that is exactly how the
-  `@* *@` comment bug slipped in). This throwaway Maven project runs the SAME
-  `jte-maven-plugin` 3.2.4 `precompile` goal that gest uses against EVERY
-  registry/jte/**/*.jte (all static partials + the 4 blocks). `precompile`
-  generates the template Java AND javac-compiles it, so any JTE syntax error (bad
-  directive, attribute-position @if, comment syntax, unclosed tag) or unresolved
-  reference fails the build.
+  Two jobs in one throwaway Maven project, both against EVERY registry/jte/**/*.jte
+  (all static partials + the 4 blocks), with the same gg.jte 3.2.4 that apps/gest uses:
 
-  The icon partial does `@import static it.housetreespa.gest.ui.LievitIcons.body`,
-  so registry/icons (which holds the single source LievitIcons.java) is wired in as
-  an extra compile source root. No copy is made: the generated map stays its own
-  single source of truth.
+  1. REAL-COMPILER SMOKE (issue #462). The Node/vitest golden tests assert on SOURCE
+     TEXT only; they never run the JTE compiler, so they cannot catch a real JTE syntax
+     error (that is exactly how the `@* *@` comment bug slipped in). The `generate` goal
+     emits the template Java AND the maven-compiler-plugin javac-compiles it, so any JTE
+     syntax error (bad directive, attribute-position @if, comment syntax, unclosed tag),
+     boolean-attribute type mismatch, or unresolved reference fails the build.
 
-  Run:  mvn -q -f test/jte-compile/pom.xml clean process-classes
+  2. TYPED FACADE via jte-models (the typed component API). The `gg.jte.models.generator.
+     ModelExtension` emits a typed `gg.jte.generated.precompiled.Templates` interface with
+     one method per registry partial (e.g. `templates.button(..)`, `templates.badge(..)`,
+     `templates.chip(..)`), typed per the partial's `@param` signature, plus `StaticTemplates`
+     (precompiled, production) and `DynamicTemplates` (hot-reload) implementations. This is
+     the type-safe, IDE-indexable component API an adopter gets by running the SAME plugin
+     block over the partials they copy in (shadcn model). `TypedFacadeTest` resolves real
+     components through this facade, compile-checked, so the typed API is proven, not just
+     asserted on source text. See README.md for the adopter copy-paste.
+
+  The icon partial does `@import static it.housetreespa.gest.ui.LievitIcons.body`, so
+  registry/icons (which holds the single source LievitIcons.java) is wired in as an extra
+  compile source root. No copy is made: the generated map stays its own single source of truth.
+
+  Run:  mvn -q -f test/jte-compile/pom.xml clean test
   (or:  ./test/jte-compile/run.sh)
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -37,15 +47,32 @@
     <maven.compiler.release>25</maven.compiler.release>
     <!-- Keep in lockstep with gest's gg.jte version (apps/gest/pom.xml). -->
     <jte.version>3.2.4</jte.version>
+    <junit.version>5.11.4</junit.version>
   </properties>
 
   <dependencies>
     <!-- gg.jte.Content + the runtime types the @param signatures and the
-         precompiled template Java reference. -->
+         generated template Java reference. -->
     <dependency>
       <groupId>gg.jte</groupId>
       <artifactId>jte</artifactId>
       <version>${jte.version}</version>
+    </dependency>
+    <!-- The runtime side of jte-models: the generated Templates facade +
+         StaticTemplates/DynamicTemplates reference gg.jte.models.runtime.* (JteModel,
+         StaticJteModel, ...). Needed on the compile classpath, not only as a plugin dep. -->
+    <dependency>
+      <groupId>gg.jte</groupId>
+      <artifactId>jte-models</artifactId>
+      <version>${jte.version}</version>
+    </dependency>
+
+    <!-- The compile-checked typed-usage test. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -84,23 +111,51 @@
         </configuration>
       </plugin>
 
-      <!-- The real gate: precompile generates + javac-compiles every template.
-           Bound to process-classes so the project's own classes (LievitIcons) are
-           already compiled and on the classpath the plugin hands to javac. -->
+      <!-- The real gate + the typed facade. `generate` emits, into
+           target/generated-sources/jte (auto-added as a compile source root):
+             - one Java class per registry partial (the precompiled template), and
+             - the jte-models facade: gg.jte.generated.precompiled.{Templates,
+               StaticTemplates,DynamicTemplates}.
+           The maven-compiler-plugin then javac-compiles all of it together with
+           registry/icons + src/test, so a JTE syntax error OR a broken typed-facade
+           usage both fail the build. -->
       <plugin>
         <groupId>gg.jte</groupId>
         <artifactId>jte-maven-plugin</artifactId>
         <version>${jte.version}</version>
         <configuration>
           <sourceDirectory>${project.basedir}/../../registry/jte</sourceDirectory>
-          <targetDirectory>${project.build.directory}/jte-classes</targetDirectory>
           <contentType>Html</contentType>
+          <extensions>
+            <extension>
+              <className>gg.jte.models.generator.ModelExtension</className>
+              <settings>
+                <!-- `switch.jte` would derive the facade method name `switch`, a Java reserved
+                     word the jte-models generator does not escape, so it emits uncompilable
+                     Java. Renaming the registry partial is a wire/API break (an adopter codes
+                     `@template.switch(..)`), so we exclude only the toggle-switch from the typed
+                     facade; it still compiles via the same plugin (its JteswitchGenerated class
+                     is still produced + javac'd) and ships in the registry. The pattern is
+                     `.matches()` (full match) against the template's fully-qualified class name
+                     `gg.jte.generated.precompiled.JteswitchGenerated`. -->
+                <excludePattern>.*JteswitchGenerated</excludePattern>
+              </settings>
+            </extension>
+          </extensions>
         </configuration>
+        <dependencies>
+          <!-- The generator side of jte-models (only the plugin needs it). -->
+          <dependency>
+            <groupId>gg.jte</groupId>
+            <artifactId>jte-models</artifactId>
+            <version>${jte.version}</version>
+          </dependency>
+        </dependencies>
         <executions>
           <execution>
-            <id>precompile-all-partials</id>
-            <phase>process-classes</phase>
-            <goals><goal>precompile</goal></goals>
+            <id>generate-partials-and-facade</id>
+            <phase>generate-sources</phase>
+            <goals><goal>generate</goal></goals>
           </execution>
         </executions>
       </plugin>

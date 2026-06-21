@@ -44,6 +44,13 @@ you propose changes.
   the TypeScript client modules, data comes in as typed params.
 - English for code, comments, commits, contract names. No em-dashes.
 
+## Releasing & versioning
+
+Pre-1.0 the project uses the `0.MINOR = breaking` convention, keeps a single root `CHANGELOG.md`
+updated per PR, and ships wire/Java API breaks with an OpenRewrite recipe (template/`.jte` breaks
+are batched into a `0.MINOR` with a migration note). Land a changelog entry in the same PR as any
+change an adopter would feel. Full rules: [RELEASING.md](RELEASING.md).
+
 ## Test-driven, contract-first
 
 `lievit` is built spec-first: a frozen spec becomes a failing test, then minimal code to green,
