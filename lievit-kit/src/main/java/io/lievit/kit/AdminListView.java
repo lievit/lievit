@@ -367,6 +367,22 @@ public record AdminListView(
         public int nextPage() {
             return Math.min(totalPages, page + 1);
         }
+
+        /**
+         * @return the one-based index of the first row shown on this page (the "Showing <strong>X</strong>
+         *     to Y of Z results" line, Filament's pagination summary). Zero when there are no rows at all.
+         */
+        public long firstShown() {
+            return total == 0 ? 0 : (long) (page - 1) * size + 1;
+        }
+
+        /**
+         * @return the one-based index of the last row shown on this page (the "Showing X to
+         *     <strong>Y</strong> of Z results" line). Clamped to {@link #total()} on the last, partial page.
+         */
+        public long lastShown() {
+            return Math.min((long) page * size, total);
+        }
     }
 
     /**

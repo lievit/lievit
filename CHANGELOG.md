@@ -27,6 +27,27 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **lievit-kit ships its first RENDER templates (the table chrome)**: the kit was a render-less
+  builder layer (its only `.jte` were test fixtures), so every adopter hand-assembled the Filament
+  table chrome inline and it drifted. The kit now ships the canonical `kit/table.jte` (+ `kit/table/
+  {sortable-head,rich-cell}.jte`) under `lievit-kit/src/main/resources/jte/`, rendering a
+  `KitTableView` onto the existing `lievit-ui` `data-table/*` + `table/*` + pagination / empty /
+  badge / checkbox / chip / native-select / dropdown-menu / icon partials. All 14 Filament pieces are
+  server-first (real GET `<a href>` / `<select>` / `<form>` POST or `l:*` wire hook, strict-CSP
+  clean): header heading + header-actions bar, global search, filters trigger + inline panel,
+  active-filter indicator chips + reset-all, bulk select-all + per-row checkbox + the N-of-M bar,
+  sortable header cells with `aria-sort` + chevron, header-group super-row, per-page selector,
+  numbered pagination + "Showing X to Y of Z" count, column-manager, summary/footer row, empty state,
+  and the typed rich-cell switch. New view-model surface: `io.lievit.kit.page.KitTableView` (the
+  render-time bundle: URL patterns + filter-indicator chips + bulk `Selection` + `ColumnSummary`
+  footer) and `KitTableComponent` (the generic kit-owned render entry that derives the server-first
+  URL patterns from a resource's `AdminRoutes`), plus `AdminListView.Pagination.firstShown()` /
+  `lastShown()` for the results-count line. Copy-in registered as the `kit-table` registry item
+  (`lievit-kit/registry/jte/kit-table/meta.json`, Filament's publish-views model). A new
+  `lievit-kit/test/jte-compile` harness compiles the chrome against the built kit jar + the staged
+  lievit-ui partials and renders an `AdminListView` fixture asserting all 14 pieces
+  (`KitTableChromeRenderTest`, green). This is the reference render pattern the other kit builders
+  (forms, panels, infolists) replicate.
 - **Typed JTE component facade (jte-models)**: the `lievit-ui` registry partials now generate a
   typed `gg.jte.generated.precompiled.Templates` interface (one compile-checked method per partial,
   parameters derived from each `@param`) via the `jte-models` `ModelExtension`, so an adopter's IDE

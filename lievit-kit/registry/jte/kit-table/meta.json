@@ -1,0 +1,44 @@
+{
+  "name": "kit-table",
+  "type": "registry:jte",
+  "description": "The canonical Filament TABLE chrome, rendered from a lievit-kit AdminListView/KitTableView onto the lievit-ui data-table/* + table/* + pagination/empty/badge/checkbox/chip/native-select/dropdown-menu/icon partials. Ships the 14 Filament pieces server-first (every control a real GET <a href> / <select> / <form> POST or an l:* wire hook, strict-CSP clean, no inline script): header heading + header-actions bar, global search, filters trigger + inline panel, active-filter indicator chips + reset-all, bulk select-all + per-row checkbox + the N-of-M bar, sortable header cells with aria-sort + chevron, header-group super-row, per-page selector, numbered pagination + 'Showing X to Y of Z' count, column-manager, summary/footer row, empty state, and the typed rich-cell switch (Text/Badge/Link/Icon/Tags/AvatarStack/View). This is the kit's REFERENCE render template: the other kit builders (forms, panels, infolists) follow the same pattern. The render-less builder layer no more.",
+  "dependencies": ["io.github.lievit:lievit-kit"],
+  "registryDependencies": [
+    "tokens",
+    "icon",
+    "badge",
+    "checkbox",
+    "chip",
+    "button",
+    "input",
+    "native-select",
+    "dropdown-menu",
+    "pagination",
+    "empty",
+    "avatar",
+    "table",
+    "data-table"
+  ],
+  "files": [
+    {
+      "path": "../../../src/main/resources/jte/kit/table.jte",
+      "type": "registry:jte",
+      "target": "kit/table.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/table/sortable-head.jte",
+      "type": "registry:jte",
+      "target": "kit/table/sortable-head.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/table/rich-cell.jte",
+      "type": "registry:jte",
+      "target": "kit/table/rich-cell.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Copies the kit table chrome to your JTE root under kit/: kit/table.jte (+ kit/table/{sortable-head,rich-cell}.jte), reached as @template.kit.table(...). It renders a KitTableView (the bundle io.lievit.kit.page.KitTableComponent / ListPageDriver produce from any Resource): pass `table` (the KitTableView) and `createUrl`; optionally a `columnManager` Content slot of dropdown-menu.item per toggleable column. The KitTableView wraps a pure AdminListView with the render-time facts the template needs: the server-first URL patterns (pageHrefPattern %d / sortHrefPattern %s / sizeHrefPattern %d, KitTableComponent fills these from the resource's AdminRoutes), the active-filter indicator chips (label + removeHref) + resetFiltersHref, the bulk Selection (selected ids + select-all/indeterminate + counts), and the ColumnSummary footer cells. With no render facts the template degrades to wire-only controls (l:click prev/next, no checkbox column, no per-page selector), so a host can start minimal. UNLIKE the lievit-ui data-table primitive (the raw markup), this kit item is the STATEFUL chrome wired to the kit view-model; it COMPOSES that primitive plus pagination/empty/badge/etc, so copy those lievit-ui items in too (they are the registryDependencies). It path-depends on the io.github.lievit:lievit-kit jar (the AdminListView/KitTableView/Cell view-models the template imports). The source is yours: edit freely (Filament's publish-views model, the engine in the jar, the views overridable)."
+}

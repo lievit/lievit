@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  REAL-COMPILER smoke + RENDER gate for the lievit-KIT production JTE chrome (kit/table.jte + parts).
+
+  This is the kit analogue of lievit-ui/test/jte-compile, with one extra job: the kit templates
+  `@import io.lievit.kit.*` (AdminListView, Cell, ColumnSummary, SortDirection, AvatarStackColumn,
+  page.KitTableView), so the KIT's own classes must be on the jte-compile classpath, AND they compose
+  the lievit-ui partials (@template.lievit.*), so the ui partials must be staged alongside.
+
+  CLASSPATH: this module depends on the BUILT lievit-kit artifact (io.github.lievit:lievit-kit:
+  0.1.0-SNAPSHOT, installed by `./mvnw -pl lievit-kit -am install -DskipTests` from the reactor root,
+  which run.sh does), which transitively brings lievit-core + the starter + spring + jjwt. So the kit
+  view-models compile against the REAL bytecode, no source recompilation, no exclude chasing. The icon
+  partial's `@import static io.lievit.ui.LievitIcons` resolves a class that lives in lievit-ui/registry/
+  icons (NOT in any jar), so that ONE dir is added as a compile source root, exactly as lievit-ui's own
+  jte-compile does.
+
+  Two jobs in one throwaway Maven project, both with the SAME gg.jte 3.2.4 apps/gest uses:
+
+  1. REAL-COMPILER SMOKE. The jte-maven-plugin `generate` goal emits the template Java for EVERY
+     staged kit/**/*.jte + lievit/**/*.jte, and the maven-compiler-plugin javac-compiles it against
+     the kit jar + the icon source, so any JTE syntax error (bad directive, attribute-position @if,
+     conditional root-tag split, unclosed tag) or unresolved kit/ui reference FAILS the build.
+
+  2. RENDER gate (KitTableChromeRenderTest): builds a real AdminListView fixture, wraps it in a
+     KitTableView, source-renders kit/table.jte on the fly (DirectoryCodeResolver over the staged
+     tree) and asserts the 14 Filament chrome pieces (header actions, search, sortable th with
+     aria-sort, bulk checkbox, per-page selector, numbered pagination + "Showing X to Y of Z" count
+     line, filter chips, empty state, summary row). A compile-only gate cannot prove the chrome
+     RENDERS; this does.
+
+  Run:  ./lievit-kit/test/jte-compile/run.sh        (builds the kit jar first, then this)
+  CI :  same.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.lievit</groupId>
+  <artifactId>lievit-kit-jte-compile-render</artifactId>
+  <version>0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>25</maven.compiler.release>
+    <!-- Keep in lockstep with gest's gg.jte version (apps/gest/pom.xml) + the lievit parent. -->
+    <jte.version>3.2.4</jte.version>
+    <junit.version>5.11.4</junit.version>
+    <!-- The reactor revision the kit jar is installed under. -->
+    <lievit.version>0.1.0-SNAPSHOT</lievit.version>
+  </properties>
+
+  <dependencies>
+    <!-- The BUILT kit (transitively brings lievit-core + the starter + spring + jjwt): the kit
+         view-models the templates @import, compiled against the real bytecode. -->
+    <dependency>
+      <groupId>io.github.lievit</groupId>
+      <artifactId>lievit-kit</artifactId>
+      <version>${lievit.version}</version>
+    </dependency>
+
+    <!-- gg.jte.Content + the on-the-fly compiler (source-mode DirectoryCodeResolver) the render
+         test uses, and the runtime the generated template Java references. -->
+    <dependency>
+      <groupId>gg.jte</groupId>
+      <artifactId>jte</artifactId>
+      <version>${jte.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- A clean target under the harness dir; never collides with the repo. -->
+    <directory>${project.basedir}/target</directory>
+
+    <plugins>
+      <!-- The icon SPI (io.lievit.ui.LievitIcons + IconResolver + LucideIconResolver) lives in
+           lievit-ui/registry/icons and is NOT in any jar, so add that ONE dir as a compile source
+           root, exactly as lievit-ui's own jte-compile does. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-icon-spi-source</id>
+            <phase>generate-sources</phase>
+            <goals><goal>add-source</goal></goals>
+            <configuration>
+              <sources>
+                <source>${project.basedir}/../../../lievit-ui/registry/icons</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>25</release>
+        </configuration>
+      </plugin>
+
+      <!-- Stage the lievit-ui partials under target/jte-src/lievit/ and the kit production templates
+           under target/jte-src/kit/, the SAME adopter layout the @template.lievit.* / @template.kit.*
+           references resolve against. Idempotent. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>stage-ui-partials</id>
+            <phase>generate-sources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/jte-src/lievit</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../../../lievit-ui/registry/jte</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>stage-kit-templates</id>
+            <phase>generate-sources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/jte-src/kit</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../../src/main/resources/jte/kit</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- The real precompile gate: generate + javac-compile every staged kit/**/*.jte +
+           lievit/**/*.jte against the kit jar + the icon source. A JTE syntax / resolution error
+           fails here. -->
+      <plugin>
+        <groupId>gg.jte</groupId>
+        <artifactId>jte-maven-plugin</artifactId>
+        <version>${jte.version}</version>
+        <configuration>
+          <sourceDirectory>${project.build.directory}/jte-src</sourceDirectory>
+          <contentType>Html</contentType>
+        </configuration>
+        <executions>
+          <execution>
+            <id>generate-kit-chrome</id>
+            <phase>generate-sources</phase>
+            <goals><goal>generate</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
