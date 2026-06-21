@@ -78,6 +78,9 @@
 @param gg.jte.Content trailing = null
 @param boolean disabled = false
 @param String cssClass = ""
+@param String model = null
+<%-- Trusted, static raw attributes on the inner <input> (l:* wire directives, data-*). Author-typed only ($unsafe); never user data. --%>
+@param String attrs = ""
 
 !{var inputId = (id != null && !id.isBlank()) ? id : name;}
 <%-- wrapper height per size; md is the toolbar baseline and matches button md + native-select default --%>
@@ -110,6 +113,8 @@
     disabled="${disabled}"
     aria-label="${ariaLabel}"
     class="h-full min-w-0 flex-1 border-0 bg-transparent text-[var(--lv-color-fg)] placeholder:text-[var(--lv-color-muted-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+    l:model="${model}"
+    $unsafe{attrs}
   >
   @if(trailing != null)
     <span data-slot="input-group-addon" data-align="inline-end" class="flex shrink-0 items-center gap-[var(--lv-space-2)] text-[var(--lv-color-muted-fg)] select-none">
