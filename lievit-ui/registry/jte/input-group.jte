@@ -67,7 +67,7 @@
       trailing = @`<span class="text-[var(--lv-color-muted-fg)]">.00</span>`
     )
 --%>
-@param String name
+@param String name = null
 @param String id = null
 @param String type = "text"
 @param String size = "md"

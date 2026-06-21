@@ -64,7 +64,7 @@
     @@template.lievit.input(name = "q", type = "search", size = "sm", placeholder = "Cerca...")
     @@template.lievit.input(name = "avatar", type = "file", accept = "image/*", hint = "PNG or JPG, max 2MB")
 --%>
-@param String name
+@param String name = null
 @param String id = null
 @param String type = "text"
 @param String size = "md"
