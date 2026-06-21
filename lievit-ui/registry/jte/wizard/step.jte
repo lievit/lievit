@@ -66,11 +66,10 @@
   aria-label="Step ${number}: ${label}, ${stateWord}"
   class="flex items-center gap-[var(--lv-space-2)] ${last ? "" : "flex-1"} ${cssClass}"
 >
-  @if(isLink)
-  <a href="${href}" data-slot="wizard-step-link" class="flex items-center gap-[var(--lv-space-2)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]" style="text-decoration: none; color: inherit; border-radius: var(--lv-radius-md);">
-  @else
-  <span data-slot="wizard-step-link" class="flex items-center gap-[var(--lv-space-2)]">
-  @endif
+  <%-- One tag (never a conditional <a>/<span> split: JTE's static checker pushes both opens). An
+       <a> with a null href drops the attribute and renders as inert text, so the non-link step is a
+       plain anchor with no link semantics. --%>
+  <a href="${isLink ? href : null}" data-slot="wizard-step-link" class="flex items-center gap-[var(--lv-space-2)]${isLink ? " focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]" : ""}" style="${isLink ? "text-decoration: none; color: inherit; border-radius: var(--lv-radius-md);" : ""}">
     <span data-slot="wizard-step-marker" aria-hidden="true" class="inline-flex shrink-0 items-center justify-center text-[length:var(--lv-text-sm)] font-[var(--lv-font-semibold)]" style="${markerStyle}">@if(complete)@template.lievit.icon(name = "check", size = "1rem")@else${number}@endif</span>
     <span data-slot="wizard-step-text" class="flex flex-col">
       <span data-slot="wizard-step-label" class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)]" style="color: ${labelColor};">${label}</span>
@@ -78,11 +77,7 @@
         <span data-slot="wizard-step-description" class="text-[length:var(--lv-text-xs)] text-[var(--lv-color-muted-fg)]">${description}</span>
       @endif
     </span>
-  @if(isLink)
   </a>
-  @else
-  </span>
-  @endif
   @if(!last)
     <span aria-hidden="true" class="flex-1">@template.lievit.separator()</span>
   @endif

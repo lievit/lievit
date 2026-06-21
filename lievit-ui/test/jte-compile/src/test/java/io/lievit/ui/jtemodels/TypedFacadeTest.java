@@ -57,6 +57,8 @@ class TypedFacadeTest {
                         "", // cssClass
                         "", // attrs (trusted static)
                         java.util.Map.of(), // dataAttrs (safe dynamic)
+                        null, // wireClick (safe wire action name)
+                        java.util.Map.of(), // wireArgs (escaped per-row args)
                         label // content
                         );
 

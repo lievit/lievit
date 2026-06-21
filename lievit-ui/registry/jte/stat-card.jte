@@ -76,26 +76,20 @@
     default -> "var(--lv-color-card-fg)";
   };}
 !{var surfaceClass = "relative flex flex-col gap-[var(--lv-space-2)] rounded-[var(--lv-radius-xl)] border border-[var(--lv-color-border)] bg-[var(--lv-color-card)] p-[var(--lv-space-6)] text-[var(--lv-color-card-fg)] shadow-[var(--lv-shadow-xs)]";}
-!{var linkClass = isLink ? "transition-colors hover:bg-[var(--lv-color-muted-bg)] outline-none focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)]" : "";}
+!{var linkClass = isLink ? "transition-colors hover:bg-[var(--lv-color-muted-bg)] focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)]" : "";}
 
-@if(isLink)
-  <a
-    data-slot="stat-card"
-    data-color="${color}"
-    href="${url}"
-    target="${newTab ? "_blank" : null}"
-    rel="${newTab ? "noopener noreferrer" : null}"
-    class="${surfaceClass} ${linkClass} no-underline ${cssClass}"
-    style="font-family:var(--lv-font-sans);"
-  >
-@else
-  <div
-    data-slot="stat-card"
-    data-color="${color}"
-    class="${surfaceClass} ${cssClass}"
-    style="font-family:var(--lv-font-sans);"
-  >
-@endif
+<%-- ONE root element (never a conditional <a>/<div> tag-split: JTE's static HTML checker pushes both
+     branch-opens and rejects the mismatched close). Whole-card link = the shadcn stretched-link pattern:
+     a transparent absolute <a> over the relative card; root focus-within drives the ring. --%>
+<div
+  data-slot="stat-card"
+  data-color="${color}"
+  class="${surfaceClass} ${linkClass} ${cssClass}"
+  style="font-family:var(--lv-font-sans);"
+>
+    @if(isLink)
+      <a data-slot="stat-card-link" href="${url}" target="${newTab ? "_blank" : null}" rel="${newTab ? "noopener noreferrer" : null}" aria-label="${heading}" class="absolute inset-0 rounded-[var(--lv-radius-xl)] no-underline outline-none"></a>
+    @endif
     <div data-slot="stat-card-header" class="flex items-center justify-between gap-[var(--lv-space-2)]">
       <span data-slot="stat-card-heading" class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)]">${heading}</span>
       @if(hasIcon)
@@ -119,8 +113,4 @@
     @if(chart != null)
       <div data-slot="stat-card-chart" class="mt-[var(--lv-space-2)]">${chart}</div>
     @endif
-@if(isLink)
-  </a>
-@else
-  </div>
-@endif
+</div>

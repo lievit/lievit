@@ -58,11 +58,13 @@
 !{var rowStyle = "gap: var(--lv-space-2); padding: var(--lv-space-3); text-decoration: none; color: inherit; background: " + (unread ? "var(--lv-color-accent)" : "transparent") + ";";}
 !{var isLink = !href.isEmpty();}
 
-@if(isLink)
-<a href="${href}" role="menuitem" data-slot="notification-bell-item" data-state="${state}" class="flex items-start ${cssClass}" style="${rowStyle}">
-@else
-<div role="menuitem" data-slot="notification-bell-item" data-state="${state}" class="flex items-start ${cssClass}" style="${rowStyle}">
-@endif
+<%-- One root (no <a>/<div> split, which JTE rejects). Whole-row link = shadcn stretched-link: a
+     transparent absolute <a> over the relative row; the mark-read button sits above it (relative) so
+     it stays clickable. role=menuitem carries the row semantics; a <button> cannot live inside <a>. --%>
+<div role="menuitem" data-slot="notification-bell-item" data-state="${state}" class="relative flex items-start ${cssClass}" style="${rowStyle}">
+  @if(isLink)
+    <a href="${href}" data-slot="notification-bell-item-link" aria-label="${title}" class="absolute inset-0 outline-none focus-visible:shadow-[var(--lv-ring)]"></a>
+  @endif
   @if(unread)
     <span data-slot="notification-bell-item-dot" aria-label="unread" role="img" class="mt-[var(--lv-space-1)] inline-block shrink-0 rounded-full bg-[var(--lv-color-primary)]" style="width: 0.5rem; height: 0.5rem;"></span>
   @else
@@ -87,12 +89,8 @@
       form="${formId.isEmpty() ? null : formId}"
       formaction="${markReadAction}"
       aria-label="${markReadLabel}"
-      class="shrink-0 focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
+      class="relative shrink-0 focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
       style="color: var(--lv-color-muted-fg); background: transparent; border: 0; padding: var(--lv-space-1); cursor: pointer; border-radius: var(--lv-radius-sm);"
     >@template.lievit.icon(name = "check", size = "0.875rem")</button>
   @endif
-@if(isLink)
-</a>
-@else
 </div>
-@endif
