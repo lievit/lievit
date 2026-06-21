@@ -1,4 +1,6 @@
 @import gg.jte.Content
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -41,6 +43,30 @@
   aria-disabled (an <a> cannot be natively disabled). ariaLabel sets aria-label (mandatory for
   iconOnly, optional otherwise).
 
+  EXTRA ATTRIBUTES -- two channels, by trust (the XSS decision rule). The control often needs
+  more than the typed params: wire directives (l:click, l:keydown), data-*, target/rel. There
+  are TWO ways in, split by who controls the value, because escaping is not optional for the
+  dynamic case:
+    * attrs (TRUSTED, raw) -- a raw attribute string output with $unsafe, so it lands as markup
+      and is NOT escaped. Use it ONLY for STATIC, author-controlled strings: wire directives and
+      fixed attributes whose every character you typed yourself, e.g.
+      attrs = "l:click=\"$set('open','')\" target=\"_blank\" rel=\"noopener\"". NEVER interpolate
+      a user/DB-derived value into attrs: a payload that closes the quote and opens a script tag
+      ( the classic [quote][gt][script...] breakout ) would escape the tag and inject markup.
+    * dataAttrs (SAFE, escaped) -- a Map<String,String> of DYNAMIC data-* attributes. Each entry
+      renders as data-<key>="<value>" where the VALUE is escaped with JTE's OWN attribute escaper
+      gg.jte.html.escape.Escape.htmlAttribute (the exact routine ContentType.Html uses for a
+      ${} in attribute-value position), so a hostile value (the same [quote][gt][script...]
+      breakout payload) renders inert: the quote and angle brackets become entities, so it stays
+      attribute text and never becomes a tag. (We escape-then-$unsafe rather than write a bare
+      @for in the open tag because JTE's HTML parser forbids a loop in attribute-NAME position;
+      routing every value through Escape.htmlAttribute keeps the SAME escaping guarantee.) This
+      is the ONLY safe way to carry user/DB-derived data on the button. Keys are the
+      data-attribute name WITHOUT the leading "data-" (key "confirm" -> data-confirm); keep keys
+      to simple identifiers ([A-Za-z][A-Za-z0-9-]*) -- the key sits in
+      attribute-NAME position, which JTE does not escape, so a non-identifier key is the caller's
+      bug, not an injection the partial absorbs. Empty by default; left empty nothing is added.
+
   Params:
     String  variant  = "primary"   "primary" | "secondary" | "danger" | "ghost" | "outline".
     String  size     = "md"        "sm" | "md" | "lg" (height-based, aligns to the form controls).
@@ -50,6 +76,9 @@
     boolean disabled = false        dims + blocks activation.
     String  ariaLabel = null       aria-label; REQUIRED when iconOnly is true.
     String  cssClass = ""          extra utility classes (e.g. an l:click is added by the caller).
+    String  attrs    = ""          TRUSTED raw attribute string ($unsafe) -- STATIC strings only.
+    Map<String,String> dataAttrs = {}  SAFE dynamic data-* (key w/o "data-", simple identifier);
+                                      each value escaped via Escape.htmlAttribute.
     gg.jte.Content content          the button label / icon + label (a single icon when iconOnly).
 
   Usage: the consuming wire template wires the action via l:click on the rendered element.
@@ -58,6 +87,11 @@
     @@template.button(href = "/listings", variant = "ghost", content = @@`Back`)
     @@template.button(iconOnly = true, size = "sm", variant = "ghost", ariaLabel = "Open calendar",
         content = @@`@@template.icon(name = "calendar", size = "1rem")`)
+    (trusted STATIC directive via attrs -- $unsafe, author-typed only):
+    @@template.button(variant = "danger", attrs = "l:click=\"$set('confirmOpen','')\"", content = @@`Delete`)
+    (DYNAMIC user-derived value carried SAFELY -- HTML-escaped -- via dataAttrs):
+    @@template.button(variant = "danger", dataAttrs = java.util.Map.of("confirm", userSuppliedText),
+        attrs = "l:click=\"armReset\"", content = @@`Reset`)
 --%>
 @param String variant = "primary"
 @param String size = "md"
@@ -67,6 +101,8 @@
 @param boolean disabled = false
 @param String ariaLabel = null
 @param String cssClass = ""
+@param String attrs = ""
+@param java.util.Map<String, String> dataAttrs = java.util.Map.of()
 @param gg.jte.Content content
 
 !{var variantClass = switch (variant) {
@@ -98,6 +134,23 @@
 
 !{var base = "inline-flex items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-transparent leading-[var(--lv-leading)] cursor-pointer outline-none focus-visible:shadow-[var(--lv-ring)] disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";}
 
+<%-- SAFE dynamic data-* attributes. JTE's HTML parser forbids a raw @for in attribute-NAME
+     position, so we build the fragment once here: each entry becomes data-<key>="<value>"
+     with the VALUE escaped through JTE's OWN attribute escaper (Escape.htmlAttribute, the same
+     routine ContentType.Html applies to a ${} in attribute-value position). The result is then
+     emitted with $unsafe in the open tag -- safe because every dynamic value is already escaped.
+     Keys must be simple identifiers (the key sits in attribute-NAME position, which is NOT
+     escaped); a non-identifier key is dropped so it can never inject markup. --%>
+!{var dataAttrs_ = new StringOutput();}
+!{for (var e : dataAttrs.entrySet()) {
+    if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
+      dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
+      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), dataAttrs_);
+      dataAttrs_.writeContent("\"");
+    }
+  }}
+!{var dataAttrsMarkup = dataAttrs_.toString();}
+
 @if(href != null)
   <a
     data-slot="button"
@@ -107,8 +160,10 @@
     href="${disabled ? null : href}"
     aria-disabled="${disabled ? "true" : null}"
     aria-label="${ariaLabel}"
+    $unsafe{dataAttrsMarkup}
     class="${base} ${sizeClass} ${shapeClass} ${variantClass} ${cssClass}"
     style="font-family:var(--lv-font-sans);"
+    $unsafe{attrs}
   >${content}</a>
 @else
   <button
@@ -119,7 +174,9 @@
     type="${type}"
     disabled="${disabled}"
     aria-label="${ariaLabel}"
+    $unsafe{dataAttrsMarkup}
     class="${base} ${sizeClass} ${shapeClass} ${variantClass} ${cssClass}"
     style="font-family:var(--lv-font-sans);"
+    $unsafe{attrs}
   >${content}</button>
 @endif

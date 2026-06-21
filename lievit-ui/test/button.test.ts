@@ -59,6 +59,52 @@ describe("button -- params & docs API (Filament parity)", () => {
   });
 });
 
+describe("button -- extra-attributes channels (XSS trust split)", () => {
+  test("declares both channels: trusted attrs (String) + safe dataAttrs (Map)", () => {
+    expect(src, "trusted attrs param missing").toContain('@param String attrs = ""');
+    expect(src, "safe dataAttrs param missing").toContain(
+      "@param java.util.Map<String, String> dataAttrs = java.util.Map.of()",
+    );
+  });
+
+  test("dataAttrs VALUE is escaped via JTE's own attribute escaper (Escape.htmlAttribute), NOT a bare interpolation", () => {
+    // JTE's HTML parser forbids a raw @for in attribute-NAME position, so the fragment is
+    // built once with each value routed through gg.jte.html.escape.Escape.htmlAttribute --
+    // the SAME escaper ContentType.Html applies to a ${} in attribute-value position.
+    expect(src).toContain("@import gg.jte.html.escape.Escape");
+    expect(src).toMatch(/Escape\.htmlAttribute\(\s*e\.getValue\(\)/);
+    // The value must NEVER be emitted raw (no $unsafe wrapping a getValue()).
+    expect(src, "dataAttrs value must not be $unsafe").not.toMatch(/\$unsafe\{[^}]*getValue/);
+  });
+
+  test("only the escaped fragment + the trusted attrs reach $unsafe (no raw user value)", () => {
+    // Exactly two sinks per branch: the pre-escaped dataAttrs fragment and the trusted attrs.
+    const unsafeSinks = src.match(/\$unsafe\{[^}]*\}/g) ?? [];
+    expect(unsafeSinks, `unexpected $unsafe sinks: ${unsafeSinks.join(", ")}`).toEqual([
+      "$unsafe{dataAttrsMarkup}",
+      "$unsafe{attrs}",
+      "$unsafe{dataAttrsMarkup}", // <button> branch
+      "$unsafe{attrs}",
+    ]);
+    expect(src.toLowerCase()).toMatch(/trusted/);
+  });
+
+  test("keys are validated as simple identifiers (a non-identifier key cannot inject markup)", () => {
+    // The key sits in attribute-NAME position (unescaped), so it is allowlisted to an identifier.
+    expect(src).toMatch(/getKey\(\)\.matches\("\[A-Za-z\]\[A-Za-z0-9-\]\*"\)/);
+  });
+
+  test("both branches (<a> and <button>) emit the escaped dataAttrs fragment", () => {
+    const sinks = src.match(/\$unsafe\{dataAttrsMarkup\}/g) ?? [];
+    expect(sinks.length, "dataAttrs fragment must be in both branches").toBe(2);
+  });
+
+  test("usage doc shows a SAFE dynamic example via dataAttrs with a user-supplied value", () => {
+    expect(src).toContain("dataAttrs = java.util.Map.of(");
+    expect(src.toLowerCase()).toMatch(/userSuppliedText/i);
+  });
+});
+
 describe("button -- height-based size scale aligns to the form controls", () => {
   for (const [size, heightToken, padToken, textToken] of SIZE_SCALE) {
     test(`size="${size}" pins height h-[var(${heightToken})] (no py-based height that breaks alignment)`, () => {
