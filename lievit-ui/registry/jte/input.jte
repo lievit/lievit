@@ -29,12 +29,20 @@
 
   HELPER TEXT (built-in): pass `hint` to render a muted helper line below the input wired into the
   control's aria-describedby automatically (id `<inputId>-hint`). For the field's full
-  label+error orchestration use @@template.field instead; `hint` is the standalone shorthand.
+  label+error orchestration use @@template.lievit.field instead; `hint` is the standalone shorthand.
+
+  SIZE (toolbar parity with @@template.lievit.button + @@template.lievit.native-select). `size` is
+  HEIGHT-based so the input sits flush next to a button / native-select of the matching size in a
+  toolbar row. Each size pins the SAME --lv-space height token the other form controls use:
+    sm -> h-[var(--lv-space-8)]  (2rem)   ; compact toolbar
+    md -> h-[var(--lv-space-10)] (2.5rem) ; THE default, the row baseline
+    lg -> h-[var(--lv-space-12)] (3rem)   ; tall
 
   Params:
     String name                   the input's name attribute (POSTs under this name).
     String id          = name     the input's id (for a <label for>); defaults to name.
     String type        = "text"   native input type (text, search, email, password, number, file...).
+    String size        = "md"     "sm" | "md" | "lg" control height (aligns to button / native-select).
     String value       = null     current value.
     String placeholder = null     placeholder text.
     String hint        = null     built-in muted helper text below the input (auto aria-describedby).
@@ -51,13 +59,15 @@
     String cssClass    = ""       extra utility classes on the input.
 
   Usage:
-    @@template.input(name = "nome", type = "text", value = contatto.nome())
-    @@template.input(name = "q", type = "search", placeholder = "Cerca...", model = "query")
-    @@template.input(name = "avatar", type = "file", accept = "image/*", hint = "PNG or JPG, max 2MB")
+    @@template.lievit.input(name = "nome", type = "text", value = contatto.nome())
+    @@template.lievit.input(name = "q", type = "search", placeholder = "Cerca...", model = "query")
+    @@template.lievit.input(name = "q", type = "search", size = "sm", placeholder = "Cerca...")
+    @@template.lievit.input(name = "avatar", type = "file", accept = "image/*", hint = "PNG or JPG, max 2MB")
 --%>
 @param String name
 @param String id = null
 @param String type = "text"
+@param String size = "md"
 @param String value = null
 @param String placeholder = null
 @param String hint = null
@@ -78,9 +88,16 @@
 !{var isFile = "file".equals(type);}
 !{var describedByValue = (describedBy != null && !describedBy.isBlank()) ? describedBy : (hasHint ? inputId + "-hint" : null);}
 !{var fileClasses = isFile ? " file:mr-[var(--lv-space-3)] file:h-full file:border-0 file:bg-transparent file:text-[length:var(--lv-text-sm)] file:font-[var(--lv-font-medium)] file:text-[var(--lv-color-fg)] py-0 cursor-pointer file:cursor-pointer" : "";}
+<%-- height per size; md is the toolbar baseline and matches button md + native-select default --%>
+!{var sizeClass = switch (size) {
+    case "sm" -> "h-[var(--lv-space-8)]";
+    case "lg" -> "h-[var(--lv-space-12)]";
+    default   -> "h-[var(--lv-space-10)]";
+  };}
 
 <input
   data-slot="input"
+  data-size="${size}"
   id="${inputId}"
   name="${name}"
   type="${type}"
@@ -96,7 +113,7 @@
   required="${required}"
   readonly="${readonly}"
   l:model="${model}"
-  class="flex h-[var(--lv-space-10)] w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)]${fileClasses} ${cssClass}"
+  class="flex ${sizeClass} w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)]${fileClasses} ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
 @if(hasHint)

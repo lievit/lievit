@@ -29,9 +29,14 @@
   keeps the simple case a one-liner, the common grouped case typed (data down from the model), and
   the fully custom case expressive.
 
-  SIZE: `size` mirrors shadcn's native-select sizes -- "sm" (compact), "default", "lg" (tall),
-  each height driven by an --lv-space token. The chevron + padding track the height so every size
-  reads as the same control.
+  SIZE (toolbar parity with @@template.lievit.button + @@template.lievit.input). `size` is
+  HEIGHT-based so the select sits flush next to a button / input of the matching size in a toolbar
+  row. Each size pins the SAME --lv-space height token the other form controls use:
+    sm -> h-[var(--lv-space-8)]  (2rem)   ; compact toolbar
+    md -> h-[var(--lv-space-10)] (2.5rem) ; THE default, the row baseline (== button md, input md)
+    lg -> h-[var(--lv-space-12)] (3rem)   ; tall
+  The chevron + padding track the height so every size reads as the same control. "default" is kept
+  as a back-compat alias of "md" (both render the h-[var(--lv-space-10)] baseline height).
 
   Accessibility: a real <select> with its own id/name, so a <label for> binds directly. The
   optional `label` renders a real <label for> above the control; when no visible label is
@@ -49,7 +54,7 @@
     String label       = null    visible <label> text rendered above the control.
     String ariaLabel   = null    aria-label when there is no visible label.
     String placeholder = null    a disabled/hidden first option shown when value is empty.
-    String size        = "default"  "sm" | "default" | "lg" control height.
+    String size        = "md"    "sm" | "md" | "lg" control height ("default" = back-compat alias of "md").
     boolean disabled   = false   disables the control + dims the wrapper.
     boolean required   = false   marks the control required.
     boolean invalid    = false   danger border + aria-invalid="true".
@@ -85,7 +90,7 @@
 @param String label = null
 @param String ariaLabel = null
 @param String placeholder = null
-@param String size = "default"
+@param String size = "md"
 @param boolean disabled = false
 @param boolean required = false
 @param boolean invalid = false
@@ -103,7 +108,7 @@
   data-disabled="${disabled}"
   data-invalid="${invalid}"
   data-size="${size}"
-  class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-danger)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=default]:h-[var(--lv-space-10)] data-[size=lg]:h-[var(--lv-space-12)] ${cssClass}"
+  class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-danger)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=md]:h-[var(--lv-space-10)] data-[size=default]:h-[var(--lv-space-10)] data-[size=lg]:h-[var(--lv-space-12)] ${cssClass}"
 >
   <select
     data-slot="native-select-control"
