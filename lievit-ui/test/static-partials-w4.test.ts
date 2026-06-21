@@ -24,6 +24,9 @@ import { join } from "node:path";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const read = (name: string) => readFileSync(join(jteDir, `${name}.jte`), "utf8");
+/** A multi-part component's sub-partial (e.g. chart/legend.jte). */
+const readSub = (component: string, part: string) =>
+  readFileSync(join(jteDir, component, `${part}.jte`), "utf8");
 /** The rendered MARKUP only: the doc comment may NAME the dropped tech for provenance. */
 const markupOf = (src: string) => src.replace(/<%--[\s\S]*?--%>/g, "");
 
@@ -111,6 +114,62 @@ describe("chart (server-rendered static SVG bar chart)", () => {
     expect(src).toContain("var(--lv-color-border)");
     expect(src).toContain("var(--lv-color-muted)");
   });
+
+  test("type param selects the geometry: bar (default) | line | area | pie", () => {
+    expect(src).toContain('@param String type = "bar"');
+    // each variant is branched on in the markup
+    expect(src).toContain('"pie".equals(type)');
+    expect(src).toContain('"line".equals(type)');
+    expect(src).toContain('"area".equals(type)');
+  });
+
+  test("line variant: a server-computed <polyline> through the points + per-datum <circle> with aria-label", () => {
+    expect(src).toMatch(/<polyline\b/);
+    expect(src).toContain('data-slot="chart-line"');
+    expect(src).toMatch(/<circle\b/);
+    expect(src).toContain('data-slot="chart-point"');
+    // the data point keeps the reachable per-datum aria-label
+    expect(src).toContain('aria-label="${cat}: ${v}"');
+    // the decorative line itself is aria-hidden (datum is announced on the point)
+    expect(markupOf(src)).toMatch(/data-slot="chart-line"[\s\S]*?aria-hidden="true"/);
+  });
+
+  test("area variant: a filled <polygon> closed to the baseline, token fill, aria-hidden chrome", () => {
+    expect(src).toMatch(/<polygon\b/);
+    expect(src).toContain('data-slot="chart-area"');
+    // the area fill is the same token-driven series colour
+    expect(markupOf(src)).toMatch(/data-slot="chart-area"[\s\S]*?fill="\$\{color\}"/);
+  });
+
+  test("pie variant: one server-computed arc <path> per slice, palette-cycled, per-slice aria-label", () => {
+    expect(src).toMatch(/<path\b/);
+    expect(src).toContain('data-slot="chart-slice"');
+    // the SVG arc command is computed in Java, not hardcoded
+    expect(src).toContain('" A "');
+    // pie cycles the five-step --lv-color-chart-N palette
+    expect(src).toContain("var(--lv-color-chart-5)");
+    expect(src).toMatch(/palette\[i % palette\.length\]/);
+    // each slice is reachable
+    expect(markupOf(src)).toMatch(/data-slot="chart-slice"[\s\S]*?aria-label="\$\{cat\}: \$\{v\}"/);
+  });
+
+  test("legend: an opt-in static legend sub-part is wired (data-slot chart-legend), aria-hidden swatch", () => {
+    expect(src).toContain("@param boolean showLegend = false");
+    expect(src).toMatch(/@if\(showLegend\)/);
+    expect(src).toContain("@template.lievit.chart.legend(");
+    // the legend partial itself
+    const legend = readSub("chart", "legend");
+    expect(legend, "legend missing Apache header").toContain("Apache License");
+    expect(legend).toContain('data-slot="chart-legend"');
+    expect(legend).toContain('data-slot="chart-legend-swatch"');
+    // the swatch is decorative (the datum is already announced by the chart's role=img)
+    expect(legend).toMatch(/data-slot="chart-legend-swatch"[\s\S]*?aria-hidden="true"/);
+    // token-driven, no hardcoded hex, no inline script / on* handler
+    expect(legend, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(legend).not.toMatch(/<script/i);
+    expect(legend.match(/\son[a-z]+=/gi) ?? []).toEqual([]);
+    expect(legend).toContain("var(--lv-color-muted-fg)");
+  });
 });
 
 describe("date-picker (native <input type=date>)", () => {
@@ -169,5 +228,41 @@ describe("date-picker (native <input type=date>)", () => {
 
   test("binds to a wire field via l:model (the live cases) and POSTs the ISO date under name", () => {
     expect(src).toContain('l:model="${model}"');
+  });
+
+  test("mode param defaults to single; range mode is the documented alternative", () => {
+    expect(src).toContain('@param String mode = "single"');
+    expect(src).toContain('"range".equals(mode)');
+  });
+
+  test("range mode: a paired from/to control, role=group with a shared aria-label, native min/max keeps from<=to", () => {
+    expect(src).toMatch(/@if\(isRange\)/);
+    expect(src).toContain('data-slot="date-picker-range"');
+    expect(src).toContain('role="group"');
+    expect(src).toContain('aria-label="${groupName}"');
+    // two bound native inputs, each its own data-slot
+    expect(src).toContain('data-slot="date-picker-input-from"');
+    expect(src).toContain('data-slot="date-picker-input-to"');
+    expect(src).toContain('type="date"');
+    // the from/to inputs POST under name / nameTo
+    expect(src).toContain('@param String nameTo = null');
+    expect(src).toContain('name="${toName}"');
+    expect(src).toContain('@param String valueTo = null');
+    expect(src).toContain('value="${valueTo}"');
+    // native constraint: from.max defaults to the to value, to.min defaults to the from value
+    expect(src).toContain('max="${valueTo != null ? valueTo : max}"');
+    expect(src).toContain('min="${value != null ? value : min}"');
+    // each input keeps a per-input aria-label suffix (from / to)
+    expect(src).toContain('aria-label="${groupName} ${fromLabel}"');
+    expect(src).toContain('aria-label="${groupName} ${toLabel}"');
+    // the second input can bind its own wire field
+    expect(src).toContain('l:model="${modelTo}"');
+  });
+
+  test("range mode stays token-driven (no hardcoded hex) and CSP-clean (no script / on* handler)", () => {
+    // the shared input chrome is one token-driven declaration reused by every input
+    expect(src).toContain("border-[var(--lv-color-input)]");
+    expect(src).toContain("var(--lv-color-muted-fg)"); // the range separator
+    expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });

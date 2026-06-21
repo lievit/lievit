@@ -1,7 +1,7 @@
 {
   "name": "chart",
   "type": "registry:jte",
-  "description": "A server-rendered static bar chart as inline SVG: one <rect> per typed @param data point, coloured by the --lv-color-chart-N tokens, with axis labels and a WAI-ARIA img role (aria-label + in-SVG <title> text alternative, per-bar aria-label). Zero JS, no canvas, no client charting lib, CSP-clean. Server-first PARTIAL (ADR-0012); replaces the <lv-chart> Lit island. An interactive chart (hover tooltip, zoom) is an escape-hatch typed-TS micro-enhancement over this SVG, not shipped.",
+  "description": "A server-rendered static chart as inline SVG: `type` selects bar (one <rect> per datum), line (a <polyline> through the points), area (that line closed to the baseline as a <polygon>) or pie (one <path> arc per slice). Coloured by the --lv-color-chart-N palette tokens, with axis labels and a WAI-ARIA img role (aria-label + in-SVG <title> text alternative, per-shape aria-label). Optional static legend (chart/legend.jte, data-slot=\"chart-legend\") listing series/slices with a token swatch. Zero JS, no canvas, no client charting lib, CSP-clean. Server-first PARTIAL (ADR-0012); replaces the <lv-chart> Lit island. An interactive chart (hover tooltip, zoom) is an escape-hatch typed-TS micro-enhancement over this SVG, not shipped.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -10,8 +10,14 @@
       "type": "registry:jte",
       "target": "lievit/chart.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/chart/legend.jte",
+      "type": "registry:jte",
+      "target": "lievit/chart/legend.jte",
+      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "type"],
-  "docs": "Copies the chart partial to your JTE root at lievit/chart.jte, reached as @template.lievit.chart(label=..., categories=String[], values=int[]). The controller passes the typed dataset (a String[] of x labels + an int[] of values) and the partial emits a static SVG bar chart the browser draws with zero JS. Set `color` to any --lv-color-chart-N token, tune `width`/`height`, toggle `showAxis`. The source is yours: edit freely. If you ever need an INTERACTIVE chart (hover tooltip, zoom, live data), that is the documented escape-hatch: drop a typed-TS micro-enhancement over this SVG in your own frontend/src/ (the same seam gest uses for ht-calendar); lievit-ui ships no charting island."
+  "tokens": ["color", "space", "type", "radius"],
+  "docs": "Copies the chart partial family to your JTE root: lievit/chart.jte (+ chart/legend.jte), reached as @template.lievit.chart(label=..., categories=String[], values=int[]). The controller passes the typed dataset (a String[] of x/slice labels + an int[] of values) and the partial emits a static SVG the browser draws with zero JS. Set `type` to bar (default), line, area or pie; `color` to any --lv-color-chart-N token (bar/line/area single series; pie cycles the five-step palette per slice); tune `width`/`height`, toggle `showAxis`, and set `showLegend=true` to render the static legend (chart/legend.jte). The source is yours: edit freely. If you ever need an INTERACTIVE chart (hover tooltip, zoom, live data), that is the documented escape-hatch: drop a typed-TS micro-enhancement over this SVG in your own frontend/src/ (the same seam gest uses for ht-calendar); lievit-ui ships no charting island."
 }
