@@ -96,6 +96,6 @@
     <p data-slot="field-description" id="${forId}-description" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]" style="font-family:var(--lv-font-sans);">${desc}</p>
   @endif
   @if(hasError)
-    <p data-slot="field-error" id="${forId}-error" role="alert" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-danger)]" style="font-family:var(--lv-font-sans);">${error}</p>
+    <p data-slot="field-error" id="${forId}-error" role="alert" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-destructive)]" style="font-family:var(--lv-font-sans);">${error}</p>
   @endif
 </div>

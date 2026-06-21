@@ -38,7 +38,7 @@ class XssEscapingTest {
 
     private String renderButton(Map<String, Object> overrides) {
         Map<String, Object> model = new HashMap<>();
-        model.put("variant", "danger");
+        model.put("variant", "destructive");
         // gg.jte.Content label: write a plain string into the output.
         model.put("content", (gg.jte.Content) out -> out.writeContent("Reset"));
         model.putAll(overrides);

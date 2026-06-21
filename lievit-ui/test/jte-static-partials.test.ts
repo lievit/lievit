@@ -138,7 +138,7 @@ describe("kbd.jte", () => {
   });
   test("is non-selectable and token-styled", () => {
     expect(src).toContain("select-none");
-    expect(src).toContain("var(--lv-color-surface)");
+    expect(src).toContain("var(--lv-color-muted-bg)");
     expect(src).toContain("var(--lv-color-border)");
   });
 });
@@ -245,12 +245,12 @@ describe("label.jte", () => {
     expect(markup).toContain('for="${forId}"');
   });
   test("the required marker is hidden from assistive tech", () => {
-    expect(src).toContain('<span aria-hidden="true" class="text-[var(--lv-color-danger)]">*</span>');
+    expect(src).toContain('<span aria-hidden="true" class="text-[var(--lv-color-destructive)]">*</span>');
   });
   test("supports the error cue: data-error + a destructive label colour (shadcn's invalid label)", () => {
     expect(src).toMatch(/@param boolean error/);
     expect(src).toContain('data-error="${error ? "true" : null}"');
-    expect(src).toContain("data-[error=true]:text-[var(--lv-color-danger)]");
+    expect(src).toContain("data-[error=true]:text-[var(--lv-color-destructive)]");
   });
 });
 
@@ -260,7 +260,7 @@ describe("field.jte (FormField + FieldError orchestration)", () => {
     expect(src).toContain("@template.lievit.label(");
     expect(src).toContain("${control}");
     expect(src).toContain('role="alert"');
-    expect(src).toContain('aria-live="polite"');
+    // role=alert already implies an assertive live region: no extra aria-live (double-announce fix)
   });
   test("the description + error ids are derived from the control id (aria-describedby targets)", () => {
     expect(src).toContain('id="${forId}-error"');
@@ -458,7 +458,7 @@ describe("native-select.jte (the one true select after the fold)", () => {
   });
   test("supports the invalid state folded in from the removed select island", () => {
     expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
-    expect(src).toContain("data-[invalid=true]:border-[var(--lv-color-danger)]");
+    expect(src).toContain("data-[invalid=true]:border-[var(--lv-color-destructive)]");
   });
   test("supports typed <optgroup> grouping via optionGroups (group label -> options)", () => {
     expect(src).toMatch(/@param java\.util\.Map<String, java\.util\.List<String>> optionGroups/);
@@ -469,7 +469,7 @@ describe("native-select.jte (the one true select after the fold)", () => {
     expect(src).toMatch(/@param String size/);
     expect(src).toContain('data-size="${size}"');
     expect(src).toContain("data-[size=sm]:h-[var(--lv-space-8)]");
-    expect(src).toContain("data-[size=lg]:h-[var(--lv-space-12)]");
+    expect(src).toContain("data-[size=lg]:h-[var(--lv-space-10)]");
   });
 });
 
