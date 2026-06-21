@@ -41,11 +41,24 @@
 
   <dependencies>
     <!-- gg.jte.Content + the runtime types the @param signatures and the
-         precompiled template Java reference. -->
+         precompiled template Java reference. The `jte` artifact also carries the
+         on-the-fly compiler used by the render test below (source-mode
+         DirectoryCodeResolver). -->
     <dependency>
       <groupId>gg.jte</groupId>
       <artifactId>jte</artifactId>
       <version>${jte.version}</version>
+    </dependency>
+
+    <!-- JUnit 5 for the escaping RENDER test (XssEscapingTest): the precompile
+         gate proves the partials COMPILE; this proves the button's dynamic
+         dataAttrs channel is HTML-ESCAPED at render time (a hostile value renders
+         inert), which a compile-only gate cannot. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.11.4</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -103,6 +116,15 @@
             <goals><goal>precompile</goal></goals>
           </execution>
         </executions>
+      </plugin>
+
+      <!-- Run the JUnit 5 render test (XssEscapingTest) in the `test` phase. The
+           test source-compiles button.jte on the fly (DirectoryCodeResolver over
+           ../../registry/jte) and asserts the hostile dataAttrs value is escaped. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
       </plugin>
     </plugins>
   </build>
