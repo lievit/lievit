@@ -267,7 +267,7 @@ describe("field.jte (FormField + FieldError orchestration)", () => {
     expect(src).toContain('id="${forId}-description"');
   });
   test("auto-derives the invalid state from the error: data-invalid wrapper + error-coloured label", () => {
-    expect(src).toContain("var hasError = error != null");
+    expect(src).toContain("var hasError = hasErrorList || hasSingleError");
     expect(src).toContain('data-invalid="${hasError ? "true" : null}"');
     // the label receives the error flag so it shows shadcn's destructive-label cue
     expect(src).toContain("error = hasError");

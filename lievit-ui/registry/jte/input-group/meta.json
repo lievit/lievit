@@ -1,0 +1,23 @@
+{
+  "name": "input-group",
+  "type": "registry:jte",
+  "description": "An input (or textarea) wrapped with leading and/or trailing addons (icon or text) inside one shared bordered box that focuses as a single control, shadcn's InputGroup: the group owns the focus ring while the inner control is borderless. Addons align inline-start/inline-end or stack block-start/block-end; an invalid flag shows the destructive border + ring. Ships the InputGroupTextarea variant for a multi-line control in the same group chrome.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/input-group.jte",
+      "type": "registry:jte",
+      "target": "lievit/input-group.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/input-group/textarea.jte",
+      "type": "registry:jte",
+      "target": "lievit/input-group/textarea.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the input-group partial (+ its input-group/textarea variant) to your JTE root at lievit/input-group.jte, reached as @template.lievit.input-group(name=..., leading=@`...`, trailing=@`...`). size is height-based (sm/md/lg) so the group lines up with the form controls in a toolbar; leadingAlign/trailingAlign switch an addon between inline (inline-start/inline-end) and stacked (block-start/block-end); set invalid=true for the destructive error treatment, and model=... to bind the inner control via l:model. Use @template.lievit.input-group.textarea for a multi-line control in the same chrome. The source is yours: edit freely."
+}

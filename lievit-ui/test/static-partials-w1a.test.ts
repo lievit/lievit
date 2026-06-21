@@ -80,6 +80,9 @@ describe("static partials w1a -- shared hygiene", () => {
       // (p-4, gap-2, h-10, text-sm...) survives: every dimension reads a --lv-* var.
       const stripped = src
         .replace(/\[[^\]]*\]/g, "[]")
+        // a var(--lv-*) reference is token-driven by definition (incl. inside inline styles,
+        // e.g. a dynamic grid's column-gap:var(--lv-space-3)): never a bare scale utility.
+        .replace(/var\(--lv-[^)]*\)/g, "")
         .replace(/-\d+\/\d+/g, "")
         .replace(/\bmin-w-0\b/g, "");
       const numericUtils = (stripped.match(/\b(?:p|px|py|pt|pb|pl|pr|m|mx|my|mb|mt|gap|h|w|text|size|space)-[1-9]/g) ?? [])
@@ -103,8 +106,13 @@ describe("alert", () => {
     expect(src).toContain('role="${urgent ? "alert" : "status"}"');
   });
   test("the heading renders before the message, only when set", () => {
-    expect(src).toContain("@if(heading != null");
+    // shadcn grid: the title (back-compat `heading` feeds alert-title) sits in column 2 before
+    // the alert-description region; title renders only when a title/heading is set (hasTitle).
+    expect(src).toContain('data-slot="alert-title"');
     expect(src).toContain("${heading}");
+    expect(src.indexOf('data-slot="alert-title"')).toBeLessThan(
+      src.indexOf('data-slot="alert-description"'),
+    );
   });
   test("tint is token-driven via color-mix over the severity token", () => {
     expect(src).toContain("color-mix(in srgb");
