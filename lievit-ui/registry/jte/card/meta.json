@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow"],
-  "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Compose the header from title + description + action slots (or the plain-text heading + headingId for back-compat) and add a footer slot; a title renders a labelled region. The source is yours: edit freely."
+  "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Compose the header from title + description + action slots (or the plain-text heading + headingId for back-compat) and add a footer slot; a title renders a labelled region. pad (none|sm|md|lg, default md=shadcn level-6) scales the gap + surface padding + per-region padding off one token, so a tight content panel uses pad=\"sm\" instead of forking; divided=true opts into a ruled separator under the header / above the footer (default false = borderless shadcn card). The source is yours: edit freely."
 }

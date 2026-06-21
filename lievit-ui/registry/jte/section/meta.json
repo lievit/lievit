@@ -1,0 +1,17 @@
+{
+  "name": "section",
+  "type": "registry:jte",
+  "description": "A titled, optionally collapsible container that groups fields / entries under a heading: the server-first equivalent of shadcn's Card-with-Collapsible and Filament's Section. Collapse is a native <details>/<summary> (zero JS, CSP-clean); the initial open/closed state is the server's `collapsed` flag. Filament traits as server-pure variants: collapsible / collapsed, compact (tighter padding), divided (ruled header/body line), aside (header in a side rail). A heading makes it a labelled section (aria-labelledby). Plain HTML + --lv-* tokens, zero JS, no inline script, no <style>.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/section.jte",
+      "type": "registry:jte",
+      "target": "lievit/section.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow"],
+  "docs": "Copies the section partial to your JTE root at lievit/section.jte, reached as @template.lievit.section(heading=\"...\", content=@`...`). A non-collapsible section is a plain <section> + heading; pass collapsible=true (and collapsed=true to start closed) for a native <details> disclosure. compact tightens padding, divided rules a line between header and body, aside puts the header in a side rail. The chevron rotate-on-open is opt-in via one adopter CSS rule keyed off [data-slot=\"section\"][open] .lv-section-chevron (the strict CSP forbids an inline <style>); without it the section still opens + closes. The source is yours: edit freely."
+}

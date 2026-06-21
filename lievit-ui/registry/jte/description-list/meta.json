@@ -1,0 +1,23 @@
+{
+  "name": "description-list",
+  "type": "registry:jte",
+  "description": "A read-only label->value list rendered as a native <dl> grid: each row a <dt> term + <dd> definition (description-list.item), laid out in N columns via the --lv-dl-cols custom property, with per-item columnSpan. The detail-page primitive the kit's AdminViewView.Section (its ordered label-to-display map) and Filament's infolist section grid map onto: a structured READ of a record, terms left/above, values right/below. Native dt/dd association (no extra ARIA). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/description-list.jte",
+      "type": "registry:jte",
+      "target": "lievit/description-list.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/description-list/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/description-list/item.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type"],
+  "docs": "Copies the description-list partial (+ its description-list/item child) to your JTE root at lievit/description-list.jte, reached as @template.lievit.descriptionList(columns=2, content=@`...`). Fill it with description-list.item rows (term + content value); the value content can be a plain string or an infolist-entry (badge / swatch / icon). columns drives the grid; an item may span more columns via columnSpan. The source is yours: edit freely."
+}

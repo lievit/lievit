@@ -1,0 +1,23 @@
+{
+  "name": "accordion-static",
+  "type": "registry:jte",
+  "description": "A vertically stacked set of native <details>/<summary> disclosure items: the server-first, zero-JS layout primitive behind shadcn Accordion and Filament's accordion layout. The open set is a SERVER fact (each item's `open` flag => <details open>); single-open mode (one item at a time) uses the platform <details name=...> grouping, no JS. data-slots accordion / accordion-item / accordion-trigger / accordion-content; panel bodies are caller-owned Content slots. NOTE: distinct from the INTERACTIVE registry:wire `accordion` whose open set is live @Wire state; this is the presentational render-layer primitive. Plain HTML + --lv-* tokens, no inline script, no <style>, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/accordion.jte",
+      "type": "registry:jte",
+      "target": "lievit/accordion.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/accordion/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/accordion/item.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Copies the static accordion primitive to lievit/accordion.jte (+ lievit/accordion/item.jte), reached as @template.lievit.accordion(content=@`...`). Compose one @template.lievit.accordion-item(label=..., content=@`...`) per item; pass open=true to start an item expanded. Give sibling items the SAME `name` to opt into single-open mode (the platform <details name> grouping, zero JS); omit it for independent items. The chevron rotate-on-open is opt-in via one adopter CSS rule keyed off [data-slot=\"accordion-item\"][open] .lv-accordion-chevron (the strict CSP forbids an inline <style>); without it items still open + close. This is the LAYOUT render-layer primitive; for an open set that is live server state, use the registry:wire accordion component instead. The source is yours: edit freely."
+}

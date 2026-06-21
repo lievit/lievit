@@ -1,0 +1,29 @@
+{
+  "name": "wizard",
+  "type": "registry:jte",
+  "description": "A multi-step form (the Filament Wizard / Wizard\\Step, the io.lievit.kit.schema.Wizard + io.lievit.kit.WizardAction view-models): a numbered step header where each step carries data-state complete/current/upcoming (a completed-check glyph when done, a number otherwise) with separators between steps, over the current step's content, and a footer of prev / cancel / next / submit actions. The cursor is server-owned; advancing is a real wire-action POST the adopter wires (next/previous/submit), never inline script. Reuses icon + separator. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon", "separator"],
+  "files": [
+    {
+      "path": "jte/wizard.jte",
+      "type": "registry:jte",
+      "target": "lievit/wizard.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/wizard/step.jte",
+      "type": "registry:jte",
+      "target": "lievit/wizard/step.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/wizard/footer.jte",
+      "type": "registry:jte",
+      "target": "lievit/wizard/footer.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the wizard partials to your JTE root at lievit/wizard.jte (+ wizard/step.jte, wizard/footer.jte), reached as @template.lievit.wizard(currentStep=.., steps=@`@for(...) @template.lievit.wizard.step(...) @endfor`, content=@`...`, footer=@`@template.lievit.wizard.footer(...)`). Drive currentStep + the step states from the io.lievit.kit.schema.Wizard / WizardAction driver; wire next / previous / submit to the wizard's POST endpoints (formaction or l:click). The source is yours: edit freely."
+}

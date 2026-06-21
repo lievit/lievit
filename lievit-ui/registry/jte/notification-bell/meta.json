@@ -1,0 +1,29 @@
+{
+  "name": "notification-bell",
+  "type": "registry:jte",
+  "description": "The topbar notification bell (the Filament Livewire/DatabaseNotifications component, the io.lievit.kit.NotificationBell view-model): a badge-count trigger that opens a top-layer dropdown panel listing the recipient's notifications (read/unread rows with an unread dot + relative time) under a mark-all-read / clear-all header. Built on the native popover overlay seam (no z-index war, light-dismiss + Escape) the dropdown-menu partial uses; reuses badge for the count pill, icon, separator. Mutations (mark-read / mark-all-read / clear-all) are real wire-action POSTs the adopter wires, never inline script. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon", "badge", "separator"],
+  "files": [
+    {
+      "path": "jte/notification-bell.jte",
+      "type": "registry:jte",
+      "target": "lievit/notification-bell.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/notification-bell/header.jte",
+      "type": "registry:jte",
+      "target": "lievit/notification-bell/header.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/notification-bell/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/notification-bell/item.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Copies the notification-bell partials to your JTE root at lievit/notification-bell.jte (+ notification-bell/header.jte, notification-bell/item.jte), reached as @template.lievit.notification-bell(unreadCount=.., header=@`@template.lievit.notification-bell.header(...)`, notifications=@`...rows...`). Drive the count + rows from the io.lievit.kit.NotificationBell view-model; wire mark-read / mark-all-read / clear-all to the bell's POST endpoints (formaction or l:click). The source is yours: edit freely."
+}

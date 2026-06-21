@@ -27,6 +27,14 @@
   `heading` String still renders a plain-text title, and `content` still fills the description
   region when no rich `description` is given.
 
+  CALLOUT (Filament parity): Filament's Callout is a richer alert that adds a FOOTER / CONTROLS
+  region below the description -- a place for actions (links/buttons), a collapse control, or
+  secondary text -- so the same primitive serves both the bare shadcn alert and gest's repeated
+  hand-rolled status_banner (icon + heading + body + a footer row of controls). The optional
+  `footer` slot (data-slot="alert-footer") renders that region: full-width in column 2, below the
+  description, after any end-pinned `action`. It is purely additive -- an alert with no `footer`
+  renders exactly as before, so every existing call site is untouched.
+
   A11y (WAI-ARIA alert/status): destructive|warning => role="alert" (assertive); info|success =>
   role="status" (polite). The leading icon is decorative (aria-hidden) -- severity is announced by
   the role + the title text, not the glyph.
@@ -38,6 +46,8 @@
     String heading         = null     plain-text title (back-compat); rendered as alert-title.
     gg.jte.Content description = null  rich description (data-slot=alert-description); wins over content.
     gg.jte.Content action  = null     optional control pinned to the banner end (data-slot=alert-action).
+    gg.jte.Content footer  = null     optional footer / controls region below the description
+                                      (data-slot=alert-footer); the Filament callout footer slot.
     gg.jte.Content content            the message body (description region) when no `description` slot.
     String cssClass        = ""       extra utility classes on the banner.
 
@@ -45,6 +55,9 @@
     @@template.lievit.alert(variant = "destructive", icon = "circle-alert",
       title = @@`Could not save`, description = @@`The listing was not persisted.`)
     @@template.lievit.alert(variant = "success", heading = "Saved", content = @@`Your changes are live.`)
+    @@template.lievit.alert(variant = "warning", icon = "triangle-alert", heading = "Chiave ruotata",
+      content = @@`La vecchia chiave non e' piu' valida.`,
+      footer = @@`@@template.lievit.link(label = "Aggiorna la configurazione", href = "/settings")`)
 --%>
 @param String variant = "info"
 @param String icon = ""
@@ -52,6 +65,7 @@
 @param String heading = null
 @param gg.jte.Content description = null
 @param gg.jte.Content action = null
+@param gg.jte.Content footer = null
 @param gg.jte.Content content
 @param String cssClass = ""
 
@@ -81,5 +95,8 @@
   <div data-slot="alert-description" style="grid-column:2;color:var(--lv-color-muted-fg);">@if(description != null)${description}@else${content}@endif</div>
   @if(action != null)
     <div data-slot="alert-action" style="grid-column:2;margin-top:var(--lv-space-2);">${action}</div>
+  @endif
+  @if(footer != null)
+    <div data-slot="alert-footer" style="grid-column:2;margin-top:var(--lv-space-3);display:flex;flex-wrap:wrap;align-items:center;gap:var(--lv-space-3);color:var(--lv-color-muted-fg);">${footer}</div>
   @endif
 </div>

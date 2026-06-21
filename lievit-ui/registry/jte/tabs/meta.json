@@ -1,0 +1,23 @@
+{
+  "name": "tabs-static",
+  "type": "registry:jte",
+  "description": "A role=tablist strip + its panels where the active tab is a SERVER fact (each tab is a real <a href>, switching tab is a GET): the server-first, zero-JS layout primitive behind shadcn Tabs and Filament Tabs / schema Tabs (the container the kit's Tabs + InfolistTabs render through). Active tab gets aria-selected + tabindex=0 (roving tabindex); inactive panels are `hidden`. data-slots tabs / tabs-list / tabs-trigger / tabs-content. NOTE: distinct from the INTERACTIVE registry:wire `tabs` whose active id is live @Wire state; this is the presentational render-layer primitive. Plain HTML + --lv-* tokens, no inline script, no <style>, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/tabs.jte",
+      "type": "registry:jte",
+      "target": "lievit/tabs.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/tabs/panel.jte",
+      "type": "registry:jte",
+      "target": "lievit/tabs/panel.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type"],
+  "docs": "Copies the static tabs primitive to lievit/tabs.jte (+ lievit/tabs/panel.jte), reached as @template.lievit.tabs(...). Seed tabIds + labels + hrefs (index-aligned) and the active id; compose one @template.lievit.tabs-panel(id=..., active=...) per tab in the content slot. Each tab is a real <a href> GET that re-requests the page with the new active id, so it switches JS-off; the active tab carries aria-selected + tabindex=0 and its panel shows while the others are hidden. This is the LAYOUT render-layer primitive (the kit's static Tabs / InfolistTabs path); for an active tab that is live server state with no full-page GET, use the registry:wire tabs component instead. The source is yours: edit freely (e.g. drop the .jte at a non-lievit package and rename)."
+}
