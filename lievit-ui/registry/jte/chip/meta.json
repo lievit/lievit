@@ -1,0 +1,17 @@
+{
+  "name": "chip",
+  "type": "registry:jte",
+  "description": "A small rounded tag, optionally removable: the Filament active-filter pill / shadcn Badge-with-dismiss. Same variant token vocabulary as badge but rounded-full and with an optional server-first remove affordance (a non-blank removeHref renders the trailing x as a real <a> link, so removal is a plain GET; no JS). Pass content for rich children (wins over label) and removeLabel for the remove link's aria-label. Server-first PARTIAL (ADR-0012): no client state, no island, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/chip.jte",
+      "type": "registry:jte",
+      "target": "lievit/chip.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the chip partial to your JTE root at lievit/chip.jte, reached as @template.lievit.chip(label=\"...\"). A generic removable tag: variant drives the fill + foreground tokens (same family as badge: default/secondary/destructive/outline/neutral/success/warning/danger/info); pass label for plain text or a content slot for rich children (content wins); pass removeHref to render a trailing x as a real <a> link (server-first removal, no JS) plus removeLabel for its aria-label. Domain meaning (which filter/entity) lives in your call, not the component. The source is yours: edit freely."
+}
