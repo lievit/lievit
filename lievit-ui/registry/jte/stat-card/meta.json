@@ -1,0 +1,17 @@
+{
+  "name": "stat-card",
+  "type": "registry:jte",
+  "description": "A KPI (key-metric) card: a heading, a big primary value, an optional description line carrying a trend icon (before/after the text), an optional leading icon, a semantic colour tint, and an optional whole-card link (the entire tile becomes one <a>). The dashboard stat tile the kit's io.lievit.kit.StatWidget resolves to (heading / value / description / icon / color / descriptionIcon + IconPosition / url + newTab). The inline sparkline rides an optional chart slot (a chart island), not the static card. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/stat-card.jte",
+      "type": "registry:jte",
+      "target": "lievit/stat-card.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow"],
+  "docs": "Copies the stat-card partial to your JTE root at lievit/stat-card.jte, reached as @template.lievit.statCard(heading=\"Annunci attivi\", value=\"142\"). Add a description + descriptionIcon for a trend line (iconPosition before|after), a leading icon, a color tint, and a url to make the whole tile a link (newTab to open in a new tab). Pass a chart island through the chart slot for the StatWidget sparkline. The source is yours: edit freely."
+}
