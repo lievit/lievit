@@ -14,7 +14,7 @@
  * It is deliberately STATELESS server-side: when a user narrows their own sidebar there is nothing
  * for the server to decide, so this is pure client cosmetic and never round-trips the wire (the same
  * reasoning the input-otp enhancer uses). The desktop collapsed/expanded choice persists to
- * localStorage under the root's `data-lv-sidebar-storage-key`; mobile open/close is transient.
+ * localStorage under the root's `data-storage-key`; mobile open/close is transient.
  *
  * Behaviour (shadcn Sidebar model):
  *   - desktop trigger: toggles data-state="expanded" | "collapsed" on the root, mirrors
@@ -32,7 +32,7 @@
  * already-enhanced roots are skipped. {@link enhanceAllSidebars} wires every root on the page.
  */
 
-const ENHANCED = "data-lv-sidebar-enhanced";
+const ENHANCED = "data-sidebar-enhanced";
 const STYLE_ID = "lv-sidebar-styles";
 const MOBILE_MAX = 768;
 
@@ -40,13 +40,13 @@ const MOBILE_MAX = 768;
 const STYLES = `
 .lv-sidebar-root { height: 100%; }
 .lv-sidebar { width: 16rem; transition: width 0.2s ease; }
-.lv-sidebar-root[data-lv-sidebar-side="left"] .lv-sidebar { border-right: 1px solid var(--lv-color-sidebar-border); }
-.lv-sidebar-root[data-lv-sidebar-side="right"] .lv-sidebar { border-left: 1px solid var(--lv-color-sidebar-border); }
+.lv-sidebar-root[data-side="left"] .lv-sidebar { border-right: 1px solid var(--lv-color-sidebar-border); }
+.lv-sidebar-root[data-side="right"] .lv-sidebar { border-left: 1px solid var(--lv-color-sidebar-border); }
 .lv-sidebar-item:hover { background: var(--lv-color-sidebar-accent); color: var(--lv-color-sidebar-accent-fg); }
 .lv-sidebar-item:focus-visible { outline: none; box-shadow: var(--lv-ring); }
 .lv-sidebar-trigger:focus-visible { outline: none; box-shadow: var(--lv-ring); }
 .lv-sidebar-trigger:hover { background: var(--lv-color-sidebar-accent); }
-details[data-lv-sidebar-disclosure][open] > summary .lv-sidebar-chevron { transform: rotate(90deg); }
+details[data-sidebar="disclosure"][open] > summary .lv-sidebar-chevron { transform: rotate(90deg); }
 /* desktop collapsed: icon rail -- hide labels / badges / group headings / chevrons, centre icons */
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar { width: 3.25rem; }
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-collapsible { display: none; }
@@ -59,8 +59,8 @@ details[data-lv-sidebar-disclosure][open] > summary .lv-sidebar-chevron { transf
     width: min(85vw, 18rem); transform: translateX(-100%); transition: transform 0.2s ease;
     box-shadow: var(--lv-shadow-lg);
   }
-  .lv-sidebar-root[data-lv-sidebar-side="right"] .lv-sidebar { left: auto; right: 0; transform: translateX(100%); }
-  .lv-sidebar-root[data-lv-sidebar-side="left"] .lv-sidebar { left: 0; }
+  .lv-sidebar-root[data-side="right"] .lv-sidebar { left: auto; right: 0; transform: translateX(100%); }
+  .lv-sidebar-root[data-side="left"] .lv-sidebar { left: 0; }
   .lv-sidebar-root[data-mobile-open] .lv-sidebar { transform: translateX(0); }
   .lv-sidebar-root[data-mobile-open] .lv-sidebar-backdrop { display: block !important; }
   /* on mobile the rail is always the full panel; ignore the desktop collapsed state */
@@ -80,12 +80,12 @@ function ensureStyles(): void {
 
 /** The desktop collapse trigger of a root. */
 function triggerOf(root: HTMLElement): HTMLButtonElement | null {
-  return root.querySelector<HTMLButtonElement>("[data-lv-sidebar-trigger]");
+  return root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]');
 }
 
 /** The mobile dismissal backdrop of a root. */
 function backdropOf(root: HTMLElement): HTMLElement | null {
-  return root.querySelector<HTMLElement>("[data-lv-sidebar-backdrop]");
+  return root.querySelector<HTMLElement>('[data-sidebar="backdrop"]');
 }
 
 /** True at or below the mobile breakpoint. */
@@ -95,7 +95,7 @@ function isMobile(): boolean {
 
 /** Read the persisted desktop collapse choice for a root, if any. */
 function persisted(root: HTMLElement): "expanded" | "collapsed" | null {
-  const key = root.getAttribute("data-lv-sidebar-storage-key");
+  const key = root.getAttribute("data-storage-key");
   if (!key) return null;
   try {
     const v = globalThis.localStorage?.getItem(key);
@@ -107,7 +107,7 @@ function persisted(root: HTMLElement): "expanded" | "collapsed" | null {
 
 /** Persist the desktop collapse choice for a root. */
 function persist(root: HTMLElement, state: "expanded" | "collapsed"): void {
-  const key = root.getAttribute("data-lv-sidebar-storage-key");
+  const key = root.getAttribute("data-storage-key");
   if (!key) return;
   try {
     globalThis.localStorage?.setItem(key, state);
@@ -127,7 +127,7 @@ function openMobile(root: HTMLElement): void {
   root.setAttribute("data-mobile-open", "");
   (root as HTMLElement & { _lvReturnFocus?: Element | null })._lvReturnFocus =
     document.activeElement;
-  root.querySelector<HTMLElement>("[data-lv-sidebar-link]")?.focus();
+  root.querySelector<HTMLElement>('[data-slot="sidebar-menu-button"]')?.focus();
 }
 
 /** Close the mobile off-canvas overlay; return focus to the opener. */
@@ -171,10 +171,10 @@ export function enhanceSidebar(root: HTMLElement): void {
   });
 }
 
-/** Enhance every `[data-lv-sidebar]` root on the page (call on load + after DOM swaps). */
+/** Enhance every `[data-sidebar="root"]` root on the page (call on load + after DOM swaps). */
 export function enhanceAllSidebars(scope: ParentNode = document): void {
   ensureStyles();
   scope
-    .querySelectorAll<HTMLElement>("[data-lv-sidebar]")
+    .querySelectorAll<HTMLElement>('[data-sidebar="root"]')
     .forEach((root) => enhanceSidebar(root));
 }

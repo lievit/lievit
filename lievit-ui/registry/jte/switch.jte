@@ -55,19 +55,22 @@
   class="inline-flex items-center gap-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50 ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
-  <input
-    data-slot="switch-control"
-    type="checkbox"
-    role="switch"
-    id="${switchId}"
-    name="${name}"
-    value="${value}"
-    checked="${checked}"
-    disabled="${disabled}"
-    aria-label="${ariaLabel}"
-    l:model="${model}"
-    class="relative inline-flex h-[1.15rem] w-[2rem] shrink-0 cursor-pointer appearance-none items-center rounded-full border-2 border-transparent bg-[var(--lv-color-input)] outline-none transition-colors before:pointer-events-none before:block before:size-[0.85rem] before:translate-x-0 before:rounded-full before:bg-[var(--lv-color-bg)] before:shadow-[var(--lv-shadow-sm)] before:transition-transform checked:bg-[var(--lv-color-primary)] checked:before:translate-x-[0.85rem] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed"
-  >
+  <span class="relative inline-flex h-[1.15rem] w-[2rem] shrink-0 items-center">
+    <input
+      data-slot="switch-control"
+      type="checkbox"
+      role="switch"
+      id="${switchId}"
+      name="${name}"
+      value="${value}"
+      checked="${checked}"
+      disabled="${disabled}"
+      aria-label="${ariaLabel}"
+      l:model="${model}"
+      class="peer size-full cursor-pointer appearance-none rounded-full border-2 border-transparent bg-[var(--lv-color-input)] shadow-[var(--lv-shadow-xs)] outline-none transition-colors checked:bg-[var(--lv-color-primary)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed"
+    >
+    <span data-slot="switch-thumb" aria-hidden="true" class="pointer-events-none absolute left-[0.15rem] block size-[0.85rem] translate-x-0 rounded-full bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-sm)] transition-transform peer-checked:translate-x-[0.85rem]"></span>
+  </span>
   @if(hasLabel)
     <span data-slot="switch-label">${label}</span>
   @endif

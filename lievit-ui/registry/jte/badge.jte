@@ -71,6 +71,9 @@
 !{var fg = switch (variant) {
     case "default"     -> "var(--lv-color-primary-fg)";
     case "secondary"   -> "var(--lv-color-secondary-fg)";
+    // shadcn's Badge destructive is text-white. The destructive-fg token resolves to white,
+    // so it gives the same white-on-red pill while staying token-driven (no hardcoded hex --
+    // the kit's law + the no-hex test gate). Same visual as shadcn, retheme-safe.
     case "destructive" -> "var(--lv-color-destructive-fg)";
     case "outline"     -> "var(--lv-color-fg)";
     case "success"     -> "var(--lv-color-success-fg)";
@@ -81,7 +84,7 @@
   };}
 !{var border = "outline".equals(variant) ? "var(--lv-color-border)" : "transparent";}
 !{var isLink = href != null && !href.isBlank();}
-!{var pillClass = "lv-badge lv-badge--" + variant + " inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-sm)] border px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] " + cssClass;}
+!{var pillClass = "lv-badge lv-badge--" + variant + " inline-flex items-center gap-[var(--lv-space-1)] rounded-full border px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] " + cssClass;}
 !{var pillStyle = "font-family:var(--lv-font-sans);background:" + bg + ";color:" + fg + ";border-color:" + border + ";";}
 
 @if(isLink)

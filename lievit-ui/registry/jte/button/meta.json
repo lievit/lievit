@@ -1,7 +1,7 @@
 {
   "name": "button",
   "type": "registry:jte",
-  "description": "A token-styled button (or link styled as a button) with Filament-grade height-based sizing (sm/md/lg) that aligns to the form controls in a toolbar, an iconOnly square mode for icon actions, and primary/secondary/danger/ghost/outline variants. The click is wired by the consuming wire template via l:click; the partial renders only the styled control. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A token-styled button (or link styled as a button) with Filament-grade height-based sizing (sm/md/lg, shadcn h-9 baseline) that aligns to the form controls in a toolbar, an iconOnly square mode for icon actions, and primary/secondary/destructive/ghost/outline variants with shadcn hover + aria-invalid ring states. The click is wired by the consuming wire template via l:click; the partial renders only the styled control. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -12,6 +12,6 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the button partial to your JTE root at lievit/button.jte, reached as @template.lievit.button(variant=..., size=..., content=@`...`). size is height-based (sm=h-8, md=h-10 matching input/native-select default, lg=h-12) so a button sits flush next to a form control in a toolbar; set iconOnly=true (with ariaLabel) for a square icon-only action button. Wire the action with l:click on the rendered element from the consuming wire template, or pass href to render a real link. Extra attributes go through two channels by trust: attrs is a TRUSTED raw string ($unsafe, static author-typed strings ONLY -- wire directives, target/rel) and dataAttrs is a SAFE Map<String,String> of dynamic data-* attributes whose values are HTML-escaped (the only safe way to carry user/DB-derived data; keys are the data-attribute name without the data- prefix, simple identifiers). The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "ring", "shadow"],
+  "docs": "Copies the button partial to your JTE root at lievit/button.jte, reached as @template.lievit.button(variant=..., size=..., content=@`...`). size is height-based (sm=h-8/32px, md=h-9/36px the shadcn baseline, lg=h-10/40px) so a button sits flush next to a form control in a toolbar; set iconOnly=true (with ariaLabel) for a square icon-only action button. Wire the action with l:click on the rendered element from the consuming wire template, or pass href to render a real link. Extra attributes go through two channels by trust: attrs is a TRUSTED raw string ($unsafe, static author-typed strings ONLY -- wire directives, target/rel) and dataAttrs is a SAFE Map<String,String> of dynamic data-* attributes whose values are HTML-escaped (the only safe way to carry user/DB-derived data; keys are the data-attribute name without the data- prefix, simple identifiers). The source is yours: edit freely."
 }

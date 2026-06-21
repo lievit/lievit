@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring", "icon"],
-  "docs": "Copies the native-select partial to your JTE root at lievit/native-select.jte, reached as @template.lievit.native-select(name=...). Pass `options` (value==label) or a `content` slot of <option>/<optgroup> markup (value!=label); the native <select> POSTs under `name` JS-off; bind to a wire field with `model`. `size` (sm=h-8, md=h-10 default, lg=h-12; \"default\" is a back-compat alias of \"md\") is height-based so the select lines up flush with a button / input of the matching size in a toolbar. Requires the icon partial for the chevron. The source is yours: edit freely."
+  "docs": "Copies the native-select partial to your JTE root at lievit/native-select.jte, reached as @template.lievit.native-select(name=...). Pass `options` (value==label) or a `content` slot of <option>/<optgroup> markup (value!=label); the native <select> POSTs under `name` JS-off; bind to a wire field with `model`. `size` (sm=h-8, md=h-9 default, lg=h-10; \"default\" is a back-compat alias of \"md\") is height-based so the select lines up flush with a button / input of the matching size in a toolbar. Requires the icon partial for the chevron. The source is yours: edit freely."
 }

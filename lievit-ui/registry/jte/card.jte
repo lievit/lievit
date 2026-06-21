@@ -17,6 +17,12 @@
   title / description / action is supplied; the footer when `footer` is supplied. The elevation
   reads --lv-shadow-sm; border + radius read tokens too, so a theme retints the whole surface.
 
+  TOKEN FIDELITY (shadcn): the surface reads --lv-color-card / --lv-color-card-fg (NOT the page
+  bg/fg) so a card tints distinctly from the page; radius is --lv-radius-xl (shadcn rounded-xl).
+  shadcn's card is BORDERLESS between sections: one flex column with a uniform gap + vertical
+  padding (the level-6 spacing token) and the same horizontal padding per region, no ruled
+  header/footer.
+
   Back-compat: the original `heading` String still renders a plain text title; when both
   `heading` and a rich `title` slot are given, the slot wins (content-over-scalar precedence,
   the same rule badge.jte / kbd.jte use).
@@ -62,11 +68,11 @@
   data-slot="card"
   role="${hasTitle ? "region" : null}"
   aria-labelledby="${hasTitle ? headingId : null}"
-  class="block overflow-hidden rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-sm)] ${cssClass}"
+  class="flex flex-col gap-[var(--lv-space-6)] overflow-hidden rounded-[var(--lv-radius-xl)] border border-[var(--lv-color-border)] bg-[var(--lv-color-card)] py-[var(--lv-space-6)] text-[var(--lv-color-card-fg)] shadow-[var(--lv-shadow-sm)] ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
   @if(hasHeader)
-    <div data-slot="card-header" class="grid items-start gap-[var(--lv-space-1)] border-b border-[var(--lv-color-border)] p-[var(--lv-space-4)]" style="grid-template-columns: 1fr auto;">
+    <div data-slot="card-header" class="grid items-start gap-[var(--lv-space-1)] px-[var(--lv-space-6)]" style="grid-template-columns: 1fr auto;">
       <div class="grid gap-[var(--lv-space-1)]" style="grid-column: 1;">
         @if(hasTitle)
           <div data-slot="card-title" id="${headingId}" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)] leading-none">@if(title != null)${title}@else${heading}@endif</div>
@@ -80,10 +86,10 @@
       @endif
     </div>
   @endif
-  <div data-slot="card-content" class="p-[var(--lv-space-4)] text-[length:var(--lv-text-base)]">
+  <div data-slot="card-content" class="px-[var(--lv-space-6)] text-[length:var(--lv-text-base)]">
     ${content}
   </div>
   @if(footer != null)
-    <div data-slot="card-footer" class="flex items-center border-t border-[var(--lv-color-border)] p-[var(--lv-space-4)] text-[length:var(--lv-text-sm)]">${footer}</div>
+    <div data-slot="card-footer" class="flex items-center px-[var(--lv-space-6)] text-[length:var(--lv-text-sm)]">${footer}</div>
   @endif
 </div>

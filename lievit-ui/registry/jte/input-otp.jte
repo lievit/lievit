@@ -67,21 +67,27 @@
 !{var slotType = mask ? "password" : "text";}
 !{var grouped = groupSize > 0;}
 !{var hasComplete = onComplete != null && !onComplete.isBlank();}
-<div data-lievit-otp data-otp-type="${type}" data-otp-length="${length}" data-otp-complete="${hasComplete ? onComplete : null}" style="display: inline-flex; align-items: center; gap: var(--lv-space-2); font-family: var(--lv-font-sans);">
+<div data-slot="input-otp" data-lievit-otp data-otp-type="${type}" data-otp-length="${length}" data-otp-complete="${hasComplete ? onComplete : null}" style="display: inline-flex; align-items: center; gap: var(--lv-space-2); font-family: var(--lv-font-sans);">
     <div
         role="group"
         aria-label="${label}"
         aria-invalid="${invalid ? "true" : "false"}"
+        data-slot="input-otp-group"
         data-otp-group
-        style="display: inline-flex; align-items: center; gap: var(--lv-space-2);"
+        style="display: inline-flex; align-items: center; gap: 0;"
     >
         @for(int i = 0; i < length; i++)
             @if(grouped && i > 0 && i % groupSize == 0)
-                <span data-otp-separator aria-hidden="true" style="display: inline-flex; align-items: center; color: var(--lv-color-muted-fg);">
+                <span data-slot="input-otp-separator" data-otp-separator aria-hidden="true" style="display: inline-flex; align-items: center; color: var(--lv-color-muted-fg); margin: 0 var(--lv-space-1);">
                     @template.lievit.icon(name = "minus", size = "1rem")
                 </span>
             @endif
             !{var ch = i < value.length() ? String.valueOf(value.charAt(i)) : "";}
+            !{var runStart = i == 0 || (grouped && i % groupSize == 0);}
+            !{var runEnd = i == length - 1 || (grouped && (i + 1) % groupSize == 0);}
+            !{var borderColor = invalid ? "var(--lv-color-danger)" : "var(--lv-color-border)";}
+            !{var leftBorder = runStart ? ("1px solid " + borderColor) : "none";}
+            !{var radius = runStart && runEnd ? "var(--lv-radius-sm)" : (runStart ? "var(--lv-radius-sm) 0 0 var(--lv-radius-sm)" : (runEnd ? "0 var(--lv-radius-sm) var(--lv-radius-sm) 0" : "0"));}
             <input
                 type="${slotType}"
                 inputmode="${inputMode}"
@@ -92,8 +98,9 @@
                 aria-invalid="${invalid ? "true" : "false"}"
                 disabled="${disabled}"
                 value="${ch}"
+                data-slot="input-otp-slot"
                 data-otp-slot="${i}"
-                style="width: 2.5rem; height: 2.75rem; text-align: center; font-family: var(--lv-font-mono, var(--lv-font-sans)); font-size: var(--lv-text-lg, var(--lv-text-base)); color: var(--lv-color-fg); background: var(--lv-color-bg); border: 1px solid ${invalid ? "var(--lv-color-danger)" : "var(--lv-color-border)"}; border-radius: var(--lv-radius-sm); box-sizing: border-box; caret-color: var(--lv-color-primary);"
+                style="width: var(--lv-space-9); height: var(--lv-space-9); text-align: center; font-family: var(--lv-font-mono, var(--lv-font-sans)); font-size: var(--lv-text-base); color: var(--lv-color-fg); background: var(--lv-color-bg); border-top: 1px solid ${borderColor}; border-bottom: 1px solid ${borderColor}; border-right: 1px solid ${borderColor}; border-left: ${leftBorder}; border-radius: ${radius}; box-sizing: border-box; caret-color: var(--lv-color-primary); outline: none;${invalid ? " box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-destructive) 20%, transparent);" : ""}"
             />
         @endfor
     </div>

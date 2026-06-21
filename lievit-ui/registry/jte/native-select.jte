@@ -33,10 +33,10 @@
   HEIGHT-based so the select sits flush next to a button / input of the matching size in a toolbar
   row. Each size pins the SAME --lv-space height token the other form controls use:
     sm -> h-[var(--lv-space-8)]  (2rem)   ; compact toolbar
-    md -> h-[var(--lv-space-10)] (2.5rem) ; THE default, the row baseline (== button md, input md)
-    lg -> h-[var(--lv-space-12)] (3rem)   ; tall
+    md -> h-[var(--lv-space-9)]  (2.25rem); THE default, the row baseline (== button md, input md; the shadcn baseline)
+    lg -> h-[var(--lv-space-10)] (2.5rem) ; tall
   The chevron + padding track the height so every size reads as the same control. "default" is kept
-  as a back-compat alias of "md" (both render the h-[var(--lv-space-10)] baseline height).
+  as a back-compat alias of "md" (both render the h-[var(--lv-space-9)] baseline height).
 
   Accessibility: a real <select> with its own id/name, so a <label for> binds directly. The
   optional `label` renders a real <label for> above the control; when no visible label is
@@ -57,7 +57,7 @@
     String size        = "md"    "sm" | "md" | "lg" control height ("default" = back-compat alias of "md").
     boolean disabled   = false   disables the control + dims the wrapper.
     boolean required   = false   marks the control required.
-    boolean invalid    = false   danger border + aria-invalid="true".
+    boolean invalid    = false   destructive border + ring + aria-invalid="true".
     String model       = null    l:model expression to bind the <select> to a wire field.
     String cssClass    = ""      extra utility classes on the wrapper.
 
@@ -104,14 +104,14 @@
   <label for="${selectId}" data-slot="native-select-label" class="mb-[var(--lv-space-2)] block text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]" style="font-family:var(--lv-font-sans);">${label}</label>
 @endif
 <div
-  data-slot="native-select"
+  data-slot="native-select-wrapper"
   data-disabled="${disabled}"
   data-invalid="${invalid}"
   data-size="${size}"
-  class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-danger)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=md]:h-[var(--lv-space-10)] data-[size=default]:h-[var(--lv-space-10)] data-[size=lg]:h-[var(--lv-space-12)] ${cssClass}"
+  class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-[color,box-shadow] outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-destructive)] data-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=md]:h-[var(--lv-space-9)] data-[size=default]:h-[var(--lv-space-9)] data-[size=lg]:h-[var(--lv-space-10)] ${cssClass}"
 >
   <select
-    data-slot="native-select-control"
+    data-slot="native-select"
     id="${selectId}"
     name="${name}"
     disabled="${disabled}"
@@ -119,7 +119,7 @@
     aria-label="${ariaLabel}"
     aria-invalid="${invalid ? "true" : null}"
     l:model="${model}"
-    class="h-full w-full min-w-0 cursor-pointer appearance-none border-0 bg-transparent pl-[var(--lv-space-3)] pr-[var(--lv-space-8)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed"
+    class="h-full w-full min-w-0 cursor-pointer appearance-none border-0 bg-transparent pl-[var(--lv-space-3)] pr-[var(--lv-space-8)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed"
     style="font-family:var(--lv-font-sans);"
   >
     @if(placeholder != null && !placeholder.isBlank())
@@ -141,7 +141,7 @@
       @endfor
     @endif
   </select>
-  <span aria-hidden="true" data-slot="native-select-indicator" class="pointer-events-none absolute right-[var(--lv-space-3)] flex items-center text-[var(--lv-color-muted-fg)]">
+  <span aria-hidden="true" data-slot="native-select-icon" class="pointer-events-none absolute right-[var(--lv-space-3)] flex items-center text-[var(--lv-color-muted-fg)]">
     @template.lievit.icon(name = "chevron-down", size = "1rem")
   </span>
 </div>

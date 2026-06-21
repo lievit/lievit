@@ -103,7 +103,7 @@
             <span class="lv-breadcrumb__separator select-none px-[var(--lv-space-2)] text-[var(--lv-color-muted)]" aria-hidden="true">${separator}</span>
           @endif
           @if(isCurrent)
-            <span data-slot="breadcrumb-current" class="lv-breadcrumb__current font-[var(--lv-font-medium)] text-[var(--lv-color-muted)]" aria-current="page">${item.getOrDefault("label", "")}</span>
+            <span data-slot="breadcrumb-page" class="lv-breadcrumb__current font-[var(--lv-font-medium)] text-[var(--lv-color-muted)]" aria-current="page">${item.getOrDefault("label", "")}</span>
           @else
             <a data-slot="breadcrumb-link" class="lv-breadcrumb__link rounded-[var(--lv-radius-sm)] text-[var(--lv-color-primary)] no-underline hover:underline focus-visible:shadow-[var(--lv-ring)] focus-visible:outline-none" href="${href == null ? "#" : href}">${item.getOrDefault("label", "")}</a>
           @endif

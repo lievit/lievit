@@ -1,0 +1,17 @@
+{
+  "name": "pagination",
+  "type": "registry:jte",
+  "description": "Page navigation: previous / next plus a windowed list of numbered page links with ellipsis gaps. Real <a href> per page, so it works JS-off; the caller passes the page math (current + total) and the partial derives the visible window (MUI-style) with shadcn's markup/token styling. A labelled <nav> landmark, aria-current on the active page, aria-disabled boundary controls.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/pagination.jte",
+      "type": "registry:jte",
+      "target": "lievit/pagination.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring", "icon"],
+  "docs": "Copies the pagination partial to your JTE root at lievit/pagination.jte, reached as @template.lievit.pagination(current=..., total=..., hrefPattern=...). Pass the active page (`current`), the total page count (`total`), and a printf-style `hrefPattern` (one %d = the page number, e.g. \"/contatti?page=%d\"); the partial derives the visible window (first + last always, current +/- `siblings`, ellipsis for gaps) and emits a real <a href> per page so it navigates with zero JS. Controls render at the h-9 (md) baseline, flush with a button / input of the matching size. Opt extra attributes onto every navigable link via `linkAttrs` (raw markup, e.g. an htmx/Turbo router hook). Requires the icon partial for the chevron + ellipsis glyphs. The source is yours: edit freely."
+}

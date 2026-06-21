@@ -32,29 +32,31 @@ function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; act
   const side = opts.side ?? "left";
   const active = opts.active ?? "home";
   const root = document.createElement("div");
-  root.setAttribute("data-lv-sidebar", "");
-  root.setAttribute("data-lv-sidebar-side", side);
-  root.setAttribute("data-lv-sidebar-storage-key", "lv-sidebar-state");
+  root.setAttribute("data-slot", "sidebar-wrapper");
+  root.setAttribute("data-sidebar", "root");
+  root.setAttribute("data-side", side);
+  root.setAttribute("data-storage-key", "lv-sidebar-state");
   root.setAttribute("data-state", opts.collapsed ? "collapsed" : "expanded");
   root.className = "lv-sidebar-root";
 
   const backdrop = document.createElement("button");
-  backdrop.setAttribute("data-lv-sidebar-backdrop", "");
+  backdrop.setAttribute("data-sidebar", "backdrop");
   backdrop.setAttribute("aria-hidden", "true");
   backdrop.className = "lv-sidebar-backdrop";
   root.appendChild(backdrop);
 
   const nav = document.createElement("nav");
   nav.id = "lv-sidebar-nav";
-  nav.setAttribute("data-lv-sidebar-nav", "");
+  nav.setAttribute("data-slot", "sidebar");
   nav.setAttribute("aria-label", "Primary");
   nav.className = "lv-sidebar";
 
-  // header with the collapse trigger
+  // header bar (always present) with the collapse trigger -- the trigger is decoupled from any
+  // optional header content, so it renders with or without a header (the decoupling fix).
   const header = document.createElement("div");
-  header.setAttribute("data-lv-sidebar-header", "");
+  header.setAttribute("data-slot", "sidebar-header");
   const trigger = document.createElement("button");
-  trigger.setAttribute("data-lv-sidebar-trigger", "");
+  trigger.setAttribute("data-slot", "sidebar-trigger");
   trigger.setAttribute("aria-controls", "lv-sidebar-nav");
   trigger.setAttribute("aria-expanded", opts.collapsed ? "false" : "true");
   trigger.setAttribute("aria-label", "Toggle sidebar");
@@ -63,27 +65,27 @@ function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; act
   nav.appendChild(header);
 
   const content = document.createElement("div");
-  content.setAttribute("data-lv-sidebar-content", "");
+  content.setAttribute("data-slot", "sidebar-content");
 
   // group
   const group = document.createElement("div");
-  group.setAttribute("data-lv-sidebar-group", "");
+  group.setAttribute("data-slot", "sidebar-group");
   const groupLabel = document.createElement("div");
   groupLabel.id = "lv-sidebar-group-platform";
-  groupLabel.setAttribute("data-lv-sidebar-group-label", "");
+  groupLabel.setAttribute("data-slot", "sidebar-group-label");
   groupLabel.className = "lv-sidebar-collapsible";
   groupLabel.textContent = "Platform";
   group.appendChild(groupLabel);
   const menu = document.createElement("ul");
-  menu.setAttribute("data-lv-sidebar-menu", "");
+  menu.setAttribute("data-slot", "sidebar-menu");
   menu.setAttribute("aria-labelledby", "lv-sidebar-group-platform");
 
   const leaf = (label: string, href: string, o: { badge?: string; active?: boolean; disabled?: boolean } = {}) => {
     const li = document.createElement("li");
-    li.setAttribute("data-lv-sidebar-item", "");
+    li.setAttribute("data-slot", "sidebar-menu-item");
     const a = document.createElement("a");
     a.href = href;
-    a.setAttribute("data-lv-sidebar-link", "");
+    a.setAttribute("data-slot", "sidebar-menu-button");
     a.className = "lv-sidebar-item";
     if (o.active) a.setAttribute("aria-current", "page");
     if (o.disabled) {
@@ -109,15 +111,15 @@ function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; act
 
   // parent (Settings) via <details>
   const parentLi = document.createElement("li");
-  parentLi.setAttribute("data-lv-sidebar-item", "");
+  parentLi.setAttribute("data-slot", "sidebar-menu-item");
   const details = document.createElement("details");
-  details.setAttribute("data-lv-sidebar-disclosure", "");
+  details.setAttribute("data-sidebar", "disclosure");
   const summary = document.createElement("summary");
-  summary.setAttribute("data-lv-sidebar-summary", "");
+  summary.setAttribute("data-slot", "sidebar-menu-button");
   summary.className = "lv-sidebar-item";
   summary.textContent = "Settings";
   const sub = document.createElement("ul");
-  sub.setAttribute("data-lv-sidebar-sub", "");
+  sub.setAttribute("data-slot", "sidebar-menu-sub");
   sub.className = "lv-sidebar-collapsible";
   sub.appendChild(leaf("General", "/settings/general"));
   sub.appendChild(leaf("Security", "/settings/security"));
@@ -159,7 +161,7 @@ describe("sidebar partial: rendered nav contract (real DOM)", () => {
 
   test("nav items are real <a href> (not buttons): the browser navigates", () => {
     const root = renderSidebar();
-    const links = root.querySelectorAll<HTMLAnchorElement>("a[data-lv-sidebar-link]");
+    const links = root.querySelectorAll<HTMLAnchorElement>('a[data-slot="sidebar-menu-button"]');
     expect(links.length).toBeGreaterThanOrEqual(4);
     const home = Array.from(links).find((a) => a.textContent?.includes("Home"))!;
     expect(home.tagName).toBe("A");
@@ -175,27 +177,27 @@ describe("sidebar partial: rendered nav contract (real DOM)", () => {
 
   test("groups render their heading + a <ul> menu of items", () => {
     const root = renderSidebar();
-    expect(root.querySelector("[data-lv-sidebar-group-label]")?.textContent?.trim()).toBe("Platform");
-    const menu = root.querySelector("ul[data-lv-sidebar-menu]");
+    expect(root.querySelector('[data-slot="sidebar-group-label"]')?.textContent?.trim()).toBe("Platform");
+    const menu = root.querySelector('ul[data-slot="sidebar-menu"]');
     expect(menu).not.toBeNull();
     expect(menu?.getAttribute("aria-labelledby")).toBe("lv-sidebar-group-platform");
-    expect(menu!.querySelectorAll(":scope > li[data-lv-sidebar-item]").length).toBe(4);
+    expect(menu!.querySelectorAll(':scope > li[data-slot="sidebar-menu-item"]').length).toBe(4);
   });
 
   test("a parent item discloses a sub-tree of real <a href> children via <details>", () => {
     const root = renderSidebar();
-    const details = root.querySelector("details[data-lv-sidebar-disclosure]");
+    const details = root.querySelector('details[data-sidebar="disclosure"]');
     expect(details).not.toBeNull();
-    const sub = details!.querySelector("ul[data-lv-sidebar-sub]");
+    const sub = details!.querySelector('ul[data-slot="sidebar-menu-sub"]');
     expect(sub).not.toBeNull();
-    const childLinks = sub!.querySelectorAll<HTMLAnchorElement>("a[data-lv-sidebar-link]");
+    const childLinks = sub!.querySelectorAll<HTMLAnchorElement>('a[data-slot="sidebar-menu-button"]');
     expect(childLinks.length).toBe(2);
     expect(childLinks[0].getAttribute("href")).toBe("/settings/general");
   });
 
   test("a badge renders for items that declare one", () => {
     const root = renderSidebar();
-    const users = Array.from(root.querySelectorAll<HTMLElement>("a[data-lv-sidebar-link]")).find((a) =>
+    const users = Array.from(root.querySelectorAll<HTMLElement>('a[data-slot="sidebar-menu-button"]')).find((a) =>
       a.textContent?.includes("Users")
     )!;
     expect(users.textContent).toContain("3");
@@ -203,7 +205,7 @@ describe("sidebar partial: rendered nav contract (real DOM)", () => {
 
   test("a disabled item is aria-disabled and out of the tab order", () => {
     const root = renderSidebar();
-    const logs = Array.from(root.querySelectorAll<HTMLElement>("a[data-lv-sidebar-link]")).find((a) =>
+    const logs = Array.from(root.querySelectorAll<HTMLElement>('a[data-slot="sidebar-menu-button"]')).find((a) =>
       a.textContent?.includes("Logs")
     )!;
     expect(logs.getAttribute("aria-disabled")).toBe("true");
@@ -215,7 +217,7 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
   test("the trigger toggles the desktop collapsed state + mirrors aria-expanded", () => {
     const root = renderSidebar();
     enhanceSidebar(root);
-    const trigger = root.querySelector<HTMLButtonElement>("[data-lv-sidebar-trigger]")!;
+    const trigger = root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!;
     expect(root.getAttribute("data-state")).toBe("expanded");
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
 
@@ -231,7 +233,7 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
   test("the collapsed choice persists to localStorage and rehydrates a fresh render", () => {
     const root = renderSidebar();
     enhanceSidebar(root);
-    root.querySelector<HTMLButtonElement>("[data-lv-sidebar-trigger]")!.click();
+    root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
     expect(globalThis.localStorage?.getItem("lv-sidebar-state")).toBe("collapsed");
 
     document.body.innerHTML = "";
@@ -251,7 +253,7 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
     renderSidebar();
     const second = renderSidebar({ side: "right" });
     enhanceAllSidebars();
-    second.querySelector<HTMLButtonElement>("[data-lv-sidebar-trigger]")!.click();
+    second.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
     expect(second.getAttribute("data-state")).toBe("collapsed");
   });
 });

@@ -12,7 +12,9 @@
   themed by the --lv-* tokens cross-browser (its pseudo-elements vary by engine), and an
   indeterminate native bar gives no styling hook for the reduced-motion guard; a div+role
   progressbar (shadcn's Radix Progress approach) themes cleanly and keeps the indeterminate
-  animation in CSS (motion-reduce:animate-none). The track + fill read --lv-color tokens.
+  animation in CSS (motion-reduce:animate-none). The track + fill read --lv-color tokens: the
+  track is the primary tinted at 20% (shadcn bg-primary/20) and both are fully rounded (shadcn
+  rounded-full); the fill carries data-slot="progress-indicator" (shadcn's slot name).
 
   A11y (WAI-ARIA progressbar): role="progressbar" + aria-valuemin/max + aria-label; for a
   determinate bar aria-valuenow carries the percent, for indeterminate (value < 0) it is
@@ -41,11 +43,11 @@
   aria-valuemin="0"
   aria-valuemax="100"
   aria-valuenow="${indeterminate ? null : String.valueOf(pct)}"
-  class="block h-[0.5rem] w-full overflow-hidden rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-surface)] ${cssClass}"
+  class="block h-[0.5rem] w-full overflow-hidden rounded-[var(--lv-radius-full)] bg-[color-mix(in_srgb,var(--lv-color-primary)_20%,transparent)] ${cssClass}"
 >
   @if(indeterminate)
-    <div data-slot="progress-bar" class="h-full w-[40%] animate-[lv-progress-slide_1.2s_ease-in-out_infinite] rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-primary)] motion-reduce:animate-none"></div>
+    <div data-slot="progress-indicator" class="h-full w-[40%] animate-[lv-progress-slide_1.2s_ease-in-out_infinite] rounded-[var(--lv-radius-full)] bg-[var(--lv-color-primary)] motion-reduce:animate-none"></div>
   @else
-    <div data-slot="progress-bar" class="h-full rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-primary)] transition-[width]" style="width:${pct}%;"></div>
+    <div data-slot="progress-indicator" class="h-full rounded-[var(--lv-radius-full)] bg-[var(--lv-color-primary)] transition-[width]" style="width:${pct}%;"></div>
   @endif
 </div>

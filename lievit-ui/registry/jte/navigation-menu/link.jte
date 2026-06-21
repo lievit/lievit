@@ -41,7 +41,7 @@
     <li>
         <a
             href="${href}"
-            data-slot="navigation-menu-panel-link"
+            data-slot="navigation-menu-link"
             aria-current="${active ? "page" : null}"
             class="flex items-start ${cssClass}"
             style="gap: var(--lv-space-2); padding: var(--lv-space-2) var(--lv-space-3); border-radius: var(--lv-radius-sm); color: var(--lv-color-fg); text-decoration: none; background: ${active ? "var(--lv-color-surface)" : "transparent"};"

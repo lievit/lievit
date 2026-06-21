@@ -10,10 +10,10 @@
   client state: variant-to-colour is pure, and removal is a server action. So the whole chip is
   server-rendered, zero JS, CSP-clean.
 
-  CHIP vs BADGE (why a separate component): badge.jte is an inert STATUS pill (rounded-sm, no
-  affordance). A chip is an INTERACTIVE selection/filter tag: rounded-full, and its defining
-  feature is the optional REMOVE affordance. Same token vocabulary as badge so they retheme
-  together, different shape + an interaction.
+  CHIP vs BADGE (why a separate component): badge.jte is an inert STATUS pill (no affordance).
+  A chip is an INTERACTIVE selection/filter tag whose defining feature is the optional REMOVE
+  affordance. Both are rounded-full (shadcn's Badge is the full pill); same token vocabulary so
+  they retheme together, differing only by the chip's interaction.
 
   REMOVE = server-first (no JS): a non-blank `removeHref` renders the trailing x as a real
   <a href> the browser navigates (middle-click / open-in-new-tab work), so removing a chip is a

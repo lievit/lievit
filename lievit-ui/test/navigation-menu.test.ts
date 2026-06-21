@@ -87,13 +87,21 @@ describe("navigation-menu structure + ARIA (server-rendered source)", () => {
     expect(link).toContain("<a");
   });
 
-  test("a menu entry is a button[aria-expanded][aria-controls] over a region of real links", () => {
+  test("a menu entry is a button[aria-haspopup][aria-controls] over a region of real links", () => {
     const menu = markup(MENU);
     expect(menu).toContain("<button");
     expect(menu).toContain('aria-haspopup="true"');
-    expect(menu).toContain('aria-expanded="${open ? "true" : "false"}"');
     expect(menu).toContain('aria-controls="${panelId}"');
     expect(menu).toContain('role="region"');
+    // ARIA bug fix: a CSS-only :hover/:focus-within reveal has no JS to keep aria-expanded in sync,
+    // so a frozen SSR aria-expanded would LIE to AT (claim collapsed while the panel is open). It is
+    // dropped; aria-haspopup + aria-controls remain. The platform exposes the links via focus order.
+    expect(menu).not.toContain("aria-expanded");
+    // the content panel carries the shadcn data-slot contract (was navigation-menu-panel).
+    expect(menu).toContain('data-slot="navigation-menu-content"');
+    // the z-index uses the popover token, never a hardcoded value.
+    expect(menu).toContain("z-index: var(--lv-z-popover)");
+    expect(menu).not.toContain("9300");
     // the panel reveal is pure CSS group-hover / group-focus-within, no JS, no @floating-ui.
     expect(menu).toContain("group-hover:block");
     expect(menu).toContain("group-focus-within:block");

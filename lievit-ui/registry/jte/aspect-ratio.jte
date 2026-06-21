@@ -30,6 +30,6 @@
 @param String ratio = "16 / 9"
 @param String klass = ""
 @param gg.jte.Content content
-<div class="lv-aspect-ratio w-full ${klass}" style="aspect-ratio:${ratio};">
+<div data-slot="aspect-ratio" class="lv-aspect-ratio w-full ${klass}" style="aspect-ratio:${ratio};">
   ${content}
 </div>

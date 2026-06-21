@@ -31,7 +31,7 @@
     String hint        = null     built-in muted helper text below the textarea (auto aria-describedby).
     String ariaLabel   = null     aria-label when there is no visible <label for>.
     String describedBy = null     id of an external hint/error element (aria-describedby).
-    boolean invalid    = false    danger border + aria-invalid="true".
+    boolean invalid    = false    destructive border + ring + aria-invalid="true".
     boolean disabled   = false    disables + dims the control.
     boolean required   = false    marks the control required.
     boolean readonly   = false    marks the control read-only.
@@ -74,7 +74,7 @@
   required="${required}"
   readonly="${readonly}"
   l:model="${model}"
-  class="flex min-h-[calc(var(--lv-space-10)*1.6)] w-full min-w-0 resize-y rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)] ${cssClass}"
+  class="flex min-h-[calc(var(--lv-space-10)*1.6)] w-full min-w-0 resize-y rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-[color,box-shadow] outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-destructive)] aria-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)] ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >${value}</textarea>
 @if(hasHint)

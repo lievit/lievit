@@ -40,7 +40,7 @@
 <span data-slot="hover-card" class="group relative inline-block ${cssClass}">
   <span data-slot="hover-card-trigger" class="inline-block">${trigger}</span>
   <span
-    data-slot="hover-card-panel"
+    data-slot="hover-card-content"
     aria-hidden="true"
     class="invisible absolute top-full left-0 z-[var(--lv-z-popover)] mt-[var(--lv-space-1)] box-border block w-[16rem] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] p-[var(--lv-space-4)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-popover-fg)] opacity-0 shadow-[var(--lv-shadow-md)] transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
     style="font-family:var(--lv-font-sans);"

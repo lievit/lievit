@@ -54,7 +54,7 @@
   stroke-linecap="round"
   stroke-linejoin="round"
   class="lv-icon ${cssClass}"
-  role="${label == null ? "presentation" : "img"}"
+  role="${label == null ? null : "img"}"
   aria-hidden="${label == null ? "true" : null}"
   aria-label="${label}"
   focusable="false"

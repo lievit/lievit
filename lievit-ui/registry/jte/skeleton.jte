@@ -33,6 +33,7 @@
 @param String klass = ""
 @param String label = "Loading"
 <div
+  data-slot="skeleton"
   role="status"
   aria-busy="true"
   aria-live="polite"

@@ -1,7 +1,7 @@
 {
   "name": "alert",
   "type": "registry:jte",
-  "description": "An inline message banner; severity drives both colour and the ARIA live role (danger/warning are assertive role=alert, info/success are polite role=status). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "An inline message banner; severity drives both colour and the ARIA live role (destructive/warning are assertive role=alert, info/success are polite role=status). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [

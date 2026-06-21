@@ -25,7 +25,8 @@
     String description = null     supporting line; null => omitted.
     String icon        = "info"   Lucide icon name shown in the tile; "" => no icon tile.
     gg.jte.Content action = null  optional CTA slot (button/link).
-    String role        = "status" status (live) | region (static; pair with an aria-label via cssClass-less wrapper).
+    String role        = "status" status (live) | region (static; pair with an aria-label).
+    String cssClass    = ""       extra utility classes on the root.
     String cssClass    = ""       extra utility classes on the root.
 
   Usage:
@@ -43,6 +44,7 @@
 @param String icon = "info"
 @param gg.jte.Content action = null
 @param String role = "status"
+@param String cssClass = ""
 
 !{var hasIcon = icon != null && !icon.isBlank();}
 !{var hasDescription = description != null && !description.isBlank();}
@@ -51,7 +53,7 @@
   data-slot="empty"
   role="${role}"
   aria-live="${role.equals("status") ? "polite" : null}"
-  class="flex min-w-0 flex-1 flex-col items-center justify-center gap-[var(--lv-space-6)] rounded-[var(--lv-radius-lg)] border border-dashed border-[var(--lv-color-border)] p-[var(--lv-space-8)] text-center"
+  class="flex min-w-0 flex-1 flex-col items-center justify-center gap-[var(--lv-space-6)] rounded-[var(--lv-radius-lg)] border border-dashed border-[var(--lv-color-border)] p-[var(--lv-space-8)] text-center ${cssClass}"
 >
   <div data-slot="empty-header" class="flex max-w-sm flex-col items-center gap-[var(--lv-space-2)]">
     @if(hasIcon)

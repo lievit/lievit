@@ -84,7 +84,7 @@
   <div
     id="${id}"
     popover="auto"
-    data-slot="dropdown-menu-panel"
+    data-slot="dropdown-menu-content"
     role="menu"
     class="m-0 box-border min-w-[10rem] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-md)]"
     style="position-anchor:${anchorName}; position-area:${area}; position-try-fallbacks:flip-block; margin-block:var(--lv-space-1); z-index:var(--lv-z-popover); font-family:var(--lv-font-sans);"

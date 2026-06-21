@@ -20,9 +20,9 @@
   a rotate hack, so the keyboard arrows map to the visual axis.
 
   A11y (WAI-ARIA APG slider): each thumb is a real <input type=range> with its own id/name; min/
-  max/step and the value semantics come from the platform. `ariaLabel` (single) or
-  `ariaLabelMin`/`ariaLabelMax` (range) name the thumbs when there is no visible <label for>. The
-  optional value readout is `aria-live="polite"`.
+  max/step and the value semantics come from the platform. `ariaLabel` (single, or the lower thumb
+  in range) or `ariaLabelMax` (the upper thumb in range) name the thumbs when there is no visible
+  <label for>. The optional value readout is `aria-live="polite"`.
 
   Params:
     String name                 the slider's name (single: POSTs value; range: POSTs <name>Min/<name>Max).
@@ -68,14 +68,14 @@
 !{var isVertical = "vertical".equals(orientation);}
 !{var lo = (valueMin != null) ? valueMin.intValue() : min;}
 !{var hi = (valueMax != null) ? valueMax.intValue() : max;}
-!{var thumbBase = "appearance-none cursor-pointer rounded-[var(--lv-radius-sm)] bg-transparent outline-none transition-shadow focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-slider-thumb]:size-[1.125rem] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[var(--lv-color-bg)] [&::-webkit-slider-thumb]:bg-[var(--lv-color-primary)] [&::-webkit-slider-thumb]:shadow-[var(--lv-shadow-sm)] [&::-moz-range-thumb]:size-[1.125rem] [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[var(--lv-color-bg)] [&::-moz-range-thumb]:bg-[var(--lv-color-primary)] [&::-moz-range-thumb]:shadow-[var(--lv-shadow-sm)]";}
+!{var thumbBase = "appearance-none cursor-pointer rounded-[var(--lv-radius-sm)] bg-transparent outline-none transition-shadow focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-slider-thumb]:size-[1.125rem] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[var(--lv-color-primary)] [&::-webkit-slider-thumb]:bg-[var(--lv-color-bg)] [&::-webkit-slider-thumb]:shadow-[var(--lv-shadow-sm)] [&::-moz-range-thumb]:size-[1.125rem] [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[var(--lv-color-primary)] [&::-moz-range-thumb]:bg-[var(--lv-color-bg)] [&::-moz-range-thumb]:shadow-[var(--lv-shadow-sm)]";}
 !{var trackSize = isVertical ? "h-[10rem] w-[0.375rem] flex-col" : "h-[0.375rem] w-full flex-1";}
 !{var inputAxis = isVertical ? "h-full w-[0.375rem]" : "h-[0.375rem] w-full";}
 !{var verticalStyle = isVertical ? "writing-mode: vertical-lr; direction: rtl;" : "";}
 
 <div data-slot="slider" data-orientation="${orientation}" data-range="${range ? "true" : null}" class="flex items-center gap-[var(--lv-space-3)] data-[orientation=vertical]:flex-col ${cssClass}">
   @if(range)
-    <div data-slot="slider-track" class="relative flex items-center rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-input)] ${trackSize}">
+    <div data-slot="slider-track" class="relative flex items-center rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-muted)] ${trackSize}">
       <input
         data-slot="slider-control"
         data-thumb="min"
@@ -123,7 +123,7 @@
       disabled="${disabled}"
       aria-label="${ariaLabel}"
       l:model="${model}"
-      class="rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-input)] ${trackSize} ${thumbBase}"
+      class="rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-muted)] ${trackSize} ${thumbBase}"
       style="${verticalStyle}font-family:var(--lv-font-sans);"
     >
     @if(showValue)

@@ -95,9 +95,14 @@ describe("popover.jte: server-pure native popover + CSS anchor positioning", () 
     expect(markup).not.toMatch(/\son[a-z]+=/i);
   });
 
-  test("the panel is role=dialog aria-modal=false (a non-modal popover, Radix model)", () => {
-    expect(markup).toContain('role="dialog"');
-    expect(markup).toContain('aria-modal="false"');
+  test("the content carries NO role=dialog (shadcn parity + no accessible-name lie to AT)", () => {
+    // shadcn's PopoverContent is a plain styled panel with no role; a role="dialog" with no
+    // accessible name lies to assistive tech, so it is dropped. The native popover relationship
+    // (popovertarget + aria-details) is the announced affordance.
+    expect(markup).not.toContain('role="dialog"');
+    expect(markup).not.toContain('aria-modal');
+    // the content carries the shadcn data-slot contract.
+    expect(markup).toContain('data-slot="popover-content"');
   });
 });
 
