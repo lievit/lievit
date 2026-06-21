@@ -168,7 +168,8 @@ describe("icon.jte partial", () => {
 
   test("is decorative by default but labellable (a11y: aria-hidden vs role=img)", () => {
     expect(iconJte).toContain('@param String label = null');
-    expect(iconJte).toMatch(/role="\$\{label == null \? "presentation" : "img"\}"/);
+    // decorative branch: NO role (lucide uses aria-hidden alone); labelled branch: role=img.
+    expect(iconJte).toMatch(/role="\$\{label == null \? null : "img"\}"/);
     expect(iconJte).toMatch(/aria-hidden="\$\{label == null \? "true" : null\}"/);
     expect(iconJte).toContain('focusable="false"');
   });
