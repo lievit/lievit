@@ -13,7 +13,7 @@
 <th
   scope="${scope}"
   data-slot="table-head"
-  class="lv-table-head h-[var(--lv-space-9)] px-2 text-left align-middle font-medium whitespace-nowrap ${klass}"
+  class="lv-table-head h-[var(--lv-space-9)] px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 ${klass}"
   style="color:var(--lv-color-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg));"
 >
   ${content}

@@ -25,13 +25,13 @@
   <th
     scope="row"
     data-slot="data-table-cell"
-    class="lv-table-cell px-[var(--lv-space-2)] py-[var(--lv-space-3)] align-middle font-[var(--lv-font-medium)] ${alignClass} ${klass}"
+    class="lv-table-cell px-[var(--lv-space-2)] py-[var(--lv-space-3)] align-middle font-[var(--lv-font-medium)] [&:has([role=checkbox])]:pr-0 ${alignClass} ${klass}"
     style="border-bottom:1px solid var(--lv-color-border);"
   >${content}</th>
 @else
   <td
     data-slot="data-table-cell"
-    class="lv-table-cell px-[var(--lv-space-2)] py-[var(--lv-space-3)] align-middle ${alignClass} ${klass}"
+    class="lv-table-cell px-[var(--lv-space-2)] py-[var(--lv-space-3)] align-middle [&:has([role=checkbox])]:pr-0 ${alignClass} ${klass}"
     style="border-bottom:1px solid var(--lv-color-border);"
   >${content}</td>
 @endif

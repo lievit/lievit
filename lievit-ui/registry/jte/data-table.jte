@@ -123,7 +123,7 @@
               scope="col"
               data-slot="data-table-head"
               aria-sort="${ariaSort}"
-              class="lv-table-head h-[var(--lv-space-9)] px-[var(--lv-space-2)] text-left align-middle font-[var(--lv-font-medium)] whitespace-nowrap"
+              class="lv-table-head h-[var(--lv-space-9)] px-[var(--lv-space-2)] text-left align-middle font-[var(--lv-font-medium)] whitespace-nowrap [&:has([role=checkbox])]:pr-0"
               style="color:var(--lv-color-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg));"
             >
               @if(sortable)
