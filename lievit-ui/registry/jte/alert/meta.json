@@ -1,7 +1,7 @@
 {
   "name": "alert",
   "type": "registry:jte",
-  "description": "An inline message banner; severity drives both colour and the ARIA live role (destructive/warning are assertive role=alert, info/success are polite role=status), laid out as the shadcn icon + CSS GRID: an optional leading Lucide SVG in column 1, title + description + action in column 2 (col-start-2). Title / description / action are real data-slots (alert-title / alert-description / alert-action), each also a standalone sub-partial. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "An inline message banner / Filament callout; severity drives both colour and the ARIA live role (destructive/warning are assertive role=alert, info/success are polite role=status), laid out as the shadcn icon + CSS GRID: an optional leading Lucide SVG in column 1, title + description + action + footer in column 2 (col-start-2). Title / description / action are real data-slots (alert-title / alert-description / alert-action), each also a standalone sub-partial; an optional footer slot (data-slot=alert-footer) renders a Filament-callout footer / controls region below the description (links, buttons, secondary text), purely additive so existing call sites are untouched. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -31,5 +31,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the alert family to your JTE root (lievit/alert.jte + lievit/alert/{title,description,action}.jte), reached as @template.lievit.alert(variant=..., content=@`...`). Variant drives colour + live role; pass an optional `icon` (Lucide name, the leading grid column) and rich `title` / `description` / `action` slots (or the plain-text `heading` + `content` for back-compat). The source is yours: edit freely."
+  "docs": "Copies the alert family to your JTE root (lievit/alert.jte + lievit/alert/{title,description,action}.jte), reached as @template.lievit.alert(variant=..., content=@`...`). Variant drives colour + live role; pass an optional `icon` (Lucide name, the leading grid column) and rich `title` / `description` / `action` / `footer` slots (or the plain-text `heading` + `content` for back-compat). The `footer` slot is the Filament-callout footer / controls region below the description (a row of links/buttons or secondary text), purely additive. The source is yours: edit freely."
 }

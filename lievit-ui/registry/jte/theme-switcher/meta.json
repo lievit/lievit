@@ -1,0 +1,17 @@
+{
+  "name": "theme-switcher",
+  "type": "registry:jte",
+  "description": "A light / dark / system segmented control (Filament's components/theme-switcher), rendered as a WAI-ARIA radiogroup of three exclusive options joined like a button-group (collapsed inner rounding + shared borders), the active option painted with the accent surface. STRUCTURE + STYLE are server-rendered (zero inline JS, CSP-clean); the irreducibly-client piece (read prefers-color-scheme, persist to localStorage, toggle the documentElement theme class) is delegated to a later tiny enhancer that binds off the data-lievit-theme-switcher marker. The current theme is server-owned (data down) so the markup is correct JS-off and on first paint. Roving tabindex per the APG radiogroup contract. Server-first PARTIAL (ADR-0012): no island.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/theme-switcher.jte",
+      "type": "registry:jte",
+      "target": "lievit/theme-switcher.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the theme-switcher partial to your JTE root at lievit/theme-switcher.jte, reached as @template.lievit.theme-switcher(current=...). A radiogroup of three options (sun=light, moon=dark, monitor=system); render `current` from the user's stored preference so it is correct JS-off. Set labels=true for visible text beside each icon (else icon-only with aria-label). data-storage-key (default lievit-theme) names the localStorage key the later enhancer persists under; data-theme-value on each option carries its value. Nothing here writes storage or toggles the theme class -- that is the enhancer's job, off the data-lievit-theme-switcher hook (no inline script ships, the CSP refuses it). Requires the icon partial (uses the sun, moon, monitor icons). The source is yours: edit freely."
+}
