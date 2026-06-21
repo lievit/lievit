@@ -1,5 +1,8 @@
 @import gg.jte.Content
 <%--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
   lievit-ui :: pagination (static JTE partial)
 
   Page navigation: previous / next plus a windowed list of numbered page links with
@@ -89,14 +92,14 @@
 >
   <ul data-slot="pagination-content" class="flex flex-row items-center gap-[var(--lv-space-1)]" style="list-style:none;margin:0;padding:0;font-family:var(--lv-font-sans);">
     <%-- Previous --%>
-    <li>
+    <li data-slot="pagination-item">
       @if(hasPrev)
         <a
           href="${hrefPattern.formatted(page - 1)}"
           $unsafe{linkAttrs}
           aria-label="${prevLabel}"
           data-slot="pagination-previous"
-          class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
+          class="inline-flex h-[var(--lv-space-9)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
         >
           @template.lievit.icon(name = "chevron-left", size = "1rem")
           <span aria-hidden="true">Prev</span>
@@ -106,7 +109,7 @@
           aria-label="${prevLabel}"
           aria-disabled="true"
           data-slot="pagination-previous"
-          class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] opacity-50 select-none"
+          class="inline-flex h-[var(--lv-space-9)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] opacity-50 select-none"
         >
           @template.lievit.icon(name = "chevron-left", size = "1rem")
           <span aria-hidden="true">Prev</span>
@@ -116,12 +119,12 @@
 
     <%-- Numbered pages + ellipsis --%>
     @for(int p : pages)
-      <li>
+      <li data-slot="pagination-item">
         @if(p == -1)
           <span
             aria-hidden="true"
             data-slot="pagination-ellipsis"
-            class="flex h-[var(--lv-space-10)] w-[var(--lv-space-10)] items-center justify-center text-[var(--lv-color-muted-fg)]"
+            class="flex h-[var(--lv-space-9)] w-[var(--lv-space-9)] items-center justify-center text-[var(--lv-color-muted-fg)]"
           >
             @template.lievit.icon(name = "ellipsis", size = "1rem")
             <span class="sr-only">More pages</span>
@@ -133,7 +136,7 @@
             aria-current="page"
             data-slot="pagination-link"
             data-active="true"
-            class="inline-flex h-[var(--lv-space-10)] w-[var(--lv-space-10)] items-center justify-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-accent)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-accent-fg)] no-underline transition-colors focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
+            class="inline-flex h-[var(--lv-space-9)] w-[var(--lv-space-9)] items-center justify-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-accent)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-accent-fg)] no-underline transition-colors focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
           >${p}</a>
         @else
           <a
@@ -141,21 +144,21 @@
             $unsafe{linkAttrs}
             aria-label="Go to page ${p}"
             data-slot="pagination-link"
-            class="inline-flex h-[var(--lv-space-10)] w-[var(--lv-space-10)] items-center justify-center rounded-[var(--lv-radius-md)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
+            class="inline-flex h-[var(--lv-space-9)] w-[var(--lv-space-9)] items-center justify-center rounded-[var(--lv-radius-md)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
           >${p}</a>
         @endif
       </li>
     @endfor
 
     <%-- Next --%>
-    <li>
+    <li data-slot="pagination-item">
       @if(hasNext)
         <a
           href="${hrefPattern.formatted(page + 1)}"
           $unsafe{linkAttrs}
           aria-label="${nextLabel}"
           data-slot="pagination-next"
-          class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
+          class="inline-flex h-[var(--lv-space-9)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
         >
           <span aria-hidden="true">Next</span>
           @template.lievit.icon(name = "chevron-right", size = "1rem")
@@ -165,7 +168,7 @@
           aria-label="${nextLabel}"
           aria-disabled="true"
           data-slot="pagination-next"
-          class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] opacity-50 select-none"
+          class="inline-flex h-[var(--lv-space-9)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] opacity-50 select-none"
         >
           <span aria-hidden="true">Next</span>
           @template.lievit.icon(name = "chevron-right", size = "1rem")

@@ -35,8 +35,8 @@
   HEIGHT-based so the input sits flush next to a button / native-select of the matching size in a
   toolbar row. Each size pins the SAME --lv-space height token the other form controls use:
     sm -> h-[var(--lv-space-8)]  (2rem)   ; compact toolbar
-    md -> h-[var(--lv-space-10)] (2.5rem) ; THE default, the row baseline
-    lg -> h-[var(--lv-space-12)] (3rem)   ; tall
+    md -> h-[var(--lv-space-9)]  (2.25rem); THE default, the row baseline (shadcn h-9)
+    lg -> h-[var(--lv-space-10)] (2.5rem) ; tall
 
   Params:
     String name                   the input's name attribute (POSTs under this name).
@@ -51,7 +51,7 @@
     String ariaLabel   = null     aria-label when there is no visible <label for>.
     String describedBy = null     id of an external hint/error element (aria-describedby).
     String autocomplete = null    native autocomplete hint.
-    boolean invalid    = false    danger border + aria-invalid="true".
+    boolean invalid    = false    destructive border + ring + aria-invalid="true".
     boolean disabled   = false    disables + dims the control.
     boolean required   = false    marks the control required.
     boolean readonly   = false    marks the control read-only.
@@ -95,8 +95,8 @@
 <%-- height per size; md is the toolbar baseline and matches button md + native-select default --%>
 !{var sizeClass = switch (size) {
     case "sm" -> "h-[var(--lv-space-8)]";
-    case "lg" -> "h-[var(--lv-space-12)]";
-    default   -> "h-[var(--lv-space-10)]";
+    case "lg" -> "h-[var(--lv-space-10)]";
+    default   -> "h-[var(--lv-space-9)]";
   };}
 
 <input
@@ -117,7 +117,7 @@
   required="${required}"
   readonly="${readonly}"
   l:model="${model}"
-  class="flex ${sizeClass} w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-danger)]${fileClasses} ${cssClass}"
+  class="flex ${sizeClass} w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-xs)] transition-[color,box-shadow] outline-none placeholder:text-[var(--lv-color-muted-fg)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--lv-color-destructive)] aria-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)]${fileClasses} ${cssClass}"
   style="font-family:var(--lv-font-sans);"
   $unsafe{attrs}
 >

@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the input partial to your JTE root at lievit/input.jte, reached as @template.lievit.input(name=...). The native <input> POSTs under `name` with zero JS; bind to a wire field with `model`. `size` (sm=h-8, md=h-10 default, lg=h-12) is height-based so the input lines up flush with a button / native-select of the matching size in a toolbar. The source is yours: edit freely."
+  "docs": "Copies the input partial to your JTE root at lievit/input.jte, reached as @template.lievit.input(name=...). The native <input> POSTs under `name` with zero JS; bind to a wire field with `model`. `size` (sm=h-8, md=h-9 default, lg=h-10) is height-based so the input lines up flush with a button / native-select of the matching size in a toolbar. The source is yours: edit freely."
 }

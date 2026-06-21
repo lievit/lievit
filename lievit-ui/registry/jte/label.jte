@@ -24,7 +24,7 @@
     String forId               id of the control this label names (the native `for`).
     String text     = null     label text (when no content slot is given).
     gg.jte.Content content = null  rich label content (wins over text).
-    boolean required = false   renders a danger asterisk after the text.
+    boolean required = false   renders a destructive asterisk after the text.
     boolean error    = false   sets data-error + a destructive label colour (shadcn's invalid cue).
     String cssClass = ""       extra utility classes on the label.
 
@@ -43,11 +43,11 @@
   for="${forId}"
   data-slot="label"
   data-error="${error ? "true" : null}"
-  class="inline-flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] select-none data-[error=true]:text-[var(--lv-color-danger)] ${cssClass}"
+  class="inline-flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 data-[error=true]:text-[var(--lv-color-destructive)] ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
   @if(content != null)${content}@else${text}@endif
   @if(required)
-    <span aria-hidden="true" class="text-[var(--lv-color-danger)]">*</span>
+    <span aria-hidden="true" class="text-[var(--lv-color-destructive)]">*</span>
   @endif
 </label>
