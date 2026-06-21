@@ -30,16 +30,18 @@
   show/hide (native popover); the wire owns the server feed + filter state. See
   registry/wire/popover/ for the open-state-held-server-side form and its render-asserting IT.
 
-  STRUCTURE (scientific decision rule): WAI-ARIA dialog-popover (Radix Popover model) rendered
+  STRUCTURE (scientific decision rule): a non-modal floating panel (shadcn Popover model) rendered
   with the platform Popover API + CSS Anchor Positioning instead of floating-ui + a Lit reactive
   tree. The native popover gives the dismiss + top-layer + focus + ARIA the island re-implemented;
   CSS anchor positioning gives the flip/shift. The non-modal default (popover="auto") matches
-  Radix's non-modal popover: focus is NOT trapped, the page stays interactive behind it.
+  shadcn's non-modal popover: focus is NOT trapped, the page stays interactive behind it.
 
-  A11y (Popover API + Radix model): the trigger is a real <button popovertarget> -> the browser
-  sets aria-expanded + aria-details to the panel id while open; the panel is role="dialog"
-  aria-modal="false" (a non-modal popover); Escape + outside-click dismiss for free; focus is not
-  trapped. The panel is reachable from the trigger via the implicit popover relationship.
+  A11y (Popover API + shadcn model): the trigger is a real <button popovertarget> -> the browser
+  sets aria-expanded + aria-details to the content id while open; Escape + outside-click dismiss for
+  free; focus is not trapped; the content is reachable from the trigger via the implicit popover
+  relationship. The content carries NO role="dialog" (shadcn's PopoverContent is a plain styled
+  panel with no role): a role="dialog" with no accessible name lies to AT, so it is dropped -- the
+  native popover relationship is the announced affordance.
 
   Params:
     String         id = "lv-popover"   the panel id (the popovertarget link target). Unique per page.
@@ -70,7 +72,6 @@
     type="button"
     data-slot="popover-trigger"
     popovertarget="${id}"
-    aria-haspopup="dialog"
     disabled="${disabled}"
     class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
     style="anchor-name:${anchorName};"
@@ -79,9 +80,7 @@
   <div
     id="${id}"
     popover="auto"
-    data-slot="popover-panel"
-    role="dialog"
-    aria-modal="false"
+    data-slot="popover-content"
     class="m-0 box-border min-w-[12rem] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] p-[var(--lv-space-4)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-md)]"
     style="position-anchor:${anchorName}; position-area:${area}; position-try-fallbacks:flip-block; margin-block:var(--lv-space-1); z-index:var(--lv-z-popover); font-family:var(--lv-font-sans);"
   >${content}</div>

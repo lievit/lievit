@@ -56,10 +56,10 @@
 !{var isParent = content != null;}
 !{var rowStyle = "display: flex; align-items: center; gap: var(--lv-space-2); width: 100%; box-sizing: border-box; padding: var(--lv-space-2); border-radius: var(--lv-radius-md); color: inherit; text-decoration: none; font: inherit; text-align: left; cursor: pointer; background: " + (active ? "var(--lv-color-sidebar-accent)" : "transparent") + "; font-weight: " + (active ? "500" : "400") + ";";}
 @if(isParent)
-    <li data-lv-sidebar-item class="${cssClass}">
-        <details data-lv-sidebar-disclosure open="${open}">
+    <li data-slot="sidebar-menu-item" class="${cssClass}">
+        <details data-sidebar="disclosure" open="${open}">
             <summary
-                data-lv-sidebar-summary
+                data-slot="sidebar-menu-button"
                 aria-current="${active ? "page" : null}"
                 aria-disabled="${disabled ? "true" : null}"
                 class="lv-sidebar-item"
@@ -70,12 +70,12 @@
                 @endif
                 <span class="lv-sidebar-collapsible" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
                 @if(hasBadge)
-                    <span class="lv-sidebar-collapsible" style="flex-shrink: 0; font-size: var(--lv-text-xs); padding: 0 var(--lv-space-2); border-radius: var(--lv-radius-full); background: var(--lv-color-sidebar-border); color: var(--lv-color-sidebar-fg);">${badge}</span>
+                    <span data-slot="sidebar-menu-badge" class="lv-sidebar-collapsible" style="flex-shrink: 0; font-size: var(--lv-text-xs); padding: 0 var(--lv-space-2); border-radius: var(--lv-radius-full); background: var(--lv-color-sidebar-border); color: var(--lv-color-sidebar-fg);">${badge}</span>
                 @endif
                 <span aria-hidden="true" class="lv-sidebar-collapsible lv-sidebar-chevron" style="flex-shrink: 0; display: inline-flex; transition: transform 0.15s ease;">@template.lievit.icon(name = "chevron-right", size = "0.9rem")</span>
             </summary>
             <ul
-                data-lv-sidebar-sub
+                data-slot="sidebar-menu-sub"
                 class="lv-sidebar-collapsible"
                 style="list-style: none; margin: 2px 0; padding-left: var(--lv-space-4); border-left: 1px solid var(--lv-color-sidebar-border); display: flex; flex-direction: column; gap: 2px;"
             >
@@ -84,10 +84,10 @@
         </details>
     </li>
 @else
-    <li data-lv-sidebar-item class="${cssClass}">
+    <li data-slot="sidebar-menu-item" class="${cssClass}">
         <a
             href="${href}"
-            data-lv-sidebar-link
+            data-slot="sidebar-menu-button"
             aria-current="${active ? "page" : null}"
             aria-disabled="${disabled ? "true" : null}"
             tabindex="${disabled ? "-1" : null}"
@@ -99,7 +99,7 @@
             @endif
             <span class="lv-sidebar-collapsible" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
             @if(hasBadge)
-                <span class="lv-sidebar-collapsible" style="flex-shrink: 0; font-size: var(--lv-text-xs); padding: 0 var(--lv-space-2); border-radius: var(--lv-radius-full); background: var(--lv-color-sidebar-border); color: var(--lv-color-sidebar-fg);">${badge}</span>
+                <span data-slot="sidebar-menu-badge" class="lv-sidebar-collapsible" style="flex-shrink: 0; font-size: var(--lv-text-xs); padding: 0 var(--lv-space-2); border-radius: var(--lv-radius-full); background: var(--lv-color-sidebar-border); color: var(--lv-color-sidebar-fg);">${badge}</span>
             @endif
         </a>
     </li>

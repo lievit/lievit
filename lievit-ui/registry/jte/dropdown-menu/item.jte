@@ -25,6 +25,8 @@
     String  icon = ""            an optional leading Lucide icon name.
     String  shortcut = ""        an optional right-aligned keyboard hint (display only).
     String  type = "item"        "item" | "checkbox" | "radio": the menuitem role variant.
+    String  variant = "default"  "default" | "destructive": destructive tints the text/icon with
+                                 --lv-color-destructive + sets data-variant="destructive" (shadcn).
     boolean checked = false      checked state for a checkbox/radio item (aria-checked).
     boolean disabled = false     dims + disables the item (aria-disabled / button disabled).
     String  formId = ""          a <form> id this button submits (button items only).
@@ -40,6 +42,7 @@
 @param String icon = ""
 @param String shortcut = ""
 @param String type = "item"
+@param String variant = "default"
 @param boolean checked = false
 @param boolean disabled = false
 @param String formId = ""
@@ -47,12 +50,15 @@
 @param String cssClass = ""
 !{var role = "checkbox".equals(type) ? "menuitemcheckbox" : ("radio".equals(type) ? "menuitemradio" : "menuitem");}
 !{var checkable = "checkbox".equals(type) || "radio".equals(type);}
-!{var itemStyle = "gap: var(--lv-space-2); width: 100%; color: var(--lv-color-fg); background: transparent; border: 0; padding: var(--lv-space-2) var(--lv-space-3); text-align: left; text-decoration: none; box-sizing: border-box; cursor: " + (disabled ? "not-allowed" : "pointer") + "; opacity: " + (disabled ? "0.5" : "1") + "; font: inherit;";}
+!{var destructive = "destructive".equals(variant);}
+!{var itemColor = destructive ? "var(--lv-color-destructive)" : "var(--lv-color-fg)";}
+!{var itemStyle = "gap: var(--lv-space-2); width: 100%; color: " + itemColor + "; background: transparent; border: 0; padding: var(--lv-space-2) var(--lv-space-3); text-align: left; text-decoration: none; box-sizing: border-box; cursor: " + (disabled ? "not-allowed" : "pointer") + "; opacity: " + (disabled ? "0.5" : "1") + "; font: inherit;";}
 @if(!href.isEmpty())
     <a
         href="${href}"
         role="${role}"
         data-slot="dropdown-menu-item"
+        data-variant="${destructive ? "destructive" : null}"
         aria-disabled="${disabled ? "true" : null}"
         aria-checked="${checkable ? (checked ? "true" : "false") : null}"
         class="flex items-center ${cssClass}"
@@ -71,6 +77,7 @@
         type="${formId.isEmpty() && formAction.isEmpty() ? "button" : "submit"}"
         role="${role}"
         data-slot="dropdown-menu-item"
+        data-variant="${destructive ? "destructive" : null}"
         form="${formId.isEmpty() ? null : formId}"
         formaction="${formAction.isEmpty() ? null : formAction}"
         aria-disabled="${disabled ? "true" : null}"

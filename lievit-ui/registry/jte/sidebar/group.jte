@@ -33,17 +33,17 @@
 @param String cssClass = ""
 !{var hasLabel = label != null && !label.isEmpty();}
 !{var labelId = hasLabel ? "lv-sidebar-group-" + label.toLowerCase().replaceAll("[^a-z0-9]+", "-") : null;}
-<div data-lv-sidebar-group class="lv-sidebar-group ${cssClass}" style="display: flex; flex-direction: column; gap: var(--lv-space-1);">
+<div data-slot="sidebar-group" class="lv-sidebar-group ${cssClass}" style="display: flex; flex-direction: column; gap: var(--lv-space-1);">
     @if(hasLabel)
         <div
             id="${labelId}"
-            data-lv-sidebar-group-label
+            data-slot="sidebar-group-label"
             class="lv-sidebar-collapsible"
             style="padding: var(--lv-space-1) var(--lv-space-2); font-size: var(--lv-text-xs); font-weight: 600; color: var(--lv-color-muted); text-transform: uppercase; letter-spacing: 0.03em;"
         >${label}</div>
     @endif
     <ul
-        data-lv-sidebar-menu
+        data-slot="sidebar-menu"
         aria-labelledby="${labelId}"
         style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;"
     >
