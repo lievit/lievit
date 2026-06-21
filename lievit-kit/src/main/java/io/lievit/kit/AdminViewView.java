@@ -12,13 +12,23 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 import io.lievit.kit.schema.infolist.Infolist;
+import io.lievit.kit.schema.infolist.ResolvedNode;
 
 /**
  * The render view-model the kit derives from a {@link Resource}'s {@link Infolist} for the
  * <strong>View</strong> (detail) page (the Filament {@code ViewRecord}, full-page mode): the
  * heading, the record id, the resolved {@link Section}s (each an ordered label-to-display map plus
- * its column count), and the {@link HeaderAction}s the page renders in its toolbar. Pure data the
- * JTE detail template iterates; it carries no engine knowledge.
+ * its column count), the {@link HeaderAction}s the page renders in its toolbar, AND the structured
+ * {@link ResolvedNode} {@link #tree()} the layout-aware detail template ({@code kit/infolist.jte})
+ * paints (sections / tabs / fieldset / grid / typed-entry leaves). Pure data the JTE detail template
+ * iterates; it carries no engine knowledge.
+ *
+ * <p>Two read shapes over the SAME resolved record: the flat {@link #sections()} / {@link #entries()}
+ * (a {@code label -> display} map a simple template iterates) AND the structured {@link #tree()} (the
+ * {@link Infolist#resolveTree} output, which preserves nested layout and reaches a
+ * {@link io.lievit.kit.schema.infolist.KeyValueEntry}'s map instead of flattening it). A flat
+ * (entries-only) infolist yields a tree of {@link ResolvedNode.Field} leaves; a layout-bearing one
+ * yields the nested containers.
  *
  * <p>The resolution is bounded to a single record under {@link
  * io.lievit.kit.support.EvaluationContext.Operation#VIEW}: {@link #of} resolves the resource's
@@ -32,9 +42,15 @@ import io.lievit.kit.schema.infolist.Infolist;
  * @param sections the resolved sections in display order (each: optional heading + label-to-display
  *     map + column count)
  * @param headerActions the toolbar actions (label + url + variant), in display order
+ * @param tree the structured resolved nodes in display order (the {@link Infolist#resolveTree}
+ *     output): nested layout containers + typed-entry leaves the layout-aware detail template paints
  */
 public record AdminViewView(
-        String heading, String recordId, List<Section> sections, List<HeaderAction> headerActions) {
+        String heading,
+        String recordId,
+        List<Section> sections,
+        List<HeaderAction> headerActions,
+        List<ResolvedNode> tree) {
 
     /** Compact constructor: defends the lists. */
     public AdminViewView {
@@ -42,6 +58,24 @@ public record AdminViewView(
         Objects.requireNonNull(recordId, "recordId");
         sections = List.copyOf(sections);
         headerActions = List.copyOf(headerActions);
+        tree = List.copyOf(tree);
+    }
+
+    /**
+     * Back-compat constructor for a view-model built without the structured tree (an empty tree); the
+     * flat {@link #sections()} path is unaffected.
+     *
+     * @param heading the detail heading
+     * @param recordId the id of the record being shown
+     * @param sections the resolved sections in display order
+     * @param headerActions the toolbar actions, in display order
+     */
+    public AdminViewView(
+            String heading,
+            String recordId,
+            List<Section> sections,
+            List<HeaderAction> headerActions) {
+        this(heading, recordId, sections, headerActions, List.of());
     }
 
     /**
@@ -135,7 +169,8 @@ public record AdminViewView(
         Objects.requireNonNull(attributes, "attributes");
         Map<String, String> resolved = infolist.resolve(attributes);
         Section section = new Section(null, resolved, infolist.columns());
-        return new AdminViewView(heading, recordId, List.of(section), headerActions);
+        List<ResolvedNode> tree = infolist.resolveTree(attributes);
+        return new AdminViewView(heading, recordId, List.of(section), headerActions, tree);
     }
 
     /** @return the entries of the first section, the flat label-to-display map a simple template wants */
@@ -150,5 +185,10 @@ public record AdminViewView(
     /** @return whether the view carries at least one toolbar action */
     public boolean hasHeaderActions() {
         return !headerActions.isEmpty();
+    }
+
+    /** @return whether the view carries a structured resolved tree (the layout-aware render path) */
+    public boolean hasTree() {
+        return !tree.isEmpty();
     }
 }

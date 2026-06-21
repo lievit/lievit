@@ -1,0 +1,38 @@
+{
+  "name": "kit-action",
+  "type": "registry:jte",
+  "description": "The canonical Filament ACTION affordance, rendered from a lievit-kit AdminAction / ActionGroup / BulkAction model onto the lievit-ui button + link + badge + icon + modal + slide-over + dropdown-menu partials. Ships the action pipeline server-first (every path a real browser primitive, strict-CSP clean, no inline script): a trigger by ActionVariant (BUTTON / ICON_BUTTON / LINK / BADGE), whose activation either navigates (a real <a href> to the action's url, target=_blank rel=noopener on new-tab), fires a wire action (l:click carrying the per-row id through the button partial's SAFE escaped wireArgs channel, never the trusted $unsafe attrs), or opens the action-as-MODAL flow (a native <dialog> via the modal / slide-over partial holding a ConfirmationModal heading+description or an embedded form, with a Submit/Cancel footer). A header / row / bulk CLUSTER renders as a button row or a '⋮' dropdown-menu (ActionGroup) respecting ActionPlacement. The semantic colour (primary/danger/...) maps to the shadcn button variant (danger -> destructive). The render-time facts (the row id, the per-action modal-id prefix, the dropdown id) ride a KitActionView the host decorates, exactly as kit/table.jte reads a KitTableView. Companion to kit-table: the same render pattern for the action affordance.",
+  "dependencies": ["io.github.lievit:lievit-kit"],
+  "registryDependencies": [
+    "tokens",
+    "icon",
+    "badge",
+    "button",
+    "link",
+    "modal",
+    "slide-over",
+    "dropdown-menu"
+  ],
+  "files": [
+    {
+      "path": "../../../src/main/resources/jte/kit/action.jte",
+      "type": "registry:jte",
+      "target": "kit/action.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/action/modal.jte",
+      "type": "registry:jte",
+      "target": "kit/action/modal.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/action/group.jte",
+      "type": "registry:jte",
+      "target": "kit/action/group.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
+  "docs": "Copies the kit action affordance to your JTE root under kit/: kit/action.jte (the single trigger) + kit/action/{modal,group}.jte, reached as @template.kit.action(...) / @template.kit.action.modal(...) / @template.kit.action.group(...). It renders an io.lievit.kit.AdminAction model: pass `action` plus the render-time facts (the host `record` the action resolves its url + visibility against, the `recordId` carried into a wire/confirm action as the SAFE escaped id, and a `modalId` when the action opens a modal). A confirmed action (AdminAction.requiresConfirmation(), e.g. DeleteAction) renders a native <dialog> invoker whose dialog is kit/action/modal.jte under the SAME id; that modal hosts the ConfirmationModal (heading/description/submit/cancel/icon) or an embedded form `body`, and slides over (ModalConfig.asSlideOver()) or centres per the ModalConfig. kit/action/group.jte renders a whole header/row/bulk cluster from a list of actions + an optional ActionGroup folded into the '⋮' dropdown, laid out by ActionPlacement. The render entry io.lievit.kit.page.KitActionComponent / KitActionView derives the per-resource modal-id prefix + dropdown id from the resource's AdminRoutes (mirror of KitTableComponent / KitTableView); a host can start minimal by passing the model objects directly. UNLIKE the lievit-ui button/modal primitives (the raw markup), this kit item is the action affordance wired to the kit action model; it COMPOSES those primitives, so copy them in too (the registryDependencies). It path-depends on the io.github.lievit:lievit-kit jar (the AdminAction / ActionGroup / ConfirmationModal / ModalConfig model the templates import). The source is yours: edit freely."
+}

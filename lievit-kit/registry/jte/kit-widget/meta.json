@@ -1,0 +1,45 @@
+{
+  "name": "kit-widget",
+  "type": "registry:jte",
+  "description": "The canonical Filament DASHBOARD WIDGETS render layer, painting the lievit-kit DashboardWidget model (StatWidget / ChartWidget / AccountWidget) onto the lievit-ui stat-card + chart + avatar + link + dropdown-menu + empty + icon partials. Server-first and strict-CSP clean (no chart.js canvas, no inline script): a StatWidget renders as a stat-card KPI tile (heading + big value + description with a trend icon before/after + color tint + leading icon + optional server-pure SVG sparkline + whole-card stretched-link); a ChartWidget renders as a section card (heading + description + an optional after-header filter dropdown) wrapping the lievit-ui chart SVG (bar / line / pie projection of the typed dataset, single series); an AccountWidget renders as a greeting card with avatar + name + a profile quick-links dropdown. The kit.widget.grid lays them into a responsive dashboard grid honouring DashboardWidget.sort()/columnSpan()/canView(), dispatching each widget to its per-widget render. This is the widget twin of the kit-table reference render: same pattern, kit model -> lievit-ui primitives.",
+  "dependencies": ["io.github.lievit:lievit-kit"],
+  "registryDependencies": [
+    "tokens",
+    "icon",
+    "badge",
+    "empty",
+    "avatar",
+    "link",
+    "dropdown-menu",
+    "stat-card",
+    "chart"
+  ],
+  "files": [
+    {
+      "path": "../../../src/main/resources/jte/kit/widget/stat.jte",
+      "type": "registry:jte",
+      "target": "kit/widget/stat.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/widget/chart.jte",
+      "type": "registry:jte",
+      "target": "kit/widget/chart.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/widget/account.jte",
+      "type": "registry:jte",
+      "target": "kit/widget/account.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/widget/grid.jte",
+      "type": "registry:jte",
+      "target": "kit/widget/grid.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "chart"],
+  "docs": "Copies the kit dashboard-widget renders to your JTE root under kit/widget/: stat.jte, chart.jte, account.jte, and grid.jte, reached as @template.kit.widget.stat(stat=...), @template.kit.widget.chart(chart=...), @template.kit.widget.account(account=...), and @template.kit.widget.grid(widgets=..., columns=4). Each per-widget template renders ONE io.lievit.kit widget model: stat takes a StatWidget (heading + already-resolved value() + description + Icon-alias icon()/descriptionIcon() + Color color() + optional chart() sparkline + url()), chart takes a ChartWidget (type() + data() labels/datasets + heading/description + filters() + color()/maxHeight()), account takes an AccountWidget (heading() greeting + value() name + avatarUrl() + profileUrl()). grid takes a List<DashboardWidget> (host pre-filtered + sorted) and a column count, dispatching each widget by type into a responsive CSS grid honouring columnSpan()/canView(). UNLIKE the raw lievit-ui stat-card / chart primitives (the markup), these kit items are the widget-model-wired renders: they read the kit DashboardWidget view-model and compose the lievit-ui primitives, so copy those in too (the registryDependencies). The chart render is server-pure SVG (the Filament chart.js canvas is intentionally not shipped, ADR-0012): a multi-dataset ChartWidget renders its FIRST dataset (single-series SVG), and DOUGHNUT/POLAR_AREA map to a pie projection (a lievit-ui gap for true grouped/radar/scatter/bubble geometry). It path-depends on the io.github.lievit:lievit-kit jar (the widget view-models the templates import). The source is yours: edit freely (Filament's publish-views model)."
+}

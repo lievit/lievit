@@ -1,0 +1,51 @@
+{
+  "name": "kit-infolist",
+  "type": "registry:jte",
+  "description": "The canonical Filament VIEW (detail) chrome, rendered from a lievit-kit AdminViewView/KitInfolistView onto the lievit-ui section + tabs + description-list + infolist-entry + button + icon partials. The read-only counterpart of kit-table: where the table renders a list of records, this renders ONE record's resolved infolist (the Filament ViewRecord, full-page mode), server-first and strict-CSP clean (every control a real <a href>, no inline script). It paints the heading + the header-actions toolbar (Edit / Back as token-styled button links) and the resolved infolist BODY: the structured ResolvedNode tree walked by kit/infolist/node.jte. The sealed node set maps 1:1 to a branch: SectionNode -> the lievit-ui section (heading / description / collapsible), TabsNode -> the lievit-ui server-first tabs strip + one tabs/panel per tab, FieldsetNode -> a legend group, GridNode -> a bare columns container, KeyValue -> a two-column key-value table (the KeyValueEntry.resolveMap output, reached not flattened), and the typed-entry leaves (Field, kind text/icon/image/color/code) dispatched through kit/infolist/entry.jte onto the lievit-ui infolist-entry partial. A container's direct leaves group into one N-column description-list (the <dl> validity rule), nested containers render as their own blocks. Falls back to the flat AdminViewView.Section label->value description-list when the bundle carries no structured tree. This follows the kit's REFERENCE render pattern set by kit-table: a typed render bundle, a header bar, a body that composes the lievit-ui primitives.",
+  "dependencies": ["io.github.lievit:lievit-kit"],
+  "registryDependencies": [
+    "tokens",
+    "icon",
+    "button",
+    "badge",
+    "chip",
+    "section",
+    "tabs",
+    "description-list",
+    "infolist-entry"
+  ],
+  "files": [
+    {
+      "path": "../../../src/main/resources/jte/kit/infolist.jte",
+      "type": "registry:jte",
+      "target": "kit/infolist.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/infolist/node.jte",
+      "type": "registry:jte",
+      "target": "kit/infolist/node.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/infolist/children.jte",
+      "type": "registry:jte",
+      "target": "kit/infolist/children.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/infolist/entry.jte",
+      "type": "registry:jte",
+      "target": "kit/infolist/entry.jte",
+      "root": "jte"
+    },
+    {
+      "path": "../../../src/main/resources/jte/kit/infolist/keyvalue.jte",
+      "type": "registry:jte",
+      "target": "kit/infolist/keyvalue.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Copies the kit detail (View) chrome to your JTE root under kit/: kit/infolist.jte (+ kit/infolist/{node,children,entry,keyvalue}.jte), reached as @template.kit.infolist(...). It renders a KitInfolistView (the bundle io.lievit.kit.page.KitInfolistComponent / ViewPageDriver produce from any Resource that declares an infolist()): pass `infolist` (the KitInfolistView). The KitInfolistView wraps a pure AdminViewView (heading + recordId + the resolved Section list + the resolved ResolvedNode tree + the header actions) with the one render-time fact the pure view-model does not carry: the back-to-list href (the implicit Back link when the resource declared no header actions). The template prefers the structured AdminViewView.tree() (nested layout containers + typed-entry leaves, the KeyValueEntry map reached) and degrades to the flat AdminViewView.sections() (a label->value description-list) when no tree is present, so a host can start minimal. UNLIKE the lievit-ui section / description-list / infolist-entry primitives (the raw markup), this kit item is the STATEFUL chrome wired to the kit view-model; it COMPOSES those primitives, so copy them in too (they are the registryDependencies). It path-depends on the io.github.lievit:lievit-kit jar (the AdminViewView/KitInfolistView/ResolvedNode view-models the template imports). The source is yours: edit freely (Filament's publish-views model, the engine in the jar, the views overridable). NOTE (current limitation): ResolvedNode.Field carries only label/display/kind/columnSpan, so the typed-entry facts the builder set (IconEntry icon name + color, ImageEntry dimensions, CodeEntry language, TextEntry badge flag) are not yet in the resolved tree; kit/infolist/entry.jte dispatches by kind and paints the kind-appropriate chrome around the projected display, ready to light up fully when the Field carries those facts."
+}
