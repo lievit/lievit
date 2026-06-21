@@ -12,7 +12,8 @@
   STRUCTURE (scientific decision rule): shadcn's Badge is a single styled <span> keyed on a
   variant. Two variant families ship side by side so a retheme retints every pill from the
   tokens: (a) the SHADCN taxonomy -- `default` (primary fill), `secondary`, `destructive`,
-  `outline` -- so an adopter coming from shadcn names the same variants; (b) the STATUS family
+  `outline`, plus the fill-less `ghost` (foreground text) and `link` (primary text, underlines on
+  hover) -- so an adopter coming from shadcn names the same variants; (b) the STATUS family
   the gestionale uses -- success / warning / danger / info -- plus a muted `neutral` default.
   Every variant drives a fill + foreground (and, for `outline`, a transparent fill + border)
   token pair, exactly the mapping the dropped island shipped extended with the shadcn names.
@@ -37,8 +38,9 @@
   a real focusable link, so it gains the platform's anchor semantics + a focus-visible ring.
 
   Params:
-    String variant         = "neutral"  shadcn: "default" | "secondary" | "destructive" | "outline";
-                                        status: "neutral" | "success" | "warning" | "danger" | "info".
+    String variant         = "neutral"  shadcn: "default" | "secondary" | "destructive" | "outline" |
+                                        "ghost" | "link"; status: "neutral" | "success" | "warning" |
+                                        "danger" | "info".
     String label           = null       the pill text (used when no content slot is supplied).
     gg.jte.Content content              optional rich children; takes precedence over label.
     String href            = null       non-blank => render as an <a> link (asChild), else a <span>.
@@ -62,6 +64,8 @@
     case "secondary"   -> "var(--lv-color-secondary)";
     case "destructive" -> "var(--lv-color-destructive)";
     case "outline"     -> "transparent";
+    case "ghost"       -> "transparent";
+    case "link"        -> "transparent";
     case "success"     -> "var(--lv-color-success)";
     case "warning"     -> "var(--lv-color-warning)";
     case "danger"      -> "var(--lv-color-danger)";
@@ -76,6 +80,10 @@
     // the kit's law + the no-hex test gate). Same visual as shadcn, retheme-safe.
     case "destructive" -> "var(--lv-color-destructive-fg)";
     case "outline"     -> "var(--lv-color-fg)";
+    // shadcn ghost: no fill, foreground text (the accent tint is the <a> hover only);
+    // link: primary-coloured text that underlines on hover (the only non-pill-looking variant).
+    case "ghost"       -> "var(--lv-color-fg)";
+    case "link"        -> "var(--lv-color-primary)";
     case "success"     -> "var(--lv-color-success-fg)";
     case "warning"     -> "var(--lv-color-warning-fg)";
     case "danger"      -> "var(--lv-color-danger-fg)";
@@ -84,15 +92,19 @@
   };}
 !{var border = "outline".equals(variant) ? "var(--lv-color-border)" : "transparent";}
 !{var isLink = href != null && !href.isBlank();}
-!{var pillClass = "lv-badge lv-badge--" + variant + " inline-flex items-center gap-[var(--lv-space-1)] rounded-full border px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] " + cssClass;}
+<%-- link variant: shadcn renders no pill, just primary text that underlines on hover. --%>
+!{var variantClass = "link".equals(variant) ? " underline-offset-4" : "";}
+!{var pillClass = "lv-badge lv-badge--" + variant + " inline-flex items-center gap-[var(--lv-space-1)] rounded-full border px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]" + variantClass + " " + cssClass;}
 !{var pillStyle = "font-family:var(--lv-font-sans);background:" + bg + ";color:" + fg + ";border-color:" + border + ";";}
+<%-- the <a> (asChild) hover affordance: link underlines, every other variant keeps the opacity hover. --%>
+!{var anchorHover = "link".equals(variant) ? "hover:underline" : "no-underline transition-colors hover:opacity-90";}
 
 @if(isLink)
 <a
   href="${href}"
   data-slot="badge"
   data-variant="${variant}"
-  class="${pillClass} no-underline transition-colors hover:opacity-90"
+  class="${pillClass} ${anchorHover}"
   style="${pillStyle}"
 >@if(content != null)${content}@else${label}@endif</a>
 @else

@@ -1,7 +1,7 @@
 {
   "name": "hover-card",
   "type": "registry:jte",
-  "description": "A hover/focus-triggered preview card, CSS-only (Radix preview model: no ARIA role, aria-hidden, not focus-trapping). Content lives in the DOM, revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A hover/focus-triggered preview card, CSS-only (Radix preview model: no ARIA role, aria-hidden, not focus-trapping). Anchors below the trigger with align (start/center/end) + sideOffset. Content lives in the DOM, revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "z"],
-  "docs": "Copies the hover-card partial to your JTE root at lievit/hover-card.jte, reached as @template.lievit.hover-card(trigger=@`...`, content=@`...`). It is preview-only: keep the same info reachable in the page flow for assistive tech. The source is yours: edit freely."
+  "docs": "Copies the hover-card partial to your JTE root at lievit/hover-card.jte, reached as @template.lievit.hover-card(trigger=@`...`, content=@`...`). Pass align/sideOffset to position the preview under the trigger. It is preview-only: keep the same info reachable in the page flow for assistive tech. The source is yours: edit freely."
 }

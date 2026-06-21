@@ -1,7 +1,7 @@
 {
   "name": "tooltip",
   "type": "registry:jte",
-  "description": "A floating contextual label, CSS-only; WAI-ARIA tooltip pattern (panel role=tooltip + the trigger's aria-describedby). Revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A floating contextual label, CSS-only; WAI-ARIA tooltip pattern (panel role=tooltip + the trigger's aria-describedby). Positionable via side (top/right/bottom/left), align (start/center/end) and sideOffset, with a data-slot=tooltip-arrow square pointing back at the trigger. Revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "z"],
-  "docs": "Copies the tooltip partial to your JTE root at lievit/tooltip.jte, reached as @template.lievit.tooltip(content=\"...\", tipId=\"...\", trigger=@`...`). Put aria-describedby=tipId on the interactive trigger so the label is announced on focus. The source is yours: edit freely."
+  "docs": "Copies the tooltip partial to your JTE root at lievit/tooltip.jte, reached as @template.lievit.tooltip(content=\"...\", tipId=\"...\", trigger=@`...`). Put aria-describedby=tipId on the interactive trigger so the label is announced on focus. Pass side/align/sideOffset to position the panel; the tooltip-arrow follows the chosen side. The source is yours: edit freely."
 }
