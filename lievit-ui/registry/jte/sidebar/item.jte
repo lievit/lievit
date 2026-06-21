@@ -33,6 +33,8 @@
     boolean disabled = false   dims the entry + drops it from the tab order.
     boolean open = false       parent only: render the <details> open (e.g. a child is current).
     gg.jte.Content content     optional child items (sidebar/item entries) => makes this a parent.
+    gg.jte.Content action = null optional trailing action affordance (sidebar/menu-action),
+                               pinned to the row's end; the <li> is its positioning context.
     String cssClass = ""       extra utility classes on the entry.
 
   Usage:
@@ -50,13 +52,14 @@
 @param boolean disabled = false
 @param boolean open = false
 @param gg.jte.Content content = null
+@param gg.jte.Content action = null
 @param String cssClass = ""
 !{var hasIcon = icon != null && !icon.isEmpty();}
 !{var hasBadge = badge != null && !badge.isEmpty();}
 !{var isParent = content != null;}
 !{var rowStyle = "display: flex; align-items: center; gap: var(--lv-space-2); width: 100%; box-sizing: border-box; padding: var(--lv-space-2); border-radius: var(--lv-radius-md); color: inherit; text-decoration: none; font: inherit; text-align: left; cursor: pointer; background: " + (active ? "var(--lv-color-sidebar-accent)" : "transparent") + "; font-weight: " + (active ? "500" : "400") + ";";}
 @if(isParent)
-    <li data-slot="sidebar-menu-item" class="${cssClass}">
+    <li data-slot="sidebar-menu-item" class="${cssClass}" style="position: relative;">
         <details data-sidebar="disclosure" open="${open}">
             <summary
                 data-slot="sidebar-menu-button"
@@ -82,9 +85,10 @@
                 ${content}
             </ul>
         </details>
+        @if(action != null)${action}@endif
     </li>
 @else
-    <li data-slot="sidebar-menu-item" class="${cssClass}">
+    <li data-slot="sidebar-menu-item" class="${cssClass}" style="position: relative;">
         <a
             href="${href}"
             data-slot="sidebar-menu-button"
@@ -102,5 +106,6 @@
                 <span data-slot="sidebar-menu-badge" class="lv-sidebar-collapsible" style="flex-shrink: 0; font-size: var(--lv-text-xs); padding: 0 var(--lv-space-2); border-radius: var(--lv-radius-full); background: var(--lv-color-sidebar-border); color: var(--lv-color-sidebar-fg);">${badge}</span>
             @endif
         </a>
+        @if(action != null)${action}@endif
     </li>
 @endif

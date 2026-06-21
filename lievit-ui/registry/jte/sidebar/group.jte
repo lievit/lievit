@@ -21,6 +21,8 @@
   Params:
     String label = ""         optional section heading (hidden on the collapsed icon rail).
     gg.jte.Content content     the menu items (sidebar/item entries).
+    gg.jte.Content action = null optional trailing action by the heading (sidebar/group-action),
+                              pinned to the group's top-right; the group div is its positioning ctx.
     String cssClass = ""       extra utility classes on the group.
 
   Usage:
@@ -30,10 +32,12 @@
 --%>
 @param String label = ""
 @param gg.jte.Content content
+@param gg.jte.Content action = null
 @param String cssClass = ""
 !{var hasLabel = label != null && !label.isEmpty();}
 !{var labelId = hasLabel ? "lv-sidebar-group-" + label.toLowerCase().replaceAll("[^a-z0-9]+", "-") : null;}
-<div data-slot="sidebar-group" class="lv-sidebar-group ${cssClass}" style="display: flex; flex-direction: column; gap: var(--lv-space-1);">
+<div data-slot="sidebar-group" class="lv-sidebar-group ${cssClass}" style="position: relative; display: flex; flex-direction: column; gap: var(--lv-space-1);">
+    @if(action != null)${action}@endif
     @if(hasLabel)
         <div
             id="${labelId}"
