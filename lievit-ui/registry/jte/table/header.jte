@@ -1,7 +1,7 @@
 @import gg.jte.Content
 <%--
   lievit-ui :: table.header - the <thead> of the table primitive.
-  Holds one (or more) header @@template.table.row blocks of @@template.table.head cells.
+  Holds one (or more) header @@template.lievit.table.row blocks of @@template.lievit.table.head cells.
   Params: klass (extra classes for <thead>), content (the header row(s)).
 --%>
 @param String klass = ""

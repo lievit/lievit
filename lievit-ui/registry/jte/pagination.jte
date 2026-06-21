@@ -49,9 +49,9 @@
   receive it; the disabled boundary spans and the ellipsis do not.
 
   Usage:
-    @@template.pagination(current = 3, total = 10, hrefPattern = "/contatti?page=%d")
-    @@template.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d&q=" + query, siblings = 2)
-    @@template.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d",
+    @@template.lievit.pagination(current = 3, total = 10, hrefPattern = "/contatti?page=%d")
+    @@template.lievit.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d&q=" + query, siblings = 2)
+    @@template.lievit.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d",
       linkAttrs = "hx-boost=\"true\" hx-target=\"#list\"")
 --%>
 @param int current
@@ -98,7 +98,7 @@
           data-slot="pagination-previous"
           class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
         >
-          @template.icon(name = "chevron-left", size = "1rem")
+          @template.lievit.icon(name = "chevron-left", size = "1rem")
           <span aria-hidden="true">Prev</span>
         </a>
       @else
@@ -108,7 +108,7 @@
           data-slot="pagination-previous"
           class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] opacity-50 select-none"
         >
-          @template.icon(name = "chevron-left", size = "1rem")
+          @template.lievit.icon(name = "chevron-left", size = "1rem")
           <span aria-hidden="true">Prev</span>
         </span>
       @endif
@@ -123,7 +123,7 @@
             data-slot="pagination-ellipsis"
             class="flex h-[var(--lv-space-10)] w-[var(--lv-space-10)] items-center justify-center text-[var(--lv-color-muted-fg)]"
           >
-            @template.icon(name = "ellipsis", size = "1rem")
+            @template.lievit.icon(name = "ellipsis", size = "1rem")
             <span class="sr-only">More pages</span>
           </span>
         @elseif(p == page)
@@ -158,7 +158,7 @@
           class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] no-underline transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
         >
           <span aria-hidden="true">Next</span>
-          @template.icon(name = "chevron-right", size = "1rem")
+          @template.lievit.icon(name = "chevron-right", size = "1rem")
         </a>
       @else
         <span
@@ -168,7 +168,7 @@
           class="inline-flex h-[var(--lv-space-10)] items-center justify-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] opacity-50 select-none"
         >
           <span aria-hidden="true">Next</span>
-          @template.icon(name = "chevron-right", size = "1rem")
+          @template.lievit.icon(name = "chevron-right", size = "1rem")
         </span>
       @endif
     </li>

@@ -32,8 +32,8 @@
     String cssClass    = ""      extra utility classes on the wrapper.
 
   Usage:
-    @@template.switch(name = "notifiche", label = "Notifiche", checked = prefs.notifiche())
-    @@template.switch(name = "dark", ariaLabel = "Tema scuro", model = "dark")
+    @@template.lievit.switch(name = "notifiche", label = "Notifiche", checked = prefs.notifiche())
+    @@template.lievit.switch(name = "dark", ariaLabel = "Tema scuro", model = "dark")
 --%>
 @param String name
 @param String id = null

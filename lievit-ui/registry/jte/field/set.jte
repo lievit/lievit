@@ -22,14 +22,14 @@
     String legend   = null      visible <legend> text naming the group.
     String description = null   muted helper text below the legend.
     boolean disabled = false    native fieldset disable: cascades to every nested control.
-    gg.jte.Content content      the grouped fields (usually wrapped in @@template.field.group).
+    gg.jte.Content content      the grouped fields (usually wrapped in @@template.lievit.field.group).
     String cssClass = ""        extra utility classes on the fieldset.
 
   Usage:
-    @@template.field.set(legend = "Address", description = "Where do we ship?", content = @@`
-      @@template.field.group(content = @@`
-        @@template.field(forId = "street", label = "Street", control = @@`...`)
-        @@template.field(forId = "city", label = "City", control = @@`...`)
+    @@template.lievit.field.set(legend = "Address", description = "Where do we ship?", content = @@`
+      @@template.lievit.field.group(content = @@`
+        @@template.lievit.field(forId = "street", label = "Street", control = @@`...`)
+        @@template.lievit.field(forId = "city", label = "City", control = @@`...`)
       `)
     `)
 --%>

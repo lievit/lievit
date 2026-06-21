@@ -23,9 +23,9 @@
     String cssClass    = ""              extra utility classes on the rule.
 
   Usage:
-    @@template.separator()
-    @@template.separator(orientation = "vertical")
-    @@template.separator(decorative = true)
+    @@template.lievit.separator()
+    @@template.lievit.separator(orientation = "vertical")
+    @@template.lievit.separator(decorative = true)
 --%>
 @param String orientation = "horizontal"
 @param boolean decorative = false

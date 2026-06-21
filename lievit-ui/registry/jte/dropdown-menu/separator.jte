@@ -13,6 +13,6 @@
   Params: (none)
 
   Usage:
-    @@template.dropdown-menu.separator()
+    @@template.lievit.dropdown-menu.separator()
 --%>
 <div role="separator" data-slot="dropdown-menu-separator" style="height: 1px; background: var(--lv-color-border); margin: var(--lv-space-1) 0;"></div>

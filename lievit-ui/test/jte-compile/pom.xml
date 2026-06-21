@@ -14,10 +14,19 @@
   directive, attribute-position @if, comment syntax, unclosed tag) or unresolved
   reference fails the build.
 
-  The icon partial does `@import static it.housetreespa.gest.ui.LievitIcons.body`,
-  so registry/icons (which holds the single source LievitIcons.java) is wired in as
-  an extra compile source root. No copy is made: the generated map stays its own
-  single source of truth.
+  ADOPTER-LAYOUT STAGING: the partials reference each other as `@template.lievit.<name>`
+  (the vendored/distributed convention; every partial's `target` is `lievit/<name>.jte`),
+  so `lievit` is a real directory in the adopter tree, not in the flat registry source.
+  The maven-resources-plugin below first MIRRORS registry/jte/** into
+  target/jte-src/lievit/ and jte compiles THAT, so `@template.lievit.icon` resolves and
+  the smoke tests exactly the layout the adopter compiles. Re-run staging is idempotent.
+
+  The icon partial does `@import static io.lievit.ui.LievitIcons.body` (lievit-owned,
+  NO adopter class), so registry/icons (which holds the IconResolver SPI + its default
+  LucideIconResolver + the LievitIcons facade) is wired in as an extra compile source
+  root. No copy is made: the generated map stays its own single source of truth. That
+  this compiles with ONLY registry/icons on the classpath is the standalone proof: the
+  partial renders with zero adopter classpath.
 
   Run:  mvn -q -f test/jte-compile/pom.xml clean process-classes
   (or:  ./test/jte-compile/run.sh)
@@ -54,9 +63,11 @@
     <directory>${project.basedir}/target</directory>
 
     <plugins>
-      <!-- Add the registry/icons dir as a compile source root so LievitIcons.java
-           (the single generated source, package it.housetreespa.gest.ui) is on the
-           classpath when the icon template's static import is compiled. -->
+      <!-- Add the registry/icons dir as a compile source root so the lievit-owned
+           icon SPI (IconResolver + LucideIconResolver + the LievitIcons facade,
+           package io.lievit.ui) is on the classpath when the icon template's static
+           import is compiled. No adopter class is involved; this IS the standalone
+           proof. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -84,6 +95,31 @@
         </configuration>
       </plugin>
 
+      <!-- Mirror registry/jte/** into target/jte-src/lievit/ so the partials sit in the
+           SAME `lievit/` package the adopter copies them to. This is what makes the
+           `@template.lievit.<name>` sibling references resolve at compile time. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>stage-partials-under-lievit</id>
+            <phase>generate-sources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/jte-src/lievit</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../../registry/jte</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <!-- The real gate: precompile generates + javac-compiles every template.
            Bound to process-classes so the project's own classes (LievitIcons) are
            already compiled and on the classpath the plugin hands to javac. -->
@@ -92,7 +128,7 @@
         <artifactId>jte-maven-plugin</artifactId>
         <version>${jte.version}</version>
         <configuration>
-          <sourceDirectory>${project.basedir}/../../registry/jte</sourceDirectory>
+          <sourceDirectory>${project.build.directory}/jte-src</sourceDirectory>
           <targetDirectory>${project.build.directory}/jte-classes</targetDirectory>
           <contentType>Html</contentType>
         </configuration>

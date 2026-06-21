@@ -50,7 +50,7 @@
     String         cssClass = ""       extra utility classes on the wrapper.
 
   Usage:
-    @@template.popover(
+    @@template.lievit.popover(
       id = "user-popover",
       trigger = @@`Open`,
       content = @@`<p>Panel body, server-rendered.</p>`

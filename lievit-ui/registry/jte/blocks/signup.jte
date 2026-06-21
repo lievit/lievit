@@ -69,7 +69,7 @@
     String cssClass    = ""         extra utility classes on the root.
 
   Usage (single-column card, Spring + JTE):
-    @template.blocks.signup(
+    @template.lievit.blocks.signup(
       action = "/signup",
       csrf = @`<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}">`,
       errors = errors,
@@ -77,12 +77,12 @@
     )
 
   Usage (split, with social buttons -- brand marks are the adopter's own SVG, NOT Lucide):
-    @template.blocks.signup(
+    @template.lievit.blocks.signup(
       action = "/signup", variant = "split", image = "/img/welcome.jpg",
       social = @`
         <button type="submit" formaction="/oauth2/authorization/google"
                 class="inline-flex h-[var(--lv-space-10)] w-full items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] hover:bg-[var(--lv-color-muted-bg)] focus-visible:shadow-[var(--lv-ring)] focus-visible:outline-none">
-          @template.icon(name = "log-in") Sign up with Google
+          @template.lievit.icon(name = "log-in") Sign up with Google
         </button>`
     )
 --%>
@@ -138,7 +138,7 @@
 
         @if(hasFormError)
           <div role="alert" data-slot="signup-form-error" class="flex items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-danger)] bg-[var(--lv-color-danger)]/10 px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-danger)]">
-            @template.icon(name = "circle-alert", size = "1rem")
+            @template.lievit.icon(name = "circle-alert", size = "1rem")
             <span>${formError}</span>
           </div>
         @endif
@@ -166,7 +166,7 @@
                 class="relative flex h-[var(--lv-space-10)] w-full min-w-0 items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border ${hasErr ? "border-[var(--lv-color-danger)]" : "border-[var(--lv-color-input)]"} bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] shadow-[var(--lv-shadow-xs)] transition-shadow outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] [&_svg]:pointer-events-none [&_svg]:text-[var(--lv-color-muted-fg)]"
               >
                 <span data-slot="input-group-addon" data-align="inline-start" class="flex shrink-0 items-center text-[var(--lv-color-muted-fg)] select-none">
-                  @template.icon(name = f[3])
+                  @template.lievit.icon(name = f[3])
                 </span>
                 <input
                   data-slot="input-group-control"

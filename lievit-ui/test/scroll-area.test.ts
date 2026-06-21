@@ -27,7 +27,7 @@ describe("scroll-area (server-first JTE partial; shadcn Scroll Area, previously 
     expect(src, "comment block must close").toContain("--%>");
     expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
     expect(src, "missing Usage section").toMatch(/Usage:/);
-    expect(src, "usage snippet must show the @template call").toContain("@@template.scroll-area(");
+    expect(src, "usage snippet must show the @template call").toContain("@@template.lievit.scroll-area(");
     expect(src).toContain("@param gg.jte.Content content");
   });
 

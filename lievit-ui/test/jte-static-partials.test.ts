@@ -257,7 +257,7 @@ describe("label.jte", () => {
 describe("field.jte (FormField + FieldError orchestration)", () => {
   const src = read("field.jte");
   test("composes the label partial + slots the control + renders an error as role=alert", () => {
-    expect(src).toContain("@template.label(");
+    expect(src).toContain("@template.lievit.label(");
     expect(src).toContain("${control}");
     expect(src).toContain('role="alert"');
     expect(src).toContain('aria-live="polite"');
@@ -332,7 +332,7 @@ describe("checkbox.jte", () => {
     expect(markup).toContain('l:model="${model}"');
   });
   test("the check glyph comes from the icon partial (Lucide), token-styled", () => {
-    expect(src).toContain('@template.icon(name = "check"');
+    expect(src).toContain('@template.lievit.icon(name = "check"');
     expect(src).toContain("var(--lv-color-primary)");
   });
   test("supports the invalid state: aria-invalid + a danger box border, with describedBy", () => {
@@ -346,7 +346,7 @@ describe("checkbox.jte", () => {
     expect(src).toMatch(/@param boolean indeterminate/);
     expect(src).toContain('aria-checked="${indeterminate ? "mixed" : null}"');
     expect(src).toContain('data-indeterminate="${indeterminate ? "true" : null}"');
-    expect(src).toContain('@template.icon(name = "minus"');
+    expect(src).toContain('@template.lievit.icon(name = "minus"');
     // the check glyph hides while indeterminate, the dash shows
     expect(src).toContain("peer-data-[indeterminate=true]:hidden");
     expect(src).toContain("peer-data-[indeterminate=true]:flex");
@@ -360,7 +360,7 @@ describe("radio-group.jte", () => {
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<fieldset[\s\n]/);
     expect(markup).toMatch(/<legend[\s\n]/);
-    expect(markup).toContain("@template.radio-group.option(");
+    expect(markup).toContain("@template.lievit.radio-group.option(");
   });
   test("each option is a real native <input type=radio> carrying the shared name + l:model", () => {
     const markup = opt.replace(/<%--[\s\S]*?--%>/g, "");
@@ -438,7 +438,7 @@ describe("toggle.jte", () => {
     expect(markup).toContain('l:click="${pressedAction}"');
   });
   test("the optional icon comes from the Lucide icon partial, token-styled", () => {
-    expect(src).toContain("@template.icon(name = icon");
+    expect(src).toContain("@template.lievit.icon(name = icon");
     expect(src).toContain("var(--lv-ring)");
   });
 });
@@ -485,7 +485,7 @@ describe("input-otp.jte (server-first segmented code)", () => {
     expect(src).toMatch(/@param int groupSize/);
     expect(src).toContain("@if(grouped && i > 0 && i % groupSize == 0)");
     expect(src).toContain("data-otp-separator");
-    expect(src).toContain('@template.icon(name = "minus"');
+    expect(src).toContain('@template.lievit.icon(name = "minus"');
   });
   test("declares onComplete on the root so the enhancer can fire/submit when filled", () => {
     expect(src).toMatch(/@param String onComplete/);

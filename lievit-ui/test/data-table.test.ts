@@ -93,9 +93,9 @@ describe("data-table.jte -- server-first table contract", () => {
     expect(markup).toMatch(/<a\s[\s\S]*?href="\$\{url\}"/);
     expect(markup).toContain('data-slot="data-table-sort"');
     // a visible, aria-hidden indicator glyph driven by the active state.
-    expect(markup).toMatch(/@template\.icon\(name = "chevron-up"/);
-    expect(markup).toMatch(/@template\.icon\(name = "chevron-down"/);
-    expect(markup).toMatch(/@template\.icon\(name = "chevrons-up-down"/);
+    expect(markup).toMatch(/@template\.lievit\.icon\(name = "chevron-up"/);
+    expect(markup).toMatch(/@template\.lievit\.icon\(name = "chevron-down"/);
+    expect(markup).toMatch(/@template\.lievit\.icon\(name = "chevrons-up-down"/);
   });
 
   test("does NOT sort or paginate client-side (no client sort, no events emitted)", () => {
@@ -107,7 +107,7 @@ describe("data-table.jte -- server-first table contract", () => {
 
   test("pagination renders via the pagination partial with the server href pattern", () => {
     expect(markup).toMatch(
-      /@template\.pagination\(current = page, total = totalPages, hrefPattern = pageHrefPattern\)/
+      /@template\.lievit\.pagination\(current = page, total = totalPages, hrefPattern = pageHrefPattern\)/
     );
   });
 

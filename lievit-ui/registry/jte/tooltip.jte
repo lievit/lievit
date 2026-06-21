@@ -28,7 +28,7 @@
     String         cssClass = ""       extra utility classes on the wrapper.
 
   Usage:
-    @@template.tooltip(content = "Save document", tipId = "save-tip", trigger = @@`
+    @@template.lievit.tooltip(content = "Save document", tipId = "save-tip", trigger = @@`
       <button aria-describedby="save-tip">Save</button>
     `)
 --%>

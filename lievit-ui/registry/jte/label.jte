@@ -29,8 +29,8 @@
     String cssClass = ""       extra utility classes on the label.
 
   Usage:
-    @@template.label(forId = "email", text = "Email", required = true)
-    @@template.label(forId = "note", content = @@`Note <small>(opzionali)</small>`)
+    @@template.lievit.label(forId = "email", text = "Email", required = true)
+    @@template.lievit.label(forId = "note", content = @@`Note <small>(opzionali)</small>`)
 --%>
 @param String forId
 @param String text = null

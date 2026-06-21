@@ -31,7 +31,7 @@ describe("breadcrumb (server-first JTE partial; the <lv-breadcrumb> island is go
     expect(src, "comment block must close").toContain("--%>");
     expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
     expect(src, "missing Usage section").toMatch(/Usage:/);
-    expect(src, "usage snippet must show the @template call").toContain("@@template.breadcrumb(");
+    expect(src, "usage snippet must show the @template call").toContain("@@template.lievit.breadcrumb(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
@@ -82,7 +82,7 @@ describe("breadcrumb (server-first JTE partial; the <lv-breadcrumb> island is go
     expect(src).toContain('data-slot="breadcrumb-ellipsis"');
     expect(src).toMatch(/breadcrumb-ellipsis"[\s\S]*?aria-hidden="true"/);
     expect(src).toContain('<span class="sr-only">More</span>');
-    expect(src).toContain('@template.icon(name = "ellipsis"');
+    expect(src).toContain('@template.lievit.icon(name = "ellipsis"');
   });
 
   test("no collapse by default (maxItems = 0 renders every crumb)", () => {

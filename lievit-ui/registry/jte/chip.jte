@@ -41,8 +41,8 @@
     String cssClass     = ""         extra utility classes on the chip.
 
   Usage:
-    @@template.chip(label = "Bozza")
-    @@template.chip(variant = "info", label = "Stato: Aperto",
+    @@template.lievit.chip(label = "Bozza")
+    @@template.lievit.chip(variant = "info", label = "Stato: Aperto",
                    removeHref = "/attivita?stato=", removeLabel = "Rimuovi filtro Stato")
 --%>
 @param String variant = "neutral"

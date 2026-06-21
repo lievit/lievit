@@ -33,9 +33,9 @@
     String cssClass   = ""        extra utility classes on the button.
 
   Usage:
-    @@template.toggle(icon = "star", ariaLabel = "Preferito", pressed = item.starred(),
+    @@template.lievit.toggle(icon = "star", ariaLabel = "Preferito", pressed = item.starred(),
       pressedAction = "toggleStar")
-    @@template.toggle(variant = "outline", pressed = bold, content = @@`Grassetto`)
+    @@template.lievit.toggle(variant = "outline", pressed = bold, content = @@`Grassetto`)
 --%>
 @param String pressedAction = null
 @param boolean pressed = false
@@ -63,7 +63,7 @@
 >
   @if(icon != null && !icon.isBlank())
     <span aria-hidden="true" class="flex shrink-0 items-center">
-      @template.icon(name = icon, size = "1rem")
+      @template.lievit.icon(name = icon, size = "1rem")
     </span>
   @endif
   @if(content != null)${content}@endif

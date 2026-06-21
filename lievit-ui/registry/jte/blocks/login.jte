@@ -60,7 +60,7 @@
     String cssClass    = ""       extra utility classes on the outer <main>.
 
   Usage:
-    @template.blocks.login(
+    @template.lievit.blocks.login(
       action = "/login",
       csrf = @`<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}">`,
       error = loginError,
@@ -70,7 +70,7 @@
     )
 
     Two-column with a side image + a Google SSO button:
-    @template.blocks.login(
+    @template.lievit.blocks.login(
       action = "/login",
       variant = "split",
       image = "/img/office.jpg",
@@ -78,7 +78,7 @@
       social = @`
         <a href="/oauth2/authorization/google"
            class="inline-flex h-[var(--lv-space-10)] w-full items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] transition-colors outline-none hover:bg-[var(--lv-color-muted-bg)] focus-visible:shadow-[var(--lv-ring)]">
-          @template.icon(name = "log-in")
+          @template.lievit.icon(name = "log-in")
           Continua con Google
         </a>`
     )
@@ -139,7 +139,7 @@
             data-slot="login-error"
             class="flex items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-danger)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-danger)]"
           >
-            @template.icon(name = "circle-alert")
+            @template.lievit.icon(name = "circle-alert")
             <span>${error}</span>
           </div>
         @endif
@@ -151,14 +151,14 @@
 
           <div data-slot="login-field" class="flex flex-col gap-[var(--lv-space-2)]">
             <label for="${emailId}" class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]">Email</label>
-            @template.input-group(
+            @template.lievit.input-group(
               name = emailName,
               id = emailId,
               type = "email",
               value = emailValue,
               placeholder = "nome@esempio.it",
               ariaLabel = "Email",
-              leading = @`@template.icon(name = "mail")`
+              leading = @`@template.lievit.icon(name = "mail")`
             )
           </div>
 
@@ -169,12 +169,12 @@
                 <a href="${forgotUrl}" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)] underline-offset-4 outline-none hover:underline focus-visible:underline focus-visible:text-[var(--lv-color-fg)]">Password dimenticata?</a>
               @endif
             </div>
-            @template.input-group(
+            @template.lievit.input-group(
               name = passwordName,
               id = passwordId,
               type = "password",
               ariaLabel = "Password",
-              leading = @`@template.icon(name = "lock")`
+              leading = @`@template.lievit.icon(name = "lock")`
             )
           </div>
 

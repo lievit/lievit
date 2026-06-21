@@ -1,4 +1,4 @@
-@import static it.housetreespa.gest.ui.LievitIcons.body
+@import static io.lievit.ui.LievitIcons.body
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -19,15 +19,19 @@
   the copy-in simplicity, so inline-per-name is objectively best here.
 
   The uniform <svg> wrapper lives HERE once (sized + coloured by --lv-* tokens); the per-icon
-  inner body (paths/circles/...) comes from the generated LievitIcons.body(name) map. The
-  Lucide SVGs stroke with currentColor, so colour follows the surrounding text colour or any
-  Tailwind `text-*` utility / --lv-color-* override on a wrapping element.
+  inner body (paths/circles/...) comes from io.lievit.ui.LievitIcons.body(name) -- a lievit-OWNED
+  facade over an IconResolver SPI, defaulting to the bundled, tree-shaken Lucide set
+  (LucideIconResolver). The partial names NO adopter class, so it renders standalone out of the box.
+  To ship a different icon set, implement io.lievit.ui.IconResolver and call
+  LievitIcons.setResolver(...) once at startup; this call site never changes. The Lucide SVGs
+  stroke with currentColor, so colour follows the surrounding text colour or any Tailwind `text-*`
+  utility / --lv-color-* override on a wrapping element.
 
   Usage:
-    @template.icon(name = "chevron-down")
-    @template.icon(name = "trash-2", cssClass = "text-[var(--lv-color-danger)]")
-    @template.icon(name = "search", size = "1.25rem")
-    @template.icon(name = "settings", label = "Open settings")   // labelled (img role)
+    @template.lievit.icon(name = "chevron-down")
+    @template.lievit.icon(name = "trash-2", cssClass = "text-[var(--lv-color-danger)]")
+    @template.lievit.icon(name = "search", size = "1.25rem")
+    @template.lievit.icon(name = "settings", label = "Open settings")   // labelled (img role)
 
   By default the icon is decorative: aria-hidden="true" + focusable="false". Pass a `label`
   to expose it to assistive tech (role="img" + aria-label); then it is NOT aria-hidden.

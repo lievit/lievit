@@ -48,8 +48,8 @@
     String  cssClass    = ""      extra utility classes on the input.
 
   Usage:
-    @@template.date-picker(name = "dataInizio", label = "Data inizio", value = today)
-    @@template.date-picker(name = "scadenza", min = today, max = limit, required = true, model = "due")
+    @@template.lievit.date-picker(name = "dataInizio", label = "Data inizio", value = today)
+    @@template.lievit.date-picker(name = "scadenza", min = today, max = limit, required = true, model = "due")
 --%>
 @param String name
 @param String id = null

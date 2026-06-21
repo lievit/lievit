@@ -33,19 +33,19 @@
     String cssClass = ""          extra utility classes on the root.
 
   Usage:
-    @template.item(
-      leading = @`@template.icon(name = "folder")`,
+    @template.lievit.item(
+      leading = @`@template.lievit.icon(name = "folder")`,
       content = @`
         <div class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-snug">Contratti</div>
         <p class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">24 documenti</p>
       `,
-      trailing = @`@template.icon(name = "chevron-right", cssClass = "text-[var(--lv-color-muted-fg)]")`
+      trailing = @`@template.lievit.icon(name = "chevron-right", cssClass = "text-[var(--lv-color-muted-fg)]")`
     )
 
     Grouped list:
     <div role="list" class="flex flex-col">
-      @template.item(role = "listitem", content = @`<span>Riga A</span>`)
-      @template.item(role = "listitem", content = @`<span>Riga B</span>`)
+      @template.lievit.item(role = "listitem", content = @`<span>Riga A</span>`)
+      @template.lievit.item(role = "listitem", content = @`<span>Riga B</span>`)
     </div>
 --%>
 @param gg.jte.Content content

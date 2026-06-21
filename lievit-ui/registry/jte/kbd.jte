@@ -24,11 +24,11 @@
     klass   - extra classes appended to the element.
 
   Usage:
-    @@template.kbd(key = "Esc")
-    @@template.kbd(content = @@`<span>Ctrl</span>`)
+    @@template.lievit.kbd(key = "Esc")
+    @@template.lievit.kbd(content = @@`<span>Ctrl</span>`)
     For a combo, render several side by side:
       <span class="inline-flex items-center gap-1">
-        @@template.kbd(key = "Ctrl") @@template.kbd(key = "K")
+        @@template.lievit.kbd(key = "Ctrl") @@template.lievit.kbd(key = "K")
       </span>
 --%>
 @param String key = ""

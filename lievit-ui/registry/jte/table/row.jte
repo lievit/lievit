@@ -6,7 +6,7 @@
   Params:
     state   - "selected" to mark the row selected, else "" (default).
     klass   - extra classes for the <tr>.
-    content - the row's @@template.table.head / @@template.table.cell blocks.
+    content - the row's @@template.lievit.table.head / @@template.lievit.table.cell blocks.
 --%>
 @param String state = ""
 @param String klass = ""

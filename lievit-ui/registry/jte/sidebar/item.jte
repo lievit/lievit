@@ -36,9 +36,9 @@
     String cssClass = ""       extra utility classes on the entry.
 
   Usage:
-    @@template.sidebar.item(key = "home", href = "/", label = "Home", icon = "house", active = true)
-    @@template.sidebar.item(key = "settings", label = "Settings", icon = "settings", open = true, content = @@`
-      @@template.sidebar.item(key = "team", href = "/settings/team", label = "Team", active = true)
+    @@template.lievit.sidebar.item(key = "home", href = "/", label = "Home", icon = "house", active = true)
+    @@template.lievit.sidebar.item(key = "settings", label = "Settings", icon = "settings", open = true, content = @@`
+      @@template.lievit.sidebar.item(key = "team", href = "/settings/team", label = "Team", active = true)
     `)
 --%>
 @param String key
@@ -66,13 +66,13 @@
                 style="${rowStyle} list-style: none; opacity: ${disabled ? "0.5" : "1"};"
             >
                 @if(hasIcon)
-                    <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.icon(name = icon, size = "1rem")</span>
+                    <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>
                 @endif
                 <span class="lv-sidebar-collapsible" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
                 @if(hasBadge)
                     <span class="lv-sidebar-collapsible" style="flex-shrink: 0; font-size: var(--lv-text-xs); padding: 0 var(--lv-space-2); border-radius: var(--lv-radius-full); background: var(--lv-color-sidebar-border); color: var(--lv-color-sidebar-fg);">${badge}</span>
                 @endif
-                <span aria-hidden="true" class="lv-sidebar-collapsible lv-sidebar-chevron" style="flex-shrink: 0; display: inline-flex; transition: transform 0.15s ease;">@template.icon(name = "chevron-right", size = "0.9rem")</span>
+                <span aria-hidden="true" class="lv-sidebar-collapsible lv-sidebar-chevron" style="flex-shrink: 0; display: inline-flex; transition: transform 0.15s ease;">@template.lievit.icon(name = "chevron-right", size = "0.9rem")</span>
             </summary>
             <ul
                 data-lv-sidebar-sub
@@ -95,7 +95,7 @@
             style="${rowStyle} opacity: ${disabled ? "0.5" : "1"}; pointer-events: ${disabled ? "none" : "auto"};"
         >
             @if(hasIcon)
-                <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.icon(name = icon, size = "1rem")</span>
+                <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>
             @endif
             <span class="lv-sidebar-collapsible" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
             @if(hasBadge)

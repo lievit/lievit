@@ -38,7 +38,7 @@ describe("static partials w4 -- shared hygiene", () => {
       expect(src, "comment block must close").toContain("--%>");
       expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
       expect(src, "missing Usage section").toMatch(/Usage:/);
-      expect(src, "usage snippet must show the @template call").toContain(`@@template.${name}(`);
+      expect(src, "usage snippet must show the @template call").toContain(`@@template.lievit.${name}(`);
       expect(src, "missing param declaration").toMatch(/@param /);
     });
 

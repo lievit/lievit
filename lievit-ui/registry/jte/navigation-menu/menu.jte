@@ -32,8 +32,8 @@
     String cssClass = ""       extra utility classes on the <li>.
 
   Usage:
-    @@template.navigation-menu.menu(key = "products", label = "Products", content = @@`
-      @@template.navigation-menu.link(href = "/analytics", label = "Analytics", icon = "eye", inPanel = true)
+    @@template.lievit.navigation-menu.menu(key = "products", label = "Products", content = @@`
+      @@template.lievit.navigation-menu.link(href = "/analytics", label = "Analytics", icon = "eye", inPanel = true)
     `)
 --%>
 @param String key
@@ -55,7 +55,7 @@
         style="gap: var(--lv-space-1); padding: var(--lv-space-2) var(--lv-space-3); border-radius: var(--lv-radius-sm); color: var(--lv-color-fg); background: transparent; border: 0; cursor: pointer; font: inherit;"
     >
         ${label}
-        <span aria-hidden="true" style="display: inline-flex; transition: transform 150ms ease;" class="group-hover:rotate-180 group-focus-within:rotate-180">@template.icon(name = "chevron-down", size = "1rem")</span>
+        <span aria-hidden="true" style="display: inline-flex; transition: transform 150ms ease;" class="group-hover:rotate-180 group-focus-within:rotate-180">@template.lievit.icon(name = "chevron-down", size = "1rem")</span>
     </button>
     <div
         id="${panelId}"

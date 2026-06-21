@@ -29,13 +29,13 @@
     String cssClass    = ""       extra utility classes on the root.
 
   Usage:
-    @template.button-group(label = "Text alignment", content = @`
-      @template.button(content = @`Left`)
-      @template.button(content = @`Center`)
-      @template.button(content = @`Right`)
+    @template.lievit.button-group(label = "Text alignment", content = @`
+      @template.lievit.button(content = @`Left`)
+      @template.lievit.button(content = @`Center`)
+      @template.lievit.button(content = @`Right`)
     `)
 
-    @template.button-group(orientation = "vertical", content = @`
+    @template.lievit.button-group(orientation = "vertical", content = @`
       <button type="button" class="...">Up</button>
       <button type="button" class="...">Down</button>
     `)

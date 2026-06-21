@@ -28,7 +28,7 @@ describe("badge (server-first JTE partial; the <lv-badge> island is gone)", () =
     expect(src, "comment block must close").toContain("--%>");
     expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
     expect(src, "missing Usage section").toMatch(/Usage:/);
-    expect(src, "usage snippet must show the @template call").toContain("@@template.badge(");
+    expect(src, "usage snippet must show the @template call").toContain("@@template.lievit.badge(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 

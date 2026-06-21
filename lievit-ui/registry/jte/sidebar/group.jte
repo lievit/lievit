@@ -24,8 +24,8 @@
     String cssClass = ""       extra utility classes on the group.
 
   Usage:
-    @@template.sidebar.group(label = "Platform", content = @@`
-      @@template.sidebar.item(key = "home", href = "/", label = "Home", icon = "house", active = true)
+    @@template.lievit.sidebar.group(label = "Platform", content = @@`
+      @@template.lievit.sidebar.item(key = "home", href = "/", label = "Home", icon = "house", active = true)
     `)
 --%>
 @param String label = ""

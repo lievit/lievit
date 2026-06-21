@@ -40,7 +40,7 @@
   Params:
     String forId                  id of the control (binds the label + derives the description/error ids).
     String label    = null        visible label text rendered for the control.
-    gg.jte.Content control        the form control markup (e.g. an @@template.input(...) call).
+    gg.jte.Content control        the form control markup (e.g. an @@template.lievit.input(...) call).
     gg.jte.Content content = null FieldContent slot: label + control side-by-side helper text (horizontal).
     String description = null     muted helper text (FieldDescription); shown alongside the error.
     String hint     = null        deprecated alias for `description` (kept for back-compat).
@@ -50,15 +50,15 @@
     String cssClass = ""          extra utility classes on the wrapper.
 
   Usage:
-    @@template.field(
+    @@template.lievit.field(
       forId = "email", label = "Email", required = true,
       description = "We never share it.", error = errors.email(),
-      control = @@`@@template.input(name = "email", id = "email",
+      control = @@`@@template.lievit.input(name = "email", id = "email",
         describedBy = "email-description email-error", invalid = errors.email() != null)`
     )
 
-    @@template.field(orientation = "horizontal", forId = "remember", label = "Remember me",
-      control = @@`@@template.switch(name = "remember", id = "remember")`)
+    @@template.lievit.field(orientation = "horizontal", forId = "remember", label = "Remember me",
+      control = @@`@@template.lievit.switch(name = "remember", id = "remember")`)
 --%>
 @param String forId
 @param String label = null
@@ -82,7 +82,7 @@
   class="group/field flex gap-[var(--lv-space-2)] data-[orientation=vertical]:flex-col data-[orientation=horizontal]:flex-row data-[orientation=horizontal]:items-center data-[orientation=responsive]:flex-col @md/field-group:data-[orientation=responsive]:flex-row @md/field-group:data-[orientation=responsive]:items-center ${cssClass}"
 >
   @if(label != null && !label.isBlank())
-    @template.label(forId = forId, text = label, required = required, error = hasError)
+    @template.lievit.label(forId = forId, text = label, required = required, error = hasError)
   @endif
   @if(content != null)
     <div data-slot="field-content" class="flex flex-1 flex-col gap-[var(--lv-space-1)]">

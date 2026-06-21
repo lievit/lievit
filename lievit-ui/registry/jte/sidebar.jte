@@ -50,10 +50,10 @@
     String cssClass = ""      extra utility classes on the <nav>.
 
   Usage:
-    @@template.sidebar(label = "Primary", header = @@`...logo...`, footer = @@`...user...`, content = @@`
-      @@template.sidebar.group(label = "Platform", content = @@`
-        @@template.sidebar.item(key = "home", href = "/", label = "Home", icon = "house", active = activeTab.equals("home"))
-        @@template.sidebar.item(key = "deals", href = "/deals", label = "Deals", icon = "folder", badge = "3", active = activeTab.equals("deals"))
+    @@template.lievit.sidebar(label = "Primary", header = @@`...logo...`, footer = @@`...user...`, content = @@`
+      @@template.lievit.sidebar.group(label = "Platform", content = @@`
+        @@template.lievit.sidebar.item(key = "home", href = "/", label = "Home", icon = "house", active = activeTab.equals("home"))
+        @@template.lievit.sidebar.item(key = "deals", href = "/deals", label = "Deals", icon = "folder", badge = "3", active = activeTab.equals("deals"))
       `)
     `)
 --%>
@@ -107,7 +107,7 @@
                     class="lv-sidebar-trigger"
                     style="display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: var(--lv-space-2); border: 0; border-radius: var(--lv-radius-md); background: transparent; color: inherit; cursor: pointer;"
                 >
-                    <span aria-hidden="true" style="display: inline-flex;">@template.icon(name = "menu", size = "1.1rem")</span>
+                    <span aria-hidden="true" style="display: inline-flex;">@template.lievit.icon(name = "menu", size = "1.1rem")</span>
                 </button>
             </div>
         @endif

@@ -24,8 +24,8 @@
     String cssClass = ""          extra utility classes on the track.
 
   Usage:
-    @@template.progress(value = 42, label = "Uploading")
-    @@template.progress()   (no value -> indeterminate)
+    @@template.lievit.progress(value = 42, label = "Uploading")
+    @@template.lievit.progress()   (no value -> indeterminate)
 --%>
 @param int value = -1
 @param String label = "Progress"

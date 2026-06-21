@@ -20,6 +20,15 @@ const read = (name: string) => readFileSync(join(jteDir, `${name}.jte`), "utf8")
 
 const PARTIALS = ["avatar", "button-group", "item", "empty", "input-group"];
 
+/**
+ * Partials reached as the vendored `@template.lievit.<name>` namespace (every partial's copy-in
+ * target is `lievit/<name>.jte`). `input-group` is mid-migration (owned elsewhere) and still shows
+ * the bare `@template.<name>` in its doc, so it is excluded here until that lands.
+ */
+const RESERVED_BARE = new Set(["input-group"]);
+const callSnippet = (name: string) =>
+  RESERVED_BARE.has(name) ? `@template.${name}(` : `@template.lievit.${name}(`;
+
 /** Tailwind utilities that legitimately carry a fractional / fixed geometry value. */
 const HARDCODE_EXCEPTIONS = /tracking-tight|leading-snug|leading-none|space-x-2/;
 
@@ -32,7 +41,7 @@ describe("static partials b1 -- shared hygiene", () => {
       expect(src, "comment block must close").toContain("--%>");
       expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
       expect(src, "missing Usage section").toMatch(/Usage:/);
-      expect(src, "usage snippet must show the @template call").toContain(`@template.${name}(`);
+      expect(src, "usage snippet must show the @template call").toContain(callSnippet(name));
       expect(src, "missing param declaration").toMatch(/@param /);
     });
 
@@ -79,7 +88,7 @@ describe("avatar (#431)", () => {
     expect(src).toContain('aria-label="${name}"');
   });
   test("fallback chain: initials else a Lucide user icon; the photo is decorative", () => {
-    expect(src).toContain('@template.icon(name = "user"');
+    expect(src).toContain('@template.lievit.icon(name = "user"');
     expect(src).toContain("${initials}");
     expect(src).toMatch(/alt=""/);
   });
@@ -139,7 +148,7 @@ describe("empty (#433)", () => {
     expect(src).toContain("@param gg.jte.Content action");
   });
   test("renders its icon through the Lucide partial, dashed bordered panel", () => {
-    expect(src).toContain("@template.icon(name = icon");
+    expect(src).toContain("@template.lievit.icon(name = icon");
     expect(src).toContain("border-dashed");
     expect(src).toContain("border-[var(--lv-color-border)]");
   });

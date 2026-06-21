@@ -22,12 +22,12 @@
   visible legend.
 
   OPTIONS: pass a Map<String,String> via `options` (value -> label) for the simple case, OR a
-  `content` slot of hand-authored option markup (each composing @@template.radio-group.option) for
+  `content` slot of hand-authored option markup (each composing @@template.lievit.radio-group.option) for
   per-option disabled / rich labels. `content` wins.
 
   INVALID: `invalid` sets aria-invalid="true" on the radiogroup (and each option's radio gets the
   danger ring), shadcn's radio-group error state; pass `describedBy` to point the group at an
-  external error element (e.g. `<name>-error` from @@template.field).
+  external error element (e.g. `<name>-error` from @@template.lievit.field).
 
   Params:
     String name                       the shared radio name (POSTs the selected value).
@@ -45,7 +45,7 @@
     String cssClass   = ""            extra utility classes on the fieldset.
 
   Usage:
-    @@template.radio-group(
+    @@template.lievit.radio-group(
       name = "stato", label = "Stato", value = contatto.stato(),
       options = java.util.Map.of("attivo", "Attivo", "sospeso", "Sospeso")
     )
@@ -82,7 +82,7 @@
       ${content}
     @elseif(options != null)
       @for(java.util.Map.Entry<String, String> opt : options.entrySet())
-        @template.radio-group.option(name = name, value = opt.getKey(), label = opt.getValue(), checked = opt.getKey().equals(value), required = required, invalid = invalid, model = model)
+        @template.lievit.radio-group.option(name = name, value = opt.getKey(), label = opt.getValue(), checked = opt.getKey().equals(value), required = required, invalid = invalid, model = model)
       @endfor
     @endif
   </div>

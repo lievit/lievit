@@ -50,14 +50,14 @@
     String         cssClass = ""            extra utility classes on the wrapper.
 
   Usage:
-    @@template.dropdown-menu(
+    @@template.lievit.dropdown-menu(
       id = "user-menu",
       trigger = @@`Ada`,
       content = @@`
-        @@template.dropdown-menu.item(href = "/profile", label = "Profile", icon = "user")
-        @@template.dropdown-menu.item(href = "/settings", label = "Settings", icon = "settings")
-        @@template.dropdown-menu.separator()
-        @@template.dropdown-menu.item(label = "Log out", icon = "log-out", formAction = "/logout")
+        @@template.lievit.dropdown-menu.item(href = "/profile", label = "Profile", icon = "user")
+        @@template.lievit.dropdown-menu.item(href = "/settings", label = "Settings", icon = "settings")
+        @@template.lievit.dropdown-menu.separator()
+        @@template.lievit.dropdown-menu.item(label = "Log out", icon = "log-out", formAction = "/logout")
       `
     )
 --%>

@@ -53,9 +53,9 @@
     String cssClass    = ""             extra utility classes on the viewport.
 
   Usage:
-    @@template.scroll-area(maxHeight = "12rem", content = @@`<p>... long content ...</p>`)
-    @@template.scroll-area(orientation = "horizontal", type = "always", content = @@`<div style="width: 60rem">wide</div>`)
-    @@template.scroll-area(label = "Changelog", type = "hover", content = @@`...`)
+    @@template.lievit.scroll-area(maxHeight = "12rem", content = @@`<p>... long content ...</p>`)
+    @@template.lievit.scroll-area(orientation = "horizontal", type = "always", content = @@`<div style="width: 60rem">wide</div>`)
+    @@template.lievit.scroll-area(label = "Changelog", type = "hover", content = @@`...`)
 --%>
 @param gg.jte.Content content
 @param String orientation = "vertical"

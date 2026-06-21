@@ -16,7 +16,7 @@
   the gestionale uses -- success / warning / danger / info -- plus a muted `neutral` default.
   Every variant drives a fill + foreground (and, for `outline`, a transparent fill + border)
   token pair, exactly the mapping the dropped island shipped extended with the shadcn names.
-  The label is plain text (the common kit call: @@template.badge(variant=.., label="..")),
+  The label is plain text (the common kit call: @@template.lievit.badge(variant=.., label="..")),
   with an optional Content slot for rich children that takes precedence when supplied (the
   same content-over-scalar precedence kbd.jte uses).
 
@@ -45,11 +45,11 @@
     String cssClass        = ""         extra utility classes on the pill.
 
   Usage:
-    @@template.badge(variant = "success", label = "Attivo")
-    @@template.badge(variant = "secondary", label = "Draft")
-    @@template.badge(variant = "outline", label = "v2")
-    @@template.badge(variant = "danger", content = @@`<strong>Scaduto</strong>`)
-    @@template.badge(variant = "default", label = "Open issue", href = "/issues/42")
+    @@template.lievit.badge(variant = "success", label = "Attivo")
+    @@template.lievit.badge(variant = "secondary", label = "Draft")
+    @@template.lievit.badge(variant = "outline", label = "v2")
+    @@template.lievit.badge(variant = "danger", content = @@`<strong>Scaduto</strong>`)
+    @@template.lievit.badge(variant = "default", label = "Open issue", href = "/issues/42")
 --%>
 @param String variant = "neutral"
 @param String label = null

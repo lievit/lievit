@@ -23,9 +23,9 @@
     label  - accessible label announced to screen readers. Default "Loading".
 
   Usage:
-    @@template.skeleton(height = "8rem")
-    @@template.skeleton(shape = "text", width = "60%")
-    @@template.skeleton(shape = "circle", width = "2.5rem", height = "2.5rem")
+    @@template.lievit.skeleton(height = "8rem")
+    @@template.lievit.skeleton(shape = "text", width = "60%")
+    @@template.lievit.skeleton(shape = "circle", width = "2.5rem", height = "2.5rem")
 --%>
 @param String shape = "block"
 @param String width = "100%"

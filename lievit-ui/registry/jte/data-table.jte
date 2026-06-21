@@ -35,7 +35,7 @@
   next-sort URL), and the pagination partial for paging.
 
   ROWS via a Content slot (data down, the caller owns the cells). The caller renders one
-  @template.data-table.row(...) per data item inside `rows`, each holding @template.data-table.cell
+  @template.lievit.data-table.row(...) per data item inside `rows`, each holding @template.lievit.data-table.cell
   blocks (or composes the existing table.row / table.cell primitives). This mirrors the kit's typed
   Cell switch: the partial owns the chrome + the sort/page contract, the caller owns what a cell
   shows (a badge, a link, an icon, escaped text). No row data is hardcoded here; it arrives via the
@@ -63,11 +63,11 @@
     int page                 = 0      current page (1-based); a page < 1 hides the pager.
     int totalPages           = 0      total pages; <= 1 hides the pager.
     String pageHrefPattern   = null   printf pattern for a page URL (one %d = the page number);
-                                      null hides the pager. Forwarded to @template.pagination.
+                                      null hides the pager. Forwarded to @template.lievit.pagination.
     String klass             = ""     extra classes on the <table>.
 
   Usage:
-    @@template.data-table(
+    @@template.lievit.data-table(
       headers   = view.headers(),
       sortUrls  = sortUrls,            // controller builds the next-sort href per column
       sortStates= sortStates,          // "asc"/"desc"/"" per column from the active Sort
@@ -78,8 +78,8 @@
       pageHrefPattern = "/admin/listings?page=%d",
       rows = @@`
         @@for(var row : view.rows())
-          @@template.data-table.row(content = @@`
-            @@template.data-table.cell(content = @@`${row.id()}`)
+          @@template.lievit.data-table.row(content = @@`
+            @@template.lievit.data-table.cell(content = @@`${row.id()}`)
           `)
         @@endfor
       `)
@@ -136,11 +136,11 @@
                   <span>${label}</span>
                   <span aria-hidden="true" class="text-[var(--lv-color-muted-fg)] data-[active=true]:text-[var(--lv-color-primary)]" data-active="${sorted}">
                     @if(state.equals("asc"))
-                      @template.icon(name = "chevron-up", size = "0.85em")
+                      @template.lievit.icon(name = "chevron-up", size = "0.85em")
                     @elseif(state.equals("desc"))
-                      @template.icon(name = "chevron-down", size = "0.85em")
+                      @template.lievit.icon(name = "chevron-down", size = "0.85em")
                     @else
-                      @template.icon(name = "chevrons-up-down", size = "0.85em")
+                      @template.lievit.icon(name = "chevrons-up-down", size = "0.85em")
                     @endif
                   </span>
                 </a>
@@ -164,7 +164,7 @@
   </div>
   @if(showPager)
     <div data-slot="data-table-pagination" class="mt-[var(--lv-space-3)]">
-      @template.pagination(current = page, total = totalPages, hrefPattern = pageHrefPattern)
+      @template.lievit.pagination(current = page, total = totalPages, hrefPattern = pageHrefPattern)
     </div>
   @endif
 </div>

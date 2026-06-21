@@ -5,7 +5,7 @@
   lievit-ui radio-group/option partial -- one native <input type="radio"> + its <label>.
 
   TIER: STATIC presentational -> JTE partial. A single native radio styled by tokens; part of the
-  radio-group family (use it directly only for the `content` slot of @@template.radio-group when
+  radio-group family (use it directly only for the `content` slot of @@template.lievit.radio-group when
   you need per-option disabled or rich labels). The shared `name` (passed by the group) ties the
   options into one native single-selection group.
 
@@ -27,7 +27,7 @@
     String model    = null      l:model expression bound on the radio.
 
   Usage:
-    @@template.radio-group.option(name = "stato", value = "attivo", label = "Attivo", checked = true)
+    @@template.lievit.radio-group.option(name = "stato", value = "attivo", label = "Attivo", checked = true)
 --%>
 @param String name
 @param String value

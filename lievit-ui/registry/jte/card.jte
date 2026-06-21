@@ -37,9 +37,9 @@
     String cssClass            = ""    extra utility classes on the card.
 
   Usage:
-    @@template.card(content = @@`<p>Plain surface.</p>`)
-    @@template.card(heading = "Listings", headingId = "listings-card", content = @@`<p>...</p>`)
-    @@template.card(
+    @@template.lievit.card(content = @@`<p>Plain surface.</p>`)
+    @@template.lievit.card(heading = "Listings", headingId = "listings-card", content = @@`<p>...</p>`)
+    @@template.lievit.card(
       title = @@`Team plan`,
       description = @@`Billed monthly`,
       action = @@`<button type="button">Upgrade</button>`,

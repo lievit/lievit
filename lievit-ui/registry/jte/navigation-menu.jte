@@ -39,12 +39,12 @@
     String cssClass = ""     extra utility classes on the <nav>.
 
   Usage:
-    @@template.navigation-menu(label = "Primary", content = @@`
-      @@template.navigation-menu.menu(key = "products", label = "Products", open = false, content = @@`
-        @@template.navigation-menu.link(href = "/analytics", label = "Analytics", description = "Track everything", icon = "eye", active = false, inPanel = true)
-        @@template.navigation-menu.link(href = "/engagement", label = "Engagement", active = false, inPanel = true)
+    @@template.lievit.navigation-menu(label = "Primary", content = @@`
+      @@template.lievit.navigation-menu.menu(key = "products", label = "Products", open = false, content = @@`
+        @@template.lievit.navigation-menu.link(href = "/analytics", label = "Analytics", description = "Track everything", icon = "eye", active = false, inPanel = true)
+        @@template.lievit.navigation-menu.link(href = "/engagement", label = "Engagement", active = false, inPanel = true)
       `)
-      @@template.navigation-menu.link(href = "/docs", label = "Docs", active = activeKey.equals("docs"))
+      @@template.lievit.navigation-menu.link(href = "/docs", label = "Docs", active = activeKey.equals("docs"))
     `)
 --%>
 @param gg.jte.Content content

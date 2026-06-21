@@ -18,14 +18,14 @@
         shadcn's structure 1:1.
   (B) wins on (4) API ergonomics / composability and (2) customisability, so the table is
   shipped as this entry file plus sibling parts in `table/`:
-    table.jte         -> @@template.table(...)          the <table> wrapper (+ scroll container)
-    table/header.jte  -> @@template.table.header(...)   <thead>
-    table/body.jte    -> @@template.table.body(...)     <tbody>
-    table/footer.jte  -> @@template.table.footer(...)   <tfoot>
-    table/row.jte     -> @@template.table.row(...)      <tr> (hover; data-state=selected)
-    table/head.jte    -> @@template.table.head(...)     <th scope=col> (muted header cell)
-    table/cell.jte    -> @@template.table.cell(...)     <td>
-    table/caption.jte -> @@template.table.caption(...)  <caption>
+    table.jte         -> @@template.lievit.table(...)          the <table> wrapper (+ scroll container)
+    table/header.jte  -> @@template.lievit.table.header(...)   <thead>
+    table/body.jte    -> @@template.lievit.table.body(...)     <tbody>
+    table/footer.jte  -> @@template.lievit.table.footer(...)   <tfoot>
+    table/row.jte     -> @@template.lievit.table.row(...)      <tr> (hover; data-state=selected)
+    table/head.jte    -> @@template.lievit.table.head(...)     <th scope=col> (muted header cell)
+    table/cell.jte    -> @@template.lievit.table.cell(...)     <td>
+    table/caption.jte -> @@template.lievit.table.caption(...)  <caption>
 
   Accessibility: real <table>/<thead>/<tbody>/<tfoot>/<tr>/<th>/<td>/<caption> elements;
   header cells are <th scope="col"> (row headers pass scope="row"); the caption is the
@@ -37,20 +37,20 @@
     content - the <thead>/<tbody>/<tfoot>/<caption> blocks, composed by the caller.
 
   Usage:
-    @@template.table(content = @@`
-      @@template.table.caption(content = @@`Q2 listings`)
-      @@template.table.header(content = @@`
-        @@template.table.row(content = @@`
-          @@template.table.head(content = @@`Ref`)
-          @@template.table.head(content = @@`Agent`)
-          @@template.table.head(klass = "text-right", content = @@`Price`)
+    @@template.lievit.table(content = @@`
+      @@template.lievit.table.caption(content = @@`Q2 listings`)
+      @@template.lievit.table.header(content = @@`
+        @@template.lievit.table.row(content = @@`
+          @@template.lievit.table.head(content = @@`Ref`)
+          @@template.lievit.table.head(content = @@`Agent`)
+          @@template.lievit.table.head(klass = "text-right", content = @@`Price`)
         `)
       `)
-      @@template.table.body(content = @@`
-        @@template.table.row(content = @@`
-          @@template.table.cell(content = @@`A-1024`)
-          @@template.table.cell(content = @@`Cecchetto`)
-          @@template.table.cell(klass = "text-right", content = @@`240000`)
+      @@template.lievit.table.body(content = @@`
+        @@template.lievit.table.row(content = @@`
+          @@template.lievit.table.cell(content = @@`A-1024`)
+          @@template.lievit.table.cell(content = @@`Cecchetto`)
+          @@template.lievit.table.cell(klass = "text-right", content = @@`240000`)
         `)
       `)
     `)

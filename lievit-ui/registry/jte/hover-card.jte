@@ -28,7 +28,7 @@
     String         cssClass = ""       extra utility classes on the wrapper.
 
   Usage:
-    @@template.hover-card(
+    @@template.lievit.hover-card(
       trigger = @@`<a href="/u/ada">@@ada</a>`,
       content = @@`<p>Ada Lovelace, first programmer.</p>`
     )

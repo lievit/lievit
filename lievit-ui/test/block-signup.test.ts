@@ -31,7 +31,7 @@ describe("signup block (#459) -- shared hygiene", () => {
     expect(src, "missing jte comment block").toContain("<%--");
     expect(src, "missing Usage section").toMatch(/Usage/);
     expect(src, "usage snippet must show the @template.blocks.signup call").toContain(
-      "@template.blocks.signup("
+      "@template.lievit.blocks.signup("
     );
     expect(src, "missing param declaration").toMatch(/@param /);
   });
@@ -100,7 +100,7 @@ describe("signup block -- server-rendered form contract", () => {
 
 describe("signup block -- composes the existing components", () => {
   test("renders the field icons through the Lucide icon partial", () => {
-    expect(src).toContain("@template.icon(");
+    expect(src).toContain("@template.lievit.icon(");
     // the documented credential icons
     for (const icon of ['"user"', '"mail"', '"lock"']) {
       expect(src, `missing icon ${icon}`).toContain(icon);

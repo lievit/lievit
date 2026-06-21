@@ -32,8 +32,8 @@
     String  cssClass = ""        extra utility classes on the item.
 
   Usage:
-    @@template.dropdown-menu.item(href = "/profile", label = "Profile", icon = "user")
-    @@template.dropdown-menu.item(label = "Log out", icon = "log-out", formId = "logout-form")
+    @@template.lievit.dropdown-menu.item(href = "/profile", label = "Profile", icon = "user")
+    @@template.lievit.dropdown-menu.item(label = "Log out", icon = "log-out", formId = "logout-form")
 --%>
 @param String label
 @param String href = ""
@@ -59,7 +59,7 @@
         style="${itemStyle}"
     >
         @if(!icon.isEmpty())
-            <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.icon(name = icon, size = "1rem")</span>
+            <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>
         @endif
         <span style="flex: 1 1 auto;">${label}</span>
         @if(!shortcut.isEmpty())
@@ -80,7 +80,7 @@
         style="${itemStyle}"
     >
         @if(!icon.isEmpty())
-            <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.icon(name = icon, size = "1rem")</span>
+            <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>
         @endif
         <span style="flex: 1 1 auto;">${label}</span>
         @if(!shortcut.isEmpty())

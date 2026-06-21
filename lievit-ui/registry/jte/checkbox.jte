@@ -40,9 +40,9 @@
     String cssClass    = ""      extra utility classes on the wrapper.
 
   Usage:
-    @@template.checkbox(name = "attivo", label = "Attivo", checked = contatto.attivo())
-    @@template.checkbox(name = "consenso", ariaLabel = "Consenso", model = "consenso")
-    @@template.checkbox(name = "all", label = "Select all", indeterminate = someSelected)
+    @@template.lievit.checkbox(name = "attivo", label = "Attivo", checked = contatto.attivo())
+    @@template.lievit.checkbox(name = "consenso", ariaLabel = "Consenso", model = "consenso")
+    @@template.lievit.checkbox(name = "all", label = "Select all", indeterminate = someSelected)
 --%>
 @param String name
 @param String id = null
@@ -88,10 +88,10 @@
       class="peer size-full cursor-pointer appearance-none rounded-[var(--lv-radius-sm)] border-2 border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] outline-none transition-shadow checked:border-[var(--lv-color-primary)] checked:bg-[var(--lv-color-primary)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed aria-[invalid=true]:border-[var(--lv-color-danger)] data-[indeterminate=true]:border-[var(--lv-color-primary)] data-[indeterminate=true]:bg-[var(--lv-color-primary)]"
     >
     <span aria-hidden="true" class="pointer-events-none absolute hidden text-[var(--lv-color-primary-fg)] peer-checked:flex peer-data-[indeterminate=true]:hidden">
-      @template.icon(name = "check", size = "0.75rem")
+      @template.lievit.icon(name = "check", size = "0.75rem")
     </span>
     <span aria-hidden="true" class="pointer-events-none absolute hidden text-[var(--lv-color-primary-fg)] peer-data-[indeterminate=true]:flex">
-      @template.icon(name = "minus", size = "0.75rem")
+      @template.lievit.icon(name = "minus", size = "0.75rem")
     </span>
   </span>
   @if(hasLabel)

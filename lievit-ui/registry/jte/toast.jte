@@ -75,7 +75,7 @@
   class="fixed flex items-start gap-[var(--lv-space-3)] rounded-[var(--lv-radius-md)] border px-[var(--lv-space-4)] py-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-fg)] ${cssClass}"
   style="bottom: var(--lv-space-4); right: var(--lv-space-4); min-width: 16rem; max-width: 24rem; z-index: var(--lv-z-toast, 9000); font-family: var(--lv-font-sans); border-color: ${tone}; background: color-mix(in srgb, ${tone} 12%, var(--lv-color-bg)); box-shadow: var(--lv-shadow-md);"
 >
-  <span aria-hidden="true" data-toast-icon class="flex items-center" style="color: ${tone}; flex-shrink: 0;">@template.icon(name = glyph, size = "1.25rem")</span>
+  <span aria-hidden="true" data-toast-icon class="flex items-center" style="color: ${tone}; flex-shrink: 0;">@template.lievit.icon(name = glyph, size = "1.25rem")</span>
   <div data-toast-body class="min-w-0" style="flex: 1;">
     @if(heading != null && !heading.isBlank())
       <div data-toast-heading class="mb-[var(--lv-space-1)] font-[var(--lv-font-semibold)]">${heading}</div>
@@ -89,6 +89,6 @@
       aria-label="Dismiss notification"
       class="flex items-center justify-center"
       style="flex-shrink: 0; background: transparent; border: 0; padding: var(--lv-space-1); margin: calc(-1 * var(--lv-space-1)); color: inherit; opacity: 0.7; cursor: pointer; border-radius: var(--lv-radius-sm); line-height: 1;"
-    >@template.icon(name = "x", size = "1rem")</button>
+    >@template.lievit.icon(name = "x", size = "1rem")</button>
   @endif
 </div>

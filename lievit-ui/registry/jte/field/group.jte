@@ -4,7 +4,7 @@
   Licensed under the Apache License, Version 2.0 (the "License").
 
   lievit-ui field/group partial -- shadcn's FieldGroup: the vertical stack that holds a set of
-  @@template.field calls (and FieldSeparators), and establishes the container-query context that
+  @@template.lievit.field calls (and FieldSeparators), and establishes the container-query context that
   drives a field's "responsive" orientation.
 
   TIER: STATIC presentational -> JTE partial. Pure layout, no client state. It is the
@@ -16,17 +16,17 @@
   responsive Field reads it via `@md/field-group:`. We reproduce that exactly with tokens.
 
   A11y: a plain grouping wrapper; the grouped controls carry their own labels. For a semantic
-  group with a single legend, use @@template.field.set instead.
+  group with a single legend, use @@template.lievit.field.set instead.
 
   Params:
     gg.jte.Content content      the fields (and separators) in this group.
     String cssClass = ""        extra utility classes on the group.
 
   Usage:
-    @@template.field.group(content = @@`
-      @@template.field(forId = "first", label = "First name", control = @@`...`)
-      @@template.field.separator()
-      @@template.field(forId = "last", label = "Last name", control = @@`...`)
+    @@template.lievit.field.group(content = @@`
+      @@template.lievit.field(forId = "first", label = "First name", control = @@`...`)
+      @@template.lievit.field.separator()
+      @@template.lievit.field(forId = "last", label = "Last name", control = @@`...`)
     `)
 --%>
 @param gg.jte.Content content

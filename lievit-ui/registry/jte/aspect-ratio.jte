@@ -23,7 +23,7 @@
               so it fills the ratio box.
 
   Usage:
-    @@template.aspect-ratio(ratio = "16 / 9", klass = "rounded-[var(--lv-radius-md)] overflow-hidden", content = @@`
+    @@template.lievit.aspect-ratio(ratio = "16 / 9", klass = "rounded-[var(--lv-radius-md)] overflow-hidden", content = @@`
       <img src="/cover.jpg" alt="Cover" class="h-full w-full object-cover">
     `)
 --%>

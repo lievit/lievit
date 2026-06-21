@@ -16,19 +16,19 @@
 
   SERVER-FIRST (ADR-0012, Wave 4): the block COMPOSES the server-rendered partials, it
   no longer mounts Lit-island custom elements. Every former island tag is now a
-  `@template.*` composition rendered on the server, data DOWN via typed @param:
-    - @template.sidebar(+ .group + .item)  the navigation: a real <nav> landmark of
+  `@template.lievit.*` composition rendered on the server, data DOWN via typed @param:
+    - @template.lievit.sidebar(+ .group + .item)  the navigation: a real <nav> landmark of
                                <a href> entries. The active item is a SERVER fact
                                (`activeNav`), not client state. Groups arrive as typed
                                nav data (`navGroups`), never hardcoded here.
-    - @template.dropdown-menu  the user menu: a native-popover menu of real <a>/<button>
+    - @template.lievit.dropdown-menu  the user menu: a native-popover menu of real <a>/<button>
                                items (zero JS, CSP-clean). Items arrive as typed data
                                (`userMenu`), never hardcoded here.
-    - @template.breadcrumb     the header trail: a real <nav aria-label="Breadcrumb"> of
+    - @template.lievit.breadcrumb     the header trail: a real <nav aria-label="Breadcrumb"> of
                                <a href> + a current <span aria-current="page">.
-    - @template.input-group    the header search field (a real <input> + a Lucide search addon).
-    - @template.avatar         the user's avatar inside the user-menu trigger.
-    - @template.icon           every glyph (Lucide raw SVG; the only icon source).
+    - @template.lievit.input-group    the header search field (a real <input> + a Lucide search addon).
+    - @template.lievit.avatar         the user's avatar inside the user-menu trigger.
+    - @template.lievit.icon           every glyph (Lucide raw SVG; the only icon source).
 
   TIER: this BLOCK is static composed markup (a JTE template). The sidebar collapse is the
   ONLY client behaviour, supplied by the sidebar partial's own CSP-clean typed-TS enhancer
@@ -38,8 +38,8 @@
 
   DATA DOWN (no hardcoded menu data): the navigation groups arrive via `navGroups`, a typed
   List<Map<String,String>> the controller derives from real model data; this block iterates
-  it into @template.sidebar.group / @template.sidebar.item entries. The user-menu items
-  arrive via `userMenu`, a List<Map<String,String>> iterated into @template.dropdown-menu.item
+  it into @template.lievit.sidebar.group / @template.lievit.sidebar.item entries. The user-menu items
+  arrive via `userMenu`, a List<Map<String,String>> iterated into @template.lievit.dropdown-menu.item
   entries. The block NEVER inlines item labels/hrefs of its own. A group row carries
   `groupLabel`; an item row carries `label`, `href`/`formAction`, `icon`, `key`/`badge`,
   and `separator`="true" to emit a divider.
@@ -74,7 +74,7 @@
     gg.jte.Content content          the page body rendered inside <main>.
 
   Usage (the controller derives the typed nav + menu data; nothing hardcoded here):
-    @@template.blocks.app-shell(
+    @@template.lievit.blocks.app-shell(
       appName = "HouseTree", sidebarLabel = "Main", activeNav = "contatti",
       navGroups = java.util.List.of(
         java.util.Map.of("groupLabel", "Platform"),
@@ -128,7 +128,7 @@
   <%-- Navigation landmark: the sidebar partial renders the page's <nav>; nav data is iterated
        DOWN from the typed navGroups list into sidebar group/item compositions (no hardcoding). --%>
   <div data-slot="app-shell-sidebar" class="shrink-0">
-    @template.sidebar(
+    @template.lievit.sidebar(
       label = sidebarLabel,
       header = @`<span class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-semibold)]">${appName}</span>`,
       content = @`
@@ -156,11 +156,11 @@
         @for(var gi = 0; gi < labels.size(); gi++)
           !{var gStart = starts.get(gi);}
           !{var gEnd = ends.get(gi);}
-          @template.sidebar.group(label = labels.get(gi), content = @`
+          @template.lievit.sidebar.group(label = labels.get(gi), content = @`
             @for(var i = gStart; i < gEnd; i++)
               !{var item = navGroups.get(i);}
               !{var key = item.getOrDefault("key", item.getOrDefault("href", item.getOrDefault("label", "")));}
-              @template.sidebar.item(
+              @template.lievit.sidebar.item(
                 key = key,
                 label = item.getOrDefault("label", ""),
                 href = item.getOrDefault("href", ""),
@@ -182,7 +182,7 @@
     >
       @if(breadcrumb != null)
         <div data-slot="app-shell-breadcrumb" class="hidden min-w-0 items-center md:flex">
-          @template.breadcrumb(items = breadcrumb)
+          @template.lievit.breadcrumb(items = breadcrumb)
         </div>
       @endif
 
@@ -190,12 +190,12 @@
 
       @if(searchAction != null)<form role="search" action="${searchAction}" method="get" class="hidden min-w-0 sm:block">@endif
       <div data-slot="app-shell-search" class="hidden w-[var(--lv-app-shell-search-w,16rem)] min-w-0 sm:block">
-        @template.input-group(
+        @template.lievit.input-group(
           name = searchName,
           type = "search",
           placeholder = searchPlaceholder,
           ariaLabel = searchPlaceholder,
-          leading = @`@template.icon(name = "search")`
+          leading = @`@template.lievit.icon(name = "search")`
         )
       </div>
       @if(searchAction != null)</form>@endif
@@ -203,22 +203,22 @@
       <%-- User menu: the dropdown-menu partial owns the native-popover menu behaviour; the
            avatar + name compose its trigger; items iterated DOWN from the userMenu data. --%>
       <div data-slot="app-shell-user-menu" class="shrink-0">
-        @template.dropdown-menu(
+        @template.lievit.dropdown-menu(
           id = "app-shell-user-menu",
           placement = "bottom",
           trigger = @`
             <span class="flex items-center gap-[var(--lv-space-2)]">
-              @template.avatar(name = userName, src = userAvatarSrc, initials = userInitials, size = "sm")
+              @template.lievit.avatar(name = userName, src = userAvatarSrc, initials = userInitials, size = "sm")
               <span class="hidden text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] md:inline">${userName}</span>
-              @template.icon(name = "chevron-down", cssClass = "text-[var(--lv-color-muted-fg)]")
+              @template.lievit.icon(name = "chevron-down", cssClass = "text-[var(--lv-color-muted-fg)]")
             </span>
           `,
           content = @`
             @for(Map<String, String> mi : userMenu)
               @if("true".equals(mi.get("separator")))
-                @template.dropdown-menu.separator()
+                @template.lievit.dropdown-menu.separator()
               @else
-                @template.dropdown-menu.item(
+                @template.lievit.dropdown-menu.item(
                   label = mi.getOrDefault("label", ""),
                   href = mi.getOrDefault("href", ""),
                   icon = mi.getOrDefault("icon", ""),

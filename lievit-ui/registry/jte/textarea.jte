@@ -39,8 +39,8 @@
     String cssClass    = ""       extra utility classes on the textarea.
 
   Usage:
-    @@template.textarea(name = "note", rows = 5, value = contatto.note())
-    @@template.textarea(name = "bio", placeholder = "Raccontaci...", hint = "Max 280 chars")
+    @@template.lievit.textarea(name = "note", rows = 5, value = contatto.note())
+    @@template.lievit.textarea(name = "bio", placeholder = "Raccontaci...", hint = "Max 280 chars")
 --%>
 @param String name
 @param String id = null

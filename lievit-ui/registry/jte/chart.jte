@@ -42,8 +42,8 @@
     String   cssClass = ""        extra utility classes on the <svg>.
 
   Usage:
-    @@template.chart(label = "Listings closed", categories = months, values = closed)
-    @@template.chart(label = "Leads", categories = sources, values = leads, color = "var(--lv-color-chart-3)")
+    @@template.lievit.chart(label = "Listings closed", categories = months, values = closed)
+    @@template.lievit.chart(label = "Leads", categories = sources, values = leads, color = "var(--lv-color-chart-3)")
 --%>
 @param String label
 @param String[] categories

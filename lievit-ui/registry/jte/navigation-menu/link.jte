@@ -27,8 +27,8 @@
     String cssClass = ""       extra utility classes on the anchor.
 
   Usage:
-    @@template.navigation-menu.link(href = "/docs", label = "Docs", active = true)
-    @@template.navigation-menu.link(href = "/analytics", label = "Analytics", description = "Track everything", icon = "eye", inPanel = true)
+    @@template.lievit.navigation-menu.link(href = "/docs", label = "Docs", active = true)
+    @@template.lievit.navigation-menu.link(href = "/analytics", label = "Analytics", description = "Track everything", icon = "eye", inPanel = true)
 --%>
 @param String href
 @param String label
@@ -47,7 +47,7 @@
             style="gap: var(--lv-space-2); padding: var(--lv-space-2) var(--lv-space-3); border-radius: var(--lv-radius-sm); color: var(--lv-color-fg); text-decoration: none; background: ${active ? "var(--lv-color-surface)" : "transparent"};"
         >
             @if(!icon.isEmpty())
-                <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex; margin-top: 2px;">@template.icon(name = icon, size = "1rem")</span>
+                <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex; margin-top: 2px;">@template.lievit.icon(name = icon, size = "1rem")</span>
             @endif
             <span style="display: flex; flex-direction: column; gap: 2px;">
                 <span style="font-weight: 500;">${label}</span>

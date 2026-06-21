@@ -29,14 +29,14 @@
     String cssClass    = ""       extra utility classes on the root.
 
   Usage:
-    @template.empty(
+    @template.lievit.empty(
       icon = "search",
       title = "Nessun risultato",
       description = "Nessun contatto corrisponde ai filtri attivi.",
-      action = @`@template.button(content = @`Azzera filtri`)`
+      action = @`@template.lievit.button(content = @`Azzera filtri`)`
     )
 
-    @template.empty(icon = "folder", title = "Cartella vuota")
+    @template.lievit.empty(icon = "folder", title = "Cartella vuota")
 --%>
 @param String title
 @param String description = null
@@ -56,7 +56,7 @@
   <div data-slot="empty-header" class="flex max-w-sm flex-col items-center gap-[var(--lv-space-2)]">
     @if(hasIcon)
       <div data-slot="empty-icon" class="mb-[var(--lv-space-2)] flex h-[var(--lv-space-10)] w-[var(--lv-space-10)] shrink-0 items-center justify-center rounded-[var(--lv-radius-lg)] bg-[var(--lv-color-muted-bg)] text-[var(--lv-color-fg)]">
-        @template.icon(name = icon, size = "1.5rem")
+        @template.lievit.icon(name = icon, size = "1.5rem")
       </div>
     @endif
     <div data-slot="empty-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-medium)] tracking-tight text-[var(--lv-color-fg)]">${title}</div>

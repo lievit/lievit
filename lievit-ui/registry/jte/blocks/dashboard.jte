@@ -17,19 +17,19 @@
 
   SERVER-FIRST (ADR-0012, Wave 4): the block COMPOSES the server-rendered partials, it no
   longer mounts Lit-island custom elements. The former badge / chart island tags are
-  now `@template.badge` / `@template.chart` compositions rendered on the server.
+  now `@template.lievit.badge` / `@template.lievit.chart` compositions rendered on the server.
 
   COMPOSES (existing pieces, nothing rebuilt):
     - stat cards     : server-rendered token-styled <section role="region"> surfaces
                        (the card visual built inline so the whole KPI row is one
-                       SSR pass; the trend delta uses @template.badge + the Lucide icon
+                       SSR pass; the trend delta uses @template.lievit.badge + the Lucide icon
                        partial for the up/down arrow).
-    - @template.badge: the delta pill (variant success/danger/neutral), server-rendered span.
-    - @template.icon : the Lucide up/down arrow on each delta (never Font Awesome).
-    - @template.chart: the charts row (one or two), a server-rendered inline-SVG bar chart.
+    - @template.lievit.badge: the delta pill (variant success/danger/neutral), server-rendered span.
+    - @template.lievit.icon : the Lucide up/down arrow on each delta (never Font Awesome).
+    - @template.lievit.chart: the charts row (one or two), a server-rendered inline-SVG bar chart.
                        Data is passed as TYPED arrays (String[] categories + int[] values);
                        the controller derives them from its model, no client charting lib.
-    - the table set  : @template.table.* (real <table>/<thead>/<th scope>/<tbody>)
+    - the table set  : @template.lievit.table.* (real <table>/<thead>/<th scope>/<tbody>)
                        for the recent-items section. Caller owns the row loop.
 
   A11Y (Radix / WAI-ARIA model):
@@ -73,7 +73,7 @@
                              a date range, an export button); null => no toolbar.
 
   Usage (the controller derives the typed data; nothing hardcoded here):
-    @@template.blocks.dashboard(
+    @@template.lievit.blocks.dashboard(
       title = "Overview",
       stats = kpis,                                       // List<Map<String,String>>
       chartTitle = "Listings closed",
@@ -150,8 +150,8 @@
               ${label}
             </span>
             @if(delta != null && !delta.isBlank())
-              @template.badge(variant = badgeVariant, content = @`
-                @template.icon(name = iconName, size = "var(--lv-text-sm)", cssClass = "shrink-0")
+              @template.lievit.badge(variant = badgeVariant, content = @`
+                @template.lievit.icon(name = iconName, size = "var(--lv-text-sm)", cssClass = "shrink-0")
                 <span>${delta}</span>
               `)
             @endif
@@ -161,7 +161,7 @@
           </span>
           @if(trend != null && !trend.isBlank())
             <span class="flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)]">
-              @template.icon(name = iconName, size = "var(--lv-text-sm)", cssClass = "shrink-0 text-[var(--lv-color-muted-fg)]")
+              @template.lievit.icon(name = iconName, size = "var(--lv-text-sm)", cssClass = "shrink-0 text-[var(--lv-color-muted-fg)]")
               ${trend}
             </span>
           @endif
@@ -185,7 +185,7 @@
         <div role="heading" aria-level="${subLevel}" id="lv-dashboard-chart-1-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
           ${chartTitle}
         </div>
-        @template.chart(
+        @template.lievit.chart(
           label = chartLabel == null ? chartTitle : chartLabel,
           categories = chartCategories,
           values = chartValues
@@ -201,7 +201,7 @@
           <div role="heading" aria-level="${subLevel}" id="lv-dashboard-chart-2-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
             ${chart2Title}
           </div>
-          @template.chart(
+          @template.lievit.chart(
             label = chart2Title,
             categories = chart2Categories,
             values = chart2Values
@@ -220,21 +220,21 @@
     <div role="heading" aria-level="${subLevel}" id="lv-dashboard-rows-title" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)]">
       ${rowsTitle}
     </div>
-    @template.table(content = @`
-      @template.table.caption(content = @`${rowsTitle}`)
-      @template.table.header(content = @`
-        @template.table.row(content = @`
+    @template.lievit.table(content = @`
+      @template.lievit.table.caption(content = @`${rowsTitle}`)
+      @template.lievit.table.header(content = @`
+        @template.lievit.table.row(content = @`
           @for(String col : rowColumns)
-            @template.table.head(content = @`${col}`)
+            @template.lievit.table.head(content = @`${col}`)
           @endfor
         `)
       `)
-      @template.table.body(content = @`
+      @template.lievit.table.body(content = @`
         @for(Map<String, String> row : rows)
-          @template.table.row(state = row.getOrDefault("state", ""), content = @`
+          @template.lievit.table.row(state = row.getOrDefault("state", ""), content = @`
             @for(var c = 0; c < rowColumns.size(); c++)
               !{var cell = row.getOrDefault("c" + c, "");}
-              @template.table.cell(content = @`${cell}`)
+              @template.lievit.table.cell(content = @`${cell}`)
             @endfor
           `)
         @endfor

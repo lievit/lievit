@@ -33,7 +33,7 @@ describe("block app-shell -- hygiene", () => {
     expect(src, "comment block must close").toContain("--%>");
     expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
     expect(src, "missing Usage section").toMatch(/Usage/);
-    expect(src, "usage snippet must show the @@template call").toContain("@@template.blocks.app-shell(");
+    expect(src, "usage snippet must show the @@template call").toContain("@@template.lievit.blocks.app-shell(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
@@ -50,7 +50,7 @@ describe("block app-shell -- hygiene", () => {
   test("every icon goes through the Lucide partial (no raw inline <svg>)", () => {
     const rawSvg = body.match(/<svg\b/gi) ?? [];
     expect(rawSvg, "raw <svg> found; route icons through @template.icon").toEqual([]);
-    expect(src, "must use the Lucide icon partial").toContain("@template.icon(");
+    expect(src, "must use the Lucide icon partial").toContain("@template.lievit.icon(");
   });
 
   test("styling is token-driven (no bare hex colours, no raw px spacing)", () => {
@@ -78,24 +78,24 @@ describe("block app-shell -- server-first composition (ADR-0012: no island tags)
   });
 
   test("navigation is the SIDEBAR partial, composed from sidebar group/item sub-partials", () => {
-    expect(body, "must compose the sidebar partial").toMatch(/@template\.sidebar\(/);
-    expect(body, "groups come from the sidebar.group sub-partial").toContain("@template.sidebar.group(");
-    expect(body, "items come from the sidebar.item sub-partial").toContain("@template.sidebar.item(");
+    expect(body, "must compose the sidebar partial").toMatch(/@template\.lievit\.sidebar\(/);
+    expect(body, "groups come from the sidebar.group sub-partial").toContain("@template.lievit.sidebar.group(");
+    expect(body, "items come from the sidebar.item sub-partial").toContain("@template.lievit.sidebar.item(");
   });
 
   test("the user menu is the DROPDOWN-MENU partial, composed from its item/separator sub-partials", () => {
-    expect(body, "must compose the dropdown-menu partial").toMatch(/@template\.dropdown-menu\(/);
-    expect(body, "menu entries come from dropdown-menu.item").toContain("@template.dropdown-menu.item(");
-    expect(body, "dividers come from dropdown-menu.separator").toContain("@template.dropdown-menu.separator(");
+    expect(body, "must compose the dropdown-menu partial").toMatch(/@template\.lievit\.dropdown-menu\(/);
+    expect(body, "menu entries come from dropdown-menu.item").toContain("@template.lievit.dropdown-menu.item(");
+    expect(body, "dividers come from dropdown-menu.separator").toContain("@template.lievit.dropdown-menu.separator(");
   });
 
   test("the header trail is the BREADCRUMB partial (not rebuilt here)", () => {
-    expect(body, "must compose the breadcrumb partial").toMatch(/@template\.breadcrumb\(/);
+    expect(body, "must compose the breadcrumb partial").toMatch(/@template\.lievit\.breadcrumb\(/);
   });
 
   test("composes the existing avatar + input-group partials (not reimplemented)", () => {
-    expect(src).toContain("@template.avatar(");
-    expect(src).toContain("@template.input-group(");
+    expect(src).toContain("@template.lievit.avatar(");
+    expect(src).toContain("@template.lievit.input-group(");
   });
 });
 
@@ -116,7 +116,7 @@ describe("block app-shell -- data down (typed params, no hardcoded nav data)", (
 
   test("the breadcrumb trail arrives as typed data passed to the breadcrumb partial", () => {
     expect(src).toContain("@param List<Map<String, String>> breadcrumb");
-    expect(body).toContain("@template.breadcrumb(items = breadcrumb)");
+    expect(body).toContain("@template.lievit.breadcrumb(items = breadcrumb)");
   });
 
   test("the user, app name, page title and active nav are all parameters", () => {
@@ -152,7 +152,7 @@ describe("block app-shell -- a11y landmark structure", () => {
   test("the navigation landmark comes from the sidebar partial (its own <nav>), not a duplicate", () => {
     // the sidebar partial renders the page's single <nav>; the block must not hand-roll one
     expect(body, "the sidebar partial owns the <nav> landmark; do not duplicate it").not.toMatch(/<nav\b/);
-    expect(body).toMatch(/@template\.sidebar\(/);
+    expect(body).toMatch(/@template\.lievit\.sidebar\(/);
   });
 
   test("focus ring on the block's own chrome (the skip-link) reads the --lv-ring token", () => {

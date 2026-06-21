@@ -12,8 +12,13 @@
  * (no <use href>), and "add an icon" = drop one .svg here + re-run this script.
  *
  * Emits two consumers from the same source of truth:
- *   - LievitIcons.java  : the Java static lookup the JTE partial imports (Spring/JTE adopter)
- *   - icon-bodies.ts    : the TS map for Lit islands that need an inline icon (light-DOM)
+ *   - LucideIconResolver.java : lievit's DEFAULT IconResolver impl (the bundled, tree-shaken
+ *                               Lucide map). lievit-owned package io.lievit.ui; the JTE partial
+ *                               reaches it through the LievitIcons facade, never directly.
+ *   - icon-bodies.ts          : the TS map for Lit islands that need an inline icon (light-DOM)
+ *
+ * The hand-written SPI lives alongside and is NOT regenerated: IconResolver.java (the contract)
+ * and LievitIcons.java (the static facade the partial imports + the resolver override hook).
  *
  * Usage:  node registry/icons/generate-icon-map.mjs
  */
@@ -57,28 +62,31 @@ const java = `/*
  *
  * Lucide icons (ISC, https://lucide.dev) -- see registry/icons/LICENSE-lucide.
  *
- * The JTE icon partial imports body(...) statically. Only the vendored icons are present
- * (tree-shaken): the inner SVG body lives here, the <svg> wrapper lives in icon.jte.
+ * lievit's DEFAULT IconResolver: the bundled, tree-shaken Lucide set. Only the vendored icons
+ * are present (an adopter ships exactly what they vendored). The inner SVG body lives here, the
+ * uniform <svg> wrapper lives in icon.jte. The partial never names this class directly -- it goes
+ * through the LievitIcons facade, which an adopter can repoint via LievitIcons.setResolver(...).
  */
-package it.housetreespa.gest.ui;
+package io.lievit.ui;
 
 import java.util.Map;
 
-/** Inline-SVG body lookup for the lievit-ui icon partial (Lucide, tree-shaken to the vendored set). */
-public final class LievitIcons {
-  private LievitIcons() {}
+/** lievit's default {@link IconResolver}: the bundled Lucide set, tree-shaken to the vendored SVGs. */
+public final class LucideIconResolver implements IconResolver {
 
   private static final Map<String, String> BODIES = Map.ofEntries(
 ${javaEntries}
   );
 
   /** The inner SVG markup for {@code name}, or empty string if the icon is not vendored. */
-  public static String body(String name) {
+  @Override
+  public String body(String name) {
     return BODIES.getOrDefault(name, "");
   }
 
   /** Whether {@code name} is a vendored icon. */
-  public static boolean has(String name) {
+  @Override
+  public boolean has(String name) {
     return BODIES.containsKey(name);
   }
 }
@@ -98,8 +106,8 @@ const ts = `/*
  *
  * Lucide icons (ISC, https://lucide.dev) -- see registry/icons/LICENSE-lucide.
  *
- * For Lit islands that need an inline icon (light-DOM). Mirrors LievitIcons.java; the <svg>
- * wrapper is the consumer's, sized/coloured by --lv-* tokens + currentColor.
+ * For Lit islands that need an inline icon (light-DOM). Mirrors LucideIconResolver.java; the
+ * <svg> wrapper is the consumer's, sized/coloured by --lv-* tokens + currentColor.
  */
 
 /** Inner SVG body (paths/circles/...) per vendored Lucide icon name. */
@@ -113,9 +121,9 @@ export function iconBody(name: string): string {
 }
 `;
 
-writeFileSync(join(here, "LievitIcons.java"), java);
+writeFileSync(join(here, "LucideIconResolver.java"), java);
 writeFileSync(join(here, "icon-bodies.ts"), ts);
 
 process.stdout.write(
-  `wrote LievitIcons.java + icon-bodies.ts (${bodies.length} icons: ${names.join(", ")})\n`
+  `wrote LucideIconResolver.java + icon-bodies.ts (${bodies.length} icons: ${names.join(", ")})\n`
 );

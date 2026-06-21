@@ -30,7 +30,7 @@ describe("login block (#458) -- hygiene", () => {
   test("ships a usage-doc comment with the @param API + a @template call snippet", () => {
     expect(src, "missing jte comment block").toContain("<%--");
     expect(src, "missing Usage section").toMatch(/Usage:/);
-    expect(src, "usage snippet must show the @template call").toContain("@template.blocks.login(");
+    expect(src, "usage snippet must show the @template call").toContain("@template.lievit.blocks.login(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
@@ -109,17 +109,17 @@ describe("login block -- it is a real posting form", () => {
 
 describe("login block -- composes existing partials, never rebuilds primitives", () => {
   test("uses the input-group partial for the email + password fields", () => {
-    const calls = src.match(/@template\.input-group\(/g) ?? [];
+    const calls = src.match(/@template\.lievit\.input-group\(/g) ?? [];
     expect(calls.length, "expected two input-group compositions").toBeGreaterThanOrEqual(2);
     expect(src).toContain("name = emailName");
     expect(src).toContain("name = passwordName");
   });
 
   test("renders all icons through the Lucide partial", () => {
-    expect(src).toContain("@template.icon(name =");
+    expect(src).toContain("@template.lievit.icon(name =");
     // the password field uses a lock glyph, the email a mail glyph -- both vendored Lucide.
-    expect(src).toContain('@template.icon(name = "mail")');
-    expect(src).toContain('@template.icon(name = "lock")');
+    expect(src).toContain('@template.lievit.icon(name = "mail")');
+    expect(src).toContain('@template.lievit.icon(name = "lock")');
   });
 
   test("emits NO custom-element <lv-*> tag at all (ADR-0012 server-first, even in the doc)", () => {

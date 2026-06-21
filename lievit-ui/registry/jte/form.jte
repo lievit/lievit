@@ -4,7 +4,7 @@
   Licensed under the Apache License, Version 2.0 (the "License").
 
   lievit-ui form partial -- the server-first Form: a native <form> wrapper that owns a form-level
-  validation message region and stacks its @@template.field children. The server-rendered analogue
+  validation message region and stacks its @@template.lievit.field children. The server-rendered analogue
   of shadcn's Form (FormProvider) + a top-level FormMessage for the error that is not tied to one
   field (e.g. "Invalid email or password").
 
@@ -18,13 +18,13 @@
   context). A server-first stack has no client form context to provide: the truth is the POST and
   the controller's validation result. So the "Form" here is the native <form> + a form-level
   message slot. Field-level wiring (id/aria-describedby/aria-invalid) is auto-derived in
-  @@template.field from the per-field error; the form-level error gets its own role=alert region
+  @@template.lievit.field from the per-field error; the form-level error gets its own role=alert region
   whose id (`<formId>-error`) the form references via aria-describedby when present.
 
   A11y (WAI-ARIA): a native <form> (the platform form landmark). The form-level error is a
   `role="alert" aria-live="assertive"` region with id `<formId>-error`, referenced by the form's
   aria-describedby only while present, so a screen reader announces the submit failure. Each field
-  carries its own message via @@template.field.
+  carries its own message via @@template.lievit.field.
 
   Params:
     String id        = null     the form id (derives the form-level message id `<id>-error`).
@@ -36,11 +36,11 @@
     String cssClass  = ""       extra utility classes on the <form>.
 
   Usage:
-    @@template.form(id = "login", action = "/login", error = errors.form(), content = @@`
-      @@template.field(forId = "email", label = "Email", error = errors.email(),
-        control = @@`@@template.input(name = "email", id = "email",
+    @@template.lievit.form(id = "login", action = "/login", error = errors.form(), content = @@`
+      @@template.lievit.field(forId = "email", label = "Email", error = errors.email(),
+        control = @@`@@template.lievit.input(name = "email", id = "email",
           describedBy = "email-error", invalid = errors.email() != null)`)
-      @@template.button(type = "submit", content = @@`Sign in`)
+      @@template.lievit.button(type = "submit", content = @@`Sign in`)
     `)
 --%>
 @param String id = null

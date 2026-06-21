@@ -306,6 +306,6 @@ describe("sidebar partials: source contract (JTE compiles in the jte-compile smo
     for (const src of [main, group, item]) {
       expect(src.match(/<svg\b/gi) ?? []).toEqual([]);
     }
-    expect(item).toContain("@template.icon(name = icon");
+    expect(item).toContain("@template.lievit.icon(name = icon");
   });
 });

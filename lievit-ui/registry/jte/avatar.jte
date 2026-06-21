@@ -48,16 +48,16 @@
                           false keeps the markup minimal and inert.
 
   Usage:
-    @template.avatar(name = "Francesco Bilotta", src = user.avatarUrl(), initials = "FB")
-    @template.avatar(name = "Luca Cecchetto", initials = "LC", size = "lg")
-    @template.avatar(name = "Unknown agent", size = "sm")               // user icon fallback
-    @template.avatar(name = "Francesco", src = url, cssClass = "ring-2 ring-[var(--lv-color-bg)]")
+    @template.lievit.avatar(name = "Francesco Bilotta", src = user.avatarUrl(), initials = "FB")
+    @template.lievit.avatar(name = "Luca Cecchetto", initials = "LC", size = "lg")
+    @template.lievit.avatar(name = "Unknown agent", size = "sm")               // user icon fallback
+    @template.lievit.avatar(name = "Francesco", src = url, cssClass = "ring-2 ring-[var(--lv-color-bg)]")
 
   Avatar group (overlapping stack): wrap calls in a flex row with negative gap and a ring so
   each avatar reads against its neighbour; the ring colour is a page-surface token:
     <div class="flex -space-x-2">
-      @template.avatar(name = "A", initials = "A", cssClass = "ring-2 ring-[var(--lv-color-bg)]")
-      @template.avatar(name = "B", initials = "B", cssClass = "ring-2 ring-[var(--lv-color-bg)]")
+      @template.lievit.avatar(name = "A", initials = "A", cssClass = "ring-2 ring-[var(--lv-color-bg)]")
+      @template.lievit.avatar(name = "B", initials = "B", cssClass = "ring-2 ring-[var(--lv-color-bg)]")
     </div>
 --%>
 @param String name
@@ -92,13 +92,13 @@
         @if(hasInitials)
           ${initials}
         @else
-          @template.icon(name = "user", cssClass = "h-1/2 w-1/2")
+          @template.lievit.icon(name = "user", cssClass = "h-1/2 w-1/2")
         @endif
       </span>
     @endif
   @elseif(hasInitials)
     <span aria-hidden="true" class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none">${initials}</span>
   @else
-    @template.icon(name = "user", cssClass = "h-1/2 w-1/2")
+    @template.lievit.icon(name = "user", cssClass = "h-1/2 w-1/2")
   @endif
 </span>

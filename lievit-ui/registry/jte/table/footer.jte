@@ -2,7 +2,7 @@
 <%--
   lievit-ui :: table.footer - the <tfoot> of the table primitive (totals row).
   Muted fill + top border + medium weight, mirroring shadcn TableFooter.
-  Params: klass (extra classes for <tfoot>), content (the footer @@template.table.row block(s)).
+  Params: klass (extra classes for <tfoot>), content (the footer @@template.lievit.table.row block(s)).
 --%>
 @param String klass = ""
 @param gg.jte.Content content

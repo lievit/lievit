@@ -44,11 +44,11 @@
     String cssClass  = ""            extra utility classes on the <nav>.
 
   Usage:
-    @@template.breadcrumb(items = java.util.List.of(
+    @@template.lievit.breadcrumb(items = java.util.List.of(
       java.util.Map.of("label", "Home", "href", "/"),
       java.util.Map.of("label", "Properties", "href", "/properties"),
       java.util.Map.of("label", "Via Roma 12")))
-    @@template.breadcrumb(items = deepTrail, maxItems = 3)   // root ... + last two crumbs
+    @@template.lievit.breadcrumb(items = deepTrail, maxItems = 3)   // root ... + last two crumbs
 --%>
 @param List<Map<String, String>> items = java.util.List.of()
 @param String separator = "/"
@@ -90,7 +90,7 @@
             <span class="lv-breadcrumb__separator select-none px-[var(--lv-space-2)] text-[var(--lv-color-muted)]" aria-hidden="true">${separator}</span>
           @endif
           <span data-slot="breadcrumb-ellipsis" role="presentation" aria-hidden="true" class="lv-breadcrumb__ellipsis inline-flex items-center text-[var(--lv-color-muted)]">
-            @template.icon(name = "ellipsis", size = "1rem")
+            @template.lievit.icon(name = "ellipsis", size = "1rem")
           </span>
           <span class="sr-only">More</span>
         </li>

@@ -19,8 +19,8 @@
     String cssClass = ""        extra utility classes on the wrapper.
 
   Usage:
-    @@template.field.separator()
-    @@template.field.separator(label = "or")
+    @@template.lievit.field.separator()
+    @@template.lievit.field.separator(label = "or")
 --%>
 @param String label = null
 @param String cssClass = ""

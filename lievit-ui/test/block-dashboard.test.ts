@@ -30,7 +30,7 @@ describe("dashboard block (#461) -- shared hygiene", () => {
   test("ships a usage-doc comment with the @param API + a @template call snippet", () => {
     expect(src, "missing jte comment block").toContain("<%--");
     expect(src, "missing Usage section").toMatch(/Usage/);
-    expect(src, "usage snippet must show the @template call").toContain("@template.blocks.dashboard(");
+    expect(src, "usage snippet must show the @template call").toContain("@template.lievit.blocks.dashboard(");
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
@@ -113,27 +113,27 @@ describe("dashboard block -- server-first composition (ADR-0012: no island tags)
   });
 
   test("stat-card delta uses the BADGE partial (server-rendered span)", () => {
-    expect(src).toContain("@template.badge(variant = badgeVariant");
+    expect(src).toContain("@template.lievit.badge(variant = badgeVariant");
   });
 
   test("the trend arrow goes through the Lucide icon partial", () => {
-    expect(src).toContain("@template.icon(name = iconName");
+    expect(src).toContain("@template.lievit.icon(name = iconName");
     // the up/down arrow is derived from the delta sign, using vendored Lucide icons
     expect(src).toMatch(/arrow-down/);
     expect(src).toMatch(/arrow-up/);
   });
 
   test("the charts row is the CHART partial (server-rendered inline SVG)", () => {
-    expect(src).toContain("@template.chart(");
+    expect(src).toContain("@template.lievit.chart(");
     expect(src).toContain("label = chartLabel == null ? chartTitle : chartLabel");
   });
 
   test("the recent-items table is built from the composable table partial set", () => {
-    expect(src).toContain("@template.table(");
-    expect(src).toContain("@template.table.header(");
-    expect(src).toContain("@template.table.body(");
-    expect(src).toContain("@template.table.head(");
-    expect(src).toContain("@template.table.cell(");
+    expect(src).toContain("@template.lievit.table(");
+    expect(src).toContain("@template.lievit.table.header(");
+    expect(src).toContain("@template.lievit.table.body(");
+    expect(src).toContain("@template.lievit.table.head(");
+    expect(src).toContain("@template.lievit.table.cell(");
   });
 });
 
@@ -150,7 +150,7 @@ describe("dashboard block -- accessibility", () => {
 
   test("the table exposes proper column headers via <th scope>", () => {
     // table.head defaults scope="col"; the dashboard composes that part for headers
-    expect(src).toContain("@template.table.head(");
+    expect(src).toContain("@template.lievit.table.head(");
     const headPartial = readFileSync(
       join(import.meta.dirname, "..", "registry", "jte", "table", "head.jte"),
       "utf8"

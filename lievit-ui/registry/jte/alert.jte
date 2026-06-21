@@ -26,8 +26,8 @@
     String cssClass        = ""       extra utility classes on the banner.
 
   Usage:
-    @@template.alert(variant = "danger", content = @@`Could not save the listing.`)
-    @@template.alert(variant = "success", heading = "Saved", content = @@`Your changes are live.`)
+    @@template.lievit.alert(variant = "danger", content = @@`Could not save the listing.`)
+    @@template.lievit.alert(variant = "success", heading = "Saved", content = @@`Your changes are live.`)
 --%>
 @param String variant = "info"
 @param String heading = null

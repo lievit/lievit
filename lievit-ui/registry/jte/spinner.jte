@@ -22,8 +22,8 @@
     String cssClass = ""          extra utility classes on the spinner.
 
   Usage:
-    @@template.spinner()
-    @@template.spinner(size = "sm", label = "Saving")
+    @@template.lievit.spinner()
+    @@template.lievit.spinner(size = "sm", label = "Saving")
 --%>
 @param String size = "md"
 @param String label = "Loading"

@@ -78,7 +78,7 @@
         @for(int i = 0; i < length; i++)
             @if(grouped && i > 0 && i % groupSize == 0)
                 <span data-otp-separator aria-hidden="true" style="display: inline-flex; align-items: center; color: var(--lv-color-muted-fg);">
-                    @template.icon(name = "minus", size = "1rem")
+                    @template.lievit.icon(name = "minus", size = "1rem")
                 </span>
             @endif
             !{var ch = i < value.length() ? String.valueOf(value.charAt(i)) : "";}

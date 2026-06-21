@@ -43,9 +43,9 @@
     String cssClass    = ""      extra utility classes on the wrapper.
 
   Usage:
-    @@template.slider(name = "prezzo", min = 0, max = 1000, step = 50, value = 250, showValue = true)
-    @@template.slider(name = "fascia", range = true, min = 0, max = 1000, valueMin = 200, valueMax = 800, showValue = true)
-    @@template.slider(name = "volume", orientation = "vertical", value = 60, ariaLabel = "Volume")
+    @@template.lievit.slider(name = "prezzo", min = 0, max = 1000, step = 50, value = 250, showValue = true)
+    @@template.lievit.slider(name = "fascia", range = true, min = 0, max = 1000, valueMin = 200, valueMax = 800, showValue = true)
+    @@template.lievit.slider(name = "volume", orientation = "vertical", value = 60, ariaLabel = "Volume")
 --%>
 @param String name
 @param String id = null

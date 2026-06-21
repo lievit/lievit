@@ -185,7 +185,7 @@ describe("dropdown-menu/item.jte: real <a href> / <button>, role=menuitem", () =
   });
 
   test("the optional icon comes from the Lucide icon partial, not Font Awesome", () => {
-    expect(jte).toContain("@template.icon(name = icon");
+    expect(jte).toContain("@template.lievit.icon(name = icon");
     expect(jte).not.toMatch(/\bfa-|font-awesome/i);
   });
 });

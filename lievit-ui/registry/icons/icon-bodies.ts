@@ -7,8 +7,8 @@
  *
  * Lucide icons (ISC, https://lucide.dev) -- see registry/icons/LICENSE-lucide.
  *
- * For Lit islands that need an inline icon (light-DOM). Mirrors LievitIcons.java; the <svg>
- * wrapper is the consumer's, sized/coloured by --lv-* tokens + currentColor.
+ * For Lit islands that need an inline icon (light-DOM). Mirrors LucideIconResolver.java; the
+ * <svg> wrapper is the consumer's, sized/coloured by --lv-* tokens + currentColor.
  */
 
 /** Inner SVG body (paths/circles/...) per vendored Lucide icon name. */
