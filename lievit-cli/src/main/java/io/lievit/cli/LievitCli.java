@@ -1,13 +1,17 @@
 package io.lievit.cli;
 
+import io.lievit.cli.command.AddCommand;
 import io.lievit.cli.command.CheckDirectivesCommand;
 import io.lievit.cli.command.ConvertCommand;
 import io.lievit.cli.command.DevCommand;
+import io.lievit.cli.command.DiffCommand;
 import io.lievit.cli.command.DoctorCommand;
+import io.lievit.cli.command.InitCommand;
 import io.lievit.cli.command.MakeComponentCommand;
 import io.lievit.cli.command.MakeFormCommand;
 import io.lievit.cli.command.MakeLayoutCommand;
 import io.lievit.cli.command.NewCommand;
+import io.lievit.cli.command.UpdateCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
@@ -17,6 +21,10 @@ import picocli.CommandLine.Command;
  * <p>The CLI is a thin developer tool, not a Spring Boot app. Its subcommands include:
  * <ul>
  *   <li>{@code lievit new <name>} scaffold a new lievit project</li>
+ *   <li>{@code lievit init} scaffold the project for the copy-in flow (jte root + tokens)</li>
+ *   <li>{@code lievit add <component>} copy a lievit-ui component (+ deps) into the project</li>
+ *   <li>{@code lievit diff <component>} show drift between the local copy and the registry</li>
+ *   <li>{@code lievit update <component>} re-copy the registry source over the local copy</li>
  *   <li>{@code lievit dev} run the project with live-reload</li>
  *   <li>{@code lievit doctor} check Java/Maven/project prerequisites</li>
  *   <li>{@code lievit check-directives <dir>} build-time poka-yoke over source .jte templates</li>
@@ -36,6 +44,10 @@ import picocli.CommandLine.Command;
     },
     subcommands = {
         NewCommand.class,
+        InitCommand.class,
+        AddCommand.class,
+        DiffCommand.class,
+        UpdateCommand.class,
         MakeComponentCommand.class,
         MakeFormCommand.class,
         MakeLayoutCommand.class,
