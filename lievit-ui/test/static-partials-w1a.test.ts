@@ -37,7 +37,7 @@ const PARTIALS = [
  * target is `lievit/<name>.jte`). `button` is mid-migration (owned elsewhere) and still shows the
  * bare `@@template.<name>` in its doc, so it is excluded here until that lands.
  */
-const RESERVED_BARE = new Set(["button"]);
+const RESERVED_BARE = new Set<string>([]);
 const callSnippet = (name: string) =>
   RESERVED_BARE.has(name) ? `@@template.${name}(` : `@@template.lievit.${name}(`;
 

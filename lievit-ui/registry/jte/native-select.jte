@@ -66,15 +66,15 @@
   `content` slot, and `l:model` on the native <select> binds the native change event with no JS.
 
   Usage:
-    @@template.native-select(
+    @@template.lievit.native-select(
       name = "stato", label = "Stato", placeholder = "Seleziona...", size = "sm",
       options = java.util.List.of("Attivo", "Sospeso", "Chiuso"), value = contatto.stato()
     )
 
-    @@template.native-select(name = "citta", label = "Citta", optionGroups =
+    @@template.lievit.native-select(name = "citta", label = "Citta", optionGroups =
       java.util.Map.of("Emilia", java.util.List.of("Parma", "Reggio"), "Lombardia", java.util.List.of("Milano")))
 
-    @@template.native-select(name = "agente", ariaLabel = "Agente", content = @@`
+    @@template.lievit.native-select(name = "agente", ariaLabel = "Agente", content = @@`
       <option value="">Tutti</option>
       <optgroup label="Parma">
         <option value="42">Cecchetto</option>
@@ -142,6 +142,6 @@
     @endif
   </select>
   <span aria-hidden="true" data-slot="native-select-indicator" class="pointer-events-none absolute right-[var(--lv-space-3)] flex items-center text-[var(--lv-color-muted-fg)]">
-    @template.icon(name = "chevron-down", size = "1rem")
+    @template.lievit.icon(name = "chevron-down", size = "1rem")
   </span>
 </div>

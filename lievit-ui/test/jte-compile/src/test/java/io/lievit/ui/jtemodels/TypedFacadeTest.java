@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>An adopter consumes exactly this facade: they copy the partials into their own {@code
  * src/main/jte}, run the same plugin block (see README.md), and their IDE indexes {@code
- * Templates} from the jar -- {@code templates.button(..)} autocompletes and compile-checks, the
+ * Templates} from the jar -- {@code templates.lievitButton(..)} autocompletes and compile-checks, the
  * "javadoc-equivalent" for the components.
  */
 class TypedFacadeTest {
@@ -46,7 +46,7 @@ class TypedFacadeTest {
         Content label = output -> output.writeContent("Save");
 
         JteModel model =
-                templates.button(
+                templates.lievitButton(
                         "primary", // variant
                         "md", // size
                         false, // iconOnly
@@ -55,6 +55,8 @@ class TypedFacadeTest {
                         false, // disabled
                         null, // ariaLabel
                         "", // cssClass
+                        "", // attrs (trusted static)
+                        java.util.Map.of(), // dataAttrs (safe dynamic)
                         label // content
                         );
 
@@ -75,7 +77,7 @@ class TypedFacadeTest {
     void resolves_a_badge_through_the_typed_facade() {
         String html =
                 templates
-                        .badge(
+                        .lievitBadge(
                                 "success", // variant
                                 "Attivo", // label
                                 null, // content
@@ -97,7 +99,7 @@ class TypedFacadeTest {
     void resolves_a_chip_through_the_typed_facade() {
         String html =
                 templates
-                        .chip(
+                        .lievitChip(
                                 "neutral", // variant
                                 "Roma", // label
                                 null, // content

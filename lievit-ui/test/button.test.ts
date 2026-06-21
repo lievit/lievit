@@ -53,7 +53,7 @@ describe("button -- params & docs API (Filament parity)", () => {
     expect(src).toContain("--%>");
     expect(src, "must NOT use @* *@ comment syntax").not.toMatch(/@\*/);
     expect(src).toMatch(/Usage:/);
-    expect(src).toContain("@@template.button(");
+    expect(src).toContain("@@template.lievit.button(");
     expect(src).toContain("size = ");
     expect(src).toContain("iconOnly = true");
   });

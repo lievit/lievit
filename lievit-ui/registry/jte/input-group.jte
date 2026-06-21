@@ -45,10 +45,10 @@
     String cssClass    = ""       extra utility classes on the wrapper.
 
   In an adopter project the copied partials are reached as @template.lievit.* (sibling refs below
-  use that namespace); the @template.input-group call itself is shown bare for the in-repo gate.
+  use that namespace); the @template.lievit.input-group call itself is shown bare for the in-repo gate.
 
   Usage:
-    @template.input-group(
+    @template.lievit.input-group(
       name = "q", type = "search", placeholder = "Cerca contatti...", ariaLabel = "Cerca",
       leading = @`@template.lievit.icon(name = "search")`
     )

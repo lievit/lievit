@@ -26,14 +26,14 @@
     md  -> height token [var(--lv-space-10)] (2.5rem) == input + native-select default ; THE default, the row baseline
     lg  -> height token [var(--lv-space-12)] (3rem)   == native-select size="lg"      ; prominent CTA
   Horizontal padding + text size scale with the height; the gap-[var(--lv-space-2)] spaces an
-  icon from its label. md matches `@template.input` and `@template.native-select` (default) so a
+  icon from its label. md matches `@template.lievit.input` and `@template.lievit.native-select` (default) so a
   toolbar of [input][native-select][button] aligns with no per-call height hacks (the bug this
   fixes: adopters hand-rolling fixed-height buttons with ad-hoc padding that never lined up with
   the inputs).
 
   ICON-ONLY (toolbar icon actions + per-row action icons). Set iconOnly=true to render a SQUARE
   icon-only control: width == height for the chosen size (h/w = the same --lv-space token), zero
-  horizontal padding, the content is a single @template.icon(...). It is the SAME real
+  horizontal padding, the content is a single @template.lievit.icon(...). It is the SAME real
   <button>/<a> element, so role/keyboard/disabled/focus-ring are unchanged. Because there is no
   visible text label, ariaLabel is REQUIRED for the accessible name (WAI-ARIA): an icon-only
   control with no name is unusable to assistive tech, so it is a first-class param here.
@@ -70,7 +70,7 @@
   Params:
     String  variant  = "primary"   "primary" | "secondary" | "danger" | "ghost" | "outline".
     String  size     = "md"        "sm" | "md" | "lg" (height-based, aligns to the form controls).
-    boolean iconOnly = false        square icon-only button; content is a single @@template.icon.
+    boolean iconOnly = false        square icon-only button; content is a single @@template.lievit.icon.
     String  type     = "button"    "button" | "submit" | "reset" (ignored when href is set).
     String  href     = null        when set, render an <a href> styled as a button.
     boolean disabled = false        dims + blocks activation.
@@ -82,15 +82,15 @@
     gg.jte.Content content          the button label / icon + label (a single icon when iconOnly).
 
   Usage: the consuming wire template wires the action via l:click on the rendered element.
-    @@template.button(variant = "primary", cssClass = "...", content = @@`Save`)
-    @@template.button(size = "sm", variant = "secondary", content = @@`Filter`)
-    @@template.button(href = "/listings", variant = "ghost", content = @@`Back`)
-    @@template.button(iconOnly = true, size = "sm", variant = "ghost", ariaLabel = "Open calendar",
-        content = @@`@@template.icon(name = "calendar", size = "1rem")`)
+    @@template.lievit.button(variant = "primary", cssClass = "...", content = @@`Save`)
+    @@template.lievit.button(size = "sm", variant = "secondary", content = @@`Filter`)
+    @@template.lievit.button(href = "/listings", variant = "ghost", content = @@`Back`)
+    @@template.lievit.button(iconOnly = true, size = "sm", variant = "ghost", ariaLabel = "Open calendar",
+        content = @@`@@template.lievit.icon(name = "calendar", size = "1rem")`)
     (trusted STATIC directive via attrs -- $unsafe, author-typed only):
-    @@template.button(variant = "danger", attrs = "l:click=\"$set('confirmOpen','')\"", content = @@`Delete`)
+    @@template.lievit.button(variant = "danger", attrs = "l:click=\"$set('confirmOpen','')\"", content = @@`Delete`)
     (DYNAMIC user-derived value carried SAFELY -- HTML-escaped -- via dataAttrs):
-    @@template.button(variant = "danger", dataAttrs = java.util.Map.of("confirm", userSuppliedText),
+    @@template.lievit.button(variant = "danger", dataAttrs = java.util.Map.of("confirm", userSuppliedText),
         attrs = "l:click=\"armReset\"", content = @@`Reset`)
 --%>
 @param String variant = "primary"

@@ -28,7 +28,7 @@ const PARTIALS = ["pagination", "native-select"];
  * target is `lievit/<name>.jte`). `native-select` is mid-migration (owned elsewhere) and still
  * shows the bare `@@template.<name>` in its doc, so it is excluded here until that lands.
  */
-const RESERVED_BARE = new Set(["native-select"]);
+const RESERVED_BARE = new Set<string>([]);
 const callSnippet = (name: string) =>
   RESERVED_BARE.has(name) ? `@@template.${name}(` : `@@template.lievit.${name}(`;
 
@@ -148,7 +148,7 @@ describe("native-select (#437)", () => {
     expect(src).toContain("focus-within:shadow-[var(--lv-ring)]");
   });
   test("Lucide chevron-down indicator, native arrow suppressed (appearance-none)", () => {
-    expect(src).toContain('@template.icon(name = "chevron-down"');
+    expect(src).toContain('@template.lievit.icon(name = "chevron-down"');
     expect(src).toContain("appearance-none");
   });
 });
