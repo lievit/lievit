@@ -43,6 +43,26 @@
   aria-disabled (an <a> cannot be natively disabled). ariaLabel sets aria-label (mandatory for
   iconOnly, optional otherwise).
 
+  WIRE ACTION -- the SAFE per-row channel (the reactive-list decision rule). A button in a
+  reactive list (admin/users, profile-security: a row per device/session/user) must fire a wire
+  action that carries a per-row, DB-derived argument (a row id, a legacy username). The trusted
+  `attrs` channel below is $unsafe, so it CANNOT carry such a value; routing ${row.id()} through
+  it would XSS. Use this channel instead -- it is the ergonomic, escaped-by-construction path:
+    * wireClick (SAFE) -- the wire action NAME, emitted as l:click="${wireClick}". JTE escapes the
+      ${} in attribute-value position with the SAME htmlAttribute routine, so even an unusual value
+      stays inert; rendered only when non-blank. Pairs with wireArgs for the argument(s).
+    * wireArgs / wireArg (SAFE) -- the per-row argument(s) the wire handler reads, as
+      Map<String,String> (or the single-entry wireArg key+value), each emitted as an HTML-ESCAPED
+      data-<key>="<value>" attribute, exactly like dataAttrs (the values share the one escaped
+      fragment, so an l:click handler reads e.g. event.target.dataset.id). So the consumer writes
+      wireClick = "revokeDevice", wireArgs = java.util.Map.of("id", row.id()) and the partial emits
+      l:click="revokeDevice" data-id="<escaped row id>" with NO XSS surface -- the hand-rolled
+      <button> that every reactive list used to need (because attrs is trusted-only) is gone.
+    wireArgs/wireArg merge INTO the same escaped data-* fragment as dataAttrs (same key allowlist,
+    same Escape.htmlAttribute on every value); a key collision lets wireArgs win (it is the
+    action's own argument). wireClick is independent of the trusted attrs channel: you can still
+    pass a static directive via attrs, but for a per-row action prefer wireClick + wireArgs.
+
   EXTRA ATTRIBUTES -- two channels, by trust (the XSS decision rule). The control often needs
   more than the typed params: wire directives (l:click, l:keydown), data-*, target/rel. There
   are TWO ways in, split by who controls the value, because escaping is not optional for the
@@ -79,6 +99,9 @@
     String  attrs    = ""          TRUSTED raw attribute string ($unsafe) -- STATIC strings only.
     Map<String,String> dataAttrs = {}  SAFE dynamic data-* (key w/o "data-", simple identifier);
                                       each value escaped via Escape.htmlAttribute.
+    String  wireClick = null       SAFE wire action name; emitted as l:click="${wireClick}" when set.
+    Map<String,String> wireArgs = {}  SAFE per-row args for the wire action; merged into the escaped
+                                      data-* fragment (same allowlist + Escape.htmlAttribute as dataAttrs).
     gg.jte.Content content          the button label / icon + label (a single icon when iconOnly).
 
   Usage: the consuming wire template wires the action via l:click on the rendered element.
@@ -92,6 +115,9 @@
     (DYNAMIC user-derived value carried SAFELY -- HTML-escaped -- via dataAttrs):
     @@template.lievit.button(variant = "destructive", dataAttrs = java.util.Map.of("confirm", userSuppliedText),
         attrs = "l:click=\"armReset\"", content = @@`Reset`)
+    (PER-ROW wire action in a reactive list -- action name + escaped row arg, NO hand-rolled button):
+    @@template.lievit.button(variant = "ghost", wireClick = "revokeDevice",
+        wireArgs = java.util.Map.of("id", row.id()), content = @@`Revoke`)
 --%>
 @param String variant = "primary"
 @param String size = "md"
@@ -103,6 +129,8 @@
 @param String cssClass = ""
 @param String attrs = ""
 @param java.util.Map<String, String> dataAttrs = java.util.Map.of()
+@param String wireClick = null
+@param java.util.Map<String, String> wireArgs = java.util.Map.of()
 @param gg.jte.Content content
 
 <%-- per-variant resting colours + the shadcn hover (hover:bg-<tone>/90, secondary /80, ghost+outline
@@ -145,9 +173,14 @@
      routine ContentType.Html applies to a ${} in attribute-value position). The result is then
      emitted with $unsafe in the open tag -- safe because every dynamic value is already escaped.
      Keys must be simple identifiers (the key sits in attribute-NAME position, which is NOT
-     escaped); a non-identifier key is dropped so it can never inject markup. --%>
+     escaped); a non-identifier key is dropped so it can never inject markup.
+     wireArgs (the per-row wire-action arguments) merge into the SAME escaped fragment under the
+     SAME allowlist + escaper, and win on a key collision (they are the action's own argument). --%>
+!{var dataAttrsMerged = new java.util.LinkedHashMap<String, String>();}
+!{dataAttrsMerged.putAll(dataAttrs);}
+!{dataAttrsMerged.putAll(wireArgs);}
 !{var dataAttrs_ = new StringOutput();}
-!{for (var e : dataAttrs.entrySet()) {
+!{for (var e : dataAttrsMerged.entrySet()) {
     if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
       dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
       Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), dataAttrs_);
@@ -165,6 +198,7 @@
     href="${disabled ? null : href}"
     aria-disabled="${disabled ? "true" : null}"
     aria-label="${ariaLabel}"
+    l:click="${wireClick != null && !wireClick.isBlank() ? wireClick : null}"
     $unsafe{dataAttrsMarkup}
     class="${base} ${sizeClass} ${shapeClass} ${variantClass} ${cssClass}"
     style="font-family:var(--lv-font-sans);"
@@ -179,6 +213,7 @@
     type="${type}"
     disabled="${disabled}"
     aria-label="${ariaLabel}"
+    l:click="${wireClick != null && !wireClick.isBlank() ? wireClick : null}"
     $unsafe{dataAttrsMarkup}
     class="${base} ${sizeClass} ${shapeClass} ${variantClass} ${cssClass}"
     style="font-family:var(--lv-font-sans);"
