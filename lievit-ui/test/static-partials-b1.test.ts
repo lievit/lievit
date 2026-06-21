@@ -157,6 +157,10 @@ describe("empty (#433)", () => {
     expect(src).toContain('@param String role = "status"');
     expect(src).toContain("aria-live");
   });
+  test("cssClass passes through to the root (shadcn parity: every part merges className)", () => {
+    expect(src).toContain("@param String cssClass");
+    expect(src).toMatch(/text-center \$\{cssClass\}/);
+  });
 });
 
 describe("input-group (#434)", () => {
@@ -178,5 +182,12 @@ describe("input-group (#434)", () => {
   test("label binds to the real input via id (default = name)", () => {
     expect(src).toContain('id="${inputId}"');
     expect(src).toContain('name="${name}"');
+  });
+  test("md height baseline is the shadcn h-9 (--lv-space-9, 36px), sm/lg flank it at 32/40", () => {
+    // shadcn fidelity (#463 ④): control baseline is h-9; md=space-9, sm=space-8, lg=space-10.
+    expect(src).toMatch(/default\s*->\s*"h-\[var\(--lv-space-9\)\]"/);
+    expect(src).toMatch(/case "sm" -> "h-\[var\(--lv-space-8\)\]"/);
+    expect(src).toMatch(/case "lg" -> "h-\[var\(--lv-space-10\)\]"/);
+    expect(src).not.toContain("--lv-space-12");
   });
 });

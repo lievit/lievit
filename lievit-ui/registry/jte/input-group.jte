@@ -26,10 +26,10 @@
   SIZE (toolbar parity with @template.lievit.button + @template.lievit.native-select). `size` is
   HEIGHT-based on the WRAPPING bordered box; the inner input fills it (h-full). Each size pins the
   SAME --lv-space height token the other form controls use, so a [input-group][button] toolbar row
-  lines up pixel-exact:
-    sm -> h-[var(--lv-space-8)]  (2rem)   ; compact toolbar (e.g. a search box)
-    md -> h-[var(--lv-space-10)] (2.5rem) ; THE default, the row baseline
-    lg -> h-[var(--lv-space-12)] (3rem)   ; tall
+  lines up. md is the shadcn 36px control baseline (shadcn's h-nine):
+    sm -> [var(--lv-space-8)]  (2rem / 32px)    ; compact toolbar (e.g. a search box)
+    md -> [var(--lv-space-9)]  (2.25rem / 36px) ; THE default, the shadcn 36px row baseline
+    lg -> [var(--lv-space-10)] (2.5rem / 40px)  ; tall
 
   Params:
     String name                   the input's name attribute.
@@ -83,11 +83,11 @@
 @param String attrs = ""
 
 !{var inputId = (id != null && !id.isBlank()) ? id : name;}
-<%-- wrapper height per size; md is the toolbar baseline and matches button md + native-select default --%>
+<%-- wrapper height per size; md is the shadcn 36px toolbar baseline --%>
 !{var sizeClass = switch (size) {
     case "sm" -> "h-[var(--lv-space-8)]";
-    case "lg" -> "h-[var(--lv-space-12)]";
-    default   -> "h-[var(--lv-space-10)]";
+    case "lg" -> "h-[var(--lv-space-10)]";
+    default   -> "h-[var(--lv-space-9)]";
   };}
 
 <div
