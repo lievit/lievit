@@ -1,0 +1,29 @@
+{
+  "name": "avatar",
+  "type": "registry:jte",
+  "description": "A user/entity image with a graceful fallback (initials else a Lucide user icon), sized by token (sm/default/lg) and rounded-full. Radix splits Avatar.Root/Image/Fallback; server-side the src is already known so the partial renders the right branch directly (zero JS, CSP-clean). Ships the AvatarGroupCount (the '+N' overflow tile) and AvatarBadge (status dot) child partials. Optional opt-in client image-fallback via data-lv-avatar-fallback wired from the adopter's own TS.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/avatar.jte",
+      "type": "registry:jte",
+      "target": "lievit/avatar.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/avatar/group-count.jte",
+      "type": "registry:jte",
+      "target": "lievit/avatar/group-count.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/avatar/badge.jte",
+      "type": "registry:jte",
+      "target": "lievit/avatar/badge.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "radius", "type"],
+  "docs": "Copies the avatar partial (+ its avatar/group-count and avatar/badge children) to your JTE root at lievit/avatar.jte, reached as @template.lievit.avatar(name=..., src=..., initials=...). Pass size (sm/default/lg); a null/blank src renders the initials-or-user-icon fallback. Build an overlapping stack with a flex -space-x row + a ring cssClass, and close it with @template.lievit.avatar.group-count(count=N); drop a status dot with @template.lievit.avatar.badge inside a relative wrapper. The source is yours: edit freely."
+}

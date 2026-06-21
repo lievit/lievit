@@ -1,7 +1,7 @@
 {
   "name": "sidebar",
   "type": "registry:jte",
-  "description": "The application sidebar rendered server-side: a <nav> landmark of real <a href> nav items (groups -> menu-items -> collapsible sub-items via native <details>), aria-current on the active entry, plus a collapse/expand rail and a mobile off-canvas overlay. Server-first PARTIAL + a CSP-clean typed-TS enhancer (ADR-0012, Wave 3); replaces the <lv-sidebar> Lit island. The nav is server-rendered (which item is current is a server fact); the collapse is pure client cosmetic with localStorage persistence, never a wire round-trip. shadcn Sidebar anatomy (header/content/footer, group/menu/menu-sub), WAI-ARIA navigation landmark.",
+  "description": "The application sidebar rendered server-side: a <nav> landmark of real <a href> nav items (groups -> menu-items -> collapsible sub-items via native <details>), aria-current on the active entry, plus a collapse/expand rail and a mobile off-canvas overlay. Ships the shadcn compound set: SidebarRail (a thin edge toggle), SidebarInset (a <main> body, required for the inset variant), SidebarMenuAction + SidebarGroupAction (trailing action affordances), the none/floating/inset variants (data-variant), and a Cmd/Ctrl+B toggle shortcut. Server-first PARTIAL + a CSP-clean typed-TS enhancer (ADR-0012, Wave 3); replaces the <lv-sidebar> Lit island. The nav is server-rendered (which item is current is a server fact); the collapse is pure client cosmetic with localStorage persistence, never a wire round-trip. shadcn Sidebar anatomy (header/content/footer, group/menu/menu-sub), WAI-ARIA navigation landmark.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -24,11 +24,35 @@
       "root": "jte"
     },
     {
+      "path": "jte/sidebar/rail.jte",
+      "type": "registry:jte",
+      "target": "lievit/sidebar/rail.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/sidebar/inset.jte",
+      "type": "registry:jte",
+      "target": "lievit/sidebar/inset.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/sidebar/menu-action.jte",
+      "type": "registry:jte",
+      "target": "lievit/sidebar/menu-action.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/sidebar/group-action.jte",
+      "type": "registry:jte",
+      "target": "lievit/sidebar/group-action.jte",
+      "root": "jte"
+    },
+    {
       "path": "jte/sidebar.enhancer.ts",
       "type": "registry:ui",
       "target": "lievit/sidebar.enhancer.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z", "icon"],
-  "docs": "Copies the sidebar partial to your JTE root at lievit/sidebar.jte (reached as @template.lievit.sidebar(...)), its sub-partials at lievit/sidebar/{group,item}.jte (@template.lievit.sidebar.group / .item), and the CSP-clean enhancer to your alias root at lievit/sidebar.enhancer.ts. Compose the nav from your typed model: a sidebar.group per section, a sidebar.item per entry (key, label, href, icon, badge, active, disabled; pass a `content` sub-tree to make an item a collapsible parent). Set each item's `active` from the route being rendered so it carries aria-current=page. Import the enhancer once from your entry module and call enhanceAllSidebars() on load (and after any DOM swap); it toggles the desktop collapsed rail (persisted under storageKey via localStorage) and the mobile off-canvas overlay. The source is yours: edit freely."
+  "docs": "Copies the sidebar partial to your JTE root at lievit/sidebar.jte (reached as @template.lievit.sidebar(...)), its sub-partials at lievit/sidebar/{group,item,rail,inset,menu-action,group-action}.jte (@template.lievit.sidebar.group / .item / .rail / .inset / .menu-action / .group-action), and the CSP-clean enhancer to your alias root at lievit/sidebar.enhancer.ts. Compose the nav from your typed model: a sidebar.group per section, a sidebar.item per entry (key, label, href, icon, badge, active, disabled; pass a `content` sub-tree to make an item a collapsible parent; pass an `action` slot for a trailing sidebar.menu-action). Give a group an `action` slot for a sidebar.group-action by its heading. Drop a sidebar.rail inside the nav for an edge-docked collapse toggle. Pick a variant: sidebar (default), none, floating, or inset; for inset, lay the sidebar(variant=\"inset\") beside a sidebar.inset(<main>) in a flex row. Set each item's `active` from the route being rendered so it carries aria-current=page. Import the enhancer once from your entry module and call enhanceAllSidebars() on load (and after any DOM swap); it toggles the desktop collapsed rail (persisted under storageKey via localStorage), the mobile off-canvas overlay, the rail edge, and the Cmd/Ctrl+B shortcut. The source is yours: edit freely."
 }

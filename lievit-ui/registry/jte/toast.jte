@@ -4,7 +4,8 @@
   Licensed under the Apache License, Version 2.0 (the "License").
 
   lievit-ui toast partial -- a transient overlay notification rendered SERVER-SIDE (ADR-0012).
-  Pairs with registry/jte/toast.enhancer.ts (the CSP-clean auto-dismiss timer).
+  Pairs with registry/jte/toast.enhancer.ts (the CSP-clean auto-dismiss timer) and the
+  toast/viewport.jte stack container.
 
   TIER: PARTIAL (+ enhancer). A toast is the visible form of a server-side flash / notification: the
   server already knows the message + severity (a PRG flash attribute, or a NotificationBell push),
@@ -18,23 +19,43 @@
   STRUCTURE (scientific decision rule): WAI-ARIA alert / status live-region pattern (the same model
   the dropped <lv-toast> Lit island cited, and the alert partial uses): the live-region ROLE is the
   load-bearing decision and is taken from the APG -> time-sensitive kinds (danger / warning) are
-  assertive (role="alert" + aria-live="assertive"), informational kinds (info / success) are polite
-  (role="status" + aria-live="polite"), so a screen reader interrupts only for the urgent kinds.
-  aria-atomic="true" so the whole toast is announced as a unit. A leading severity icon (Lucide) +
-  the tinted border/background come from one severity token via color-mix, coherent with alert.jte.
-  The dismiss is a real <button> (CSP-clean, keyboard-safe); the enhancer wires its click + the
-  auto-dismiss timeout off the data attributes.
+  assertive (role="alert" + aria-live="assertive"), informational kinds (info / success / default /
+  loading) are polite (role="status" + aria-live="polite"), so a screen reader interrupts only for
+  the urgent kinds. aria-atomic="true" so the whole toast is announced as a unit. A leading severity
+  icon (Lucide) + the tinted border/background come from one severity token via color-mix, coherent
+  with alert.jte; the neutral `default` reads the surface/border tokens (sonner's --normal-bg) with
+  no tint, and `loading` swaps the icon for the spinner partial.
 
-  A11y (WAI-ARIA alert/status): danger|warning => role="alert" (assertive); info|success =>
+  VARIANTS vs sonner: severity (info/success/warning/danger) drives colour + role + icon; `default`
+  is the neutral sonner toast (surface fill, polite); `loading` shows a spinner (a pending op, no
+  auto-dismiss by default); `promise` is the server-first render of sonner's toast.promise -- the
+  same toast where the OUTCOME is already known server-side (the op resolved or rejected before the
+  response), so it renders the resolved (success) or rejected (danger) state directly as markup via
+  the `promiseState` param, no client polling.
+
+  STACKING + POSITION: a single toast is `fixed` to one of the six sonner corners (position =
+  {top|bottom}-{left|center|right}). To show SEVERAL at once, render them inside
+  @template.lievit.toast.viewport(position=...) (data-slot="toast-viewport"), which owns the fixed
+  corner + the gap-stacked column; pass standalone=false on each toast so it flows inside the
+  viewport instead of fixing itself.
+
+  A11y (WAI-ARIA alert/status): danger|warning => role="alert" (assertive); everything else =>
   role="status" (polite); aria-atomic="true". The dismiss button carries an accessible label and
   its glyph is aria-hidden.
 
   Params:
-    String variant      = "info"   "info" | "success" | "warning" | "danger" (drives colour + role + icon).
+    String variant      = "info"   "default" | "info" | "success" | "warning" | "danger" | "loading" |
+                                   "promise" (drives colour + role + icon).
+    String promiseState = "success"  for variant="promise": the resolved outcome to render now,
+                                   "success" or "danger" (else treated as success).
     String heading      = null     optional bold heading rendered above the message.
     gg.jte.Content content          the message body (the flash text).
     boolean dismissible = true     render a dismiss (x) button the enhancer wires.
     int duration        = 4000     auto-dismiss after this many ms (0 = stay until dismissed).
+    boolean standalone  = true     true => the toast fixes itself to `position`; false => it flows
+                                   inside a @template.lievit.toast.viewport.
+    String position     = "bottom-right"  one of: top-left | top-center | top-right |
+                                   bottom-left | bottom-center | bottom-right (standalone only).
     String cssClass     = ""       extra utility classes on the toast.
 
   Usage (render it from the server's flash, then import the enhancer once and call it on load):
@@ -42,40 +63,71 @@
       @@template.lievit.toast(variant = flash.level(), content = @@`${flash.message()}`)
     @@endif
     import { enhanceAllToasts } from "./lievit/toast.enhancer.js"; enhanceAllToasts();
+
+  Usage (stack several, one corner):
+    @@template.lievit.toast.viewport(position = "top-right", content = @@`
+      @@template.lievit.toast(standalone = false, variant = "success", content = @@`Saved.`)
+      @@template.lievit.toast(standalone = false, variant = "loading", duration = 0, content = @@`Uploading...`)
+    `)
 --%>
 @param String variant = "info"
+@param String promiseState = "success"
 @param String heading = null
 @param gg.jte.Content content
 @param boolean dismissible = true
 @param int duration = 4000
+@param boolean standalone = true
+@param String position = "bottom-right"
 @param String cssClass = ""
 
-!{var urgent = "danger".equals(variant) || "warning".equals(variant);}
-!{var tone = switch (variant) {
+<%-- promise resolves server-side to a concrete severity; loading is neutral; default is the sonner neutral toast. --%>
+!{var effective = "promise".equals(variant) ? ("danger".equals(promiseState) ? "danger" : "success") : variant;}
+!{var urgent = "danger".equals(effective) || "warning".equals(effective);}
+!{var neutral = "default".equals(effective) || "loading".equals(effective);}
+!{var tone = switch (effective) {
     case "success" -> "var(--lv-color-success)";
     case "warning" -> "var(--lv-color-warning)";
     case "danger"  -> "var(--lv-color-danger)";
+    case "default" -> "var(--lv-color-border)";
+    case "loading" -> "var(--lv-color-border)";
     default        -> "var(--lv-color-info)";
   };}
-!{var glyph = switch (variant) {
+!{var glyph = switch (effective) {
     case "success" -> "circle-check";
     case "warning" -> "triangle-alert";
     case "danger"  -> "circle-x";
     default        -> "info";
   };}
+<%-- neutral toasts read the surface fill (sonner --normal-bg); severities tint the bg from the tone token. --%>
+!{var bg = neutral ? "var(--lv-color-surface)" : "color-mix(in srgb, " + tone + " 12%, var(--lv-color-bg))";}
+<%-- standalone toasts fix themselves to one of the six sonner corners; inside a viewport they flow. --%>
+!{var posStyle = switch (position) {
+    case "top-left"      -> "top: var(--lv-space-4); left: var(--lv-space-4);";
+    case "top-center"    -> "top: var(--lv-space-4); left: 50%; transform: translateX(-50%);";
+    case "top-right"     -> "top: var(--lv-space-4); right: var(--lv-space-4);";
+    case "bottom-left"   -> "bottom: var(--lv-space-4); left: var(--lv-space-4);";
+    case "bottom-center" -> "bottom: var(--lv-space-4); left: 50%; transform: translateX(-50%);";
+    default              -> "bottom: var(--lv-space-4); right: var(--lv-space-4);"; // bottom-right
+  };}
+!{var placement = standalone ? "position: fixed; z-index: var(--lv-z-toast, 9000); " + posStyle : "position: relative;";}
 
 <div
   data-lievit-toast
   data-slot="toast"
   data-variant="${variant}"
+  data-position="${standalone ? position : null}"
   data-toast-duration="${duration}"
   role="${urgent ? "alert" : "status"}"
   aria-live="${urgent ? "assertive" : "polite"}"
   aria-atomic="true"
-  class="fixed flex items-start gap-[var(--lv-space-3)] rounded-[var(--lv-radius-md)] border px-[var(--lv-space-4)] py-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-fg)] ${cssClass}"
-  style="bottom: var(--lv-space-4); right: var(--lv-space-4); min-width: 16rem; max-width: 24rem; z-index: var(--lv-z-toast, 9000); font-family: var(--lv-font-sans); border-color: ${tone}; background: color-mix(in srgb, ${tone} 12%, var(--lv-color-bg)); box-shadow: var(--lv-shadow-md);"
+  class="flex items-start gap-[var(--lv-space-3)] rounded-[var(--lv-radius-md)] border px-[var(--lv-space-4)] py-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-fg)] ${cssClass}"
+  style="${placement} min-width: 16rem; max-width: 24rem; font-family: var(--lv-font-sans); border-color: ${tone}; background: ${bg}; box-shadow: var(--lv-shadow-md);"
 >
-  <span aria-hidden="true" data-toast-icon class="flex items-center" style="color: ${tone}; flex-shrink: 0;">@template.lievit.icon(name = glyph, size = "1.25rem")</span>
+  @if("loading".equals(effective))
+    <span aria-hidden="true" data-toast-icon class="flex items-center" style="flex-shrink: 0;">@template.lievit.spinner(label = "Loading")</span>
+  @else
+    <span aria-hidden="true" data-toast-icon class="flex items-center" style="color: ${tone}; flex-shrink: 0;">@template.lievit.icon(name = glyph, size = "1.25rem")</span>
+  @endif
   <div data-toast-body class="min-w-0" style="flex: 1;">
     @if(heading != null && !heading.isBlank())
       <div data-toast-heading class="mb-[var(--lv-space-1)] font-[var(--lv-font-semibold)]">${heading}</div>

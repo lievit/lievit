@@ -19,6 +19,11 @@
  * Behaviour (shadcn Sidebar model):
  *   - desktop trigger: toggles data-state="expanded" | "collapsed" on the root, mirrors
  *     aria-expanded on the trigger, persists the choice;
+ *   - rail (data-sidebar="rail"): a second, edge-docked affordance bound to the SAME toggle as
+ *     the trigger (shadcn SidebarRail onClick={toggleSidebar}); mouse-only (tabindex=-1 in markup);
+ *   - Cmd/Ctrl+B: a global keydown shortcut toggles the sidebar (shadcn SIDEBAR_KEYBOARD_SHORTCUT
+ *     = "b"); it toggles the off-canvas overlay on mobile and the collapsed rail on desktop, same
+ *     as the trigger, and respects the storage-key persistence;
  *   - mobile (<= the breakpoint, default 768px): the same trigger opens an off-canvas overlay
  *     (data-mobile-open), the backdrop click + Escape close it, focus returns to the trigger
  *     (the same dismissal contract as the drawer wire);
@@ -39,7 +44,7 @@ const MOBILE_MAX = 768;
 /** The stateful rules the inline styles cannot express (data-state / mobile selectors). */
 const STYLES = `
 .lv-sidebar-root { height: 100%; }
-.lv-sidebar { width: 16rem; transition: width 0.2s ease; }
+.lv-sidebar { position: relative; width: 16rem; transition: width 0.2s ease; }
 .lv-sidebar-root[data-side="left"] .lv-sidebar { border-right: 1px solid var(--lv-color-sidebar-border); }
 .lv-sidebar-root[data-side="right"] .lv-sidebar { border-left: 1px solid var(--lv-color-sidebar-border); }
 .lv-sidebar-item:hover { background: var(--lv-color-sidebar-accent); color: var(--lv-color-sidebar-accent-fg); }
@@ -47,6 +52,32 @@ const STYLES = `
 .lv-sidebar-trigger:focus-visible { outline: none; box-shadow: var(--lv-ring); }
 .lv-sidebar-trigger:hover { background: var(--lv-color-sidebar-accent); }
 details[data-sidebar="disclosure"][open] > summary .lv-sidebar-chevron { transform: rotate(90deg); }
+/* trailing action affordances (menu-action / group-action): hover + focus states */
+.lv-sidebar-menu-action:hover, .lv-sidebar-group-action:hover { background: var(--lv-color-sidebar-accent); color: var(--lv-color-sidebar-accent-fg); }
+.lv-sidebar-menu-action:focus-visible, .lv-sidebar-group-action:focus-visible { outline: none; box-shadow: var(--lv-ring); }
+/* showOnHover: hide the action until the menu item is hovered or holds focus (shadcn showOnHover) */
+.lv-sidebar-action-hover { opacity: 0; transition: opacity 0.15s ease; }
+li[data-slot="sidebar-menu-item"]:hover .lv-sidebar-action-hover,
+li[data-slot="sidebar-menu-item"]:focus-within .lv-sidebar-action-hover { opacity: 1; }
+/* rail: a thin clickable edge docked to the inner side of the rail (shadcn SidebarRail) */
+.lv-sidebar-rail { transition: background 0.15s ease; }
+.lv-sidebar-root[data-side="left"] .lv-sidebar-rail { right: 0; }
+.lv-sidebar-root[data-side="right"] .lv-sidebar-rail { left: 0; }
+.lv-sidebar-rail:hover { background: var(--lv-color-sidebar-border); }
+/* variant=none: drop the rail border (flush surface, no elevation) */
+.lv-sidebar-root[data-variant="none"] .lv-sidebar { border: 0; }
+/* variant=floating / inset: detach the rail as a bordered + shadowed rounded card */
+.lv-sidebar-root[data-variant="floating"] .lv-sidebar,
+.lv-sidebar-root[data-variant="inset"] .lv-sidebar {
+  margin: var(--lv-space-2); height: calc(100% - (var(--lv-space-2) * 2));
+  border: 1px solid var(--lv-color-sidebar-border); border-radius: var(--lv-radius-lg);
+  box-shadow: var(--lv-shadow-sm);
+}
+/* variant=inset: the adjacent sidebar/inset <main> floats as an inset card too */
+.lv-sidebar-root[data-variant="inset"] ~ .lv-sidebar-inset,
+.lv-sidebar-root[data-variant="inset"] + .lv-sidebar-inset {
+  margin: var(--lv-space-2); border-radius: var(--lv-radius-lg); box-shadow: var(--lv-shadow-sm);
+}
 /* desktop collapsed: icon rail -- hide labels / badges / group headings / chevrons, centre icons */
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar { width: 3.25rem; }
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-collapsible { display: none; }
@@ -63,6 +94,11 @@ details[data-sidebar="disclosure"][open] > summary .lv-sidebar-chevron { transfo
   .lv-sidebar-root[data-side="left"] .lv-sidebar { left: 0; }
   .lv-sidebar-root[data-mobile-open] .lv-sidebar { transform: translateX(0); }
   .lv-sidebar-root[data-mobile-open] .lv-sidebar-backdrop { display: block !important; }
+  /* the rail is a desktop-only collapse edge; the off-canvas overlay has the backdrop instead */
+  .lv-sidebar-rail { display: none; }
+  /* on mobile the rail panel is full-width: drop the floating/inset card insets */
+  .lv-sidebar-root[data-variant="floating"] .lv-sidebar,
+  .lv-sidebar-root[data-variant="inset"] .lv-sidebar { margin: 0; height: 100%; border-radius: 0; }
   /* on mobile the rail is always the full panel; ignore the desktop collapsed state */
   .lv-sidebar-root[data-state="collapsed"] .lv-sidebar { width: min(85vw, 18rem); }
   .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-collapsible { display: revert; }
@@ -81,6 +117,11 @@ function ensureStyles(): void {
 /** The desktop collapse trigger of a root. */
 function triggerOf(root: HTMLElement): HTMLButtonElement | null {
   return root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]');
+}
+
+/** The edge rail toggle of a root, if one is rendered. */
+function railOf(root: HTMLElement): HTMLButtonElement | null {
+  return root.querySelector<HTMLButtonElement>('[data-slot="sidebar-rail"]');
 }
 
 /** The mobile dismissal backdrop of a root. */
@@ -140,6 +181,21 @@ function closeMobile(root: HTMLElement): void {
   holder._lvReturnFocus = null;
 }
 
+/**
+ * Toggle the sidebar (shadcn toggleSidebar): off-canvas overlay on mobile, collapsed rail on
+ * desktop (persisting the desktop choice). The single lever the trigger, the rail, and the
+ * Cmd/Ctrl+B shortcut all share.
+ */
+function toggleSidebar(root: HTMLElement): void {
+  if (isMobile()) {
+    root.hasAttribute("data-mobile-open") ? closeMobile(root) : openMobile(root);
+    return;
+  }
+  const next = root.getAttribute("data-state") === "collapsed" ? "expanded" : "collapsed";
+  setDesktopState(root, next);
+  persist(root, next);
+}
+
 /** Enhance one sidebar root. No-op if already enhanced. */
 export function enhanceSidebar(root: HTMLElement): void {
   if (root.hasAttribute(ENHANCED)) return;
@@ -150,16 +206,8 @@ export function enhanceSidebar(root: HTMLElement): void {
   const saved = persisted(root);
   if (saved) setDesktopState(root, saved);
 
-  const trigger = triggerOf(root);
-  trigger?.addEventListener("click", () => {
-    if (isMobile()) {
-      root.hasAttribute("data-mobile-open") ? closeMobile(root) : openMobile(root);
-      return;
-    }
-    const next = root.getAttribute("data-state") === "collapsed" ? "expanded" : "collapsed";
-    setDesktopState(root, next);
-    persist(root, next);
-  });
+  triggerOf(root)?.addEventListener("click", () => toggleSidebar(root));
+  railOf(root)?.addEventListener("click", () => toggleSidebar(root));
 
   backdropOf(root)?.addEventListener("click", () => closeMobile(root));
 
@@ -167,6 +215,15 @@ export function enhanceSidebar(root: HTMLElement): void {
     if (e.key === "Escape" && root.hasAttribute("data-mobile-open")) {
       e.preventDefault();
       closeMobile(root);
+    }
+  });
+
+  // Cmd/Ctrl+B toggles the sidebar (shadcn SIDEBAR_KEYBOARD_SHORTCUT = "b"). Bound once per root
+  // on the document; the listener is harmless if multiple roots register it (each toggles itself).
+  document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if ((e.key === "b" || e.key === "B") && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      toggleSidebar(root);
     }
   });
 }

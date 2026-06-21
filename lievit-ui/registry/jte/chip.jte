@@ -32,8 +32,8 @@
 
   Params:
     String variant      = "neutral"  same family as badge: "default" (primary) | "secondary" |
-                                     "destructive" | "outline" | "neutral" | "success" |
-                                     "warning" | "danger" | "info".
+                                     "destructive" | "outline" | "ghost" | "link" | "neutral" |
+                                     "success" | "warning" | "danger" | "info".
     String label        = null       the chip text (used when no content slot is supplied).
     gg.jte.Content content           optional rich children; takes precedence over label.
     String removeHref   = null       non-blank => render a trailing remove x as an <a href>.
@@ -57,6 +57,8 @@
     case "secondary"   -> "var(--lv-color-secondary)";
     case "destructive" -> "var(--lv-color-destructive)";
     case "outline"     -> "transparent";
+    case "ghost"       -> "transparent";
+    case "link"        -> "transparent";
     case "success"     -> "var(--lv-color-success)";
     case "warning"     -> "var(--lv-color-warning)";
     case "danger"      -> "var(--lv-color-danger)";
@@ -68,6 +70,9 @@
     case "secondary"   -> "var(--lv-color-secondary-fg)";
     case "destructive" -> "var(--lv-color-destructive-fg)";
     case "outline"     -> "var(--lv-color-fg)";
+    // mirror badge: ghost = no fill / foreground text; link = primary-coloured text.
+    case "ghost"       -> "var(--lv-color-fg)";
+    case "link"        -> "var(--lv-color-primary)";
     case "success"     -> "var(--lv-color-success-fg)";
     case "warning"     -> "var(--lv-color-warning-fg)";
     case "danger"      -> "var(--lv-color-danger-fg)";
@@ -76,7 +81,9 @@
   };}
 !{var border = "outline".equals(variant) ? "var(--lv-color-border)" : "transparent";}
 !{var removable = removeHref != null && !removeHref.isBlank();}
-!{var chipClass = "lv-chip lv-chip--" + variant + " inline-flex items-center gap-[var(--lv-space-1)] rounded-full border px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none " + cssClass;}
+<%-- link variant mirrors badge: underline-offset so the primary text reads as a link. --%>
+!{var variantClass = "link".equals(variant) ? " underline-offset-4" : "";}
+!{var chipClass = "lv-chip lv-chip--" + variant + " inline-flex items-center gap-[var(--lv-space-1)] rounded-full border px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none" + variantClass + " " + cssClass;}
 !{var chipStyle = "font-family:var(--lv-font-sans);background:" + bg + ";color:" + fg + ";border-color:" + border + ";";}
 
 <span data-slot="chip" data-variant="${variant}" class="${chipClass}" style="${chipStyle}">

@@ -20,10 +20,18 @@
   the optional inline `label` names it; `ariaLabel` provides an accessible name otherwise. The
   track + thumb are decorative CSS.
 
+  SIZE (shadcn ships switch sm): `size` scales the track + thumb (and the thumb's checked
+  translate) on the repo's small scale, mirroring shadcn's switch data-[size=sm]. md is the
+  default (the original track 2rem x 1.15rem, thumb 0.85rem); sm is a smaller track/thumb for
+  compact rows. The on/off semantics + native element are unchanged.
+    md (default) -> track w-[2rem]  h-[1.15rem], thumb 0.85rem, checked translate-x 0.85rem
+    sm           -> track w-[1.5rem] h-[0.875rem], thumb 0.6rem, checked translate-x 0.55rem
+
   Params:
     String name                 the switch's name (POSTs `value` under this name when on).
     String id          = name   the input's id (for a <label for>); defaults to name.
     String value       = "on"   submitted value when on (native checkbox default "on").
+    String size        = "md"   "md" (default) | "sm" track + thumb scale.
     boolean checked    = false  initial on state.
     boolean disabled   = false  disables + dims the control.
     String label       = null   optional inline label rendered after the switch.
@@ -38,6 +46,7 @@
 @param String name
 @param String id = null
 @param String value = "on"
+@param String size = "md"
 @param boolean checked = false
 @param boolean disabled = false
 @param String label = null
@@ -47,15 +56,19 @@
 
 !{var switchId = (id != null && !id.isBlank()) ? id : name;}
 !{var hasLabel = label != null && !label.isBlank();}
+<%-- track box (the relative span), thumb size + its checked translate scale with `size` --%>
+!{var trackClass = "sm".equals(size) ? "h-[0.875rem] w-[1.5rem]" : "h-[1.15rem] w-[2rem]";}
+!{var thumbClass = "sm".equals(size) ? "size-[0.6rem] peer-checked:translate-x-[0.55rem]" : "size-[0.85rem] peer-checked:translate-x-[0.85rem]";}
 
 <label
   for="${switchId}"
   data-slot="switch"
+  data-size="${size}"
   data-disabled="${disabled}"
   class="inline-flex items-center gap-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50 ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
-  <span class="relative inline-flex h-[1.15rem] w-[2rem] shrink-0 items-center">
+  <span class="relative inline-flex ${trackClass} shrink-0 items-center">
     <input
       data-slot="switch-control"
       type="checkbox"
@@ -69,7 +82,7 @@
       l:model="${model}"
       class="peer size-full cursor-pointer appearance-none rounded-full border-2 border-transparent bg-[var(--lv-color-input)] shadow-[var(--lv-shadow-xs)] outline-none transition-colors checked:bg-[var(--lv-color-primary)] focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed"
     >
-    <span data-slot="switch-thumb" aria-hidden="true" class="pointer-events-none absolute left-[0.15rem] block size-[0.85rem] translate-x-0 rounded-full bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-sm)] transition-transform peer-checked:translate-x-[0.85rem]"></span>
+    <span data-slot="switch-thumb" aria-hidden="true" class="pointer-events-none absolute left-[0.15rem] block ${thumbClass} translate-x-0 rounded-full bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-sm)] transition-transform"></span>
   </span>
   @if(hasLabel)
     <span data-slot="switch-label">${label}</span>

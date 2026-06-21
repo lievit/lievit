@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the chip partial to your JTE root at lievit/chip.jte, reached as @template.lievit.chip(label=\"...\"). A generic removable tag: variant drives the fill + foreground tokens (same family as badge: default/secondary/destructive/outline/neutral/success/warning/danger/info); pass label for plain text or a content slot for rich children (content wins); pass removeHref to render a trailing x as a real <a> link (server-first removal, no JS) plus removeLabel for its aria-label. Domain meaning (which filter/entity) lives in your call, not the component. The source is yours: edit freely."
+  "docs": "Copies the chip partial to your JTE root at lievit/chip.jte, reached as @template.lievit.chip(label=\"...\"). A generic removable tag: variant drives the fill + foreground tokens (same family as badge: default/secondary/destructive/outline/ghost/link/neutral/success/warning/danger/info); pass label for plain text or a content slot for rich children (content wins); pass removeHref to render a trailing x as a real <a> link (server-first removal, no JS) plus removeLabel for its aria-label. Domain meaning (which filter/entity) lives in your call, not the component. The source is yours: edit freely."
 }

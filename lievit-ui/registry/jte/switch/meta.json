@@ -1,7 +1,7 @@
 {
   "name": "switch",
   "type": "registry:jte",
-  "description": "A native <input type=checkbox role=switch> styled as a sliding switch. POSTs `value` only when on, binds via l:model on the native change event, no JS. Server-first replacement for the Lit island.",
+  "description": "A native <input type=checkbox role=switch> styled as a sliding switch. POSTs `value` only when on, binds via l:model on the native change event, no JS. `size` (md default / sm) scales the track + thumb. Server-first replacement for the Lit island.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the switch partial to your JTE root at lievit/switch.jte, reached as @template.lievit.switch(name=...). The native checkbox skinned as a switch POSTs `value` under `name` only when on (zero JS); bind to a wire field with `model`. The source is yours: edit freely."
+  "docs": "Copies the switch partial to your JTE root at lievit/switch.jte, reached as @template.lievit.switch(name=...). The native checkbox skinned as a switch POSTs `value` under `name` only when on (zero JS); bind to a wire field with `model`. Pass size=\"sm\" for a smaller track + thumb (md is the default). The source is yours: edit freely."
 }

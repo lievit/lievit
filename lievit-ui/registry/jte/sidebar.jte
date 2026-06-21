@@ -49,6 +49,12 @@
                               with just the trigger (the bar + trigger always render).
     gg.jte.Content footer     optional footer region (user chip / actions); empty hides the footer.
     String side = "left"      "left" | "right": which edge the rail docks + collapses toward.
+    String variant = "sidebar" "sidebar" | "none" | "floating" | "inset" (shadcn data-variant on
+                              the root): "sidebar" is the default flush rail; "none" drops the
+                              border/elevation; "floating" detaches the rail as a bordered+shadowed
+                              rounded card; "inset" floats the rail AND pairs with sidebar/inset (a
+                              <main> that becomes a floating inset card). The visual treatment per
+                              variant lives in the enhancer's injected CSS keyed on data-variant.
     boolean collapsed = false SSR hint: render collapsed (icon rail) server-side; the enhancer then
                               hydrates the persisted choice from localStorage.
     String triggerLabel = "Toggle sidebar"  accessible name for the collapse <button>.
@@ -68,16 +74,19 @@
 @param gg.jte.Content header = null
 @param gg.jte.Content footer = null
 @param String side = "left"
+@param String variant = "sidebar"
 @param boolean collapsed = false
 @param String triggerLabel = "Toggle sidebar"
 @param String storageKey = "lv-sidebar-state"
 @param String cssClass = ""
 !{var navId = "lv-sidebar-nav";}
 !{var isRight = "right".equals(side);}
+!{var resolvedVariant = ("none".equals(variant) || "floating".equals(variant) || "inset".equals(variant)) ? variant : "sidebar";}
 <div
     data-slot="sidebar-wrapper"
     data-sidebar="root"
     data-side="${isRight ? "right" : "left"}"
+    data-variant="${resolvedVariant}"
     data-storage-key="${storageKey}"
     data-state="${collapsed ? "collapsed" : "expanded"}"
     class="lv-sidebar-root"

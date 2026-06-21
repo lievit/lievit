@@ -12,9 +12,14 @@
 
   STRUCTURE (WAI-ARIA APG menu-button item, Radix DropdownMenu.Item model): role="menuitem"
   (or menuitemcheckbox / menuitemradio for a checkable item). A disabled item carries aria-disabled
-  and is dimmed. The optional leading icon comes from the Lucide icon partial; the optional trailing
-  shortcut hint is decorative (aria-hidden). A button that submits a form sets `form` + `formaction`
-  so it posts the adopter's logout/delete form without inline JS (CSP-clean).
+  and is dimmed. A checkable item (type=checkbox/radio) reserves a leading indicator column and
+  renders the shadcn ItemIndicator glyph when `checked` (a Lucide "check" for a checkbox, a filled
+  "dot" for a radio, data-slot="dropdown-menu-item-indicator"); the column stays reserved when
+  unchecked so the items align (shadcn pads pl-8). The optional leading icon comes from the Lucide
+  icon partial; the optional trailing shortcut hint is decorative (aria-hidden) and carries
+  data-slot="dropdown-menu-shortcut" (the standalone dropdown-menu/shortcut partial inlined). A
+  button that submits a form sets `form` + `formaction` so it posts the adopter's logout/delete
+  form without inline JS (CSP-clean).
 
   A11y: a real <a> / <button> so focus + activation are the platform's; aria-disabled on a disabled
   item; aria-checked on a checkbox/radio item; the icon + shortcut are aria-hidden decoration.
@@ -64,12 +69,15 @@
         class="flex items-center ${cssClass}"
         style="${itemStyle}"
     >
+        @if(checkable)
+            <span aria-hidden="true" data-slot="dropdown-menu-item-indicator" style="flex-shrink: 0; width: 0.875rem; height: 0.875rem; display: inline-flex; align-items: center; justify-content: center;">@if(checked)@if("radio".equals(type))<span style="width: 0.5rem; height: 0.5rem; border-radius: var(--lv-radius-md); background: currentColor;"></span>@else@template.lievit.icon(name = "check", size = "0.875rem")@endif@endif</span>
+        @endif
         @if(!icon.isEmpty())
             <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>
         @endif
         <span style="flex: 1 1 auto;">${label}</span>
         @if(!shortcut.isEmpty())
-            <span aria-hidden="true" style="flex-shrink: 0; margin-left: auto; padding-left: var(--lv-space-3); color: var(--lv-color-muted); font-size: var(--lv-text-xs); letter-spacing: 0.05em;">${shortcut}</span>
+            <span aria-hidden="true" data-slot="dropdown-menu-shortcut" style="flex-shrink: 0; margin-left: auto; padding-left: var(--lv-space-3); color: var(--lv-color-muted); font-size: var(--lv-text-xs); letter-spacing: 0.1em;">${shortcut}</span>
         @endif
     </a>
 @else
@@ -86,12 +94,15 @@
         class="flex items-center ${cssClass}"
         style="${itemStyle}"
     >
+        @if(checkable)
+            <span aria-hidden="true" data-slot="dropdown-menu-item-indicator" style="flex-shrink: 0; width: 0.875rem; height: 0.875rem; display: inline-flex; align-items: center; justify-content: center;">@if(checked)@if("radio".equals(type))<span style="width: 0.5rem; height: 0.5rem; border-radius: var(--lv-radius-md); background: currentColor;"></span>@else@template.lievit.icon(name = "check", size = "0.875rem")@endif@endif</span>
+        @endif
         @if(!icon.isEmpty())
             <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>
         @endif
         <span style="flex: 1 1 auto;">${label}</span>
         @if(!shortcut.isEmpty())
-            <span aria-hidden="true" style="flex-shrink: 0; margin-left: auto; padding-left: var(--lv-space-3); color: var(--lv-color-muted); font-size: var(--lv-text-xs); letter-spacing: 0.05em;">${shortcut}</span>
+            <span aria-hidden="true" data-slot="dropdown-menu-shortcut" style="flex-shrink: 0; margin-left: auto; padding-left: var(--lv-space-3); color: var(--lv-color-muted); font-size: var(--lv-text-xs); letter-spacing: 0.1em;">${shortcut}</span>
         @endif
     </button>
 @endif

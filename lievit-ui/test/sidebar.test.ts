@@ -28,13 +28,17 @@ const readJte = (p: string) => readFileSync(join(jteDir, p), "utf8");
  *                    Settings (parent <details> with General + Security), Logs (a, disabled) }.
  * This mirrors exactly what sidebar.jte + sidebar/group.jte + sidebar/item.jte emit on the server.
  */
-function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; active?: string } = {}): HTMLElement {
+function renderSidebar(
+  opts: { side?: "left" | "right"; collapsed?: boolean; active?: string; variant?: "sidebar" | "none" | "floating" | "inset"; rail?: boolean } = {}
+): HTMLElement {
   const side = opts.side ?? "left";
   const active = opts.active ?? "home";
+  const variant = opts.variant ?? "sidebar";
   const root = document.createElement("div");
   root.setAttribute("data-slot", "sidebar-wrapper");
   root.setAttribute("data-sidebar", "root");
   root.setAttribute("data-side", side);
+  root.setAttribute("data-variant", variant);
   root.setAttribute("data-storage-key", "lv-sidebar-state");
   root.setAttribute("data-state", opts.collapsed ? "collapsed" : "expanded");
   root.className = "lv-sidebar-root";
@@ -70,6 +74,15 @@ function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; act
   // group
   const group = document.createElement("div");
   group.setAttribute("data-slot", "sidebar-group");
+  group.style.position = "relative";
+  // sidebar/group-action: a trailing <button> by the heading.
+  const groupAction = document.createElement("button");
+  groupAction.type = "button";
+  groupAction.setAttribute("data-slot", "sidebar-group-action");
+  groupAction.setAttribute("data-sidebar", "group-action");
+  groupAction.setAttribute("aria-label", "New project");
+  groupAction.className = "lv-sidebar-group-action lv-sidebar-collapsible";
+  group.appendChild(groupAction);
   const groupLabel = document.createElement("div");
   groupLabel.id = "lv-sidebar-group-platform";
   groupLabel.setAttribute("data-slot", "sidebar-group-label");
@@ -80,9 +93,14 @@ function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; act
   menu.setAttribute("data-slot", "sidebar-menu");
   menu.setAttribute("aria-labelledby", "lv-sidebar-group-platform");
 
-  const leaf = (label: string, href: string, o: { badge?: string; active?: boolean; disabled?: boolean } = {}) => {
+  const leaf = (
+    label: string,
+    href: string,
+    o: { badge?: string; active?: boolean; disabled?: boolean; action?: "default" | "hover" } = {}
+  ) => {
     const li = document.createElement("li");
     li.setAttribute("data-slot", "sidebar-menu-item");
+    li.style.position = "relative";
     const a = document.createElement("a");
     a.href = href;
     a.setAttribute("data-slot", "sidebar-menu-button");
@@ -103,11 +121,21 @@ function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; act
       a.appendChild(b);
     }
     li.appendChild(a);
+    if (o.action) {
+      // sidebar/menu-action: a trailing <button> pinned to the row end, optionally show-on-hover.
+      const act = document.createElement("button");
+      act.type = "button";
+      act.setAttribute("data-slot", "sidebar-menu-action");
+      act.setAttribute("data-sidebar", "menu-action");
+      act.setAttribute("aria-label", `${label} actions`);
+      act.className = "lv-sidebar-menu-action lv-sidebar-collapsible" + (o.action === "hover" ? " lv-sidebar-action-hover" : "");
+      li.appendChild(act);
+    }
     return li;
   };
 
-  menu.appendChild(leaf("Home", "/", { active: active === "home" }));
-  menu.appendChild(leaf("Users", "/users", { badge: "3", active: active === "users" }));
+  menu.appendChild(leaf("Home", "/", { active: active === "home", action: "default" }));
+  menu.appendChild(leaf("Users", "/users", { badge: "3", active: active === "users", action: "hover" }));
 
   // parent (Settings) via <details>
   const parentLi = document.createElement("li");
@@ -133,8 +161,29 @@ function renderSidebar(opts: { side?: "left" | "right"; collapsed?: boolean; act
   group.appendChild(menu);
   content.appendChild(group);
   nav.appendChild(content);
+
+  // sidebar/rail: a thin edge toggle inside the nav (rendered unless explicitly disabled).
+  if (opts.rail !== false) {
+    const rail = document.createElement("button");
+    rail.type = "button";
+    rail.setAttribute("data-slot", "sidebar-rail");
+    rail.setAttribute("data-sidebar", "rail");
+    rail.setAttribute("aria-label", "Toggle sidebar");
+    rail.setAttribute("tabindex", "-1");
+    rail.className = "lv-sidebar-rail";
+    nav.appendChild(rail);
+  }
+
   root.appendChild(nav);
   document.body.appendChild(root);
+
+  // sidebar/inset: a sibling <main> that pairs with the inset variant.
+  if (variant === "inset") {
+    const inset = document.createElement("main");
+    inset.setAttribute("data-slot", "sidebar-inset");
+    inset.className = "lv-sidebar-inset";
+    document.body.appendChild(inset);
+  }
   return root;
 }
 
@@ -256,12 +305,114 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
     second.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
     expect(second.getAttribute("data-state")).toBe("collapsed");
   });
+
+  test("the rail edge toggles the same collapse state as the trigger", () => {
+    const root = renderSidebar();
+    enhanceSidebar(root);
+    const rail = root.querySelector<HTMLButtonElement>('[data-slot="sidebar-rail"]')!;
+    expect(root.getAttribute("data-state")).toBe("expanded");
+    rail.click();
+    expect(root.getAttribute("data-state")).toBe("collapsed");
+    // the trigger's aria-expanded mirrors the rail-driven change
+    expect(root.querySelector('[data-slot="sidebar-trigger"]')!.getAttribute("aria-expanded")).toBe("false");
+    rail.click();
+    expect(root.getAttribute("data-state")).toBe("expanded");
+  });
+
+  test("the rail is a mouse-only affordance: out of the tab order (tabindex=-1)", () => {
+    const root = renderSidebar();
+    expect(root.querySelector('[data-slot="sidebar-rail"]')!.getAttribute("tabindex")).toBe("-1");
+  });
+
+  test("Cmd/Ctrl+B toggles the sidebar (shadcn keyboard shortcut)", () => {
+    const root = renderSidebar();
+    enhanceSidebar(root);
+    expect(root.getAttribute("data-state")).toBe("expanded");
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true }));
+    expect(root.getAttribute("data-state")).toBe("collapsed");
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", ctrlKey: true }));
+    expect(root.getAttribute("data-state")).toBe("expanded");
+  });
+
+  test("a plain 'b' (no modifier) does NOT toggle the sidebar", () => {
+    const root = renderSidebar();
+    enhanceSidebar(root);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "b" }));
+    expect(root.getAttribute("data-state")).toBe("expanded");
+  });
+});
+
+describe("sidebar compound parts: rendered contract (real DOM)", () => {
+  test("a menu item can carry a trailing menu-action affordance", () => {
+    const root = renderSidebar();
+    const home = Array.from(root.querySelectorAll<HTMLElement>('li[data-slot="sidebar-menu-item"]')).find((li) =>
+      li.textContent?.includes("Home")
+    )!;
+    const action = home.querySelector('[data-slot="sidebar-menu-action"]');
+    expect(action).not.toBeNull();
+    expect(action!.getAttribute("data-sidebar")).toBe("menu-action");
+    // the item is the positioning context for the absolutely-pinned action
+    expect((home as HTMLElement).style.position).toBe("relative");
+  });
+
+  test("a show-on-hover menu-action carries the reveal hook class", () => {
+    const root = renderSidebar();
+    const users = Array.from(root.querySelectorAll<HTMLElement>('li[data-slot="sidebar-menu-item"]')).find((li) =>
+      li.textContent?.includes("Users")
+    )!;
+    const action = users.querySelector('[data-slot="sidebar-menu-action"]')!;
+    expect(action.classList.contains("lv-sidebar-action-hover")).toBe(true);
+  });
+
+  test("a group can carry a trailing group-action beside its heading", () => {
+    const root = renderSidebar();
+    const group = root.querySelector('[data-slot="sidebar-group"]') as HTMLElement;
+    const action = group.querySelector('[data-slot="sidebar-group-action"]');
+    expect(action).not.toBeNull();
+    expect(action!.getAttribute("data-sidebar")).toBe("group-action");
+    expect(group.style.position).toBe("relative");
+  });
+
+  test("the actions are collapsible (hidden on the icon rail)", () => {
+    const root = renderSidebar();
+    for (const sel of ['[data-slot="sidebar-menu-action"]', '[data-slot="sidebar-group-action"]']) {
+      expect(root.querySelector(sel)!.classList.contains("lv-sidebar-collapsible")).toBe(true);
+    }
+  });
+});
+
+describe("sidebar variants: data-variant + inset (real DOM)", () => {
+  test("the default variant is data-variant=sidebar", () => {
+    expect(renderSidebar().getAttribute("data-variant")).toBe("sidebar");
+  });
+
+  test("each shadcn variant is reflected on the root as data-variant", () => {
+    for (const v of ["none", "floating", "inset"] as const) {
+      const root = renderSidebar({ variant: v });
+      expect(root.getAttribute("data-variant")).toBe(v);
+      document.body.innerHTML = "";
+    }
+  });
+
+  test("the inset variant pairs with a <main> sidebar-inset sibling", () => {
+    renderSidebar({ variant: "inset" });
+    const inset = document.body.querySelector('[data-slot="sidebar-inset"]');
+    expect(inset).not.toBeNull();
+    expect(inset!.tagName).toBe("MAIN");
+  });
 });
 
 describe("sidebar partials: source contract (JTE compiles in the jte-compile smoke)", () => {
   const main = readJte("sidebar.jte");
   const group = readJte("sidebar/group.jte");
   const item = readJte("sidebar/item.jte");
+  const rail = readJte("sidebar/rail.jte");
+  const inset = readJte("sidebar/inset.jte");
+  const menuAction = readJte("sidebar/menu-action.jte");
+  const groupAction = readJte("sidebar/group-action.jte");
+  const allParts = [main, group, item, rail, inset, menuAction, groupAction];
 
   test("the nav is a server-rendered <nav> landmark, NOT a Lit island", () => {
     expect(main).toMatch(/<nav\b/);
@@ -289,7 +440,7 @@ describe("sidebar partials: source contract (JTE compiles in the jte-compile smo
   });
 
   test("partials carry the house doc-comment, no inline script, no inline on* handlers", () => {
-    for (const src of [main, group, item]) {
+    for (const src of allParts) {
       expect(src).toContain("<%--");
       expect(src).toContain("--%>");
       expect(src).not.toMatch(/@\*/);
@@ -299,15 +450,67 @@ describe("sidebar partials: source contract (JTE compiles in the jte-compile smo
   });
 
   test("styling is token-driven (no bare hex colours)", () => {
-    for (const src of [main, group, item]) {
+    for (const src of allParts) {
       expect(src).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     }
   });
 
   test("icons go through the Lucide partial, never raw inline <svg>", () => {
-    for (const src of [main, group, item]) {
+    for (const src of allParts) {
       expect(src.match(/<svg\b/gi) ?? []).toEqual([]);
     }
     expect(item).toContain("@template.lievit.icon(name = icon");
+    expect(menuAction).toContain("@template.lievit.icon(name = icon");
+    expect(groupAction).toContain("@template.lievit.icon(name = icon");
+  });
+
+  test("the root exposes the shadcn variants via data-variant (none/floating/inset + default)", () => {
+    expect(main).toContain("@param String variant");
+    expect(main).toContain('data-variant="${resolvedVariant}"');
+    for (const v of ["none", "floating", "inset"]) expect(main).toContain(`"${v}".equals(variant)`);
+  });
+
+  test("the rail is a real <button> hook for the enhancer, tabindex=-1, no <a>", () => {
+    expect(rail).toMatch(/<button\b/);
+    expect(rail).toContain('data-slot="sidebar-rail"');
+    expect(rail).toContain('data-sidebar="rail"');
+    expect(rail).toContain('tabindex="-1"');
+    expect(rail).not.toMatch(/<a\b/);
+  });
+
+  test("the inset is a <main> landmark with the sidebar-inset slot", () => {
+    expect(inset).toMatch(/<main\b/);
+    expect(inset).toContain('data-slot="sidebar-inset"');
+    expect(inset).toContain("@param gg.jte.Content content");
+  });
+
+  test("menu-action / group-action are the shadcn-named trailing-action slots", () => {
+    expect(menuAction).toContain('data-slot="sidebar-menu-action"');
+    expect(menuAction).toContain('data-sidebar="menu-action"');
+    expect(menuAction).toContain("@param boolean showOnHover");
+    expect(groupAction).toContain('data-slot="sidebar-group-action"');
+    expect(groupAction).toContain('data-sidebar="group-action"');
+    // both accept a custom control via a Content slot, else render a default labelled button
+    for (const src of [menuAction, groupAction]) {
+      expect(src).toContain("@param gg.jte.Content content");
+      expect(src).toContain('aria-label="${label}"');
+    }
+  });
+
+  test("the item/group host the action slots as their positioning context (position: relative)", () => {
+    expect(item).toContain("@param gg.jte.Content action");
+    expect(item).toContain("@if(action != null)${action}@endif");
+    expect(item).toContain("position: relative;");
+    expect(group).toContain("@param gg.jte.Content action");
+    expect(group).toContain("@if(action != null)${action}@endif");
+    expect(group).toContain("position: relative;");
+  });
+
+  test("the enhancer wires the rail click + the Cmd/Ctrl+B shortcut (no inline handlers)", () => {
+    const enhancer = readFileSync(join(jteDir, "sidebar.enhancer.ts"), "utf8");
+    expect(enhancer).toContain('data-slot="sidebar-rail"');
+    expect(enhancer).toMatch(/metaKey\s*\|\|\s*e\.ctrlKey/);
+    expect(enhancer).toMatch(/key === "b"/);
+    expect(enhancer).toContain("toggleSidebar");
   });
 });

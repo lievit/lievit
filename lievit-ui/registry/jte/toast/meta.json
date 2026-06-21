@@ -1,14 +1,20 @@
 {
   "name": "toast",
   "type": "registry:jte",
-  "description": "A transient overlay notification rendered server-side from a flash / notification: severity drives both colour and the ARIA live role (danger/warning are assertive role=alert, info/success are polite role=status) plus a leading Lucide icon. The auto-dismiss timer + dismiss button are a CSP-clean typed-TS enhancer (no wire round-trip: a shown toast needs no server decision). Server-first PARTIAL + enhancer (ADR-0012); replaces the <lv-toast> Lit island.",
+  "description": "A transient overlay notification rendered server-side from a flash / notification: severity drives both colour and the ARIA live role (danger/warning are assertive role=alert, the rest are polite role=status) plus a leading Lucide icon. Variants cover the sonner surface: severity (info/success/warning/danger), a neutral `default`, a `loading` spinner, and `promise` (the resolved/rejected outcome rendered server-first). A single toast fixes itself to one of the six positions (top/bottom x left/center/right); render several inside the toast/viewport stack container (data-slot=toast-viewport). The auto-dismiss timer + dismiss button are a CSP-clean typed-TS enhancer (no wire round-trip: a shown toast needs no server decision). Server-first PARTIAL + enhancer (ADR-0012); replaces the <lv-toast> Lit island.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon"],
+  "registryDependencies": ["tokens", "icon", "spinner"],
   "files": [
     {
       "path": "jte/toast.jte",
       "type": "registry:jte",
       "target": "lievit/toast.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/toast/viewport.jte",
+      "type": "registry:jte",
+      "target": "lievit/toast/viewport.jte",
       "root": "jte"
     },
     {
@@ -18,5 +24,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "z"],
-  "docs": "Copies the toast partial to your JTE root at lievit/toast.jte (reached as @template.lievit.toast(variant=..., content=@`...`)) and the CSP-clean enhancer to your alias root at lievit/toast.enhancer.ts. Render the partial from the server's flash / notification (e.g. @if(flash != null) @template.lievit.toast(variant = flash.level(), content = @`${flash.message()}`) @endif) so 'open' is simply 'rendered'. Import the enhancer once from your entry module and call enhanceAllToasts() on load (and after any DOM swap): it starts the auto-dismiss timer (data-toast-duration) and wires the dismiss button. The source is yours: edit freely."
+  "docs": "Copies the toast partial (+ its toast/viewport stack container) to your JTE root at lievit/toast.jte (reached as @template.lievit.toast(variant=..., content=@`...`)) and the CSP-clean enhancer to your alias root at lievit/toast.enhancer.ts. Render the partial from the server's flash / notification (e.g. @if(flash != null) @template.lievit.toast(variant = flash.level(), content = @`${flash.message()}`) @endif) so 'open' is simply 'rendered'. variant covers severity (info/success/warning/danger) plus default (neutral), loading (spinner) and promise (pass promiseState=success|danger to render the resolved outcome). A lone toast fixes itself to position (top/bottom x left/center/right); to stack several, wrap @template.lievit.toast(standalone = false, ...) calls in @template.lievit.toast.viewport(position = ...). Import the enhancer once from your entry module and call enhanceAllToasts() on load (and after any DOM swap): it starts the auto-dismiss timer (data-toast-duration) and wires the dismiss button. The source is yours: edit freely."
 }

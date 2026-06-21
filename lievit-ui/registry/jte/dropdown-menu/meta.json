@@ -22,8 +22,32 @@
       "type": "registry:jte",
       "target": "lievit/dropdown-menu/separator.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/label.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/label.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/group.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/group.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/shortcut.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/shortcut.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/sub.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/sub.jte",
+      "root": "jte"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
-  "docs": "Copies the dropdown-menu family to your JTE root (lievit/dropdown-menu.jte + lievit/dropdown-menu/{item,separator}.jte), reached as @template.lievit.dropdown-menu(...). Pass a unique `id`, the `trigger` content, and compose the `content` slot from @template.lievit.dropdown-menu.item (give `href` for a navigation link, or `formId`/`formAction` for a form action) and @template.lievit.dropdown-menu.separator. The browser owns show/hide + dismiss; CSS anchor positioning places the menu. Real links navigate with JS off. For a menu whose ITEMS are a server feed (a filtered command palette), use the command WIRE component instead."
+  "docs": "Copies the dropdown-menu family to your JTE root (lievit/dropdown-menu.jte + lievit/dropdown-menu/{item,separator,label,group,shortcut,sub}.jte), reached as @template.lievit.dropdown-menu(...). Pass a unique `id`, the `trigger` content, and compose the `content` slot from @template.lievit.dropdown-menu.item (give `href` for a navigation link, or `formId`/`formAction` for a form action; type=checkbox/radio renders the checked-state indicator glyph), @template.lievit.dropdown-menu.label (a group caption, inset to align under the indicator column), @template.lievit.dropdown-menu.group (role=group, aria-labelledby a label id), @template.lievit.dropdown-menu.shortcut (standalone keyboard hint), @template.lievit.dropdown-menu.sub (a nested submenu via native <details>, server-first; the hover/arrow flyout reveal is a deferrable typed-TS enhancer) and @template.lievit.dropdown-menu.separator. The browser owns show/hide + dismiss; CSS anchor positioning places the menu. Real links navigate with JS off. For a menu whose ITEMS are a server feed (a filtered command palette), use the command WIRE component instead."
 }
