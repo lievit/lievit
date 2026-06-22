@@ -88,7 +88,12 @@
       bug, not an injection the partial absorbs. Empty by default; left empty nothing is added.
 
   Params:
-    String  variant  = "primary"   "primary" | "secondary" | "destructive" | "ghost" | "outline".
+    String  variant  = "primary"   "primary" | "secondary" | "destructive" | "destructive-outline" |
+                                   "destructive-ghost" | "ghost" | "outline". The two destructive-*
+                                   variants are the red-but-not-solid actions (a destructive intent
+                                   that is not the page's primary CTA, e.g. the arm/confirm buttons
+                                   on a profile danger zone): destructive-outline is a red-outlined
+                                   button, destructive-ghost a red plain (no border) button.
     String  size     = "md"        "sm" | "md" | "lg" (height-based, aligns to the form controls).
     boolean iconOnly = false        square icon-only button; content is a single @@template.lievit.icon.
     String  type     = "button"    "button" | "submit" | "reset" (ignored when href is set).
@@ -108,6 +113,9 @@
     @@template.lievit.button(variant = "primary", cssClass = "...", content = @@`Save`)
     @@template.lievit.button(size = "sm", variant = "secondary", content = @@`Filter`)
     @@template.lievit.button(href = "/listings", variant = "ghost", content = @@`Back`)
+    (red-but-not-solid: a destructive action that is not the primary CTA -- outlined / plain):
+    @@template.lievit.button(variant = "destructive-outline", content = @@`Disarm`)
+    @@template.lievit.button(variant = "destructive-ghost", content = @@`Remove`)
     @@template.lievit.button(iconOnly = true, size = "sm", variant = "ghost", ariaLabel = "Open calendar",
         content = @@`@@template.lievit.icon(name = "calendar", size = "1rem")`)
     (trusted STATIC directive via attrs -- $unsafe, author-typed only):
@@ -138,6 +146,8 @@
 !{var variantClass = switch (variant) {
     case "secondary"   -> "bg-[var(--lv-color-secondary)] text-[var(--lv-color-secondary-fg)] hover:bg-[color-mix(in_srgb,var(--lv-color-secondary)_80%,transparent)]";
     case "destructive" -> "bg-[var(--lv-color-destructive)] text-[var(--lv-color-destructive-fg)] hover:bg-[color-mix(in_srgb,var(--lv-color-destructive)_90%,transparent)] aria-invalid:shadow-[var(--lv-ring)]";
+    case "destructive-outline" -> "bg-transparent text-[var(--lv-color-destructive)] border-[var(--lv-color-destructive)] shadow-[var(--lv-shadow-xs)] hover:bg-[color-mix(in_srgb,var(--lv-color-destructive)_10%,transparent)]";
+    case "destructive-ghost"   -> "bg-transparent text-[var(--lv-color-destructive)] border-transparent hover:bg-[color-mix(in_srgb,var(--lv-color-destructive)_10%,transparent)]";
     case "ghost"       -> "bg-transparent text-[var(--lv-color-fg)] border-transparent hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";
     case "outline"     -> "bg-transparent text-[var(--lv-color-fg)] border-[var(--lv-color-border)] shadow-[var(--lv-shadow-xs)] hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";
     default            -> "bg-[var(--lv-color-primary)] text-[var(--lv-color-primary-fg)] hover:bg-[color-mix(in_srgb,var(--lv-color-primary)_90%,transparent)]";

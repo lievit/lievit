@@ -56,10 +56,10 @@
     String cssClass = ""          extra utility classes on the entry root.
 
   Usage:
-    @@template.lievit.infolistEntry(type = "color", value = "rgb(29 78 216)")
-    @@template.lievit.infolistEntry(type = "icon", icon = "check", color = "success", value = "Verificato")
-    @@template.lievit.infolistEntry(type = "image", value = "/avatars/1.jpg", alt = "Mario", circular = true, width = 40)
-    @@template.lievit.infolistEntry(type = "code", value = "{\"ok\":true}", language = "json", lineNumbers = true)
+    @@template.lievit.infolist-entry(type = "color", value = "rgb(29 78 216)")
+    @@template.lievit.infolist-entry(type = "icon", icon = "check", color = "success", value = "Verificato")
+    @@template.lievit.infolist-entry(type = "image", value = "/avatars/1.jpg", alt = "Mario", circular = true, width = 40)
+    @@template.lievit.infolist-entry(type = "code", value = "{\"ok\":true}", language = "json", lineNumbers = true)
 --%>
 @param String type = "text"
 @param String value = ""

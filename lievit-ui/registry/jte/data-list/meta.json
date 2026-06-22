@@ -19,5 +19,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the data-list partial (+ its data-list/row child) to your JTE root at lievit/data-list.jte, reached as @template.lievit.dataList(content=@`...`). Stack data-list.row rows inside it (each a real <li role=\"listitem\" with leading / content / actions slots); the list rules them with a divide-y hairline. Pass bordered=false for a flush, inline list with no card chrome. The source is yours: edit freely."
+  "docs": "Copies the data-list partial (+ its data-list/row child) to your JTE root at lievit/data-list.jte, reached as @template.lievit.data-list(content=@`...`). Stack data-list.row rows inside it (each a real <li role=\"listitem\" with leading / content / actions slots); the list rules them with a divide-y hairline. Pass bordered=false for a flush, inline list with no card chrome. The source is yours: edit freely."
 }

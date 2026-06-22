@@ -43,8 +43,8 @@
     String cssClass    = ""       extra utility classes on the card root.
 
   Usage:
-    @@template.lievit.statCard(heading = "Annunci attivi", value = "142")
-    @@template.lievit.statCard(
+    @@template.lievit.stat-card(heading = "Annunci attivi", value = "142")
+    @@template.lievit.stat-card(
       heading = "Annunci attivi", value = "142",
       description = "+12 questa settimana", descriptionIcon = "trending-up",
       color = "success", url = "/admin/listings")

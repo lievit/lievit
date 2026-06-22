@@ -35,10 +35,10 @@
     String cssClass = ""          extra utility classes on the list root.
 
   Usage:
-    @@template.lievit.descriptionList(columns = 2, content = @@`
-      @@template.lievit.descriptionList.item(term = "Nome", content = @@`Mario Rossi`)
-      @@template.lievit.descriptionList.item(term = "Email", content = @@`mario@@example.com`)
-      @@template.lievit.descriptionList.item(term = "Note", columnSpan = 2, content = @@`Cliente storico.`)
+    @@template.lievit.description-list(columns = 2, content = @@`
+      @@template.lievit.description-list.item(term = "Nome", content = @@`Mario Rossi`)
+      @@template.lievit.description-list.item(term = "Email", content = @@`mario@@example.com`)
+      @@template.lievit.description-list.item(term = "Note", columnSpan = 2, content = @@`Cliente storico.`)
     `)
 --%>
 @param gg.jte.Content content

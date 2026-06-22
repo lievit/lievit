@@ -27,9 +27,9 @@
     String cssClass = ""          extra utility classes on the <dd> value.
 
   Usage:
-    @@template.lievit.descriptionList.item(term = "Email", content = @@`mario@@example.com`)
-    @@template.lievit.descriptionList.item(term = "Stato", content = @@`@@template.lievit.badge(label = "Attivo", variant = "success")`)
-    @@template.lievit.descriptionList.item(term = "Note", columnSpan = 2, content = @@`Cliente storico.`)
+    @@template.lievit.description-list.item(term = "Email", content = @@`mario@@example.com`)
+    @@template.lievit.description-list.item(term = "Stato", content = @@`@@template.lievit.badge(label = "Attivo", variant = "success")`)
+    @@template.lievit.description-list.item(term = "Note", columnSpan = 2, content = @@`Cliente storico.`)
 --%>
 @param String term
 @param gg.jte.Content content

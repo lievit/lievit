@@ -36,11 +36,11 @@
     String cssClass = ""          extra utility classes on the list root.
 
   Usage:
-    @@template.lievit.dataList(content = @@`
-      @@template.lievit.dataList.row(
+    @@template.lievit.data-list(content = @@`
+      @@template.lievit.data-list.row(
         content = @@`<span class="font-[var(--lv-font-medium)]">Mario Rossi</span>`,
         actions = @@`@@template.lievit.badge(label = "Attivo", variant = "success")`)
-      @@template.lievit.dataList.row(content = @@`<span>Luca Bianchi</span>`)
+      @@template.lievit.data-list.row(content = @@`<span>Luca Bianchi</span>`)
     `)
 --%>
 @param gg.jte.Content content

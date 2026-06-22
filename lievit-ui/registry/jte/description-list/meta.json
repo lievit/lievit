@@ -19,5 +19,5 @@
     }
   ],
   "tokens": ["color", "space", "type"],
-  "docs": "Copies the description-list partial (+ its description-list/item child) to your JTE root at lievit/description-list.jte, reached as @template.lievit.descriptionList(columns=2, content=@`...`). Fill it with description-list.item rows (term + content value); the value content can be a plain string or an infolist-entry (badge / swatch / icon). columns drives the grid; an item may span more columns via columnSpan. The source is yours: edit freely."
+  "docs": "Copies the description-list partial (+ its description-list/item child) to your JTE root at lievit/description-list.jte, reached as @template.lievit.description-list(columns=2, content=@`...`). Fill it with description-list.item rows (term + content value); the value content can be a plain string or an infolist-entry (badge / swatch / icon). columns drives the grid; an item may span more columns via columnSpan. The source is yours: edit freely."
 }

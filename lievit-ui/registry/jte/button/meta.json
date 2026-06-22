@@ -1,7 +1,7 @@
 {
   "name": "button",
   "type": "registry:jte",
-  "description": "A token-styled button (or link styled as a button) with Filament-grade height-based sizing (sm/md/lg, shadcn h-9 baseline) that aligns to the form controls in a toolbar, an iconOnly square mode for icon actions, and primary/secondary/destructive/ghost/outline variants with shadcn hover + aria-invalid ring states. The click is wired by the consuming wire template via l:click; the partial renders only the styled control. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A token-styled button (or link styled as a button) with Filament-grade height-based sizing (sm/md/lg, shadcn h-9 baseline) that aligns to the form controls in a toolbar, an iconOnly square mode for icon actions, and primary/secondary/destructive/destructive-outline/destructive-ghost/ghost/outline variants (the two destructive-* are the red-but-not-solid actions) with shadcn hover + aria-invalid ring states. The click is wired by the consuming wire template via l:click; the partial renders only the styled control. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
