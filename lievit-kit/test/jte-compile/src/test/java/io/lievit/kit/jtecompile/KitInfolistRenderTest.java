@@ -198,7 +198,7 @@ class KitInfolistRenderTest {
     void renders_the_keyvalue_entry_map_as_a_two_column_table() {
         String html = render(populatedModel());
 
-        assertTrue(html.contains("data-slot=\"infolist-keyvalue\""), "key-value table missing:\n" + html);
+        assertTrue(html.contains("data-slot=\"key-value\""), "key-value table missing:\n" + html);
         assertTrue(html.contains("Feature"), "key column header missing");
         assertTrue(html.contains("Garden"), "a key-value key missing");
         assertTrue(html.contains("Yes"), "a key-value value missing");

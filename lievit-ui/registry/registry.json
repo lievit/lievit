@@ -1342,6 +1342,31 @@
       "docs": "Copies the kbd partial (+ its kbd/group child) to your JTE root at lievit/kbd.jte, reached as @template.lievit.kbd(key=\"Esc\"). Pass key for plain text or a content slot for rich children (content wins). Group several keys into one shortcut with @template.lievit.kbd.group(content=@`@template.lievit.kbd(key=\"Ctrl\") + @template.lievit.kbd(key=\"K\")`). The source is yours: edit freely."
     },
     {
+      "name": "key-value",
+      "type": "registry:jte",
+      "description": "A read-only two-column table of key -> value pairs, the detail-page primitive Filament's KeyValueEntry needs (a resolved map shown as a small ruled table inside an infolist). An empty map renders the header row only. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
+      "registryDependencies": [
+        "tokens"
+      ],
+      "files": [
+        {
+          "path": "jte/key-value.jte",
+          "type": "registry:jte",
+          "target": "lievit/key-value.jte",
+          "root": "jte",
+          "content": "@import java.util.Map\n<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui key-value partial -- a read-only two-column table of key -> value pairs, the detail-page\n  primitive Filament's KeyValueEntry needs (a map shown as a small ruled table inside an infolist).\n  The read-only twin of a form's key-value REPEATER: here the pairs are already resolved (the kit's\n  KeyValueEntry.resolveMap output), the template only iterates them.\n\n  TIER (planning two-tier model): STATIC presentational -> JTE partial. Pure layout over an\n  already-projected ordered map; no client state, no lifecycle => not a Lit island, not a wire\n  component. An empty map renders the header row only (so the table still reads as \"no entries\").\n\n  STRUCTURE (scientific decision rule): the semantic shape for a labelled key/value grid is a real\n  <table> with a <thead> (the keyLabel / valueLabel headers) + a <tbody> of <tr><td>key</td>\n  <td>value</td>. shadcn has no dedicated key-value export (its examples compose a bordered table);\n  Filament's KeyValueEntry renders exactly this two-column ruled table, so we ship it as the\n  primitive. NOT description-list (that is a dt/dd grid for a record's fields, not a homogeneous\n  map with column headers); NOT data-table (no sorting / selection / pagination).\n\n  TOKEN FIDELITY: the border reads --lv-color-border, the radius --lv-radius-md, headers read\n  --lv-color-muted-fg, cell text --lv-color-fg, padding the space scale; a retheme retints the\n  whole table without a markup edit.\n\n  A11y: a native <table> with a <thead> labels each column for assistive tech; the table is\n  read-only content, not a control, so no extra ARIA is needed.\n\n  Params:\n    pairs      Map<String,String>   the ordered key -> value pairs (already projected to strings).\n    keyLabel   String  = \"Key\"      the key-column header.\n    valueLabel String  = \"Value\"    the value-column header.\n    cssClass   String  = \"\"         extra utility classes on the table root.\n\n  Usage:\n    @@template.lievit.key-value(pairs = pairs, keyLabel = \"Field\", valueLabel = \"Value\")\n--%>\n@param Map<String, String> pairs\n@param String keyLabel = \"Key\"\n@param String valueLabel = \"Value\"\n@param String cssClass = \"\"\n<table\n    data-slot=\"key-value\"\n    class=\"w-full border-collapse text-[length:var(--lv-text-sm)] ${cssClass}\"\n    style=\"font-family: var(--lv-font-sans); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); overflow: hidden;\"\n>\n    <thead>\n        <tr>\n            <th data-slot=\"key-value-key-head\" style=\"text-align: left; padding: var(--lv-space-2); font-weight: var(--lv-font-medium); color: var(--lv-color-muted-fg); border-bottom: 1px solid var(--lv-color-border);\">${keyLabel}</th>\n            <th data-slot=\"key-value-value-head\" style=\"text-align: left; padding: var(--lv-space-2); font-weight: var(--lv-font-medium); color: var(--lv-color-muted-fg); border-bottom: 1px solid var(--lv-color-border);\">${valueLabel}</th>\n        </tr>\n    </thead>\n    <tbody>\n        @for(Map.Entry<String, String> pair : pairs.entrySet())\n            <tr data-slot=\"key-value-row\" data-key=\"${pair.getKey()}\">\n                <td style=\"padding: var(--lv-space-2); color: var(--lv-color-fg); border-top: 1px solid var(--lv-color-border);\">${pair.getKey()}</td>\n                <td style=\"padding: var(--lv-space-2); color: var(--lv-color-fg); border-top: 1px solid var(--lv-color-border);\">${pair.getValue()}</td>\n            </tr>\n        @endfor\n    </tbody>\n</table>\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius",
+        "type"
+      ],
+      "docs": "Copies the key-value partial to your JTE root at lievit/key-value.jte, reached as @template.lievit.key-value(pairs=..., keyLabel=..., valueLabel=...). Pass an already-projected ordered Map<String,String> (the read side resolves it). The source is yours: edit freely."
+    },
+    {
       "name": "label",
       "type": "registry:jte",
       "description": "A token-styled native <label> with for/id association and an optional aria-hidden required marker. Server-first replacement for the Lit island (which only wrapped a native <label>).",
@@ -1392,6 +1417,32 @@
         "ring"
       ],
       "docs": "Copies the link partial to your JTE root at lievit/link.jte, reached as @template.lievit.link(label=\"...\", href=\"...\"). A link is a navigation affordance (distinct from button's action affordance): a text-coloured anchor, not button chrome. variant drives the colour (default=primary underline-on-hover, muted=muted-fg darkening to fg); pass label for plain text or a content slot for rich children (content wins); icon + iconPosition (leading|trailing) compose the icon partial; badge + badgeVariant compose a trailing badge partial (e.g. a count); newTab adds target=_blank + rel=noopener noreferrer. A blank href renders an inert aria-disabled span styled identically. Requires the icon + badge partials. The source is yours: edit freely."
+    },
+    {
+      "name": "loading-section",
+      "type": "registry:jte",
+      "description": "A centred loading placeholder for a whole region: a spinner with an optional caption, framed in a token-styled box that reserves height so content does not jump. The Filament loading-section equivalent. Composes the spinner primitive; plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+      "dependencies": [],
+      "registryDependencies": [
+        "tokens",
+        "spinner"
+      ],
+      "files": [
+        {
+          "path": "jte/loading-section.jte",
+          "type": "registry:jte",
+          "target": "lievit/loading-section.jte",
+          "root": "jte",
+          "content": "@import gg.jte.Content\n<%--\n  Copyright 2026 Francesco Bilotta\n  Licensed under the Apache License, Version 2.0 (the \"License\").\n\n  lievit-ui loading-section partial -- a centred loading placeholder for a whole region while its\n  real content is fetched: a spinner with an optional label below it, framed in a token-styled box.\n  The Filament `loading-section` equivalent: where the spinner is the bare busy glyph and the\n  skeleton mimics the shape of incoming content, this is the COMPOSITION that fills a section /\n  panel / card body with \"loading ...\" (a centred spinner + caption), the piece lievit-ui was\n  missing (it shipped a spinner but no section-loading composition).\n\n  TIER (planning two-tier model): STATIC presentational -> JTE partial. Pure layout that COMPOSES\n  the lievit-ui spinner primitive; no client state, no lifecycle => not a Lit island, not a wire\n  component. A host swaps it for the real content once loaded (htmx target / wire morph): this is\n  the placeholder, not the loader logic.\n\n  STRUCTURE (scientific decision rule): a flex column, centred both axes, min-height so the box\n  reserves space (no layout jump when the content lands). The spinner carries role=status +\n  aria-label, so assistive tech already announces the busy state; the optional caption is a muted\n  line under it. The whole box is aria-busy so a screen reader knows the region is loading.\n\n  TOKEN FIDELITY: padding + gap read the space scale, the caption reads --lv-color-muted-fg, the\n  optional border reads --lv-color-border / --lv-radius-lg; a retheme respaces + retints with the\n  tokens, no markup edit.\n\n  A11y (WAI-ARIA): the container is aria-busy=\"true\" + aria-live=\"polite\" so the loading state is\n  announced; the composed spinner owns role=\"status\". The caption is plain muted text.\n\n  Params:\n    String label    = \"Loading\"   the accessible spinner label AND the visible caption when shown.\n    boolean caption = true         render the visible caption line under the spinner.\n    String size     = \"md\"         the spinner size (\"sm\" | \"md\").\n    boolean bordered = false       frame the box with a token border + radius (a card-like region).\n    String minHeight = \"12rem\"     the reserved height so the box does not collapse / jump.\n    String cssClass = \"\"           extra utility classes on the box root.\n\n  Usage:\n    @@template.lievit.loading-section()\n    @@template.lievit.loading-section(label = \"Loading contacts\", bordered = true)\n    @@template.lievit.loading-section(caption = false, size = \"sm\", minHeight = \"6rem\")\n--%>\n@param String label = \"Loading\"\n@param boolean caption = true\n@param String size = \"md\"\n@param boolean bordered = false\n@param String minHeight = \"12rem\"\n@param String cssClass = \"\"\n\n!{var frame = bordered ? \"border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-lg);\" : \"\";}\n\n<div\n  data-slot=\"loading-section\"\n  role=\"status\"\n  aria-busy=\"true\"\n  aria-live=\"polite\"\n  aria-label=\"${label}\"\n  class=\"flex flex-col items-center justify-center text-center ${cssClass}\"\n  style=\"gap: var(--lv-space-3); padding: var(--lv-space-6); min-height: ${minHeight}; font-family: var(--lv-font-sans); ${frame}\"\n>\n  @template.lievit.spinner(size = size, label = label)\n  @if(caption)\n    <span data-slot=\"loading-section-caption\" style=\"font-size: var(--lv-text-sm); color: var(--lv-color-muted-fg);\">${label}</span>\n  @endif\n</div>\n"
+        }
+      ],
+      "tokens": [
+        "color",
+        "space",
+        "radius",
+        "type"
+      ],
+      "docs": "Copies the loading-section partial to your JTE root at lievit/loading-section.jte, reached as @template.lievit.loading-section(label=..., bordered=..., caption=...). It composes @template.lievit.spinner, so `lievit add loading-section` pulls the spinner too. Swap it for the real content once loaded (htmx target / wire morph). The source is yours: edit freely."
     },
     {
       "name": "modal",
