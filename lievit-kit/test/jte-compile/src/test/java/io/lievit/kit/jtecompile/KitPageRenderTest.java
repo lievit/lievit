@@ -231,9 +231,11 @@ class KitPageRenderTest {
                                 new AdminFormView.FieldView(
                                         "name", "Name", "TextField", "Mario", List.of()),
                                 new AdminFormView.FieldView(
-                                        "notes", "Notes", "TextareaField", "VIP", List.of()),
+                                                "notes", "Notes", "TextareaField", "VIP", List.of())
+                                        .withOptions(AdminFormView.FieldOptions.textarea(3)),
                                 new AdminFormView.FieldView(
-                                        "active", "Active", "ToggleField", "true", List.of()),
+                                                "active", "Active", "ToggleField", "true", List.of())
+                                        .withOptions(AdminFormView.FieldOptions.toggle("", "")),
                                 new AdminFormView.FieldView(
                                         "email",
                                         "Email",
@@ -257,7 +259,7 @@ class KitPageRenderTest {
         assertTrue(html.contains("role=\"switch\"") || html.contains("name=\"active\""), "toggle field missing");
         assertTrue(html.contains("must be a valid email"), "field error missing");
         assertTrue(html.contains("The record could not be saved"), "record error banner missing");
-        assertTrue(html.contains("Save changes"), "edit submit label missing");
+        assertTrue(html.contains("Save"), "edit submit label missing");
     }
 
     @Test

@@ -25,8 +25,12 @@
 
   Params:
     form - the KitFormView render bundle (the AdminFormView + the POST action / cancel href / labels).
+    csrf - the hidden CSRF field slot the native <form> carries so it POSTs JS-off under strict CSP
+           (Spring: @`<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}">`);
+           null when the adopter wires CSRF some other way (or in a render-only test).
 --%>
 @param KitFormView form
+@param gg.jte.Content csrf = null
 !{AdminFormView view = form.view();}
 <div data-slot="kit-form" data-admin-form data-editing="${view.editing()}" class="w-full max-w-[40rem]" style="font-family:var(--lv-font-sans);">
 
@@ -39,6 +43,8 @@
   @template.lievit.form(id = "kit-form", action = form.action(),
     error = view.recordErrors().isEmpty() ? null : view.recordErrors().get(0),
     content = @`
+      @if(csrf != null)${csrf}@endif
+
       @if(view.recordErrors().size() > 1)
         <ul data-admin-record-errors role="alert" class="ml-[var(--lv-space-4)] flex list-disc flex-col gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-destructive)]">
           @for(int i = 1; i < view.recordErrors().size(); i++)
