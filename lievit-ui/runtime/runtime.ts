@@ -1180,14 +1180,27 @@ export class LievitRuntime {
 }
 
 /**
- * Convenience entry point: construct a {@link LievitRuntime}, start it on the document, and return
- * it so the page can register features. This is what an app's `main.ts` calls.
+ * Convenience entry point: construct a {@link LievitRuntime}, register features, start it on the
+ * document, and return it so the page can register more. This is what an app's `main.ts` calls.
+ *
+ * Pass a `register` callback (e.g. `(rt) => installAllFeatures(rt)`) to register directives/features
+ * BEFORE the first scan. The order is load-bearing: `start()` scans the document and binds every
+ * `l:*` directive it finds RIGHT NOW; a directive registered after `start()` is invisible to that
+ * first scan, so an element using it (`l:init="load"` on a deferred-paint skeleton) silently no-ops
+ * and never fires on mount. Registering features first, then scanning, is the canonical order. The
+ * old shape (`startLievit(opts)` then `installAllFeatures(rt)`) registered AFTER the scan and dropped
+ * the first-paint directives; callers that still do that should move to the `register` callback.
  *
  * @param options runtime options (CSRF, fetch, error reporter)
+ * @param register optional callback to register features/directives before the first scan
  * @returns the started runtime (its `directives` / `lifecycle` are the extension points)
  */
-export function startLievit(options: RuntimeOptions = {}): LievitRuntime {
+export function startLievit(
+  options: RuntimeOptions = {},
+  register?: (runtime: LievitRuntime) => void,
+): LievitRuntime {
   const runtime = new LievitRuntime(options);
+  register?.(runtime);
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => runtime.start(), { once: true });
   } else {

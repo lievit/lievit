@@ -297,6 +297,32 @@ function restoreUncontrolledValue(el: Element, live: LiveValue): void {
   }
 }
 
+/**
+ * Whether an attribute is a CLIENT-runtime bind/state marker the server never authors. The runtime
+ * stamps these to record "this element is already wired by feature X" (`data-lievit-bound-l-click`,
+ * `data-lievit-init-fired`, the poll/lazy/current/dirty/upload/loading markers). They are absent from
+ * every server render, so a plain "remove what the new markup dropped" reconcile would strip them on
+ * EVERY morph; the post-morph re-scan would then re-bind the directive and STACK a second listener
+ * (one click -> N wire calls; an `l:init` would re-fire in a loop). The morph must preserve them: they
+ * are owned by the client, not the server snapshot.
+ *
+ * The server-authored `data-lievit-*` attributes (`-component`, `-id`, `-snapshot`, `-island`, `-key`,
+ * `-sort-key`, `-scope`, `-style-*`, `-release`, `-error-for`, ...) are always present in the new
+ * markup, so they reconcile normally and never reach this guard.
+ */
+function isClientOwnedMarker(name: string): boolean {
+  return (
+    name.startsWith("data-lievit-bound-") ||
+    name === "data-lievit-init-fired" ||
+    name === "data-lievit-current-bound" ||
+    name === "data-lievit-page-bound" ||
+    name === "data-lievit-poll-armed" ||
+    name === "data-lievit-lazy-loaded" ||
+    name === "data-lievit-upload-bound" ||
+    name === "data-lievit-loading-active"
+  );
+}
+
 /** Adds/updates/removes attributes so `oldEl`'s attributes match `newEl`'s. */
 function reconcileAttributes(oldEl: Element, newEl: Element): void {
   // Set or update everything the new markup declares.
@@ -305,9 +331,10 @@ function reconcileAttributes(oldEl: Element, newEl: Element): void {
       oldEl.setAttribute(attr.name, attr.value);
     }
   }
-  // Remove anything the new markup dropped.
+  // Remove anything the new markup dropped, EXCEPT the client-runtime bind markers (the server never
+  // authors them; stripping them re-binds directives and stacks duplicate listeners on every morph).
   for (const attr of Array.from(oldEl.attributes)) {
-    if (!newEl.hasAttribute(attr.name)) {
+    if (!newEl.hasAttribute(attr.name) && !isClientOwnedMarker(attr.name)) {
       oldEl.removeAttribute(attr.name);
     }
   }
