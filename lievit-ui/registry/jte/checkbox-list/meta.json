@@ -1,0 +1,22 @@
+{
+  "name": "checkbox-list",
+  "type": "registry:jte",
+  "description": "A multi-select FORM control: a fieldset of native <input type=checkbox> options sharing one `name`, with an optional search box and a select-all / clear bulk toggle (Filament's CheckboxList; shadcn composes Checkbox + a search). Built on the existing checkbox primitive. JS-OFF it is a fully accessible native multi-select that POSTs each checked value under the repeated `name` in a plain form (unchecked boxes are simply absent), and the search + bulk-toggle UI stays hidden so there are no dead controls; JS-ON a CSP-clean typed-TS enhancer reveals the tools and adds client-side filtering + a one-click select-all that fires native change so l:model and forms see it. The native checkboxes stay the form source of truth. WAI-ARIA: native fieldset/legend group, role=searchbox on the filter, aria-pressed on the toggle. Plain HTML + Tailwind + --lv-* tokens, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "checkbox", "icon"],
+  "files": [
+    {
+      "path": "jte/checkbox-list.jte",
+      "type": "registry:jte",
+      "target": "lievit/checkbox-list.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/checkbox-list.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/checkbox-list.enhancer.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "icon"],
+  "docs": "Copies the checkbox-list partial to your JTE root at lievit/checkbox-list.jte (reached as @template.lievit.checkbox-list(name=..., options=...)) and the CSP-clean enhancer to lievit/checkbox-list.enhancer.ts. Import the enhancer once from your entry module and call enhanceAllCheckboxLists() on load (and after any DOM swap). JS-OFF the native checkboxes POST every checked value under the repeated `name`; the search + select-all controls stay hidden. JS-ON the enhancer reveals them and adds client-side filtering + a bulk toggle. Pass `options` (value->label Map) or a `content` slot of hand-authored option markup, `values` (initially-checked), `searchable` / `bulkToggle` to opt into the tools, `columns` (1/2/3) for the grid, plus `label` / `ariaLabel` / `describedBy` / `disabled` / `required` / `invalid`. Requires the checkbox primitive (each option) and the icon partial (the search glyph). The source is yours: edit freely."
+}

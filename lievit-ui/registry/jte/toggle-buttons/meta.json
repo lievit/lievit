@@ -1,0 +1,17 @@
+{
+  "name": "toggle-buttons",
+  "type": "registry:jte",
+  "description": "A segmented control used as a FORM control (Filament's ToggleButtons; shadcn's ToggleGroup, but form-bound and JS-off-safe). A joined row of options where one (single) or several (multiple) can be pressed; the selection POSTs natively with ZERO JavaScript. The segments are REAL native form inputs styled to look like buttons: single = radios sharing one name in a fieldset (platform single-selection + roving arrow focus + radiogroup role), multiple = checkboxes sharing one name (each toggles, repeated POST). The native input is sr-only (focusable, tab-ordered, submitted) and its sibling label is the visible segment painted by peer-checked, so the control is fully keyboard- and screen-reader-operable and submits in a plain form. Reuses the button-group joined-look CSS (collapsed inner rounding + shared borders) for the segmented visual. Plain HTML + Tailwind + --lv-* tokens, CSP-clean, no island.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/toggle-buttons.jte",
+      "type": "registry:jte",
+      "target": "lievit/toggle-buttons.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "docs": "Copies the toggle-buttons partial to your JTE root at lievit/toggle-buttons.jte (reached as @template.lievit.toggle-buttons(name=..., options=...)). It is a zero-JS segmented form control: pass `options` (value->label Map) or a `content` slot, set `multiple` for checkbox segments (single = radios), `value` (single) or `values` (multiple) for the initial selection, `size` (sm/md/lg), `orientation` (horizontal/vertical), plus `label` / `ariaLabel` / `describedBy` / `disabled` / `required` / `invalid`. Single-mode POSTs the one chosen value under `name`; multiple POSTs each pressed value under the repeated `name`. The selection is the native :checked input (never colour alone), so it is accessible and submits with no JavaScript. The source is yours: edit freely."
+}
