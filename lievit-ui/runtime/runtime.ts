@@ -301,8 +301,11 @@ export class LievitRuntime {
    * runtime internals. Returns `null` when `element` is not inside a mounted component.
    *
    * `$set` rides the same model-update path a `l:model` edit takes (the server settable allowlist
-   * applies); `$call` invokes a bare `@LievitAction` by name (inline args to a regular action are a
-   * server-side parity gap, so args are not forwarded — only magic actions parse inline args today).
+   * applies); `$call` invokes a bare `@LievitAction` by name. Inline args to a regular action are a
+   * server-side parity gap (the server invokes an action method with no parameters), so `$call`
+   * does NOT forward them: it warns when args are passed and invokes the bare name. To carry a value
+   * into an action, set a `@Wire` field first and read it inside the action:
+   * `$lievit(root).$set('openId', id); $lievit(root).$call('show')` (the `$set`-on-`@Wire` idiom).
    *
    * @param element any element inside the target component
    * @returns the component's `$lievit` object, or `null` if `element` is outside any component
@@ -315,9 +318,14 @@ export class LievitRuntime {
     return lievitObject(root, {
       get: (el, field) => this.readEphemeral(el, field),
       set: (el, field, value) => void this.setModel(el, field, value, true),
-      // Args to a regular action are not forwarded (server parses inline args for magic actions
-      // only); the bare name preserves the wire's authorization allowlist (ADR-0013).
-      call: (el, action) => void this.callAction(el, action),
+      // Inline args to a REGULAR @LievitAction are NOT forwarded: the server invokes an action
+      // method with zero arguments (`WireDispatcher.invokeAction` -> `method.invoke(instance)`) and
+      // has no positional-arg binding; only the framework MAGIC actions ($set/$toggle) parse inline
+      // args, and they mutate a named @Wire field, not a method parameter. So `$call('show', id)`
+      // would silently drop `id` server-side. We warn loudly when args are passed to a non-magic
+      // action (the foot-gun that sent `id=null` to the server) and still invoke the bare name, so
+      // the wire's authorization allowlist (ADR-0013) holds and arg-less `$call('save')` is intact.
+      call: (el, action, args) => void this.callFromObject(el, action, args),
       refresh: (el) => void this.refresh(el),
       parent: (childRoot) => this.parentObjectOf(childRoot),
       watch: (watchRoot, field, listener) => this.addWatcher(watchRoot, field, listener),
@@ -525,6 +533,34 @@ export class LievitRuntime {
       return;
     }
     await this.enqueue(state, [action], meta);
+  }
+
+  /**
+   * The `$lievit.$call(action, ...args)` entry point (the JS-side action invocation): forwards to
+   * {@link callAction} after guarding the inline-args foot-gun. A REGULAR `@LievitAction` is invoked
+   * server-side with no parameters (`WireDispatcher.invokeAction` -> `method.invoke(instance)`), so
+   * positional args passed here cannot reach a `show(String id)` parameter; only the framework magic
+   * actions (`$set` / `$toggle`) parse inline args, and they mutate a named `@Wire` field, never a
+   * method parameter. Passing args to a non-magic action therefore silently dropped them (this is the
+   * real bug that sent `id=null` to a `show(id)` action). We now WARN loudly via the runtime error
+   * reporter and still invoke the bare name, so the call's authorization allowlist (ADR-0013) holds
+   * and arg-less `$call('save')` is unchanged. To carry a value into an action, `$set` a `@Wire`
+   * field first and read it inside the action body.
+   *
+   * @param element any element inside the target component
+   * @param action the `@LievitAction` (or magic) name to invoke
+   * @param args the inline args (warned + dropped for a regular action; carried for a magic action)
+   */
+  private callFromObject(element: Element, action: string, args: readonly unknown[]): void {
+    if (args.length > 0 && !action.startsWith(PARENT_MAGIC_PREFIX) && !isMagicAction(action)) {
+      this.reportError(
+        `$call("${action}", ...) was given ${args.length} inline argument(s) that will NOT reach the ` +
+          `server: a @LievitAction is invoked with no parameters. Set a @Wire field first ` +
+          `($lievit.$set("field", value)) and read it inside the action.`,
+        args,
+      );
+    }
+    void this.callAction(element, action);
   }
 
   /**
@@ -1272,6 +1308,17 @@ function decodeWire(snapshot: string): WireState {
   } catch {
     return {};
   }
+}
+
+/**
+ * True when a call name is a framework MAGIC action (`$set`, `$toggle`, `$refresh`, `$get`,
+ * `$parent`, …): its first non-blank char is `$`. Mirrors the server `MagicAction.isMagic`
+ * (lievit-core). Magic actions carry their inline args INSIDE the call string and the server parses
+ * them, so passing args to a magic action via `$call` is legitimate; a regular `@LievitAction` is
+ * not magic and cannot receive args, which is what {@link LievitRuntime#callFromObject} warns about.
+ */
+function isMagicAction(action: string): boolean {
+  return action.trimStart().startsWith("$");
 }
 
 /** The reserved key under which the server merges the cross-call memo into the snapshot wire. */
