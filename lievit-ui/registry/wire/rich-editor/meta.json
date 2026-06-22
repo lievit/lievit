@@ -1,0 +1,22 @@
+{
+  "name": "rich-editor",
+  "type": "registry:wire",
+  "description": "A server-first rich-text form field (Filament RichEditor / shadcn rich-text parity). The canonical control is a plain <textarea name=...> that POSTs its HTML with the surrounding <form> JS-off; a CSP-clean island progressively enhances it into a TipTap (ProseMirror) WYSIWYG editor (toolbar + contenteditable surface) whose serialized HTML is written back into the SAME textarea on every change, so the form keeps POSTing the field with or without JS. TipTap/ProseMirror are CSP-clean (no eval, no inline script; view CSS injected as a <style> element). The TipTap engine is supplied by the adopter through an injectable factory so the version + extension set is pinned downstream and the island orchestration stays unit-testable.",
+  "dependencies": ["@tiptap/core", "@tiptap/starter-kit"],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "wire/rich-editor/rich-editor.jte",
+      "type": "registry:wire",
+      "target": "lievit/rich-editor.jte",
+      "root": "jte"
+    },
+    {
+      "path": "wire/rich-editor/rich-editor.ts",
+      "type": "registry:wire",
+      "target": "components/ui/rich-editor.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Render the partial with a `name` (the form field). With JS off the <textarea> is the editor and POSTs its value. To enhance: `npm i @tiptap/core @tiptap/starter-kit`, then call enhanceRichEditors({ factory }) once from main.ts after startLievit(), passing a factory that builds a TipTap Editor: `({ element, content, onUpdate }) => new Editor({ element, content, extensions: [StarterKit], onUpdate: ({ editor }) => onUpdate(editor.getHTML()) })`. The factory keeps the TipTap version + extension set (tables, links, images, mentions) pinned in YOUR app. The island maps the EditorHandle command/isActive onto editor.chain()...run() and editor.isActive(); the toolbar buttons carry data-rich-editor-cmd (bold/italic/strike/heading/bulletList/orderedList/blockquote) + an optional data-rich-editor-arg (e.g. heading level). On submit you receive the field as HTML; sanitize server-side before persisting/rendering. Adjust the template name freely once copied."
+}
