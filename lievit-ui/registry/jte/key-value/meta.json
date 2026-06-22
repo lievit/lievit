@@ -1,0 +1,17 @@
+{
+  "name": "key-value",
+  "type": "registry:jte",
+  "description": "A read-only two-column table of key -> value pairs, the detail-page primitive Filament's KeyValueEntry needs (a resolved map shown as a small ruled table inside an infolist). An empty map renders the header row only. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/key-value.jte",
+      "type": "registry:jte",
+      "target": "lievit/key-value.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Copies the key-value partial to your JTE root at lievit/key-value.jte, reached as @template.lievit.key-value(pairs=..., keyLabel=..., valueLabel=...). Pass an already-projected ordered Map<String,String> (the read side resolves it). The source is yours: edit freely."
+}
