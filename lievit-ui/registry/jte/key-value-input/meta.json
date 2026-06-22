@@ -1,0 +1,22 @@
+{
+  "name": "key-value-input",
+  "type": "registry:jte",
+  "description": "An EDITABLE repeatable key/value FORM control (Filament's KeyValue field): rows of two text inputs (key + value) with add / remove. NOT the read-only `key-value` display primitive (a static dl/dt/dd) -- this is the editable form counterpart, named key-value-INPUT to avoid the collision. Each row is two native inputs named `<name>[<i>][key]` / `<name>[<i>][value]` (the canonical form-array convention a Spring binder maps to a List/Map), so the rows POST natively with zero JS. JS-OFF an Add submit (name=`<name>__add`) and a per-row remove submit (name=`<name>__remove`, value=index) round-trip to the server, which re-renders -- a working no-JS path. JS-ON a CSP-clean typed-TS enhancer clones a hidden <template> row to add and drops a row to remove, in place, then re-indexes the survivors so the POSTed indices stay contiguous. The native inputs stay the form source of truth. WAI-ARIA: aria-labelled inputs (role + row number), labelled add / remove buttons, aria-live announcements. Plain HTML + Tailwind + --lv-* tokens, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/key-value-input.jte",
+      "type": "registry:jte",
+      "target": "lievit/key-value-input.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/key-value-input.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/key-value-input.enhancer.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "icon"],
+  "docs": "Copies the key-value-input partial to your JTE root at lievit/key-value-input.jte (reached as @template.lievit.key-value-input(name=..., entries=...)) and the CSP-clean enhancer to lievit/key-value-input.enhancer.ts. Import the enhancer once and call enhanceAllKeyValueInputs() on load (and after a DOM swap). The rows POST as `<name>[<i>][key]` / `<name>[<i>][value]`; bind server-side to a List of pairs or a Map. JS-OFF the user adds via the Add submit (`<name>__add`) and removes via the per-row submit (`<name>__remove`, value=index), both server round-trips. JS-ON the enhancer adds / removes in place (cloning the hidden <template> row) and re-indexes so the indices stay contiguous. Pass `entries` (an insertion-ordered Map), `keyLabel` / `valueLabel`, `keyPlaceholder` / `valuePlaceholder`, `addLabel`, plus `label` / `disabled`. Requires the icon partial (trash-2 + plus). The source is yours: edit freely."
+}
