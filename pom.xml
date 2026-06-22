@@ -89,7 +89,7 @@
 
         <!-- GraalVM Native Build Tools (ADR-0006). The native profile is declared here, not
              inherited from spring-boot-starter-parent (lievit has its own parent). -->
-        <native-maven-plugin.version>0.10.6</native-maven-plugin.version>
+        <native-maven-plugin.version>1.1.2</native-maven-plugin.version>
 
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
