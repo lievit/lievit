@@ -1,0 +1,22 @@
+{
+  "name": "color-picker",
+  "type": "registry:jte",
+  "description": "A colour FORM field (Filament ColorPicker; native-first, no dep): a swatch + a native <input type=color> (the canonical no-dep colour picker) + an optional row of preset hex swatches. JS-OFF the native input carries the OS colour picker, keyboard + a11y for free and POSTs the chosen hex under `name` with zero JavaScript; the presets are a pure convenience. JS-ON a tiny CSP-clean typed-TS enhancer wires the preset <button>s to write their colour into the native input (firing native input/change so l:model + forms see it) and keeps the hex readout in sync. The native input stays the form source of truth, so the field POSTs identically whether or not JS ran. WAI-ARIA: labelled native input, aria-labelled preset buttons (colour never the only signal), aria-live hex readout. Plain HTML + Tailwind + --lv-* tokens, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/color-picker.jte",
+      "type": "registry:jte",
+      "target": "lievit/color-picker.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/color-picker.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/color-picker.enhancer.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "docs": "Copies the color-picker partial to your JTE root at lievit/color-picker.jte (reached as @template.lievit.color-picker(name=..., value=...)) and the CSP-clean enhancer to lievit/color-picker.enhancer.ts. Import the enhancer once from your entry module and call enhanceAllColorPickers() on load (and after any DOM swap). JS-OFF the native <input type=color> POSTs the hex under `name`; JS-ON the enhancer wires the optional preset swatches to set the colour and syncs the readout. Pass `value` (a 7-char hex like #2563eb), an optional `presets` List of hex strings, plus `label` / `ariaLabel` / `describedBy` / `disabled` / `required` / `invalid` / `model`. No external dependency: the native control is the picker. The source is yours: edit freely."
+}
