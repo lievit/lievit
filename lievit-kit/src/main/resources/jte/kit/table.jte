@@ -2,6 +2,7 @@
 @import io.lievit.kit.Cell
 @import io.lievit.kit.ColumnSummary
 @import io.lievit.kit.page.KitTableView
+@import io.lievit.kit.page.SavedViewsView
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -46,6 +47,7 @@
 !{AdminListView.Pagination pagination = view.pagination();}
 !{KitTableView.Selection selection = table.selection();}
 !{int columnCount = view.headers().size() + (selection.enabled() ? 1 : 0) + 1;}
+!{SavedViewsView savedViews = table.savedViews();}
 <div data-slot="kit-table" data-admin-list class="w-full" style="font-family:var(--lv-font-sans);">
 
   <%-- 1. Header bar: heading + the resource-scoped header actions (Filament fi-ta-header). --%>
@@ -70,6 +72,70 @@
       @endif
     </div>
   </div>
+
+  <%-- 15. Saved-views switcher: the Salesforce list-view tab strip / Filament advanced-table tabs.
+       Each tab is a real GET <a href> (?view=<id>, JS-off) with an optional count badge + a pinned
+       star on the default; tabs past the first few collapse into an overflow dropdown; a "Save/manage"
+       dropdown exposes the wire action names the host arms. Renders only when a view exists. Strict
+       CSP: no inline <script>/on*; user view names ride JTE auto-escape (${...}), never $unsafe. --%>
+  @if(table.hasSavedViews())
+    !{int visibleTabCount = 5;}
+    <div data-slot="kit-table-views" data-admin-views aria-label="Saved views"
+         class="flex items-center justify-between gap-[var(--lv-space-2)] border-b border-[var(--lv-color-border)]">
+      <nav data-admin-view-tabs role="tablist" class="flex flex-wrap items-center gap-[var(--lv-space-1)]">
+        @for(int i = 0; i < savedViews.tabs().size(); i++)
+          !{SavedViewsView.Tab tab = savedViews.tabs().get(i);}
+          @if(i < visibleTabCount)
+            !{boolean tabActive = savedViews.isActive(tab.id());}
+            <a href="${table.viewHref(tab.id())}" role="tab" data-admin-view-tab="${tab.id()}"
+               aria-selected="${tabActive ? "true" : "false"}"
+               aria-current="${tabActive ? "true" : null}"
+               class="inline-flex items-center gap-[var(--lv-space-1)] rounded-t-[var(--lv-radius-md)] border-b-2 px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] no-underline ${tabActive ? "border-[var(--lv-color-primary)] font-[var(--lv-font-semibold)] text-[var(--lv-color-fg)]" : "border-transparent text-[var(--lv-color-muted-fg)] hover:text-[var(--lv-color-fg)]"}">
+              @if(tab.isDefault())
+                <span aria-hidden="true" data-admin-view-default>@template.lievit.icon(name = "star", size = "0.875rem")</span>
+              @endif
+              <span>${tab.name()}</span>
+              @if(tab.hasCount())
+                @template.lievit.badge(variant = "neutral", label = String.valueOf(tab.count().getAsLong()))
+              @endif
+            </a>
+          @endif
+        @endfor
+        @if(savedViews.tabs().size() > visibleTabCount)
+          @template.lievit.dropdown-menu(
+            id = "kit-views-overflow",
+            trigger = @`@template.lievit.icon(name = "ellipsis", size = "1rem") <span>More</span>`,
+            content = @`
+              @for(int i = 0; i < savedViews.tabs().size(); i++)
+                !{SavedViewsView.Tab tab = savedViews.tabs().get(i);}
+                @if(i >= visibleTabCount)
+                  @template.lievit.dropdown-menu.item(href = table.viewHref(tab.id()), label = tab.name(),
+                    icon = tab.isDefault() ? "star" : "")
+                @endif
+              @endfor
+            `)
+        @endif
+      </nav>
+      <div data-admin-view-manage class="flex items-center gap-[var(--lv-space-1)]">
+        @if(savedViews.dirty())
+          <span data-admin-view-dirty class="text-[length:var(--lv-text-xs)] text-[var(--lv-color-muted-fg)]">Unsaved changes</span>
+        @endif
+        @template.lievit.dropdown-menu(
+          id = "kit-views-manage",
+          trigger = @`@template.lievit.icon(name = "plus", size = "1rem") <span>Save view</span>`,
+          content = @`
+            <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SAVE_VIEW}"
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">Save current as new view</button>
+            <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_UPDATE_VIEW}"
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">Update this view</button>
+            <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SET_DEFAULT_VIEW}"
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">Set as default</button>
+            <button type="button" role="menuitem" data-slot="dropdown-menu-item" data-variant="destructive" l:click="${KitTableView.ACTION_DELETE_VIEW}"
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-destructive)]">Delete view</button>
+          `)
+      </div>
+    </div>
+  @endif
 
   <%-- 2 + 3 + 11. Toolbar: global search (left), filters trigger + column-manager (right). --%>
   @template.lievit.data-table.toolbar(

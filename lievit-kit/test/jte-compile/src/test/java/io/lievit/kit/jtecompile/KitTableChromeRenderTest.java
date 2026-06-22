@@ -34,7 +34,9 @@ import io.lievit.kit.UrlAction;
 import io.lievit.kit.AdminAction;
 import io.lievit.kit.FilterState;
 import io.lievit.kit.page.KitTableView;
+import io.lievit.kit.page.SavedViewsView;
 import java.nio.file.Path;
+import java.util.OptionalLong;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -232,6 +234,49 @@ class KitTableChromeRenderTest {
         assertTrue(html.contains("Create the first city"), "empty-state description missing");
         // No rows => no results.
         assertTrue(html.contains("No results"), "empty results count line missing");
+    }
+
+    @Test
+    void renders_the_saved_views_switcher_with_tabs_count_badge_and_default_star() {
+        Resource<City> resource = resource(7);
+        AdminListView view = AdminListView.of(resource, 1, 3);
+
+        SavedViewsView switcher = new SavedViewsView(
+                List.of(
+                        new SavedViewsView.Tab("overdue", "Overdue", false, false, OptionalLong.of(4)),
+                        new SavedViewsView.Tab("mine", "My view", true, true, OptionalLong.empty())),
+                "overdue",
+                true);
+        KitTableView table = KitTableView.of(view)
+                .withPageHref("/admin/cities?page=%d")
+                .withSavedViews(switcher, "/admin/cities?view=%s");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        String html = render(model);
+
+        // 15. The switcher renders: a real GET <a href> per view, the active marker, the count badge,
+        // the default star, and the manage wire actions the host arms.
+        assertTrue(html.contains("data-admin-view-tabs"), "switcher missing:\n" + html);
+        assertTrue(html.contains("/admin/cities?view=overdue"), "view switch link missing");
+        assertTrue(html.contains("aria-current=\"true\""), "active view marker missing");
+        assertTrue(html.contains("Overdue"), "view name missing");
+        assertTrue(html.contains("lv-badge"), "per-view count badge missing");
+        assertTrue(html.contains("data-admin-view-default"), "default star missing");
+        assertTrue(html.contains("data-lucide=\"star\""), "default star glyph missing");
+        assertTrue(html.contains("l:click=\"saveView\""), "save-view wire action missing");
+        assertTrue(html.contains("l:click=\"deleteView\""), "delete-view wire action missing");
+        assertTrue(html.contains("Unsaved changes"), "dirty indicator missing");
+        // CSP: no inline script / on*-handlers leaked into the switcher.
+        assertFalse(html.contains("<script"), "inline script leaked");
+    }
+
+    @Test
+    void hides_the_saved_views_switcher_when_no_view_exists() {
+        // The default populated model carries no saved views, so the switcher must not render.
+        String html = render(populatedModel());
+        assertFalse(html.contains("data-admin-view-tabs"), "switcher rendered without any view:\n" + html);
     }
 
     @Test

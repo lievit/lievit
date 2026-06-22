@@ -9,6 +9,7 @@ import io.lievit.kit.ColumnSummary;
 import java.util.List;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
+import io.lievit.kit.SavedView;
 
 /**
  * The render-time bundle the kit table template ({@code kit/table.jte}) reads: the bounded
@@ -57,9 +58,23 @@ public record KitTableView(
         String resetFiltersHref,
         List<FilterChip> filterChips,
         Selection selection,
-        List<ColumnSummary> summaries) {
+        List<ColumnSummary> summaries,
+        SavedViewsView savedViews,
+        String viewHrefPattern) {
 
-    /** Compact constructor: defends the lists and never-null the strings. */
+    /** The wire action name the switcher's "save current as a new view" item dispatches. */
+    public static final String ACTION_SAVE_VIEW = "saveView";
+
+    /** The wire action name the switcher's "update this view" item dispatches. */
+    public static final String ACTION_UPDATE_VIEW = "updateView";
+
+    /** The wire action name the switcher's "set as default" item dispatches. */
+    public static final String ACTION_SET_DEFAULT_VIEW = "setDefaultView";
+
+    /** The wire action name the switcher's "delete view" item dispatches. */
+    public static final String ACTION_DELETE_VIEW = "deleteView";
+
+    /** Compact constructor: defends the lists and never-null the strings / saved-views. */
     public KitTableView {
         pageHrefPattern = pageHrefPattern == null ? "" : pageHrefPattern;
         sortHrefPattern = sortHrefPattern == null ? "" : sortHrefPattern;
@@ -68,17 +83,21 @@ public record KitTableView(
         filterChips = List.copyOf(filterChips);
         selection = selection == null ? Selection.NONE : selection;
         summaries = List.copyOf(summaries);
+        savedViews = savedViews == null ? SavedViewsView.NONE : savedViews;
+        viewHrefPattern = viewHrefPattern == null ? "" : viewHrefPattern;
     }
 
     /**
      * The minimal bundle: just the projection, with wire-only controls (no URL patterns), no chips,
-     * no bulk selection, no summaries. The host layers the rest on with the withers.
+     * no bulk selection, no summaries, no saved-views switcher. The host layers the rest on with the
+     * withers.
      *
      * @param view the bounded list projection
      * @return the bundle
      */
     public static KitTableView of(AdminListView view) {
-        return new KitTableView(view, "", "", "", "", List.of(), Selection.NONE, List.of());
+        return new KitTableView(
+                view, "", "", "", "", List.of(), Selection.NONE, List.of(), SavedViewsView.NONE, "");
     }
 
     /**
@@ -88,7 +107,7 @@ public record KitTableView(
     public KitTableView withPageHref(String pattern) {
         return new KitTableView(
                 view, pattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref, filterChips,
-                selection, summaries);
+                selection, summaries, savedViews, viewHrefPattern);
     }
 
     /**
@@ -98,7 +117,7 @@ public record KitTableView(
     public KitTableView withSortHref(String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, pattern, sizeHrefPattern, resetFiltersHref, filterChips,
-                selection, summaries);
+                selection, summaries, savedViews, viewHrefPattern);
     }
 
     /**
@@ -108,7 +127,7 @@ public record KitTableView(
     public KitTableView withSizeHref(String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, pattern, resetFiltersHref, filterChips,
-                selection, summaries);
+                selection, summaries, savedViews, viewHrefPattern);
     }
 
     /**
@@ -119,7 +138,7 @@ public record KitTableView(
     public KitTableView withFilterIndicators(String resetHref, List<FilterChip> chips) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetHref, chips,
-                selection, summaries);
+                selection, summaries, savedViews, viewHrefPattern);
     }
 
     /**
@@ -129,7 +148,7 @@ public record KitTableView(
     public KitTableView withSelection(Selection selection) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries);
+                filterChips, selection, summaries, savedViews, viewHrefPattern);
     }
 
     /**
@@ -139,7 +158,19 @@ public record KitTableView(
     public KitTableView withSummaries(List<ColumnSummary> summaries) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries);
+                filterChips, selection, summaries, savedViews, viewHrefPattern);
+    }
+
+    /**
+     * @param savedViews the saved-views switcher view-model
+     * @param pattern    the {@code %s} view-switch href pattern (e.g. {@code "/admin/cities?view=%s"});
+     *     empty drives the wire-only switch
+     * @return a copy carrying the saved-views switcher + its switch href
+     */
+    public KitTableView withSavedViews(SavedViewsView savedViews, String pattern) {
+        return new KitTableView(
+                view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
+                filterChips, selection, summaries, savedViews, pattern);
     }
 
     /** @return whether a real numbered-page href pattern is set (else the pager is wire-driven) */
@@ -180,6 +211,25 @@ public record KitTableView(
      */
     public String sortHref(String key) {
         return hasSortHref() ? sortHrefPattern.formatted(key) : "";
+    }
+
+    /** @return whether a real saved-view switch href pattern is set (else the switch is wire-driven) */
+    public boolean hasViewHref() {
+        return !viewHrefPattern.isBlank();
+    }
+
+    /**
+     * @param id a view id
+     * @return the switch link for that view (the {@link #viewHrefPattern()} with the id substituted),
+     *     or empty when no view href is configured (then the switch dispatches by wire instead)
+     */
+    public String viewHref(String id) {
+        return hasViewHref() ? viewHrefPattern.formatted(id) : "";
+    }
+
+    /** @return whether the saved-views switcher renders (at least one preset or user view exists) */
+    public boolean hasSavedViews() {
+        return savedViews.hasTabs();
     }
 
     /**

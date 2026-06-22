@@ -40,6 +40,8 @@ public final class Table<T> extends Schema<T, Table<T>> {
     private FiltersLayout filtersLayout = FiltersLayout.DROPDOWN;
     private boolean persistFiltersInSession;
     private FilterState defaultFilters = FilterState.EMPTY;
+    private final List<SavedView> presets = new ArrayList<>();
+    private boolean savedViews;
 
     private Table() {}
 
@@ -181,6 +183,60 @@ public final class Table<T> extends Schema<T, Table<T>> {
      */
     public Table<T> defaultSort(String column) {
         return defaultSort(column, SortDirection.ASC);
+    }
+
+    /**
+     * Registers a code-owned {@link SavedView preset view} (the Filament advanced-table "preset
+     * view"): a named, read-only switcher entry always present for everyone, rendered before the
+     * user's saved views. Declaring any preset also turns the switcher on (so the table renders the
+     * tab strip even without {@link #savedViews()}).
+     *
+     * @param preset the preset view (its {@link SavedView#resourceKey()} is the table's resource key)
+     * @return this builder
+     */
+    public Table<T> view(SavedView preset) {
+        this.presets.add(Objects.requireNonNull(preset, "preset"));
+        return this;
+    }
+
+    /**
+     * Registers a code-owned preset view ergonomically: a fresh table builder is handed to
+     * {@code config} to declare the preset's filters / sort / page size (via {@link #defaultFilters},
+     * {@link #defaultSort}, {@link #defaultPaginationPageOption}), and a {@link SavedView#preset
+     * preset} is captured from it. The preset's id is its name (so {@code ?view=<name>} switches it);
+     * the column set is the table's own (no per-preset column hiding through this short form). The
+     * resource key is stamped when the presets are read (the table does not know its resource's key).
+     *
+     * @param name   the preset's display label (also its switch id)
+     * @param config declares the preset's filters / sort / size on a throwaway table builder
+     * @return this builder
+     */
+    public Table<T> view(String name, java.util.function.Consumer<Table<T>> config) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(config, "config");
+        Table<T> spec = new Table<>();
+        config.accept(spec);
+        this.presets.add(
+                SavedView.preset(
+                        name,
+                        "",
+                        name,
+                        spec.defaultFilters,
+                        List.of(),
+                        spec.defaultSort,
+                        spec.defaultPageSize));
+        return this;
+    }
+
+    /**
+     * Opts this table into user-savable views (the switcher accepts "Save current as a view"). A table
+     * may carry presets without this; calling it enables the per-user save/edit/delete affordances.
+     *
+     * @return this builder
+     */
+    public Table<T> savedViews() {
+        this.savedViews = true;
+        return this;
     }
 
     /**
@@ -429,6 +485,50 @@ public final class Table<T> extends Schema<T, Table<T>> {
     /** @return whether rows are striped */
     public boolean isStriped() {
         return striped;
+    }
+
+    /**
+     * The declared preset views, with their {@link SavedView#resourceKey() resource key} stamped to
+     * the given value (the ergonomic {@link #view(String, java.util.function.Consumer)} form cannot
+     * know it at build time, so it is bound here from the owning resource's slug).
+     *
+     * @param resourceKey the owning resource's key
+     * @return the preset views, resource-key-bound, in declaration order
+     */
+    public List<SavedView> presets(String resourceKey) {
+        Objects.requireNonNull(resourceKey, "resourceKey");
+        List<SavedView> bound = new ArrayList<>();
+        for (SavedView preset : presets) {
+            if (preset.resourceKey().equals(resourceKey)) {
+                bound.add(preset);
+            } else {
+                bound.add(
+                        SavedView.preset(
+                                preset.id(),
+                                resourceKey,
+                                preset.name(),
+                                preset.filters(),
+                                preset.visibleColumns(),
+                                preset.sort(),
+                                preset.pageSize()));
+            }
+        }
+        return List.copyOf(bound);
+    }
+
+    /** @return whether any preset view is declared (the switcher renders even without user views) */
+    public boolean hasPresets() {
+        return !presets.isEmpty();
+    }
+
+    /** @return whether the table opts into user-savable views (the save/edit/delete affordances) */
+    public boolean isSavedViewsEnabled() {
+        return savedViews;
+    }
+
+    /** @return whether the table shows a saved-views switcher at all (any preset, or user views on) */
+    public boolean hasSavedViews() {
+        return savedViews || hasPresets();
     }
 
     /** @return the empty-state heading */

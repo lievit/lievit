@@ -87,7 +87,8 @@ public final class KitTableComponent<T> {
         return KitTableView.of(view)
                 .withPageHref(list + "?page=%d")
                 .withSortHref(list + "?sort=%s")
-                .withSizeHref(list + "?size=%d");
+                .withSizeHref(list + "?size=%d")
+                .withSavedViews(SavedViewsView.NONE, list + "?view=%s");
     }
 
     /**

@@ -425,8 +425,28 @@ public record AdminListView(
      * @return the view-model
      */
     public static <T> AdminListView of(Resource<T> resource, ListRequest request) {
+        return of(resource, request, null);
+    }
+
+    /**
+     * Builds the list view-model for a full list request, optionally narrowed by an active
+     * {@link SavedView}: when the view declares {@link SavedView#visibleColumns() visible columns},
+     * the rendered headers AND row cells are filtered to those keys and reordered to that order (so
+     * the header/cell alignment the template relies on is preserved by construction). A {@code null}
+     * view, or one with an empty visible-column list, renders every column in declaration order
+     * (unchanged). Unknown keys in {@code visibleColumns} are skipped; the view's filters/sort/size are
+     * expected to already be on the {@code request} (apply them with {@link SavedViews#apply}).
+     *
+     * @param resource the admin resource
+     * @param request  the user-driven list state
+     * @param active   the active saved view, or {@code null} for the full table
+     * @param <T>      the row type
+     * @return the view-model
+     */
+    public static <T> AdminListView of(
+            Resource<T> resource, ListRequest request, @Nullable SavedView active) {
         Table<T> table = resource.table();
-        List<Column<T>> columns = table.columns();
+        List<Column<T>> columns = visibleColumns(table.columns(), active);
 
         Sort effectiveSort = request.sort().isEmpty() ? table.defaultSort() : request.sort();
 
@@ -438,10 +458,15 @@ public record AdminListView(
 
         // The spanning super-header row (Filament ColumnGroup): one cell per contiguous run of
         // columns, labelled for a group and empty for ungrouped columns, the spans summing to the
-        // column count so it lines up with the header row.
+        // column count so it lines up with the header row. The group spans are computed from the FULL
+        // declared column list, so they only align when no view narrows/reorders the columns; an
+        // active visible-column view drops the super-row rather than render misaligned spans.
+        boolean columnsNarrowed = active != null && active.hasVisibleColumns();
         List<HeaderGroup> headerGroups = new ArrayList<>();
-        for (Table.HeaderGroup hg : table.headerGroups()) {
-            headerGroups.add(new HeaderGroup(hg.label(), hg.span(), hg.alignment()));
+        if (!columnsNarrowed) {
+            for (Table.HeaderGroup hg : table.headerGroups()) {
+                headerGroups.add(new HeaderGroup(hg.label(), hg.span(), hg.alignment()));
+            }
         }
 
         // The HEADER/toolbar actions: a header action takes no record (the mapper sees null), so a
@@ -495,5 +520,31 @@ public record AdminListView(
                         table.emptyStateDescription());
         return new AdminListView(
                 heading, headerActions, headerGroups, headerCells, rows, pagination, controls);
+    }
+
+    /**
+     * Narrows + reorders a table's columns by an active view's visible-column keys: the columns whose
+     * {@link Column#sortKey() sort key} appears in {@link SavedView#visibleColumns()}, in that order.
+     * A {@code null} view, or one with no visible columns declared, returns the columns unchanged
+     * (full declaration order). Unknown keys are skipped. Applied to BOTH headers and row cells so the
+     * two stay aligned.
+     */
+    private static <T> List<Column<T>> visibleColumns(
+            List<Column<T>> columns, @Nullable SavedView active) {
+        if (active == null || !active.hasVisibleColumns()) {
+            return columns;
+        }
+        java.util.Map<String, Column<T>> byKey = new java.util.LinkedHashMap<>();
+        for (Column<T> column : columns) {
+            byKey.put(column.sortKey(), column);
+        }
+        List<Column<T>> ordered = new ArrayList<>();
+        for (String key : active.visibleColumns()) {
+            Column<T> column = byKey.get(key);
+            if (column != null) {
+                ordered.add(column);
+            }
+        }
+        return ordered;
     }
 }
