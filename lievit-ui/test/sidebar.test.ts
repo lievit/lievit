@@ -344,6 +344,58 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
   });
 });
 
+describe("sidebar enhancer: re-run idempotency (the round-2 listener-stacking bug class)", () => {
+  // The morph re-scan re-invokes enhanceAllSidebars over a re-rendered DOM; the ENHANCED marker must
+  // keep every listener (trigger click, rail click, and the document-level Cmd/Ctrl+B) bound exactly
+  // once, so one gesture toggles the state exactly once (collapsed->expanded, not collapsed->expanded
+  // ->collapsed back to where it started, the stacked-handler double-fire that shipped on the calendar).
+
+  test("a trigger click toggles exactly once after the enhancer re-runs on the same root", () => {
+    const root = renderSidebar();
+    enhanceSidebar(root);
+    enhanceSidebar(root); // morph re-scan: already marked, must NOT re-bind the trigger
+    expect(root.getAttribute("data-state")).toBe("expanded");
+
+    root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
+    // a stacked second listener would toggle twice and land back on "expanded".
+    expect(root.getAttribute("data-state"), "one click => one toggle, not a double-fire").toBe(
+      "collapsed",
+    );
+  });
+
+  test("the rail click also stays single after a re-run (no double toggle)", () => {
+    const root = renderSidebar();
+    enhanceSidebar(root);
+    enhanceSidebar(root);
+
+    root.querySelector<HTMLButtonElement>('[data-slot="sidebar-rail"]')!.click();
+    expect(root.getAttribute("data-state")).toBe("collapsed");
+  });
+
+  test("Cmd/Ctrl+B toggles exactly once after a re-run (the document listener is not stacked)", () => {
+    const root = renderSidebar();
+    enhanceSidebar(root);
+    enhanceSidebar(root); // the early ENHANCED return must skip the second document keydown bind
+    expect(root.getAttribute("data-state")).toBe("expanded");
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true }));
+    // a stacked document listener would fire toggle twice and stay "expanded".
+    expect(root.getAttribute("data-state"), "one Cmd+B => one toggle").toBe("collapsed");
+  });
+
+  test("enhanceAllSidebars run twice keeps every root's trigger single-fire", () => {
+    const a = renderSidebar();
+    const b = renderSidebar({ side: "right" });
+    enhanceAllSidebars();
+    enhanceAllSidebars(); // the post-morph re-scan over the whole page
+
+    a.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
+    b.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
+    expect(a.getAttribute("data-state"), "root A toggled once").toBe("collapsed");
+    expect(b.getAttribute("data-state"), "root B toggled once").toBe("collapsed");
+  });
+});
+
 describe("sidebar compound parts: rendered contract (real DOM)", () => {
   test("a menu item can carry a trailing menu-action affordance", () => {
     const root = renderSidebar();
