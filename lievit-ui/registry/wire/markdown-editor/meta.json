@@ -1,0 +1,22 @@
+{
+  "name": "markdown-editor",
+  "type": "registry:wire",
+  "description": "A server-first markdown form field (Filament MarkdownEditor parity): a toolbar + a <textarea name=...> + a preview pane. The canonical control is the plain textarea, which POSTs its markdown with the surrounding <form> JS-off; a CSP-clean island adds the toolbar (wrap the current selection in markdown syntax, the pure transform is unit-tested here) and a LIVE PREVIEW that renders the markdown to SANITIZED HTML on every input. The markdown lib (e.g. marked, no eval) + sanitizer (e.g. DOMPurify) are injected by the adopter so they are pinned downstream and the preview cannot inject script under a strict CSP. Nothing about submission depends on the island.",
+  "dependencies": ["marked", "dompurify"],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "wire/markdown-editor/markdown-editor.jte",
+      "type": "registry:wire",
+      "target": "lievit/markdown-editor.jte",
+      "root": "jte"
+    },
+    {
+      "path": "wire/markdown-editor/markdown-editor.ts",
+      "type": "registry:wire",
+      "target": "components/ui/markdown-editor.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Render the partial with a `name` (the form field). With JS off the <textarea> is the editor and POSTs its markdown. To enhance: `npm i marked dompurify`, then call enhanceMarkdownEditors({ render }) once from main.ts after startLievit(), passing render = (md) => DOMPurify.sanitize(marked.parse(md, { async: false })). SANITIZE is mandatory: the preview sets innerHTML, so the renderer MUST return sanitized HTML (DOMPurify), else markdown raw-HTML passthrough becomes XSS. Without a render, the toolbar still works and the preview toggle is simply not wired. The toolbar commands (bold/italic/code/link/heading/quote/ul) wrap the current textarea selection in markdown syntax (the same edit a user could type); the pure applyCommand transform is unit-tested. On submit you receive the field as raw markdown; render + sanitize again server-side before display. Adjust the template name freely once copied."
+}
