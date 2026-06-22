@@ -238,8 +238,10 @@
     @endif
     @if(pagination.totalPages() > 1)
       @if(table.hasPageHref())
+        <%-- inline = true: the footer row already lays this out (count left | per-page + pager
+             clustered right via justify-between); the pager must NOT self-center full-width. --%>
         @template.lievit.pagination(current = pagination.page(), total = pagination.totalPages(),
-          hrefPattern = table.pageHrefPattern())
+          hrefPattern = table.pageHrefPattern(), inline = true)
       @else
         <nav data-admin-pagination class="flex items-center gap-[var(--lv-space-2)]">
           @if(pagination.hasPrevious())

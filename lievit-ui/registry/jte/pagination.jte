@@ -39,6 +39,11 @@
     String ariaLabel    the <nav> accessible name. Default "Pagination".
     String prevLabel    sr-only text for the previous control. Default "Previous page".
     String nextLabel    sr-only text for the next control. Default "Next page".
+    boolean inline      when false (default) the <nav> is full-width + centered (mx-auto w-full
+                        justify-center), the standalone control under a list. When true it drops those
+                        so the pager sits inline (its intrinsic width, no self-centering): for a host
+                        row that already lays it out, e.g. the kit table footer's justify-between row
+                        (count left | per-page + pager clustered right). Filament's footer layout.
     String klass        extra classes on the <nav>.
 
   asChild / router-Link (server-first): shadcn's PaginationLink takes `asChild` so the page
@@ -56,6 +61,7 @@
     @@template.lievit.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d&q=" + query, siblings = 2)
     @@template.lievit.pagination(current = page, total = totalPages, hrefPattern = "/listings?p=%d",
       linkAttrs = "hx-boost=\"true\" hx-target=\"#list\"")
+    @@template.lievit.pagination(current = page, total = totalPages, hrefPattern = "/attivita?page=%d", inline = true)
 --%>
 @param int current
 @param int total
@@ -65,6 +71,7 @@
 @param String prevLabel = "Previous page"
 @param String nextLabel = "Next page"
 @param String linkAttrs = ""
+@param boolean inline = false
 @param String klass = ""
 
 !{var page = Math.max(1, Math.min(current, total));}
@@ -84,11 +91,15 @@
   @endif
 @endfor
 
+<%-- Layout classes: standalone (default) is full-width + self-centered; inline drops mx-auto/w-full/
+     justify-center so the host row (e.g. the kit footer's justify-between) lays the pager out. --%>
+!{var layout = inline ? "flex" : "mx-auto flex w-full justify-center";}
 <nav
   role="navigation"
   aria-label="${ariaLabel}"
   data-slot="pagination"
-  class="mx-auto flex w-full justify-center ${klass}"
+  data-inline="${inline}"
+  class="${layout} ${klass}"
 >
   <ul data-slot="pagination-content" class="flex flex-row items-center gap-[var(--lv-space-1)]" style="list-style:none;margin:0;padding:0;font-family:var(--lv-font-sans);">
     <%-- Previous --%>
