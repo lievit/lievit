@@ -26,6 +26,8 @@ import org.jspecify.annotations.Nullable;
  * @param rows one row per record on the current page
  * @param pagination the page state (current / total pages, totals, prev / next)
  * @param controls the active list controls (search / sort / filters / page sizes / empty-state)
+ * @param columnToggles the toggleable columns + their current visibility, for the "Columns" dropdown
+ *     (empty when no column is {@link Column#isToggleable() toggleable})
  */
 public record AdminListView(
         String heading,
@@ -34,7 +36,8 @@ public record AdminListView(
         List<Header> headerCells,
         List<Row> rows,
         Pagination pagination,
-        Controls controls) {
+        Controls controls,
+        List<ColumnToggle> columnToggles) {
 
     /** Compact constructor: defends the lists. */
     public AdminListView {
@@ -42,7 +45,50 @@ public record AdminListView(
         headerGroups = List.copyOf(headerGroups);
         headerCells = List.copyOf(headerCells);
         rows = List.copyOf(rows);
+        columnToggles = List.copyOf(columnToggles);
     }
+
+    /**
+     * Backward-compatible constructor without column toggles: every existing caller that built an
+     * {@link AdminListView} with the original seven components keeps compiling; it renders no
+     * "Columns" dropdown (an empty toggle list). The column-toggle-aware path goes through the
+     * {@link #of(Resource, ListRequest, SavedView) factory}.
+     *
+     * @param heading       the table heading
+     * @param headerActions the header/toolbar actions
+     * @param headerGroups  the spanning super-header cells
+     * @param headerCells   the column headers
+     * @param rows          the rendered rows
+     * @param pagination    the pagination state
+     * @param controls      the active list controls
+     */
+    public AdminListView(
+            String heading,
+            List<HeaderAction> headerActions,
+            List<HeaderGroup> headerGroups,
+            List<Header> headerCells,
+            List<Row> rows,
+            Pagination pagination,
+            Controls controls) {
+        this(heading, headerActions, headerGroups, headerCells, rows, pagination, controls, List.of());
+    }
+
+    /** @return whether any column is toggleable (drives the "Columns" dropdown) */
+    public boolean hasColumnToggles() {
+        return !columnToggles.isEmpty();
+    }
+
+    /**
+     * One entry of the "Columns" toggle dropdown (the Filament {@code CanBeToggled} column manager /
+     * shadcn's DropdownMenuCheckboxItem): a toggleable column's sort key + label and whether it is
+     * currently visible. Toggling it drives the active view's visible-column set; the host wires the
+     * submit (a GET href or a wire action), the kit only renders the control.
+     *
+     * @param key     the column {@link Column#sortKey() sort key} (the stable toggle target)
+     * @param label   the column header label
+     * @param visible whether the column is currently shown
+     */
+    public record ColumnToggle(String key, String label, boolean visible) {}
 
     /**
      * One cell of the spanning super-header row (the rendered {@link Table.HeaderGroup}): a label, the
@@ -302,11 +348,30 @@ public record AdminListView(
      *
      * @param id the row id (from the table id function)
      * @param cells the typed cells, aligned with {@link #headers()}
+     * @param actions the per-row actions resolved against this record (empty when none are registered
+     *     or all are hidden for this record), in render order
      */
-    public record Row(String id, List<Cell> cells) {
-        /** Compact constructor: defends the cell list. */
+    public record Row(String id, List<Cell> cells, List<RowAction> actions) {
+        /** Compact constructor: defends the cell + action lists. */
         public Row {
             cells = List.copyOf(cells);
+            actions = List.copyOf(actions);
+        }
+
+        /**
+         * Backward-compatible constructor without row actions: an {@link AdminListView.Row} built with
+         * just id + cells keeps compiling and carries no per-row actions (an empty list).
+         *
+         * @param id    the row id
+         * @param cells the typed cells
+         */
+        public Row(String id, List<Cell> cells) {
+            this(id, cells, List.of());
+        }
+
+        /** @return whether this row has any per-row action to render (the trailing actions cell) */
+        public boolean hasActions() {
+            return !actions.isEmpty();
         }
 
         /**
@@ -487,13 +552,24 @@ public record AdminListView(
         RecordRepository.Query query = request.toQuery().withSort(effectiveSort);
         RecordRepository.Page<T> dataPage = resource.repository().page(query);
 
+        List<AdminAction<T>> rowActionDefs = table.rowActions();
         List<Row> rows = new ArrayList<>();
         for (T record : dataPage.rows()) {
             List<Cell> cells = new ArrayList<>();
             for (Column<T> column : columns) {
                 cells.add(column.cellFor(record));
             }
-            rows.add(new Row(table.idOf(record), cells));
+            // Resolve the registered per-row actions against THIS record (Filament's per-record action
+            // resolution): a hidden action is dropped, the rest become generic RowActions the chrome
+            // stamps without a host-supplied template seam.
+            String rowId = table.idOf(record);
+            List<RowAction> rowActions = new ArrayList<>();
+            for (AdminAction<T> action : rowActionDefs) {
+                if (action.isVisibleFor(record)) {
+                    rowActions.add(toRowAction(action, record, rowId));
+                }
+            }
+            rows.add(new Row(rowId, cells, rowActions));
         }
 
         // The rendered filter controls (Filament's HasFilters panel): one per registered filter,
@@ -518,21 +594,88 @@ public record AdminListView(
                         table.isStriped(),
                         table.emptyStateHeading(),
                         table.emptyStateDescription());
+
+        // The "Columns" toggle entries (Filament CanBeToggled): one per toggleable column declared on
+        // the table, with its CURRENT visibility derived from the rendered column set (the columns
+        // surviving the saved-view / auto-projection above). Computed from the FULL column declaration
+        // so a column hidden right now still appears in the dropdown to be toggled back on.
+        java.util.Set<String> visibleKeys = new java.util.LinkedHashSet<>();
+        for (Column<T> column : columns) {
+            visibleKeys.add(column.sortKey());
+        }
+        List<ColumnToggle> columnToggles = new ArrayList<>();
+        for (Column<T> column : table.columns()) {
+            if (column.isToggleable()) {
+                columnToggles.add(
+                        new ColumnToggle(
+                                column.sortKey(), column.label(), visibleKeys.contains(column.sortKey())));
+            }
+        }
+
         return new AdminListView(
-                heading, headerActions, headerGroups, headerCells, rows, pagination, controls);
+                heading, headerActions, headerGroups, headerCells, rows, pagination, controls,
+                columnToggles);
+    }
+
+    /**
+     * Resolves one registered per-row {@link AdminAction} against a record into the generic
+     * {@link RowAction} the chrome stamps: a URL-navigation action becomes a {@link RowAction#href()
+     * link}, any other becomes a {@link RowAction#wire() wire dispatch} by the action's name carrying
+     * the record id as the {@code id} argument; the variant is derived from the action's destructive
+     * flag / colour, the confirm prompt from its {@linkplain AdminAction#requiresConfirmation()
+     * confirmation} config, and the disabled flag carried through.
+     */
+    private static <T> RowAction toRowAction(AdminAction<T> action, T record, String rowId) {
+        @Nullable String href = action.urlFor(record).orElse(null);
+        String confirm = action.requiresConfirmation() ? action.confirmationModal().heading() : null;
+        String variant = variantOf(action);
+        if (href != null) {
+            return new RowAction(
+                    action.label(), action.icon(), href, null, java.util.Map.of(), variant, confirm,
+                    action.isDisabled(), action.opensUrlInNewTab());
+        }
+        return new RowAction(
+                action.label(), action.icon(), null, action.name(),
+                java.util.Map.of("id", rowId), variant, confirm, action.isDisabled(), false);
+    }
+
+    /**
+     * Maps an action to a lievit-ui button variant: a destructive action is {@code destructive}; a
+     * {@code primary} colour is the {@code default} (primary) button; anything else is the neutral
+     * {@code secondary}. The variant is the render vocabulary the kit button partial understands.
+     */
+    private static String variantOf(AdminAction<?> action) {
+        if (action.isDestructive()) {
+            return "destructive";
+        }
+        @Nullable String color = action.color();
+        if (color != null && color.equalsIgnoreCase("primary")) {
+            return "default";
+        }
+        return "secondary";
     }
 
     /**
      * Narrows + reorders a table's columns by an active view's visible-column keys: the columns whose
      * {@link Column#sortKey() sort key} appears in {@link SavedView#visibleColumns()}, in that order.
-     * A {@code null} view, or one with no visible columns declared, returns the columns unchanged
-     * (full declaration order). Unknown keys are skipped. Applied to BOTH headers and row cells so the
-     * two stay aligned.
+     * A {@code null} view, or one with no visible columns declared, falls back to the table's
+     * <strong>auto-projected default-visible set</strong>: every column in declaration order EXCEPT a
+     * {@linkplain Column#toggledHiddenByDefault() toggleable column hidden by default}, which starts
+     * hidden but still appears in the "Columns" dropdown to be toggled back on (Filament's
+     * {@code toggleable(isToggledHiddenByDefault: true)}). Unknown keys are skipped. Applied to BOTH
+     * headers and row cells so the two stay aligned.
      */
     private static <T> List<Column<T>> visibleColumns(
             List<Column<T>> columns, @Nullable SavedView active) {
         if (active == null || !active.hasVisibleColumns()) {
-            return columns;
+            // No pinned view: auto-project to the default-visible set (drop hidden-by-default toggles).
+            List<Column<T>> defaults = new ArrayList<>();
+            for (Column<T> column : columns) {
+                if (!(column.isToggleable() && column.toggledHiddenByDefault())) {
+                    defaults.add(column);
+                }
+            }
+            return defaults;
         }
         java.util.Map<String, Column<T>> byKey = new java.util.LinkedHashMap<>();
         for (Column<T> column : columns) {

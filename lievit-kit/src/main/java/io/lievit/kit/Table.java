@@ -42,6 +42,7 @@ public final class Table<T> extends Schema<T, Table<T>> {
     private FilterState defaultFilters = FilterState.EMPTY;
     private final List<SavedView> presets = new ArrayList<>();
     private boolean savedViews;
+    private final List<AdminAction<T>> rowActions = new ArrayList<>();
 
     private Table() {}
 
@@ -100,6 +101,35 @@ public final class Table<T> extends Schema<T, Table<T>> {
             columns.add(col);
         }
         return this;
+    }
+
+    /**
+     * Registers the per-row actions (the Filament {@code Table->actions([...])}): the actions stamped
+     * at the end of each row, in declaration order. The kit resolves each {@link AdminAction} against
+     * the row's record at view-build time into a generic {@link RowAction} (label / icon / href-or-wire
+     * / variant / confirm / disabled / newTab), so the table chrome renders a row's action buttons
+     * without the host injecting a typed per-row template seam. An action {@linkplain
+     * AdminAction#isVisibleFor(Object) hidden} for a record is dropped from that row's list.
+     *
+     * @param actions the per-row actions, in render order
+     * @return this builder
+     */
+    @SafeVarargs
+    public final Table<T> actions(AdminAction<T>... actions) {
+        for (AdminAction<T> action : actions) {
+            rowActions.add(Objects.requireNonNull(action, "action"));
+        }
+        return this;
+    }
+
+    /** @return the registered per-row actions, in declaration order */
+    public List<AdminAction<T>> rowActions() {
+        return Collections.unmodifiableList(rowActions);
+    }
+
+    /** @return whether any per-row action is registered (drives the trailing actions cell) */
+    public boolean hasRowActions() {
+        return !rowActions.isEmpty();
     }
 
     /**

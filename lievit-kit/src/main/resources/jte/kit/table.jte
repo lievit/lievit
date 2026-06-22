@@ -1,7 +1,9 @@
 @import io.lievit.kit.AdminListView
 @import io.lievit.kit.Cell
 @import io.lievit.kit.ColumnSummary
+@import io.lievit.kit.RowAction
 @import io.lievit.kit.page.KitTableView
+@import io.lievit.kit.page.KitTableLabels
 @import io.lievit.kit.page.SavedViewsView
 <%--
   Copyright 2026 Francesco Bilotta
@@ -37,12 +39,25 @@
     table     - the KitTableView render bundle (the AdminListView + render-time URL/selection facts).
     createUrl - the "New" create href (Filament's create header action); "" hides the create button.
     columnManager - host-supplied column-visibility items (one dropdown-menu.item per toggleable
-                    column); null hides the column manager.
+                    column); null falls back to the AUTO-rendered "Columns" dropdown built from the
+                    view-model's toggleable columns (view.columnToggles()), shown only when the table
+                    has any toggleable column. Pass a non-null Content to override the items entirely.
+    headerExtra - OPTIONAL chrome slot beside the heading (Filament publish-views): null renders nothing.
+    toolbarEnd  - OPTIONAL chrome slot at the end of the filter/toolbar row: null renders nothing.
+    aboveTable  - OPTIONAL chrome slot between the toolbar and the table: null renders nothing.
+
+  i18n: every chrome string comes from table.labels() (a KitTableLabels value object); the host maps
+  its own MessageSource into it. KitTableLabels.DEFAULT carries the English copy, so a host that
+  supplies no labels renders exactly as before.
 --%>
 @param KitTableView table
 @param String createUrl = ""
 @param gg.jte.Content columnManager = null
+@param gg.jte.Content headerExtra = null
+@param gg.jte.Content toolbarEnd = null
+@param gg.jte.Content aboveTable = null
 !{AdminListView view = table.view();}
+!{KitTableLabels labels = table.labels();}
 !{AdminListView.Controls controls = view.controls();}
 !{AdminListView.Pagination pagination = view.pagination();}
 !{KitTableView.Selection selection = table.selection();}
@@ -52,7 +67,12 @@
 
   <%-- 1. Header bar: heading + the resource-scoped header actions (Filament fi-ta-header). --%>
   <div data-slot="kit-table-header" class="flex items-center justify-between gap-[var(--lv-space-2)]">
-    <h1 data-admin-heading class="text-[length:var(--lv-text-xl)] font-[var(--lv-font-semibold)] text-[var(--lv-color-fg)]">${view.heading()}</h1>
+    <div data-admin-heading-row class="flex items-center gap-[var(--lv-space-3)]">
+      <h1 data-admin-heading class="text-[length:var(--lv-text-xl)] font-[var(--lv-font-semibold)] text-[var(--lv-color-fg)]">${view.heading()}</h1>
+      @if(headerExtra != null)
+        <div data-admin-header-extra class="flex items-center gap-[var(--lv-space-2)]">${headerExtra}</div>
+      @endif
+    </div>
     <div data-admin-toolbar class="flex items-center gap-[var(--lv-space-2)]">
       @for(AdminListView.HeaderAction action : view.headerActions())
         @if(action.hasUrl())
@@ -68,7 +88,7 @@
       @endfor
       @if(createUrl != null && !createUrl.isBlank())
         @template.lievit.button(variant = "primary", size = "sm", href = createUrl,
-          dataAttrs = java.util.Map.of("admin-create", "true"), content = @`New`)
+          dataAttrs = java.util.Map.of("admin-create", "true"), content = @`${labels.newRecord()}`)
       @endif
     </div>
   </div>
@@ -104,7 +124,7 @@
         @if(savedViews.tabs().size() > visibleTabCount)
           @template.lievit.dropdown-menu(
             id = "kit-views-overflow",
-            trigger = @`@template.lievit.icon(name = "ellipsis", size = "1rem") <span>More</span>`,
+            trigger = @`@template.lievit.icon(name = "ellipsis", size = "1rem") <span>${labels.more()}</span>`,
             content = @`
               @for(int i = 0; i < savedViews.tabs().size(); i++)
                 !{SavedViewsView.Tab tab = savedViews.tabs().get(i);}
@@ -118,20 +138,20 @@
       </nav>
       <div data-admin-view-manage class="flex items-center gap-[var(--lv-space-1)]">
         @if(savedViews.dirty())
-          <span data-admin-view-dirty class="text-[length:var(--lv-text-xs)] text-[var(--lv-color-muted-fg)]">Unsaved changes</span>
+          <span data-admin-view-dirty class="text-[length:var(--lv-text-xs)] text-[var(--lv-color-muted-fg)]">${labels.unsavedChanges()}</span>
         @endif
         @template.lievit.dropdown-menu(
           id = "kit-views-manage",
-          trigger = @`@template.lievit.icon(name = "plus", size = "1rem") <span>Save view</span>`,
+          trigger = @`@template.lievit.icon(name = "plus", size = "1rem") <span>${labels.saveViewTrigger()}</span>`,
           content = @`
             <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SAVE_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">Save current as new view</button>
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.saveView()}</button>
             <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_UPDATE_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">Update this view</button>
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.updateView()}</button>
             <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SET_DEFAULT_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">Set as default</button>
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.setDefaultView()}</button>
             <button type="button" role="menuitem" data-slot="dropdown-menu-item" data-variant="destructive" l:click="${KitTableView.ACTION_DELETE_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-destructive)]">Delete view</button>
+              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-destructive)]">${labels.deleteView()}</button>
           `)
       </div>
     </div>
@@ -142,9 +162,9 @@
     search = controls.searchable() ? @`
       <form method="get" data-slot="kit-table-search-form" role="search" class="flex items-center gap-[var(--lv-space-2)]">
         @template.lievit.input(name = "q", type = "search", size = "sm", value = controls.search(),
-          placeholder = "Search...", model = "search", ariaLabel = "Search", cssClass = "max-w-[20rem]")
+          placeholder = labels.search(), model = "search", ariaLabel = labels.searchAria(), cssClass = "max-w-[20rem]")
         @if(!controls.search().isBlank())
-          @template.lievit.button(variant = "ghost", size = "sm", wireClick = "clearSearch", content = @`Clear`)
+          @template.lievit.button(variant = "ghost", size = "sm", wireClick = "clearSearch", content = @`${labels.clear()}`)
         @endif
       </form>
     ` : null,
@@ -152,17 +172,42 @@
       @if(controls.hasFilters())
         <div data-admin-filters-trigger class="inline-flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
           @template.lievit.icon(name = "funnel", size = "1rem")
-          <span>Filters</span>
+          <span>${labels.filters()}</span>
           @if(controls.activeFilterCount() > 0)
             @template.lievit.badge(variant = "neutral", label = String.valueOf(controls.activeFilterCount()))
           @endif
         </div>
       @endif
+      <%-- 11. Column manager: a host-supplied items slot overrides; otherwise the AUTO dropdown built
+           from the view-model's toggleable columns. Each checkbox item is a real GET <a href> when a
+           column-toggle href is configured, else a wire l:click (ACTION_TOGGLE_COLUMN) carrying the
+           column key. Shown only when there is at least one toggleable column. --%>
       @if(columnManager != null)
-        @template.lievit.data-table.column-visibility(content = columnManager)
+        @template.lievit.data-table.column-visibility(label = labels.columns(), content = columnManager)
+      @elseif(table.hasColumnToggles())
+        @template.lievit.data-table.column-visibility(label = labels.columns(), content = @`
+          @for(AdminListView.ColumnToggle col : view.columnToggles())
+            @if(table.hasColumnToggleHref())
+              @template.lievit.dropdown-menu.item(type = "checkbox", label = col.label(),
+                checked = col.visible(), href = table.columnToggleHref(col.key()))
+            @else
+              @template.lievit.dropdown-menu.item(type = "checkbox", label = col.label(),
+                checked = col.visible(), wireClick = "${KitTableView.ACTION_TOGGLE_COLUMN}",
+                wireArgs = java.util.Map.of("col", col.key()))
+            @endif
+          @endfor
+        `)
+      @endif
+      @if(toolbarEnd != null)
+        <div data-admin-toolbar-end class="flex items-center gap-[var(--lv-space-2)]">${toolbarEnd}</div>
       @endif
     `
   )
+
+  <%-- OPTIONAL aboveTable slot: host chrome between the toolbar and the table (Filament publish-views). --%>
+  @if(aboveTable != null)
+    <div data-admin-above-table class="py-[var(--lv-space-2)]">${aboveTable}</div>
+  @endif
 
   <%-- 3. Inline filter panel: one control per registered filter (toggle / select / ternary / trashed). --%>
   @if(controls.hasFilters())
@@ -194,7 +239,7 @@
       @endfor
       @if(table.hasResetFiltersHref())
         <a href="${table.resetFiltersHref()}" data-admin-filters-reset
-           class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)] underline hover:text-[var(--lv-color-fg)]">Reset all</a>
+           class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)] underline hover:text-[var(--lv-color-fg)]">${labels.resetAll()}</a>
       @endif
     </div>
   @endif
@@ -227,7 +272,7 @@
           @for(AdminListView.Header header : view.headerCells())
             @template.kit.table.sortable-head(header = header, sortHref = table.sortHref(header.sortKey()))
           @endfor
-          @template.lievit.table.head(content = @`Actions`)
+          @template.lievit.table.head(content = @`${labels.actions()}`)
         </tr>
       `)
       @if(view.rows().isEmpty())
@@ -252,8 +297,34 @@
               @for(Cell cell : row.cells())
                 @template.lievit.table.cell(content = @`@template.kit.table.rich-cell(cell = cell)`)
               @endfor
+              <%-- Trailing actions cell: the generic per-row actions resolved on the view-model
+                   (Filament Table->actions), one button each (a real <a href> link action or an
+                   l:click wire action, the button partial owns the root tag so there is no
+                   different-root-per-branch gotcha here). When a row has no actions we fall back to
+                   the legacy single Edit link so existing hosts keep their row affordance. --%>
               @template.lievit.table.cell(content = @`
-                <a href="${createUrl}" data-admin-row-action="${row.id()}" class="text-[var(--lv-color-primary)] hover:underline">Edit</a>
+                @if(row.hasActions())
+                  <div data-admin-row-actions="${row.id()}" class="flex items-center gap-[var(--lv-space-1)]">
+                    @for(RowAction action : row.actions())
+                      @if(action.hasHref())
+                        @template.lievit.button(variant = action.variant(), size = "sm",
+                          href = action.href(),
+                          disabled = action.disabled(),
+                          attrs = action.newTab() ? "target=\"_blank\" rel=\"noopener noreferrer\"" : "",
+                          dataAttrs = action.requiresConfirmation() ? java.util.Map.of("admin-row-action", action.label(), "confirm", action.confirm()) : java.util.Map.of("admin-row-action", action.label()),
+                          content = @`@if(action.hasIcon())@template.lievit.icon(name = action.icon(), size = "1rem")@endif<span>${action.label()}</span>`)
+                      @else
+                        @template.lievit.button(variant = action.variant(), size = "sm",
+                          wireClick = action.wire(), wireArgs = action.wireArgs(),
+                          disabled = action.disabled(),
+                          dataAttrs = action.requiresConfirmation() ? java.util.Map.of("admin-row-action", action.label(), "confirm", action.confirm()) : java.util.Map.of("admin-row-action", action.label()),
+                          content = @`@if(action.hasIcon())@template.lievit.icon(name = action.icon(), size = "1rem")@endif<span>${action.label()}</span>`)
+                      @endif
+                    @endfor
+                  </div>
+                @else
+                  <a href="${createUrl}" data-admin-row-action="${row.id()}" class="text-[var(--lv-color-primary)] hover:underline">${labels.edit()}</a>
+                @endif
               `)
             `)
           @endfor
@@ -279,7 +350,7 @@
     @template.lievit.data-table.selection-footer(selected = selection.selectedCount(),
       total = (int) selection.total(),
       actions = selection.hasSelection() ? @`
-        @template.lievit.button(variant = "destructive", size = "sm", wireClick = "deleteSelected", content = @`Delete selected`)
+        @template.lievit.button(variant = "destructive", size = "sm", wireClick = "deleteSelected", content = @`${labels.deleteSelected()}`)
       ` : null)
   @endif
 
@@ -287,14 +358,14 @@
   <div data-slot="kit-table-pagination" class="flex flex-wrap items-center justify-between gap-[var(--lv-space-3)] py-[var(--lv-space-3)]">
     <div data-admin-results-count aria-live="polite" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
       @if(pagination.total() == 0)
-        No results
+        ${labels.noResults()}
       @else
-        Showing ${pagination.firstShown()} to ${pagination.lastShown()} of ${pagination.total()} results
+        ${labels.resultsCount(pagination.firstShown(), pagination.lastShown(), pagination.total())}
       @endif
     </div>
     @if(table.hasSizeHref())
       <div data-admin-per-page class="flex items-center gap-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
-        <span>Per page</span>
+        <span>${labels.perPage()}</span>
         @for(int size : controls.pageSizeOptions())
           <a href="${table.sizeHrefPattern().formatted(size)}" data-admin-page-size="${size}"
              aria-current="${size == pagination.size() ? "true" : null}"
@@ -311,11 +382,11 @@
       @else
         <nav data-admin-pagination class="flex items-center gap-[var(--lv-space-2)]">
           @if(pagination.hasPrevious())
-            @template.lievit.button(variant = "ghost", size = "sm", wireClick = "prev", content = @`Previous`)
+            @template.lievit.button(variant = "ghost", size = "sm", wireClick = "prev", content = @`${labels.previous()}`)
           @endif
-          <span data-admin-page>Page ${pagination.page()} of ${pagination.totalPages()}</span>
+          <span data-admin-page>${labels.page(pagination.page(), pagination.totalPages())}</span>
           @if(pagination.hasNext())
-            @template.lievit.button(variant = "ghost", size = "sm", wireClick = "next", content = @`Next`)
+            @template.lievit.button(variant = "ghost", size = "sm", wireClick = "next", content = @`${labels.next()}`)
           @endif
         </nav>
       @endif

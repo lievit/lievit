@@ -49,6 +49,10 @@ import io.lievit.kit.SavedView;
  * @param selection the bulk-selection state (selected ids + counts), {@link Selection#NONE} when the
  *     table has no bulk actions
  * @param summaries the footer summary cells, one per summarized column; empty when none
+ * @param labels the chrome's UI strings (the i18n seam); {@link KitTableLabels#DEFAULT} = English
+ * @param columnToggleHrefPattern a {@code printf} pattern with one {@code %s} = column key, for a
+ *     "Columns" checkbox item's GET toggle href (e.g. {@code "/admin/cities?toggle=%s"}); empty drives
+ *     the wire-only toggle ({@link #ACTION_TOGGLE_COLUMN})
  */
 public record KitTableView(
         AdminListView view,
@@ -60,7 +64,9 @@ public record KitTableView(
         Selection selection,
         List<ColumnSummary> summaries,
         SavedViewsView savedViews,
-        String viewHrefPattern) {
+        String viewHrefPattern,
+        KitTableLabels labels,
+        String columnToggleHrefPattern) {
 
     /** The wire action name the switcher's "save current as a new view" item dispatches. */
     public static final String ACTION_SAVE_VIEW = "saveView";
@@ -74,6 +80,13 @@ public record KitTableView(
     /** The wire action name the switcher's "delete view" item dispatches. */
     public static final String ACTION_DELETE_VIEW = "deleteView";
 
+    /**
+     * The wire action name the "Columns" dropdown's checkbox items dispatch when no
+     * {@link #columnToggleHrefPattern() column-toggle href} is configured: a single
+     * {@code l:click="toggleColumn"} carrying the toggled column key as the {@code col} argument.
+     */
+    public static final String ACTION_TOGGLE_COLUMN = "toggleColumn";
+
     /** Compact constructor: defends the lists and never-null the strings / saved-views. */
     public KitTableView {
         pageHrefPattern = pageHrefPattern == null ? "" : pageHrefPattern;
@@ -85,6 +98,8 @@ public record KitTableView(
         summaries = List.copyOf(summaries);
         savedViews = savedViews == null ? SavedViewsView.NONE : savedViews;
         viewHrefPattern = viewHrefPattern == null ? "" : viewHrefPattern;
+        labels = labels == null ? KitTableLabels.DEFAULT : labels;
+        columnToggleHrefPattern = columnToggleHrefPattern == null ? "" : columnToggleHrefPattern;
     }
 
     /**
@@ -97,7 +112,8 @@ public record KitTableView(
      */
     public static KitTableView of(AdminListView view) {
         return new KitTableView(
-                view, "", "", "", "", List.of(), Selection.NONE, List.of(), SavedViewsView.NONE, "");
+                view, "", "", "", "", List.of(), Selection.NONE, List.of(), SavedViewsView.NONE, "",
+                KitTableLabels.DEFAULT, "");
     }
 
     /**
@@ -107,7 +123,7 @@ public record KitTableView(
     public KitTableView withPageHref(String pattern) {
         return new KitTableView(
                 view, pattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref, filterChips,
-                selection, summaries, savedViews, viewHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
     }
 
     /**
@@ -117,7 +133,7 @@ public record KitTableView(
     public KitTableView withSortHref(String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, pattern, sizeHrefPattern, resetFiltersHref, filterChips,
-                selection, summaries, savedViews, viewHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
     }
 
     /**
@@ -127,7 +143,7 @@ public record KitTableView(
     public KitTableView withSizeHref(String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, pattern, resetFiltersHref, filterChips,
-                selection, summaries, savedViews, viewHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
     }
 
     /**
@@ -138,7 +154,7 @@ public record KitTableView(
     public KitTableView withFilterIndicators(String resetHref, List<FilterChip> chips) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetHref, chips,
-                selection, summaries, savedViews, viewHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
     }
 
     /**
@@ -148,7 +164,7 @@ public record KitTableView(
     public KitTableView withSelection(Selection selection) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, viewHrefPattern);
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
     }
 
     /**
@@ -158,7 +174,7 @@ public record KitTableView(
     public KitTableView withSummaries(List<ColumnSummary> summaries) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, viewHrefPattern);
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
     }
 
     /**
@@ -170,7 +186,47 @@ public record KitTableView(
     public KitTableView withSavedViews(SavedViewsView savedViews, String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, pattern);
+                filterChips, selection, summaries, savedViews, pattern, labels, columnToggleHrefPattern);
+    }
+
+    /**
+     * @param labels the chrome's UI strings (the i18n seam); a Spring host maps these from its own
+     *     {@code MessageSource} once per render
+     * @return a copy carrying the supplied labels
+     */
+    public KitTableView withLabels(KitTableLabels labels) {
+        return new KitTableView(
+                view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+    }
+
+    /** @return whether any column-toggle entry renders (the "Columns" dropdown), per the view-model */
+    public boolean hasColumnToggles() {
+        return view.hasColumnToggles();
+    }
+
+    /**
+     * @param pattern the {@code %s} column-toggle href pattern (e.g. {@code "/admin/cities?toggle=%s"})
+     * @return a copy carrying the "Columns" checkbox-item toggle href pattern
+     */
+    public KitTableView withColumnToggleHref(String pattern) {
+        return new KitTableView(
+                view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, pattern);
+    }
+
+    /** @return whether a real column-toggle href pattern is set (else the toggle dispatches by wire) */
+    public boolean hasColumnToggleHref() {
+        return !columnToggleHrefPattern.isBlank();
+    }
+
+    /**
+     * @param key a toggleable column key
+     * @return the GET toggle href for that column ({@link #columnToggleHrefPattern()} with the key
+     *     substituted), or empty when no pattern is set (then the toggle dispatches by wire instead)
+     */
+    public String columnToggleHref(String key) {
+        return hasColumnToggleHref() ? columnToggleHrefPattern.formatted(key) : "";
     }
 
     /** @return whether a real numbered-page href pattern is set (else the pager is wire-driven) */
