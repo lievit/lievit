@@ -1,7 +1,7 @@
 {
   "name": "file-upload",
   "type": "registry:wire",
-  "description": "A server-rendered drag-and-drop dropzone + file list whose upload runs over the wire upload path: a native <input type=file l:upload> POSTs the bytes out-of-band, the endpoint returns a signed temp-file reference, and the wire sets the server-held file list (the bytes never ride the snapshot). Remove drops a file from the server-held list. Server-first WIRE component (ADR-0012); replaces the <lv-file-upload> Lit island. WAI-ARIA dropzone-as-button + labelled file list. The runtime upload directive (l:upload) is ready (runtime/features/uploads.ts).",
+  "description": "A server-rendered drag-and-drop dropzone + file list whose upload runs over the wire upload path: a native <input type=file l:upload> POSTs the bytes out-of-band, the endpoint returns a signed temp-file reference, and the wire sets the server-held file list (the bytes never ride the snapshot). Remove drops a file from the server-held list. A CSP-clean island progressively enhances the dropzone with drag-and-drop, local thumbnail previews + progress, remove and reorder, driven by the runtime upload events (the temp-upload wire protocol seam); JS-off the native multiple <input type=file> still POSTs. Server-first WIRE component (ADR-0012); replaces the <lv-file-upload> Lit island. WAI-ARIA dropzone-as-button + labelled file list. The runtime upload directive (l:upload) is ready (runtime/features/uploads.ts).",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -16,8 +16,13 @@
       "type": "registry:wire",
       "target": "lievit/file-upload.jte",
       "root": "jte"
+    },
+    {
+      "path": "wire/file-upload/file-upload.ts",
+      "type": "registry:wire",
+      "target": "components/ui/file-upload.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Register FileUploadComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). The native input carries l:upload=\"files\": install the wire upload runtime (installUploads from runtime/features/uploads.ts) and wire the SERVER half (the /lievit/upload controller that validates + stores to temp + returns the signed ref). The dropzone + file list render server-side from the `files` field; a remove arms the file name via $set then the removePending action drops it. If you prefer a plain multipart POST, swap the l:upload input for <input type=file name=...> inside <form method=post enctype=multipart/form-data>. Adjust the template name freely once copied (the source is yours)."
+  "docs": "Register FileUploadComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). The native input carries l:upload=\"files\": install the wire upload runtime (installUploads from runtime/features/uploads.ts) and wire the SERVER half (the /lievit/upload controller that validates + stores to temp + returns the signed ref). The dropzone + file list render server-side from the `files` field; a remove arms the file name via $set then the removePending action drops it. If you prefer a plain multipart POST, swap the l:upload input for <input type=file name=...> inside <form method=post enctype=multipart/form-data>. Call enhanceFileUploads() once from main.ts after startLievit() for the drag-and-drop dropzone + local thumbnail previews + progress (driven by the runtime lievit:upload-progress events) + reorder/remove of pending previews; JS-off the native multiple input still POSTs. The temp-upload wire protocol (l:upload -> /lievit/upload -> signed ref) is the seam the adopter wires server-side. Adjust the template name freely once copied (the source is yours)."
 }
