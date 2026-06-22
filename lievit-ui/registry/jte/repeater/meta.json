@@ -1,0 +1,22 @@
+{
+  "name": "repeater",
+  "type": "registry:jte",
+  "description": "A repeatable list of nested-schema item cards (Filament's Repeater): the same set of fields repeated N times, each in a card with add / remove (reorder grip rendered, wiring is a follow-up). The item BODY is a RECURSIVE content slot the adopter authors (itemContent), so an item can hold any field -- inputs, a select, even another repeater -- the same shape as a React component taking children. The fields inside name themselves `<name>[<i>][...]` (an indexed form-array a Spring binder maps to a List of records), so the cards POST natively with zero JS. JS-OFF an Add submit (name=`<name>__add`) and a per-item remove submit (name=`<name>__remove`, value=index) round-trip to the server, which re-renders -- a working no-JS path. JS-ON a CSP-clean typed-TS enhancer clones a hidden <template> card to add and drops a card to remove, in place, then re-indexes every nested field name + label so the POSTed indices stay contiguous. The native inputs stay the form source of truth. WAI-ARIA: labelled fieldset/legend, each card a labelled region (Item N), labelled add / remove buttons, aria-live. Plain HTML + Tailwind + --lv-* tokens, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/repeater.jte",
+      "type": "registry:jte",
+      "target": "lievit/repeater.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/repeater.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/repeater.enhancer.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "icon"],
+  "docs": "Copies the repeater partial to your JTE root at lievit/repeater.jte (reached as @template.lievit.repeater(name=..., count=..., itemContent=@`...`)) and the CSP-clean enhancer to lievit/repeater.enhancer.ts. Import the enhancer once and call enhanceAllRepeaters() on load (and after a DOM swap). Author the item body as the recursive `itemContent` slot (one card per index, naming the fields `<name>[<i>][...]`), and a blank `itemTemplate` slot using the `__i__` token for the JS-on clone (defaults to itemContent). Pass `count` (existing cards), `label`, `itemLabel`, `addLabel`, `reorderable` (renders the grip; reorder wiring is a follow-up), `disabled`. JS-OFF add / remove are server submits (`<name>__add` / `<name>__remove`); JS-ON the enhancer adds / removes in place and re-indexes so indices stay contiguous. Requires the icon partial (trash-2, plus, grip-vertical). The source is yours: edit freely."
+}
