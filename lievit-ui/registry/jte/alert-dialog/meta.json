@@ -1,0 +1,17 @@
+{
+  "name": "alert-dialog-static",
+  "type": "registry:jte",
+  "description": "A confirmation dialog (shadcn Alert Dialog), STATIC + trigger-driven, with ZERO JS. Built on the native HTML <dialog> element like the modal partial: the trigger is a real <button command=\"show-modal\" commandfor> (declarative open, no script) and the browser renders it in the top layer, traps focus, and exposes it to AT. role=\"alertdialog\" + aria-modal (WAI-ARIA APG Alert Dialog, Radix AlertDialog): an interruptive prompt that REQUIRES a response, so unlike the modal there is NO backdrop-dismiss and NO header close (x) -- the only exits are the explicit Cancel + Action footer buttons (Escape == Cancel, the recoverable platform default). Cancel is a native <form method=\"dialog\"> submit; the Action button submits the adopter's confirm/destructive form via formaction (or closes when none is given). destructive adds a red Action button + a triangle-alert icon on the title. The static sibling of the server-state-held wire alert-dialog (registry/wire/alert-dialog/), serving the kit io.lievit.kit.component.ConfirmationModal render path. Plain HTML + Tailwind + --lv-* tokens, CSP-clean, no enhancer.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/alert-dialog.jte",
+      "type": "registry:jte",
+      "target": "lievit/alert-dialog.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Copies the static alert-dialog partial to your JTE root at lievit/alert-dialog.jte, reached as @template.lievit.alert-dialog-static(...). Pass a unique `id` (the commandfor target), the `trigger` content (label/icon), a `title` (wires aria-labelledby) and an optional `description` (wires aria-describedby); set `actionLabel`/`cancelLabel`, `destructive` (red Action + triangle-alert icon), and the real effect via `actionForm` (a form id) + `actionUrl` (a formaction URL) so the Action button POSTs the confirmed action with no inline JS. Tune `width` (xs|sm|md|lg|xl|2xl..7xl|full|screen, the kit Width/ModalWidth tokens). The browser owns open/close (native <dialog> showModal + Escape + focus-trap + return-focus); there is NO backdrop-dismiss and no header close (it is an interruptive prompt). For a confirm whose open-state lives server-side (the server decides open/confirmed and re-renders), use the wire alert-dialog component instead."
+}
