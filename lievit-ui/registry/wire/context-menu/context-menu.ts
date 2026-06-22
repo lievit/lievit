@@ -30,8 +30,22 @@ import type { LievitRuntime } from "../../../runtime/index.js";
 /** The subset of the runtime the enhancer needs: resolve a component's `$lievit` object. */
 type RuntimeLike = Pick<LievitRuntime, "$lievit">;
 
-/** Marks a trigger so the global listeners are wired exactly once per element. */
+/** Marks a trigger so the per-element listeners are wired exactly once per element. */
 const WIRED = "data-context-menu-wired";
+
+/**
+ * Module-level singletons for the DOCUMENT-level Escape / outside-click listeners. These are global
+ * (one keydown + one mousedown on `document`), so they must be installed AT MOST ONCE regardless of
+ * how many times `enhanceContextMenus` runs: an adopter that re-scans after a morph (re-enhance)
+ * without first calling the previous teardown used to STACK a fresh pair on `document` every call,
+ * leaking listeners (and firing `close` N times). We now install the pair once, refcount the live
+ * enhancements, and only uninstall when the last teardown runs. `documentRoot` records which root the
+ * close logic scans (the last enhance wins; the common case is the single `document` root).
+ */
+let documentListeners: { keydown: (e: KeyboardEvent) => void; pointerdown: (e: MouseEvent) => void } | null = null;
+let enhanceRefcount = 0;
+let documentRoot: ParentNode = document;
+let documentRuntime: RuntimeLike | null = null;
 
 /**
  * Wires every `[data-context-menu-trigger]` on the page so a right-click opens its menu at the
@@ -71,31 +85,50 @@ export function enhanceContextMenus(
     });
   }
 
-  // Escape (anywhere) and a click outside the open panel close the menu server-side.
-  const onKeydown = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") {
+  // Escape (anywhere) and a click outside the open panel close the menu server-side. The pair is
+  // installed on `document` AT MOST ONCE (idempotent): re-enhancing after a morph reuses the same
+  // listeners instead of stacking a fresh pair, and bumps a refcount so the listeners survive until
+  // the LAST teardown runs. The handlers close over the latest `runtime` + scan `documentRoot`.
+  documentRoot = root;
+  documentRuntime = runtime;
+  if (documentListeners === null) {
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      for (const trigger of openTriggers(documentRoot)) {
+        documentRuntime?.$lievit(trigger)?.$call("close");
+      }
+    };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      for (const trigger of openTriggers(documentRoot)) {
+        const panel = panelOf(trigger);
+        if (panel && target && !panel.contains(target)) {
+          documentRuntime?.$lievit(trigger)?.$call("close");
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeydown, true);
+    document.addEventListener("mousedown", onPointerDown, true);
+    documentListeners = { keydown: onKeydown, pointerdown: onPointerDown };
+  }
+  enhanceRefcount += 1;
+
+  let torndown = false;
+  return () => {
+    if (torndown) {
       return;
     }
-    for (const trigger of openTriggers(root)) {
-      runtime.$lievit(trigger)?.$call("close");
+    torndown = true;
+    enhanceRefcount -= 1;
+    if (enhanceRefcount <= 0 && documentListeners !== null) {
+      document.removeEventListener("keydown", documentListeners.keydown, true);
+      document.removeEventListener("mousedown", documentListeners.pointerdown, true);
+      documentListeners = null;
+      documentRuntime = null;
+      enhanceRefcount = 0;
     }
-  };
-  const onPointerDown = (event: MouseEvent) => {
-    const target = event.target as Node | null;
-    for (const trigger of openTriggers(root)) {
-      const panel = panelOf(trigger);
-      if (panel && target && !panel.contains(target)) {
-        runtime.$lievit(trigger)?.$call("close");
-      }
-    }
-  };
-
-  document.addEventListener("keydown", onKeydown, true);
-  document.addEventListener("mousedown", onPointerDown, true);
-
-  return () => {
-    document.removeEventListener("keydown", onKeydown, true);
-    document.removeEventListener("mousedown", onPointerDown, true);
   };
 }
 
