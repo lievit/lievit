@@ -270,6 +270,25 @@ describe("toast: default / loading / promise variants", () => {
   });
 });
 
+describe("toast: actions slot (the kit notification toast needs an actions row)", () => {
+  const src = read("toast.jte");
+  test("declares an optional gg.jte.Content actions param defaulting to null", () => {
+    expect(src).toContain("@param gg.jte.Content actions = null");
+  });
+  test("renders the actions region only when set (purely additive, slotted into the body)", () => {
+    expect(src).toMatch(/@if\(actions != null\)/);
+    expect(src).toContain('data-slot="toast-actions"');
+    expect(src).toContain("${actions}");
+  });
+  test("the actions row sits below the message body, gap-stacked + token-styled", () => {
+    expect(src).toMatch(/\$\{content\}\s*@if\(actions != null\)/);
+    expect(src).toContain("gap-[var(--lv-space-2)]");
+  });
+  test("usage doc shows a notification toast with an actions row", () => {
+    expect(src.toLowerCase()).toMatch(/actions row|mark all read/);
+  });
+});
+
 describe("toast: stacking viewport + position", () => {
   const toast = read("toast.jte");
   const vp = read("toast/viewport.jte");

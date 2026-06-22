@@ -34,7 +34,15 @@ const SIZE_SCALE: ReadonlyArray<readonly [string, string, string, string]> = [
   ["lg", "--lv-space-10", "--lv-space-6", "--lv-text-base"],
 ];
 
-const VARIANTS = ["primary", "secondary", "destructive", "ghost", "outline"] as const;
+const VARIANTS = [
+  "primary",
+  "secondary",
+  "destructive",
+  "destructive-outline",
+  "destructive-ghost",
+  "ghost",
+  "outline",
+] as const;
 
 describe("button -- params & docs API (Filament parity)", () => {
   test("declares the size + iconOnly + ariaLabel params with the documented defaults", () => {
@@ -148,6 +156,38 @@ describe("button -- variants compose with every size", () => {
     expect(src).toContain("var(--lv-color-secondary)");
     expect(src).toContain("var(--lv-color-destructive)"); // shadcn destructive variant
     expect(src).toContain("var(--lv-color-border)"); // outline
+  });
+});
+
+describe("button -- destructive-but-not-solid variants (red outline / red ghost)", () => {
+  test("destructive-outline is a red-OUTLINED button: transparent bg, destructive text + border", () => {
+    // shadcn outline shape (transparent fill, bordered, shadow-xs) but in the destructive tone --
+    // the red action that is not the page's primary CTA.
+    expect(src).toContain(
+      'case "destructive-outline" -> "bg-transparent text-[var(--lv-color-destructive)] border-[var(--lv-color-destructive)] shadow-[var(--lv-shadow-xs)]',
+    );
+  });
+
+  test("destructive-ghost is a red-PLAIN button: transparent bg, no border, destructive text", () => {
+    expect(src).toContain(
+      'case "destructive-ghost"   -> "bg-transparent text-[var(--lv-color-destructive)] border-transparent',
+    );
+  });
+
+  test("both red-but-not-solid variants tint the hover from the destructive token (no bare hex)", () => {
+    // a subtle destructive-tinted hover, faithful to shadcn's ghost/outline hover-accent pattern.
+    const matches = src.match(
+      /color-mix\(in_srgb,var\(--lv-color-destructive\)_10%,transparent\)/g,
+    );
+    expect(matches?.length, "both destructive-* hovers must tint from the destructive token").toBe(2);
+  });
+
+  test("docs surface the red-but-not-solid variants in the variant param + a usage example", () => {
+    expect(src).toContain("destructive-outline");
+    expect(src).toContain("destructive-ghost");
+    expect(src, "usage example for the not-solid destructive action").toMatch(
+      /variant = "destructive-outline"/,
+    );
   });
 });
 

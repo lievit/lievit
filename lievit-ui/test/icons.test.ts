@@ -86,6 +86,15 @@ describe("icon body map", () => {
     expect(iconBody("definitely-not-an-icon")).toBe("");
   });
 
+  test("vendors the Lucide check-check (double-check) glyph for mark-all-read", () => {
+    // the notification mark-all-read affordance wanted the double-check; it is two <path> marks.
+    expect(svgNames, "check-check svg not vendored").toContain("check-check");
+    const body = iconBody("check-check");
+    expect(body, "check-check body empty").toBeTruthy();
+    expect(body).toContain('<path d="M18 6 7 17l-5-5" />');
+    expect(body).toContain('<path d="m22 10-7.5 7.5L13 16" />');
+  });
+
   test("the generator is deterministic: re-running yields byte-identical maps (drift guard)", () => {
     const before = {
       ts: readFileSync(join(iconsDir, "icon-bodies.ts"), "utf8"),

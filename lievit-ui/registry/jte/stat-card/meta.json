@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow"],
-  "docs": "Copies the stat-card partial to your JTE root at lievit/stat-card.jte, reached as @template.lievit.statCard(heading=\"Annunci attivi\", value=\"142\"). Add a description + descriptionIcon for a trend line (iconPosition before|after), a leading icon, a color tint, and a url to make the whole tile a link (newTab to open in a new tab). Pass a chart island through the chart slot for the StatWidget sparkline. The source is yours: edit freely."
+  "docs": "Copies the stat-card partial to your JTE root at lievit/stat-card.jte, reached as @template.lievit.stat-card(heading=\"Annunci attivi\", value=\"142\"). Add a description + descriptionIcon for a trend line (iconPosition before|after), a leading icon, a color tint, and a url to make the whole tile a link (newTab to open in a new tab). Pass a chart island through the chart slot for the StatWidget sparkline. The source is yours: edit freely."
 }

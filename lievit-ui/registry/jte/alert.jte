@@ -1,4 +1,6 @@
 @import gg.jte.Content
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -39,6 +41,21 @@
   role="status" (polite). The leading icon is decorative (aria-hidden) -- severity is announced by
   the role + the title text, not the glyph.
 
+  EXTRA ATTRIBUTES -- the SAFE escaped dataAttrs channel (mirrors button.jte exactly). An adopter
+  often needs to attach a test or wire hook (data-testid, a data-* the wire runtime reads) to the
+  alert ROOT without wrapping it in an extra <div> (gest had to wrap the PRG flash alert just to
+  hang a hook on it). dataAttrs is a SAFE Map<String,String> of DYNAMIC data-* attributes: each
+  entry renders as data-<key>="<value>" where the VALUE is escaped through JTE's OWN attribute
+  escaper gg.jte.html.escape.Escape.htmlAttribute (the exact routine ContentType.Html applies to a
+  ${} in attribute-value position), so a hostile value renders inert (the [quote][gt][script...]
+  breakout stays attribute text). This is the ONLY safe way to carry user/DB-derived data on the
+  banner. Keys are the data-attribute name WITHOUT the leading "data-" (key "testid" ->
+  data-testid); keep keys to simple identifiers ([A-Za-z][A-Za-z0-9-]*) -- the key sits in
+  attribute-NAME position, which JTE does not escape, so a non-identifier key is dropped. Empty by
+  default; left empty nothing is added. (There is deliberately NO trusted raw `attrs` channel on
+  the alert: a status banner only ever needs escaped data hooks, so the unsafe escape hatch the
+  button exposes for static wire directives would be pure XSS surface here.)
+
   Params:
     String variant         = "info"   "info" | "success" | "warning" | "destructive".
     String icon            = ""       optional leading Lucide icon name (the shadcn icon column).
@@ -50,6 +67,8 @@
                                       (data-slot=alert-footer); the Filament callout footer slot.
     gg.jte.Content content            the message body (description region) when no `description` slot.
     String cssClass        = ""       extra utility classes on the banner.
+    Map<String,String> dataAttrs = {}  SAFE dynamic data-* on the banner root (key w/o "data-",
+                                      simple identifier); each value escaped via Escape.htmlAttribute.
 
   Usage:
     @@template.lievit.alert(variant = "destructive", icon = "circle-alert",
@@ -58,6 +77,9 @@
     @@template.lievit.alert(variant = "warning", icon = "triangle-alert", heading = "Chiave ruotata",
       content = @@`La vecchia chiave non e' piu' valida.`,
       footer = @@`@@template.lievit.link(label = "Aggiorna la configurazione", href = "/settings")`)
+    (attach a SAFE test/wire hook to the banner root, no wrapper div -- value HTML-escaped):
+    @@template.lievit.alert(variant = "success", heading = "Saved",
+      dataAttrs = java.util.Map.of("testid", "flash-saved"), content = @@`Your changes are live.`)
 --%>
 @param String variant = "info"
 @param String icon = ""
@@ -68,6 +90,7 @@
 @param gg.jte.Content footer = null
 @param gg.jte.Content content
 @param String cssClass = ""
+@param java.util.Map<String, String> dataAttrs = java.util.Map.of()
 
 !{var urgent = "destructive".equals(variant) || "warning".equals(variant);}
 !{var hasIcon = !icon.isEmpty();}
@@ -79,10 +102,28 @@
     default            -> "var(--lv-color-info)";
   };}
 
+<%-- SAFE dynamic data-* attributes (mirrors button.jte): JTE's HTML parser forbids a raw @for in
+     attribute-NAME position, so the fragment is built once here -- each entry becomes
+     data-<key>="<value>" with the VALUE escaped through JTE's OWN attribute escaper
+     (Escape.htmlAttribute, the same routine ContentType.Html applies to a ${} in attribute-value
+     position), then emitted with $unsafe -- safe because every value is already escaped. Keys must
+     be simple identifiers (the key sits in attribute-NAME position, which is NOT escaped); a
+     non-identifier key is dropped so it can never inject markup. --%>
+!{var dataAttrs_ = new StringOutput();}
+!{for (var e : dataAttrs.entrySet()) {
+    if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
+      dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
+      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), dataAttrs_);
+      dataAttrs_.writeContent("\"");
+    }
+  }}
+!{var dataAttrsMarkup = dataAttrs_.toString();}
+
 <div
   data-slot="alert"
   data-variant="${variant}"
   role="${urgent ? "alert" : "status"}"
+  $unsafe{dataAttrsMarkup}
   class="relative grid w-full items-start text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-fg)] rounded-[var(--lv-radius-md)] border px-[var(--lv-space-4)] py-[var(--lv-space-3)] ${cssClass}"
   style="font-family:var(--lv-font-sans);border-color:${tone};background:color-mix(in srgb, ${tone} 12%, var(--lv-color-bg));grid-template-columns:${hasIcon ? "1rem 1fr" : "0 1fr"};column-gap:${hasIcon ? "var(--lv-space-3)" : "0"};row-gap:var(--lv-space-1);"
 >

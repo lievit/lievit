@@ -50,6 +50,10 @@
                                    "success" or "danger" (else treated as success).
     String heading      = null     optional bold heading rendered above the message.
     gg.jte.Content content          the message body (the flash text).
+    gg.jte.Content actions = null  optional action region (data-slot="toast-actions") rendered below
+                                   the message body -- a row of buttons/links (e.g. "Mark all read",
+                                   "Undo"). The kit notification toast needs this; without it gest had
+                                   to render the actions INSIDE content. Purely additive (null = no row).
     boolean dismissible = true     render a dismiss (x) button the enhancer wires.
     int duration        = 4000     auto-dismiss after this many ms (0 = stay until dismissed).
     boolean standalone  = true     true => the toast fixes itself to `position`; false => it flows
@@ -69,11 +73,17 @@
       @@template.lievit.toast(standalone = false, variant = "success", content = @@`Saved.`)
       @@template.lievit.toast(standalone = false, variant = "loading", duration = 0, content = @@`Uploading...`)
     `)
+
+  Usage (a notification toast with an actions row):
+    @@template.lievit.toast(variant = "info", heading = "3 new notifications",
+      content = @@`You have unread items.`,
+      actions = @@`@@template.lievit.button(variant = "ghost", size = "sm", content = @@`Mark all read`)`)
 --%>
 @param String variant = "info"
 @param String promiseState = "success"
 @param String heading = null
 @param gg.jte.Content content
+@param gg.jte.Content actions = null
 @param boolean dismissible = true
 @param int duration = 4000
 @param boolean standalone = true
@@ -133,6 +143,9 @@
       <div data-toast-heading class="mb-[var(--lv-space-1)] font-[var(--lv-font-semibold)]">${heading}</div>
     @endif
     ${content}
+    @if(actions != null)
+      <div data-toast-actions data-slot="toast-actions" class="mt-[var(--lv-space-2)] flex flex-wrap items-center gap-[var(--lv-space-2)]">${actions}</div>
+    @endif
   </div>
   @if(dismissible)
     <button

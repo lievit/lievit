@@ -27,7 +27,7 @@
     String cssClass = ""          extra utility classes on the row.
 
   Usage:
-    @@template.lievit.dataList.row(
+    @@template.lievit.data-list.row(
       leading = @@`@@template.lievit.avatar(name = "Mario Rossi")`,
       content = @@`
         <span class="font-[var(--lv-font-medium)]">Mario Rossi</span>

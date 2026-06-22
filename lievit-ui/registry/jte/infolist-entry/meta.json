@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the infolist-entry partial to your JTE root at lievit/infolist-entry.jte, reached as @template.lievit.infolistEntry(type=\"icon\", icon=\"check\", color=\"success\"). Route every resolved infolist entry through it by the kit Entry.kind() tag: color renders a swatch + value, icon a tinted Lucide glyph, image a sized/circular tile (requires alt), code a <pre><code> block, and any other type falls through to the plain value. The source is yours: edit freely."
+  "docs": "Copies the infolist-entry partial to your JTE root at lievit/infolist-entry.jte, reached as @template.lievit.infolist-entry(type=\"icon\", icon=\"check\", color=\"success\"). Route every resolved infolist entry through it by the kit Entry.kind() tag: color renders a swatch + value, icon a tinted Lucide glyph, image a sized/circular tile (requires alt), code a <pre><code> block, and any other type falls through to the plain value. The source is yours: edit freely."
 }
