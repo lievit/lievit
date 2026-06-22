@@ -3,6 +3,7 @@ node_modules/
 coverage/
 *.tsbuildinfo
 .vitest/
+dist/
 
 # JTE real-compiler smoke (test/jte-compile/) build output
 test/jte-compile/target/
