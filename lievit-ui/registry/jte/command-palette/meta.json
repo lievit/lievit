@@ -1,0 +1,22 @@
+{
+  "name": "command-palette",
+  "type": "registry:jte",
+  "description": "A searchable command list (shadcn Command), STATIC with the WHOLE small/preloaded catalog rendered server-side as real <a href> / <button formaction> items, plus a tiny CSP-clean typed-TS enhancer (command.enhancer.ts) for in-browser filtering + keyboard nav. WAI-ARIA combobox + listbox: input[role=combobox][aria-controls] -> ul[role=listbox] of li[role=option], group-captioned headings, each option a real focusable control. JS-off it is a plain navigable list; the enhancer filters by query (hide non-matches, no re-render, no server round-trip) and wires ArrowUp/Down + Enter + Escape. Items come in via index-aligned List<String> columns (the tabs-static convention), so the partial needs no custom record. The static sibling of the server-filtered wire command (registry/wire/command/), serving the kit io.lievit.kit.Command render path; use the wire command for a large/lazy/server-owned catalog. Plain HTML + Tailwind + --lv-* tokens, no inline script.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/command.jte",
+      "type": "registry:jte",
+      "target": "lievit/command.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/command.enhancer.ts",
+      "type": "registry:jte",
+      "target": "lievit/command.enhancer.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow"],
+  "docs": "Copies the static command palette to your JTE root at lievit/command.jte (+ the lievit/command.enhancer.ts enhancer), reached as @template.lievit.command(...). Pass a unique `id` and the index-aligned List<String> columns: `labels` (required, also the filter target) plus the optional `values`/`hrefs`/`formActions`/`formIds`/`icons`/`shortcuts`/`groups` (a blank cell means absent; an item with a non-blank href renders a real <a>, else a real <button>). Tune `placeholder`, `emptyText`, `label`. JS-off the list is a plain navigable menu; import the enhancer and call enhanceAllCommands() after the runtime starts to add live filtering + ArrowUp/Down/Enter/Escape keyboard nav (it hides non-matching items and their now-empty group headings, toggles the empty state, drives aria-activedescendant). The pure commandFilter(labels, query) is exported for unit tests. For a large/lazy/server-owned catalog that filters per keystroke server-side, use the wire command component instead."
+}
