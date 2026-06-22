@@ -32,9 +32,12 @@ import io.lievit.kit.Table;
 import io.lievit.kit.TextColumn;
 import io.lievit.kit.UrlAction;
 import io.lievit.kit.AdminAction;
+import io.lievit.kit.DeleteAction;
 import io.lievit.kit.FilterState;
+import io.lievit.kit.page.KitTableLabels;
 import io.lievit.kit.page.KitTableView;
 import io.lievit.kit.page.SavedViewsView;
+import gg.jte.Content;
 import java.nio.file.Path;
 import java.util.OptionalLong;
 import java.util.ArrayList;
@@ -277,6 +280,176 @@ class KitTableChromeRenderTest {
         // The default populated model carries no saved views, so the switcher must not render.
         String html = render(populatedModel());
         assertFalse(html.contains("data-admin-view-tabs"), "switcher rendered without any view:\n" + html);
+    }
+
+    /** A resource over 5 cities whose table carries per-row actions + toggleable columns. */
+    private static Resource<City> resourceWithActionsAndToggles() {
+        List<City> all = new ArrayList<>();
+        for (int i = 1; i <= 5; i++) {
+            all.add(new City(i, "City " + i, i % 2 == 0 ? "active" : "archived"));
+        }
+        RecordRepository<City> repo =
+                new RecordRepository<>() {
+                    @Override
+                    public Page<City> page(Query query) {
+                        return Page.of(all, all.size());
+                    }
+
+                    @Override
+                    public Optional<City> findById(String id) {
+                        return all.stream().filter(c -> String.valueOf(c.id()).equals(id)).findFirst();
+                    }
+
+                    @Override
+                    public City create(City record) {
+                        return record;
+                    }
+
+                    @Override
+                    public City update(String id, City record) {
+                        return record;
+                    }
+
+                    @Override
+                    public void delete(String id) {}
+                };
+        return new Resource<>(repo) {
+            @Override
+            public String slug() {
+                return "cities";
+            }
+
+            @Override
+            public String label() {
+                return "Cities";
+            }
+
+            @Override
+            public Table<City> table() {
+                return Table.<City>create()
+                        .id(c -> String.valueOf(c.id()))
+                        .column(TextColumn.make("Name", City::name).makeSortable())
+                        .column(TextColumn.make("Status", City::status).toggleable())
+                        .column(TextColumn.<City>make("Notes", c -> "").toggleable(true))
+                        .actions(
+                                UrlAction.make("edit", "Edit",
+                                        r -> "/admin/cities/" + ((City) r).id() + "/edit"),
+                                new DeleteAction<>());
+            }
+        };
+    }
+
+    /** A static-HTML content slot fixture (CSP-clean, no script). */
+    private static Content slot(String html) {
+        return new Content() {
+            @Override
+            public void writeTo(gg.jte.TemplateOutput output) {
+                output.writeContent(html);
+            }
+        };
+    }
+
+    @Test
+    void renders_the_per_row_action_buttons_link_and_destructive_with_confirm() {
+        Resource<City> resource = resourceWithActionsAndToggles();
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view).withPageHref("/admin/cities?page=%d");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        String html = render(model);
+
+        // A. The trailing actions cell holds the resolved row actions: the Edit link (a real <a href>)
+        // and the destructive Delete wire action with its confirm prompt carried as escaped data-*.
+        assertTrue(html.contains("data-admin-row-actions=\"1\""), "row actions cell missing:\n" + html);
+        assertTrue(html.contains("/admin/cities/1/edit"), "edit link action href missing");
+        assertTrue(html.contains("data-variant=\"destructive\""), "destructive delete button missing");
+        assertTrue(html.contains("data-confirm="), "confirm prompt not carried on the delete action");
+        // The legacy single Edit fallback link must NOT appear (the action model unified it away).
+        assertFalse(html.contains(">Edit</a>") && html.contains("data-admin-row-action=\"1\" class"),
+                "legacy edit fallback leaked alongside the action buttons");
+    }
+
+    @Test
+    void renders_the_columns_toggle_dropdown_from_the_view_model() {
+        Resource<City> resource = resourceWithActionsAndToggles();
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view)
+                .withPageHref("/admin/cities?page=%d")
+                .withColumnToggleHref("/admin/cities?toggle=%s");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        String html = render(model);
+
+        // B. The auto-rendered "Columns" dropdown: one checkbox item per toggleable column, each a
+        // real GET <a href> toggle (the column-toggle href pattern), Status checked + Notes unchecked.
+        assertTrue(html.contains("data-table-column-visibility"), "columns dropdown missing:\n" + html);
+        assertTrue(html.contains("/admin/cities?toggle=status"), "status toggle href missing");
+        assertTrue(html.contains("/admin/cities?toggle=notes"), "notes toggle href missing");
+        // Notes is hidden-by-default so it is NOT a rendered column header, but IS in the dropdown.
+        assertFalse(html.contains("data-sort-key=\"notes\""), "hidden-by-default column leaked as a header");
+    }
+
+    @Test
+    void renders_the_optional_chrome_slots_when_supplied() {
+        Resource<City> resource = resource(5);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view).withPageHref("/admin/cities?page=%d");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        model.put("headerExtra", slot("<span data-test-header-extra>HX</span>"));
+        model.put("toolbarEnd", slot("<span data-test-toolbar-end>TE</span>"));
+        model.put("aboveTable", slot("<span data-test-above-table>AT</span>"));
+        String html = render(model);
+
+        // C. The three optional chrome slots land in their regions.
+        assertTrue(html.contains("data-admin-header-extra"), "headerExtra region missing:\n" + html);
+        assertTrue(html.contains("data-test-header-extra"), "headerExtra content missing");
+        assertTrue(html.contains("data-admin-toolbar-end"), "toolbarEnd region missing");
+        assertTrue(html.contains("data-test-toolbar-end"), "toolbarEnd content missing");
+        assertTrue(html.contains("data-admin-above-table"), "aboveTable region missing");
+        assertTrue(html.contains("data-test-above-table"), "aboveTable content missing");
+    }
+
+    @Test
+    void substitutes_the_i18n_labels_when_a_host_supplies_them() {
+        Resource<City> resource = resource(7);
+        ListRequest request = new ListRequest(1, 3, Sort.NONE, "", FilterState.EMPTY);
+        AdminListView view = AdminListView.of(resource, request);
+
+        KitTableLabels it =
+                new KitTableLabels(
+                        "Cerca...", "Cerca", "Pulisci", "Filtri", "Colonne", "Azzera tutto",
+                        "Azioni", "Modifica", "Nessun risultato", "Risultati %3$s, da %1$s a %2$s",
+                        "Per pagina", "Precedente", "Successivo", "Pagina %s di %s",
+                        "Elimina selezionati", "Nuovo", "Salva come nuova vista", "Aggiorna questa vista",
+                        "Imposta predefinita", "Elimina vista", "Salva vista", "Modifiche non salvate",
+                        "Altro");
+        KitTableView table = KitTableView.of(view)
+                .withPageHref("/admin/cities?page=%d")
+                .withSizeHref("/admin/cities?size=%d")
+                .withLabels(it);
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "/admin/cities/create");
+        String html = render(model);
+
+        // D. The Italian copy replaces the hardcoded English: heading row, search, per-page, actions
+        // header, create button, and the reordered results-count line.
+        assertTrue(html.contains("Azioni"), "actions header not localised:\n" + html);
+        assertTrue(html.contains("Per pagina"), "per-page label not localised");
+        assertTrue(html.contains(">Nuovo<"), "create button label not localised");
+        assertTrue(html.contains("placeholder=\"Cerca...\""), "search placeholder not localised");
+        assertTrue(html.contains("Risultati 7, da 1 a 3"), "localised+reordered count line missing");
+        // English copy must be gone for the substituted strings.
+        assertFalse(html.contains(">Actions<"), "English 'Actions' leaked");
+        assertFalse(html.contains("Per page"), "English 'Per page' leaked");
     }
 
     @Test
