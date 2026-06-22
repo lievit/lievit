@@ -1,7 +1,7 @@
 {
   "name": "theme-switcher",
   "type": "registry:jte",
-  "description": "A light / dark / system segmented control (Filament's components/theme-switcher), rendered as a WAI-ARIA radiogroup of three exclusive options joined like a button-group (collapsed inner rounding + shared borders), the active option painted with the accent surface. STRUCTURE + STYLE are server-rendered (zero inline JS, CSP-clean); the irreducibly-client piece (read prefers-color-scheme, persist to localStorage, toggle the documentElement theme class) is delegated to a later tiny enhancer that binds off the data-lievit-theme-switcher marker. The current theme is server-owned (data down) so the markup is correct JS-off and on first paint. Roving tabindex per the APG radiogroup contract. Server-first PARTIAL (ADR-0012): no island.",
+  "description": "A light / dark / system segmented control (Filament's components/theme-switcher), rendered as a WAI-ARIA radiogroup of three exclusive options joined like a button-group (collapsed inner rounding + shared borders), the active option painted with the accent surface. STRUCTURE + STYLE are server-rendered (zero inline JS, CSP-clean); the irreducibly-client piece (read prefers-color-scheme, persist to localStorage, toggle the documentElement theme marker) is delegated to a CSP-clean typed-TS enhancer that binds off the data-lievit-theme-switcher marker. The current theme is server-owned (data down) so the markup is correct JS-off and on first paint. Roving tabindex per the APG radiogroup contract. Server-first PARTIAL + enhancer (ADR-0012): no island.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -10,8 +10,13 @@
       "type": "registry:jte",
       "target": "lievit/theme-switcher.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/theme-switcher.enhancer.ts",
+      "type": "registry:ui",
+      "target": "lievit/theme-switcher.enhancer.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the theme-switcher partial to your JTE root at lievit/theme-switcher.jte, reached as @template.lievit.theme-switcher(current=...). A radiogroup of three options (sun=light, moon=dark, monitor=system); render `current` from the user's stored preference so it is correct JS-off. Set labels=true for visible text beside each icon (else icon-only with aria-label). data-storage-key (default lievit-theme) names the localStorage key the later enhancer persists under; data-theme-value on each option carries its value. Nothing here writes storage or toggles the theme class -- that is the enhancer's job, off the data-lievit-theme-switcher hook (no inline script ships, the CSP refuses it). Requires the icon partial (uses the sun, moon, monitor icons). The source is yours: edit freely."
+  "docs": "Copies the theme-switcher partial to your JTE root at lievit/theme-switcher.jte (reached as @template.lievit.theme-switcher(current=...)) and the CSP-clean enhancer to your alias root at lievit/theme-switcher.enhancer.ts. A radiogroup of three options (sun=light, moon=dark, monitor=system); render `current` from the user's stored preference so it is correct JS-off. Set labels=true for visible text beside each icon (else icon-only with aria-label). data-storage-key (default lievit-theme) names the localStorage key the enhancer persists the CHOSEN value under; data-theme-value on each option carries its value. Import the enhancer once from your entry module and call enhanceAllThemeSwitchers() on load (and after any DOM swap): it applies the persisted/system theme on load, handles click + APG keyboard selection (arrows wrap + select, Home/End, Space/Enter), persists the choice, and follows the OS prefers-color-scheme while \"system\" is selected, toggling the dark class + data-theme on <html> (the token system keys dark mode on .dark, [data-theme=dark]). Nothing in the partial writes storage or toggles the theme -- that is the enhancer's job, off the data-lievit-theme-switcher hook (no inline script ships, the CSP refuses it). Requires the icon partial (uses the sun, moon, monitor icons). The source is yours: edit freely."
 }

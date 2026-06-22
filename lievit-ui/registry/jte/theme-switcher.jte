@@ -9,8 +9,10 @@
   + STYLE are server-rendered (zero JS, CSP-clean, the strict CSP refuses inline scripts + on*
   handlers); the one piece that is irreducibly client-side -- reading the OS `prefers-color-scheme`, writing the
   choice to localStorage, and toggling the documentElement theme class without a round-trip -- is
-  delegated to a tiny enhancer (theme-switcher.enhancer.ts, shipped later) that binds off the
-  data-lievit-theme-switcher marker. No inline script ships here.
+  delegated to the tiny enhancer theme-switcher.enhancer.ts that binds off the data-lievit-theme-switcher
+  marker. No inline script ships here. Import the enhancer once from your entry module and call
+  enhanceAllThemeSwitchers() on load (and after any DOM swap); it applies the persisted/system theme,
+  handles click + APG keyboard selection, persists the choice, and follows the OS while "system" is set.
 
   WHY a radiogroup (not three toggles): the three options are MUTUALLY EXCLUSIVE single-select, so
   the WAI-ARIA pattern is a radiogroup (role=radiogroup + role=radio + aria-checked), NOT three
