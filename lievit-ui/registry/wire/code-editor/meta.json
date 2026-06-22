@@ -1,0 +1,22 @@
+{
+  "name": "code-editor",
+  "type": "registry:wire",
+  "description": "A server-first code form field (Filament code-field / shadcn code parity). The canonical control is a plain monospace <textarea name=...> that POSTs its source with the surrounding <form> JS-off; a CSP-clean island progressively enhances it into a CodeMirror 6 editor (syntax highlight + line numbers + language) whose document is written back into the SAME textarea on every change, so the form keeps POSTing the field with or without JS. CodeMirror 6 is CSP-clean (no eval; theming injects a <style> element via style-mod, not inline style attributes). The CodeMirror engine + language packs are supplied by the adopter through an injectable factory so the version is pinned downstream and the island orchestration stays unit-testable.",
+  "dependencies": ["codemirror", "@codemirror/state", "@codemirror/view"],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "wire/code-editor/code-editor.jte",
+      "type": "registry:wire",
+      "target": "lievit/code-editor.jte",
+      "root": "jte"
+    },
+    {
+      "path": "wire/code-editor/code-editor.ts",
+      "type": "registry:wire",
+      "target": "components/ui/code-editor.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Render the partial with a `name` (the form field) + a `language` (e.g. javascript, sql, json, html). With JS off the monospace <textarea> is the editor and POSTs its source. To enhance: `npm i codemirror @codemirror/state @codemirror/view` + the `@codemirror/lang-*` packs you need, then call enhanceCodeEditors({ factory }) once from main.ts after startLievit(), passing a factory that builds an EditorView (doc, parent=element, basicSetup for line numbers + highlight, an updateListener that calls onUpdate(state.doc.toString()) on docChanged, and the language() extension chosen from the `language` arg). The factory keeps the CodeMirror version + language packs pinned in YOUR app. On submit you receive the field as raw source text. Adjust the template name freely once copied."
+}

@@ -10,6 +10,7 @@
     "lievit-add": "./cli/lievit-add.ts"
   },
   "scripts": {
+    "build": "tsx cli/build-islands.ts",
     "build:registry": "tsx cli/build-registry.ts",
     "check:registry": "tsx cli/build-registry.ts --check",
     "typecheck": "tsc --noEmit",
@@ -21,8 +22,18 @@
     "@floating-ui/dom": "^1.7.6",
     "lit": "^3.2.1"
   },
+  "optionalDependencies": {
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.36.8",
+    "@tiptap/core": "^2.11.7",
+    "@tiptap/starter-kit": "^2.11.7",
+    "codemirror": "^6.0.2",
+    "dompurify": "^3.2.6",
+    "marked": "^15.0.12"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.9",
+    "esbuild": "^0.25.6",
     "happy-dom": "^20.10.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
