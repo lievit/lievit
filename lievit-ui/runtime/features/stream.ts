@@ -19,6 +19,8 @@
  * additive endpoint so it does not touch the unary wire dispatcher (ADR-0019; no dispatcher rewrite).
  */
 
+import { openReconnectingSource, type ReconnectOptions } from "./reconnecting-source.js";
+
 /** One streamed chunk: which target to write, the content, and whether to replace or append. */
 export interface StreamEnvelope {
   /** The `l:stream` target name. */
@@ -94,23 +96,26 @@ export function consumeStream(root: ParentNode, source: StreamSource): () => voi
 }
 
 /**
- * Opens a real SSE `EventSource` at `url` and consumes it into `root` (the browser entry point).
+ * Opens a real SSE `EventSource` at `url` and consumes it into `root` (the browser entry point),
+ * self-healing across connection drops (ADR-0086): capped jittered exponential backoff on reconnect,
+ * resuming from the last seen event id (`Last-Event-ID` gap-recovery; the server must emit `id:` per
+ * event for replay). For an AI token stream, this means a dropped connection resumes from the last
+ * delivered token instead of either stalling or re-streaming the whole answer.
  *
  * @param root the component root the stream writes into
  * @param url the SSE endpoint URL
- * @returns an unsubscribe that closes the EventSource
+ * @param reconnect optional backoff/jitter tuning (defaults are htmx-sse-like)
+ * @returns an unsubscribe that closes the EventSource and cancels any pending reconnect
  */
-export function openStream(root: ParentNode, url: string): () => void {
-  const es = new EventSource(url, { withCredentials: true });
+export function openStream(root: ParentNode, url: string, reconnect: ReconnectOptions = {}): () => void {
   const source: StreamSource = {
-    onMessage: (handler) => {
-      const listener = (event: MessageEvent): void => handler(event.data);
-      es.addEventListener("message", listener);
-      return () => {
-        es.removeEventListener("message", listener);
-        es.close();
-      };
-    },
+    onMessage: (handler) =>
+      openReconnectingSource(
+        url,
+        (target) => new EventSource(target, { withCredentials: true }),
+        (message) => handler(message.data),
+        reconnect,
+      ),
   };
   return consumeStream(root, source);
 }

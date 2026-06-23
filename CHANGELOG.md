@@ -6,6 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **SSE reconnection hardening on the live/delivery channels** (ADR-0086). lievit's two real-time
+  channels — the per-user broadcast push (`openBroadcastSource`, #304/#45) and the AI text-token stream
+  (`openStream`, #153) — now self-heal across dropped connections instead of relying on the browser's
+  weak native `EventSource` reconnect. A new `runtime/features/reconnecting-source.ts` adds **exponential
+  backoff with full jitter** (capped, **reset on a successful message**) and **`Last-Event-ID`
+  gap-recovery** (the client tracks the last received event id and carries it on the managed re-open so
+  the server can replay the gap). Modeled on htmx's `ws`/`sse` extensions (inspiration; original
+  implementation, not copied code) — the only one of the three compared delivery engines with real
+  reconnect hardening. **Server contract for replay:** the SSE endpoint must emit an `id:` line per event;
+  without ids the client still reconnects (backoff) but cannot recover the gap, and never falsely claims
+  replay. CSP-clean (same-origin `EventSource`, no `eval`). The `EventSource` factory + clock are
+  injectable, so the backoff schedule, reset-on-message, `Last-Event-ID` propagation, and the cap are
+  unit-tested against a fake clock (`test/reconnecting-source.test.ts`). Isolated to the SSE wrapper:
+  morph / nav / wire are untouched.
+
 ### Changed
 
 - **The client runtime's DOM morph is now Idiomorph, vendored** (ADR-0084: renounce in-house where a
@@ -29,6 +46,20 @@ All notable changes to this project are documented here. Format follows
   reorder no longer preserves identity (use `id`).
 
 ### Documentation
+
+- **The delivery-layer boundary is recorded, decided per-piece on evidence** (ADR-0086). A rigorous
+  comparison (Turbo vs htmx vs in-house) across navigation / morph / live, decided per-piece:
+  **navigation → Turbo Drive** (vendored, ratifies ADR-0085); **morph → in-house** (the algorithm is
+  Idiomorph in all three, so no gain switching wrappers — lievit's contract needs 5 veto hooks that only
+  the direct Idiomorph callbacks give; Turbo forwards 1 + degrades the rest + has no `l:transition`-
+  removal seam (Turbo #1477), htmx's morph ext forwards 0 hooks + gates config behind `new Function`
+  (CSP-illegal); lievit's wrapper even fixes a shared open Idiomorph bug ≡ #13); **live/SSE → in-house**
+  (impedance mismatch — Turbo Streams pushes DOM operations, lievit's channel pushes typed events
+  `{name,detail,to}` + an AI text-token sink + non-DOM effects with no `<turbo-stream>` representation;
+  Turbo's SSE reconnect is the weakest, #1261). The boundary principle: delegate the generic non-
+  differentiating engine (page navigation), keep in-house the layers intimate to lievit's typed component
+  model. Recorded in `docs/adr/0086-delivery-layer-boundary-turbo-vs-in-house.md`, with the SSE server
+  `id:`-per-event replay contract for adopters.
 
 - **The Turbo Drive backend contract is now documented for adopters** (ADR-0085 follow-up). Adopting
   Turbo Drive imposed an undocumented **server-side** contract on every standard `<form method=post>`

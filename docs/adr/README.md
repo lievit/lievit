@@ -69,6 +69,7 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0073](0073-cli-scaffolding-formats-and-siblings.md): CLI scaffolding formats (`--sfc`/`--mfc`/`--class`) + colocated siblings, `make:form`/`make:layout` (#141). **accepted**
 - [ADR-0074](0074-convert-command-refuses-lossy-by-default.md): The `convert` command auto-detects direction and refuses a lossy convert by default (`--force` to override) (#141). **accepted**
 - [ADR-0085](0085-adopt-turbo-drive-for-navigation.md): Adopt Turbo Drive (vendored first-party, standalone) for SPA navigation; retire the hand-rolled `navigate.ts`; lievit keeps only the wire-rebind glue + the Turbo→lievit event bridge. **accepted** (supersedes the navigation half of ADR-0019 and all of ADR-0050; the per-wire-call morph and `merge.ts` are untouched)
+- [ADR-0086](0086-delivery-layer-boundary-turbo-vs-in-house.md): The delivery-layer boundary, decided per-piece on evidence — **nav → Turbo** (vendored, ADR-0085), **morph → in-house** (direct Idiomorph: 5 veto hooks Turbo/htmx wrappers don't forward; Turbo #1477, htmx `new Function`), **live/SSE → in-house** (typed event/effect channel + AI token sink Turbo Streams can't represent; Turbo #1261). Plus SSE reconnection hardening (backoff + jitter + `Last-Event-ID`, modeled on htmx) in `reconnecting-source.ts`, with the server `id:`-per-event replay contract. **accepted**
 
 ## How to add an ADR
 

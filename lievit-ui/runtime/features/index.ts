@@ -71,6 +71,15 @@ export {
   type BroadcastSource,
   type BroadcastOptions,
 } from "./broadcast.js";
+export {
+  openReconnectingSource,
+  backoffDelay,
+  withLastEventId,
+  type EventSourceLike,
+  type EventSourceFactory,
+  type ReconnectOptions,
+  type ReconnectMessage,
+} from "./reconnecting-source.js";
 export { installNavigate, type NavigateOptions } from "./navigate.js";
 export { installPageExpired, isExpiredStatus, type PageExpiredOptions } from "./page-expired.js";
 export { installPagination, type ScrollToTop } from "./pagination.js";

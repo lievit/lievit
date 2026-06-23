@@ -140,9 +140,18 @@ export {
   openBroadcastSource,
   parseBroadcastEvent,
   DEFAULT_BROADCAST_URL,
+  openReconnectingSource,
+  backoffDelay,
+  withLastEventId,
 } from "./features/index.js";
 
 export type { BroadcastSource, BroadcastOptions } from "./features/broadcast.js";
+export type {
+  EventSourceLike,
+  EventSourceFactory,
+  ReconnectOptions,
+  ReconnectMessage,
+} from "./features/reconnecting-source.js";
 
 // --- Livewire v4 convergence surface (ADR-0024) ---------------------------------------------- //
 
