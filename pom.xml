@@ -83,6 +83,7 @@
         <jte.version>3.2.4</jte.version>
         <jjwt.version>0.13.0</jjwt.version>
         <jspecify.version>1.0.0</jspecify.version>
+        <owasp-encoder.version>1.4.0</owasp-encoder.version>
         <jqwik.version>1.9.3</jqwik.version>
         <archunit.version>1.4.2</archunit.version>
         <assertj.version>3.27.7</assertj.version>
@@ -193,6 +194,14 @@
                 <groupId>org.jspecify</groupId>
                 <artifactId>jspecify</artifactId>
                 <version>${jspecify.version}</version>
+            </dependency>
+
+            <!-- OWASP Java Encoder (BSD): context-aware output encoding, the security
+                 base layer for the DSL's escape-by-default render (ADR-0084). -->
+            <dependency>
+                <groupId>org.owasp.encoder</groupId>
+                <artifactId>encoder</artifactId>
+                <version>${owasp-encoder.version}</version>
             </dependency>
 
             <!-- Property-based testing (jqwik) for the codec / signing invariants. -->
