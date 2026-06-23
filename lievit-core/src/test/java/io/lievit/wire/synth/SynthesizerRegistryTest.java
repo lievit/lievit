@@ -249,4 +249,73 @@ class SynthesizerRegistryTest {
                 .extracting(e -> ((WireException) e).error())
                 .isEqualTo(WireError.FORBIDDEN_DESERIALIZATION);
     }
+
+    /**
+     * @spec.given a user map whose key is literally the reserved envelope key {@code @w} mapping to a
+     *     map (the exact shape a structural detector mistakes for a typed-state tuple)
+     * @spec.when  it is dehydrated then hydrated
+     * @spec.then  it round-trips as plain DATA, never reconstructed as a smuggled typed tuple: the
+     *     reserved key is escaped on the wire and restored on the way back, so the WIRE-11/WIRE-14
+     *     invariant "a plain map can never smuggle a typed object" is literally true
+     * @spec.adr   ADR-0020
+     */
+    @Test
+    void user_map_keyed_literally_w_round_trips_as_data_not_a_smuggled_tuple() {
+        Map<String, Object> hostile = new java.util.LinkedHashMap<>();
+        hostile.put(Dehydrated.ENVELOPE, Map.of("s", "no-such-synth", "d", "owned"));
+
+        Object dehydrated = registry.dehydrate(hostile);
+
+        // On the wire the reserved key is escaped, so it is not an envelope and cannot be hydrated
+        // as a tuple: the user's @w is now @@w.
+        assertThat(Dehydrated.isEnvelope(dehydrated)).isFalse();
+        Map<String, Object> onWire = (Map<String, Object>) dehydrated;
+        assertThat(onWire).containsKey("@@w");
+        assertThat(onWire).doesNotContainKey(Dehydrated.ENVELOPE);
+
+        // Hydrate restores the user's literal key and value as plain data, no synth lookup attempted.
+        Object hydrated = registry.hydrate(dehydrated);
+        assertThat(hydrated).isEqualTo(hostile);
+    }
+
+    /**
+     * @spec.given a user map carrying both reserved sigil keys ({@code @w} and {@code @memo}) and a
+     *     plain key alongside them
+     * @spec.when  it round-trips
+     * @spec.then  both reserved keys survive as data and the plain key is untouched (the escape is
+     *     scoped to the reserved sigil namespace, not arbitrary keys)
+     * @spec.adr   ADR-0020
+     */
+    @Test
+    void user_map_with_reserved_sigil_keys_round_trips_intact() {
+        Map<String, Object> hostile = new java.util.LinkedHashMap<>();
+        hostile.put("@w", "a");
+        hostile.put("@memo", "b");
+        hostile.put("name", "parma");
+
+        Object hydrated = registry.hydrate(registry.dehydrate(hostile));
+
+        assertThat(hydrated).isEqualTo(hostile);
+    }
+
+    /**
+     * @spec.given a DynamicObject (the schemaless stdClass analogue) holding a key literally named
+     *     {@code @w}
+     * @spec.when  it is dehydrated then hydrated
+     * @spec.then  the dynamic object round-trips with its literal {@code @w} key as plain data, the
+     *     invariant "a DynamicObject can never smuggle a typed object" holds for hostile keys too
+     * @spec.adr   ADR-0020
+     */
+    @Test
+    void dynamic_object_keyed_literally_w_round_trips_as_data() {
+        DynamicObject obj = new DynamicObject();
+        obj.set(Dehydrated.ENVELOPE, "owned");
+
+        Object dehydrated = registry.dehydrate(obj);
+        assertThat(Dehydrated.isEnvelope(dehydrated)).isTrue(); // the dyn tuple itself IS an envelope
+
+        Object hydrated = registry.hydrate(dehydrated);
+        assertThat(hydrated).isInstanceOf(DynamicObject.class);
+        assertThat(((DynamicObject) hydrated).get(Dehydrated.ENVELOPE)).isEqualTo("owned");
+    }
 }

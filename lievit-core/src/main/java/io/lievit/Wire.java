@@ -18,7 +18,7 @@ import java.lang.annotation.Target;
  * instance on the next wire call (ADR-0001, wire-protocol.md). The binding is compile-time
  * type-checked.
  *
- * <p>One of the seven public annotations (ADR-0002).
+ * <p>A state annotation of the lievit public API (see the package taxonomy; ADR-0002).
  */
 @Documented
 @Target(ElementType.FIELD)

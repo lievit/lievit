@@ -22,6 +22,16 @@ import java.lang.reflect.Field;
 public record FormField(String name, Field field) {
 
     /**
+     * @return the field's declared type, so the dispatcher can route the value through the
+     *     {@link io.lievit.wire.synth.SynthesizerRegistry} for a typed round-trip (a
+     *     {@code LocalDate}, an enum, a {@code BigDecimal}), the same golden path a top-level
+     *     {@code @Wire} field uses (ADR-0020).
+     */
+    public Class<?> type() {
+        return field.getType();
+    }
+
+    /**
      * Reads the current value off a form object instance.
      *
      * @param formInstance the form object instance

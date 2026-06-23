@@ -6,7 +6,66 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The validation gate is now intent-driven, not shape-driven** (three silent-drop bugs collapsed
+  into one correct decision): a failing `@Wire`-field validation used to skip a single `else` block
+  that bundled three unrelated intents (real form-submit actions, framework magic mutations, inbound
+  events), so any unrelated invalid field silently dropped all three. The dispatcher now gates ONLY
+  the real form-submit `@LievitAction` calls. A magic `$set` / `$toggle` mutation applies regardless
+  of an unrelated invalid field (the "click expand, nothing happens because an email field is empty"
+  bug is gone), and an inbound dispatched `@LievitOn` event is delivered independent of validation
+  (an event is not a form submit). One POST carrying a magic mutation and a real submit gates each
+  intent independently. Net less code: the gate no longer bundles three concerns behind one `if`.
+- **`LievitFormObject` typed fields now round-trip without loss** (the kit-CRUD blocker): the
+  form-object dehydrate / rehydrate / dotted-update paths went through `FormField.read` / `write`
+  (numeric coercion only), so a typed sub-field bypassed the synthesizer registry: a `LocalDate`
+  threw on the raw `Field.set`, a `BigDecimal` lost its scale, an enum could not bind. The three
+  paths now reuse the existing synthesizer golden path (`synthesizers.dehydrate` / `hydrate` /
+  `hydrateForUpdate(formField.type(), value)`), the same machinery a top-level `@Wire` field uses
+  (ADR-0020), so a form object can hold typed fields, not just String / primitive.
+- **`@LievitOn` no longer drops a handler when two listeners share an event name.**
+  `EventListenerMetadata.resolve()` collapsed the listeners into a `Map<resolvedName, Method>`, so a
+  component declaring two `@LievitOn("saved")` methods kept only the last-declared one and silently
+  dropped the other (Livewire fires *all* matching listeners). `resolve()` now returns a
+  `List<ResolvedListener>` (reflection order) and `EventInvoker.invokeMatching` invokes every pair
+  whose name matches. A two-handlers-one-event test pins both firing.
+- **`@LievitRender` single-file vs multi-file ambiguity now fails fast at reflect time.** A component
+  declaring both a named `@LievitComponent(template="...")` AND a markup-returning `@LievitRender`
+  method was undefined (the adapter silently picked a winner). `ComponentMetadata.of` now rejects the
+  combo at startup with a message naming both halves and the fix; the two legal modes (named template
+  + void prepare-hook, or empty template + markup-returning render) are unaffected.
+### Security
+
+- **Reserved-key smuggling at the dehydrate/hydrate boundary is closed** (`SynthesizerRegistry`,
+  ADR-0020): the typed-tuple envelope was detected purely structurally, so a client-controlled plain
+  `Map` or `DynamicObject` whose key was literally `@w` (or any reserved `@`-sigil key, e.g. `@memo`)
+  was mis-read as a typed-state tuple on the next hydrate, corrupting integrity or self-DoSing the
+  request (a 422/500; the `ClassInstantiationGuard` already capped the blast radius at integrity +
+  self-DoS, never RCE). Reserved-sigil keys on the plain-map / `DynamicObject` path are now escaped on
+  dehydrate (a leading `@` is doubled: `@w` → `@@w`) and unescaped on hydrate, so user data can never be
+  shaped into an envelope. The documented invariant "a `DynamicObject` / plain map can never smuggle a
+  typed object" is now literally true by construction, not by coincidence. Plain maps without sigil keys
+  are untouched, so the Counter snapshot stays byte-identical. New round-trip tests pin a user map keyed
+  `@w` (and a `DynamicObject` keyed `@w`) reconstructing as DATA.
+- **`ChecksumFailureLimiter` no longer grows unbounded under IP rotation** (memory-DoS): the per-client
+  `ConcurrentHashMap` never evicted a client whose deque had drained, so a rotating-IP attacker turned
+  the anti-brute-force control into a memory-DoS vector (the "bounded by the active client set" claim
+  was false). Drained entries are now evicted on touch under the deque lock (value-checked remove, no
+  lost in-flight failure), plus an amortized sweep on `recordFailure` once the map outgrows the
+  plausible active set, so the map collapses back to the currently-active clients. No new dependency
+  (`lievit-core` stays pure-Java, zero-Spring); a test pins that 2000 rotated IPs collapse to the live
+  set after the window elapses.
+
 ### Changed
+
+- **The public-annotation surface is now documented by role, not by a count.** The "seven / eight /
+  nine annotations" slogan had drifted out of sync with the actual 20 runtime `@interface` types,
+  teaching a false invariant. `package-info.java` replaces the integer with a stable ROLE taxonomy
+  (bootstrap / component / state / action / events / lifecycle / authorization / loading / page), and
+  a build-time `AnnotationTaxonomyInvariantTest` asserts the documented set equals the actual set of
+  runtime annotations in `io.lievit`, so the doc can never silently drift again. The per-annotation
+  javadoc "one of the seven public annotations" lines were updated to the role-based language.
 
 - **`dropdown-menu` gains an optional `triggerClass` param** (backflow from gest, dogfood-then-extract):
   extra utility classes applied to the trigger `<button>` itself (the wrapper's `cssClass` left the
@@ -183,6 +242,45 @@ All notable changes to this project are documented here. Format follows
 - The Maven build is wired and green across all 11 modules (the wire runtime, the single-file DSL,
   five template adapters, the Spring Boot starter, the admin kit, the CLI) plus a runnable
   golden-path example.
+
+### Fixed
+
+- **Island vs whole-component snapshot race — silent lost update (#7).** An `l:island` re-render and a
+  whole-component re-render share one `state.snapshot` but ran their commits across an `await` with no
+  ordering, so a `l:model` edit typed while an island call was in flight was silently wiped (the
+  island's commit cleared the WHOLE pending set; `SnapshotCodec.verify` checks signature+expiry only,
+  no CAS, so it was silent, not a 409). The snapshot-commit critical section is now serialized per
+  component (a `commitChain` mutex) so concurrent island/whole-component commits apply one at a time in
+  completion order, and a commit drops ONLY the pending paths it actually sent, preserving a newer edit
+  that arrived mid-flight. The network stays concurrent (independent scopes still fly in parallel).
+- **`.async` same-scope race — silent `@Wire` clobber (#8).** `l:async` actions bypass the commit
+  queue to run in parallel, but each rotated the shared snapshot, so a stateful `.async` action
+  silently lost-updated `@Wire` (the markup advertised safe parallel mutation it could not deliver).
+  `.async` is now RESTRICTED to renderless / side-effect-only actions: a `.async` run never reads or
+  rotates the snapshot, never merges, never morphs — it applies only its side effects (`dispatch` /
+  `redirect` / `url` / `js`). To mutate `@Wire`, use a normal queued action.
+- **File-upload re-entrancy — orphaned controller + stale-ref clobber (#9).** A second file pick
+  overwrote the in-flight `AbortController`, orphaning the first (uncancellable), and a slow first
+  upload could write a stale temp-ref over `@Wire` out of order. `uploads.handle()` now aborts any
+  existing controller for the input before starting, tags each run with a monotonic id, and drops a
+  superseded run's `setModel` so only the latest pick's ref lands.
+- **Native text input could not be server-cleared once typed into (#13).** A dirty `.value` detaches
+  from the `value` attribute, so a server-asserted empty/changed value reconciled only the attribute
+  and never reached the screen. The morph now pushes a server-asserted `value`/`checked` onto the live
+  property, so a server clear (`value=""`) or change actually lands; an un-asserted re-render still
+  preserves in-progress typing.
+
+### Changed
+
+- **Client-runtime morph markers are namespaced under one reserved prefix `data-lievit-rt-*`.** The
+  morph's "preserve client-owned attributes" allowlist was a per-NAME list that had to grow with every
+  new marker (re-creating the same double-bind defect each time). All runtime bind/state markers
+  (`bound-*`, `init-fired`, `current-bound`, `page-bound`, `poll-armed`, `lazy-loaded`, `upload-bound`,
+  `loading-active`) moved under `data-lievit-rt-`, and `isClientOwnedMarker` is now a one-line
+  `startsWith`. Behaviour identical; adding the next marker needs no morph edit. The no-LCS /
+  no-backtracking morph mis-pair of unkeyed siblings on a leading tag-shift (#12) is documented as a
+  deliberate non-goal in the morph source, with keying as the user-side mitigation (golden tests pin
+  both the mis-pair and the keyed fix).
 
 ## [0.1.0] - unreleased
 

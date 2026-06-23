@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  * method are a programming error (the method may be called zero or one time per request, in no
  * guaranteed order relative to actions; relying on a side effect is therefore fragile).
  *
- * <p>One of the eight public annotations (ADR-0015, supersedes ADR-0002 seven-annotation cap).
+ * <p>A state annotation of the lievit public API (see the package taxonomy; ADR-0015).
  */
 @Documented
 @Target(ElementType.METHOD)

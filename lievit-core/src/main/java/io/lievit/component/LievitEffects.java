@@ -28,9 +28,9 @@ import org.jspecify.annotations.Nullable;
  * call. Nothing survives between calls; an action on a fresh instance starts with an empty sink.
  * Reading {@link #current()} outside a wire call is a programming error (no sink is bound).
  *
- * <p>This is a runtime API, not an annotation: it keeps the public surface at seven annotations
- * (ADR-0002) while giving components the Livewire {@code $this->redirect()} / {@code $this->dispatch()}
- * ergonomics.
+ * <p>This is a runtime API, not an annotation: it gives components the Livewire
+ * {@code $this->redirect()} / {@code $this->dispatch()} ergonomics without adding to the annotation
+ * surface (ADR-0002).
  */
 public final class LievitEffects {
 

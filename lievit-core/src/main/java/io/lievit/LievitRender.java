@@ -18,7 +18,7 @@ import java.lang.annotation.Target;
  * mode it is an optional hook to prepare derived state before the template runs (ADR-0001,
  * wire-protocol.md, phase 2 and 4).
  *
- * <p>One of the seven public annotations (ADR-0002).
+ * <p>A lifecycle annotation of the lievit public API (see the package taxonomy; ADR-0002).
  */
 @Documented
 @Target(ElementType.METHOD)

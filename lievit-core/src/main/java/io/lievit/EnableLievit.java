@@ -13,8 +13,8 @@ import java.lang.annotation.Target;
 /**
  * Turns on the lievit starter autoconfiguration.
  *
- * <p>Place on a {@code @Configuration} class (typically the {@code @SpringBootApplication}). One of
- * the seven public annotations (ADR-0002).
+ * <p>Place on a {@code @Configuration} class (typically the {@code @SpringBootApplication}). The
+ * bootstrap annotation of the lievit public API (see the package taxonomy; ADR-0002).
  */
 @Documented
 @Target(ElementType.TYPE)

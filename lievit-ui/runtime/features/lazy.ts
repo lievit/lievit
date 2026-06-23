@@ -21,7 +21,7 @@
 import type { LievitRuntime } from "../runtime.js";
 
 const NAME = "lazy";
-const LOADED_ATTR = "data-lievit-lazy-loaded";
+const LOADED_ATTR = "data-lievit-rt-lazy-loaded";
 
 /** An observer factory, injectable for tests (defaults to the browser's IntersectionObserver). */
 export interface IntersectionObserverFactory {

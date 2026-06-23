@@ -17,9 +17,9 @@ import org.jspecify.annotations.Nullable;
  * layer then mounts each declared child as an independent component and substitutes its rendered
  * HTML into the placeholder the parent emitted for that key.
  *
- * <p>This is a runtime API, not an annotation: it keeps the public surface at seven annotations
- * (ADR-0002) while giving a parent the Livewire {@code <livewire:child :prop="..." :key="..." />}
- * ergonomics. It mirrors {@link LievitEffects}: bound to the current {@link WireDispatcher} render
+ * <p>This is a runtime API, not an annotation: it gives a parent the Livewire
+ * {@code <livewire:child :prop="..." :key="..." />} ergonomics without adding to the annotation
+ * surface (ADR-0002). It mirrors {@link LievitEffects}: bound to the current {@link WireDispatcher} render
  * via a {@link ThreadLocal}, reset for every mount / call so nothing survives between stateless
  * requests (the ADR-0001 invariant).
  *

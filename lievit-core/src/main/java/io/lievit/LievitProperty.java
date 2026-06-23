@@ -16,9 +16,9 @@ import java.lang.annotation.Target;
  * <p>Carries validation, transform, and serialize hints that do not belong on {@link Wire} itself
  * (ADR-0002). Absent, a {@code @Wire} field serializes with the default codec behavior. Reserved
  * surface in v0.1: the attributes are introduced as the validation / transform / serialize hooks
- * land, without adding an eighth annotation.
+ * land, as attributes here rather than as separate annotations.
  *
- * <p>One of the seven public annotations (ADR-0002).
+ * <p>A state annotation of the lievit public API (see the package taxonomy; ADR-0002).
  */
 @Documented
 @Target(ElementType.FIELD)
@@ -43,8 +43,8 @@ public @interface LievitProperty {
      * {@code _updates} entry targeting it is rejected: the value the server set is authoritative.
      *
      * <p>Use it for ids, prices, role flags, and anything a malicious client must not be able to
-     * change. This is the lievit equivalent of Livewire's {@code #[Locked]}, expressed here without
-     * an eighth annotation (ADR-0002's seven-annotation cap).
+     * change. This is the lievit equivalent of Livewire's {@code #[Locked]}, expressed here as an
+     * attribute on {@code @LievitProperty} rather than a separate annotation (ADR-0002).
      *
      * @return whether client updates to this field are rejected
      */
@@ -59,7 +59,7 @@ public @interface LievitProperty {
      * its value down as a prop (so the child renders it), and when the child mutates the field the
      * change is dispatched back up so the parent's bound property updates. It is the lievit
      * equivalent of Livewire's {@code wire:model} on a child plus {@code #[Modelable]}, expressed
-     * here without an eighth annotation (ADR-0002's seven-annotation cap).
+     * here as an attribute on {@code @LievitProperty} rather than a separate annotation (ADR-0002).
      *
      * <p>At most one {@code modelable} field per component is meaningful (the single bound value, as
      * with {@code wire:model} on a custom input); declaring more than one is a configuration error

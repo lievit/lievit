@@ -113,11 +113,13 @@ public final class SynthesizerRegistry {
         // A String-keyed map passes through as a plain JSON object, recursing into its values, so a
         // component holding a plain Map (or a parent's nested prop map, ADR-0016) keeps its byte
         // shape; a typed value nested inside becomes a tuple in place. A non-String-keyed map is
-        // not valid JSON and is owned by the MapSynthesizer instead.
+        // not valid JSON and is owned by the MapSynthesizer instead. A user key that collides with a
+        // reserved sigil key (@w, @memo) is escaped here so it can never be mis-read as a typed-tuple
+        // envelope on the next hydrate (the structural-detection smuggling bug, ADR-0020 §1).
         if (value instanceof Map<?, ?> map && allStringKeys(map)) {
             Map<String, Object> out = new LinkedHashMap<>();
             for (Map.Entry<?, ?> e : map.entrySet()) {
-                out.put((String) e.getKey(), dehydrate(e.getValue()));
+                out.put(escapeKey((String) e.getKey()), dehydrate(e.getValue()));
             }
             return out;
         }
@@ -165,11 +167,13 @@ public final class SynthesizerRegistry {
             return synth.hydrate(tuple.data(), tuple.type(), this);
         }
         // A plain JSON object / array that passed through dehydrate may carry tuples nested in its
-        // values: recurse so those reconstruct, while a pure-scalar container is returned as-is.
+        // values: recurse so those reconstruct, while a pure-scalar container is returned as-is. The
+        // reserved-key escape applied on dehydrate is reversed here, so a user key literally named
+        // @w / @memo round-trips back as DATA, never smuggled as a typed tuple (ADR-0020 §1).
         if (value instanceof Map<?, ?> map && allStringKeys(map)) {
             Map<String, Object> out = new LinkedHashMap<>();
             for (Map.Entry<?, ?> e : map.entrySet()) {
-                out.put((String) e.getKey(), hydrate(e.getValue()));
+                out.put(unescapeKey((String) e.getKey()), hydrate(e.getValue()));
             }
             return out;
         }
@@ -263,5 +267,33 @@ public final class SynthesizerRegistry {
             }
         }
         return true;
+    }
+
+    /**
+     * The sigil that prefixes every reserved key the protocol writes at a map level: the typed-tuple
+     * envelope {@code @w} (ADR-0020) and the snapshot {@code @memo} bag (WireDispatcher). A plain
+     * map / {@link DynamicObject} carries user-controlled keys, so any key in this namespace is
+     * escaped on dehydrate (and unescaped on hydrate) to make {@link Dehydrated#isEnvelope} detection
+     * unforgeable: user data can never be shaped into a reserved envelope.
+     */
+    private static final char RESERVED_SIGIL = '@';
+
+    /**
+     * Escapes a plain-map / {@link DynamicObject} key that collides with the reserved sigil namespace
+     * by doubling a leading {@code @} ({@code "@w"} -> {@code "@@w"}, {@code "@@w"} -> {@code "@@@w"}).
+     * A key not starting with the sigil passes through untouched, so the common case allocates nothing
+     * new. The transform is total and reversible (see {@link #unescapeKey}); a reserved key the
+     * protocol itself writes (single {@code @w} / {@code @memo}) is produced by the framework, never
+     * by this escaping path, so the two namespaces never collide.
+     */
+    private static String escapeKey(String key) {
+        return !key.isEmpty() && key.charAt(0) == RESERVED_SIGIL ? RESERVED_SIGIL + key : key;
+    }
+
+    /** Reverses {@link #escapeKey}: strips one leading {@code @} from a key that was escaped. */
+    private static String unescapeKey(String key) {
+        return key.length() >= 2 && key.charAt(0) == RESERVED_SIGIL && key.charAt(1) == RESERVED_SIGIL
+                ? key.substring(1)
+                : key;
     }
 }

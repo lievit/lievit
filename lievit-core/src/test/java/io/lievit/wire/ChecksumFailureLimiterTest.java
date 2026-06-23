@@ -104,4 +104,48 @@ class ChecksumFailureLimiterTest {
         assertThat(limiter.failureCount("198.51.100.2")).isZero();
         assertThatCode(() -> limiter.recordFailure("198.51.100.2")).doesNotThrowAnyException();
     }
+
+    /**
+     * @spec.given a client whose only failure has aged out of the window
+     * @spec.when  its state is next observed via failureCount
+     * @spec.then  its now-empty entry is evicted, so a quiet client leaves no residue in the map
+     * @spec.adr   ADR-0001
+     */
+    @Test
+    void evicts_a_drained_client_entry_on_touch() {
+        ChecksumFailureLimiter limiter = limiter();
+        limiter.recordFailure(CLIENT);
+        assertThat(limiter.trackedClientCount()).isEqualTo(1);
+
+        now.set(now.get().plus(Duration.ofSeconds(601)));
+
+        assertThat(limiter.failureCount(CLIENT)).isZero();
+        assertThat(limiter.trackedClientCount()).isZero();
+    }
+
+    /**
+     * @spec.given many distinct client IPs that each fail once and then never return (IP rotation),
+     *     followed by the window elapsing
+     * @spec.when  a further failure crosses the sweep threshold
+     * @spec.then  the aged-out entries are swept, so the map collapses to the active client set and
+     *     does not grow unbounded (the anti-DoS control is not itself a memory-DoS vector)
+     * @spec.adr   ADR-0001
+     */
+    @Test
+    void sweeps_stale_entries_so_the_map_does_not_grow_unbounded_under_ip_rotation() {
+        ChecksumFailureLimiter limiter = limiter();
+
+        // 2000 rotated IPs each fail once: the map grows past the sweep threshold (1024).
+        for (int i = 0; i < 2000; i++) {
+            limiter.recordFailure("10.0." + (i / 256) + "." + (i % 256));
+        }
+        assertThat(limiter.trackedClientCount()).isGreaterThan(1024);
+
+        // The whole rotation ages out of the window, then one live client fails: the sweep fires.
+        now.set(now.get().plus(Duration.ofSeconds(601)));
+        limiter.recordFailure("203.0.113.250");
+
+        // Only the one currently-active client remains; the 2000 rotated entries were reclaimed.
+        assertThat(limiter.trackedClientCount()).isEqualTo(1);
+    }
 }
