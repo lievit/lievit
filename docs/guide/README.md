@@ -19,6 +19,9 @@ For the *why* behind a decision, follow the ADR links: the guides describe behav
    convention-named hooks, the lifecycle bus.
 6. [Forms and validation](forms-and-validation.md) — Jakarta Bean Validation on `@Wire`, form
    objects, the `FieldValidator` SPI.
+   - [Turbo backend contract](turbo-backend-contract.md) — **the #1 Spring gotcha**: a standard
+     `<form method=post>` under Turbo Drive needs **303 on success, 422 on validation error** (a 200
+     is silently discarded). The lievit wire is exempt.
 7. [Authorization](authorization.md) — `@LievitAuthorize` / `@PreAuthorize` on actions, the
    `PermissionEvaluator`, per-request re-authorization (the Spring Security backbone).
 8. [Nested components](nested-components.md) — keyed children, reactive props, modelable two-way bind.

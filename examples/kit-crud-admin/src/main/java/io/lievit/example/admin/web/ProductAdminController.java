@@ -4,16 +4,20 @@
  */
 package io.lievit.example.admin.web;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
 
 import io.lievit.example.admin.product.Product;
 import io.lievit.example.admin.product.ProductResource;
@@ -85,8 +89,8 @@ public class ProductAdminController {
 
     /** POST /admin/products/create — persist a new product (or re-render the form with errors). */
     @PostMapping("/admin/products/create")
-    public String create(@RequestParam Map<String, String> params, Model model) {
-        return save(null, params, model);
+    public ModelAndView create(@RequestParam Map<String, String> params) {
+        return save(null, params);
     }
 
     /** GET /admin/products/{id}/edit — the edit form, pre-filled from the record. */
@@ -103,37 +107,54 @@ public class ProductAdminController {
 
     /** POST /admin/products/{id}/edit — persist changes (or re-render the form with errors). */
     @PostMapping("/admin/products/{id}/edit")
-    public String edit(
-            @PathVariable String id, @RequestParam Map<String, String> params, Model model) {
-        return save(id, params, model);
+    public ModelAndView edit(@PathVariable String id, @RequestParam Map<String, String> params) {
+        return save(id, params);
     }
 
     /** POST /admin/products/{id}/delete — remove the product, back to the list. */
     @PostMapping("/admin/products/{id}/delete")
-    public String delete(@PathVariable String id) {
+    public ResponseEntity<Void> delete(@PathVariable String id) {
         repository.delete(id);
-        return "redirect:" + routes.list();
+        return seeOther(routes.list());
     }
 
     /**
      * The shared write path: {@code Form#save} validates the bound record and persists it, or returns
-     * the field errors that blocked the save. On success we redirect to the list (Post/Redirect/Get);
-     * on failure we re-render the form view-model carrying the errors.
+     * the field errors that blocked the save. On success we redirect to the list (Post/Redirect/Get)
+     * with {@code 303 See Other}; on failure we re-render the form view-model carrying the errors with
+     * {@code 422 Unprocessable Content}.
+     *
+     * <p>The two status codes are the Turbo Drive form contract (ADR-0085): a successful POST MUST
+     * redirect (303), and a 200 carrying the re-rendered form would be silently discarded by Turbo, so
+     * the validation-error re-render carries 422 instead. See
+     * {@code docs/guide/turbo-backend-contract.md}.
      */
-    private String save(String id, Map<String, String> params, Model model) {
+    private ModelAndView save(String id, Map<String, String> params) {
         Map<String, String> state = new HashMap<>(params);
         state.remove("_csrf"); // strip the CSRF token; it is not a form field
 
         SaveResult<Product> result = resource.form().save(repository, id, state);
         if (result.ok()) {
-            return "redirect:" + routes.list();
+            // Success → Post/Redirect/Get. 303 (not Spring's default 302) is the Turbo contract and
+            // forces the follow-up to be a GET.
+            ModelAndView redirect = new ModelAndView("redirect:" + routes.list());
+            redirect.setStatus(HttpStatus.SEE_OTHER);
+            return redirect;
         }
 
+        // Validation error → re-render the form, but with 422 so Turbo renders it in place. A 200 here
+        // would be dropped by Turbo and the user would never see the errors.
         List<FieldError> errors = result.errors();
         AdminFormView form = AdminFormView.of(resource.form(), id != null, state, errors);
-        model.addAttribute("form", form);
-        model.addAttribute("routes", routes);
-        model.addAttribute("action", id == null ? routes.create() : routes.edit(id));
-        return "admin/form";
+        ModelAndView view = new ModelAndView("admin/form", HttpStatus.UNPROCESSABLE_ENTITY);
+        view.addObject("form", form);
+        view.addObject("routes", routes);
+        view.addObject("action", id == null ? routes.create() : routes.edit(id));
+        return view;
+    }
+
+    /** A {@code 303 See Other} redirect to {@code location} (the Turbo-correct success status). */
+    private static ResponseEntity<Void> seeOther(String location) {
+        return ResponseEntity.status(HttpStatus.SEE_OTHER).location(URI.create(location)).build();
     }
 }
