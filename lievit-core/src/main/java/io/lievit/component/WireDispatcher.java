@@ -44,13 +44,18 @@ import io.lievit.wire.synth.SynthesizerRegistry;
  *       (ADR-0001 amendment).
  *   <li>the {@link PayloadGuard} bounds the payload's shape (max updates / calls / nesting) and
  *       enforces the deserialization allowlist before any value is bound (ADR-0013).
- *   <li>the {@link FieldValidator} runs after updates are applied and before any action: if it
- *       returns per-field errors they are written to the effects sink and the actions are skipped.
- *       Validation is server-authoritative; the client renders the errors inline. Idempotent: same
- *       input always produces the same error set.
+ *   <li>the {@link FieldValidator} runs after updates are applied and before any action, and it
+ *       gates ONLY the real form-submit {@code @LievitAction} calls: on a validation error those
+ *       handlers are skipped, but a framework magic mutation ({@code $set} / {@code $toggle}) and an
+ *       inbound {@code @LievitOn} event still run (neither is a form submit). Validation is
+ *       server-authoritative; the client renders the errors inline. Idempotent: same input always
+ *       produces the same error set.
  *   <li>form-object fields ({@link LievitFormObject}) hydrate from a nested map in the snapshot
  *       and accept dotted-path updates (e.g., {@code "form.email"}) in {@code _updates} (ADR-0017).
  *       Only fields declared on the form object class are settable; depth is bounded at one level.
+ *       Each sub-field rides the same {@link SynthesizerRegistry} golden path as a top-level
+ *       {@code @Wire} field (ADR-0020), so a typed sub-field (a {@code LocalDate}, an enum, a
+ *       {@code BigDecimal}) round-trips with no loss, not just String / primitive.
  *   <li>dynamic-object fields ({@link DynamicObject}) are schemaless: a dotted-path update
  *       (e.g., {@code "obj.address.city"}) deep-sets the value, creating the missing nested keys,
  *       and the whole object round-trips as a plain JSON map (the stdClass analogue, issue #137).
@@ -401,7 +406,8 @@ public final class WireDispatcher {
      * Runs one wire call against a rehydrated component.
      *
      * <p>Lifecycle: verify payload → rehydrate → apply updates → <strong>validate</strong> (if
-     * errors: write to effects, skip actions) → invoke actions → re-render → read wire.
+     * errors: write to effects, skip only the form-submit actions) → invoke actions / magic
+     * mutations / inbound events → re-render → read wire.
      *
      * @param metadata the component metadata
      * @param instance a fresh component instance to rehydrate onto
@@ -476,42 +482,63 @@ public final class WireDispatcher {
             applyUpdates(metadata, instance, updates, ctx);
             runFinishes(lifecycle.trigger(LifecyclePhase.UPDATED, ctx));
 
-            // Validate after updates are applied; if errors exist write them to the effects sink
-            // and skip the actions for this call. The re-render still runs so the template can
-            // read the (unchanged) wire state and render the errors from the model.
+            // Validation is INTENT-driven, not shape-driven: it gates ONLY the real form-submit
+            // actions. "Validation failed" means "do not run the form-submit handlers", never "drop
+            // everything the client sent". Three intents share this POST and must not be bundled:
+            //
+            //   - a real form-submit @LievitAction call validates the whole instance and is skipped
+            //     when an error stands (the user is fixing the form before it processes);
+            //   - a framework magic mutation ($set / $toggle, a $-prefixed _calls entry) is a state
+            //     write, not a submit: it applies even when an unrelated @Wire field is invalid (a
+            //     user can expand a panel while an email field is still empty);
+            //   - an inbound dispatched @LievitOn event is not a form submit either: it is delivered
+            //     regardless of validation (the sender's intent does not depend on this component's
+            //     form being valid).
             //
             // Real-time per-field validation (ADR-0038, Livewire validateOnly parity): a live
-            // wire:model update with no action surfaces ONLY the updated fields' errors, never the
-            // still-untouched neighbours' errors (the user has not reached them yet). A submit (a
-            // call) validates everything. The submit path keeps the full bag; the live path filters.
+            // wire:model update with no calls surfaces ONLY the updated fields' errors, never the
+            // still-untouched neighbours'. With no updates there is nothing to validate live.
             boolean liveUpdate = calls.isEmpty() && !updates.isEmpty();
-            Map<String, List<String>> errors =
-                    liveUpdate
-                            ? validateUpdatedFields(instance, updates)
-                            : fieldValidator.validate(instance);
+            boolean hasSubmitCall = calls.stream().anyMatch(call -> !MagicAction.isMagic(call));
+
+            Map<String, List<String>> errors;
             if (liveUpdate) {
+                errors = validateUpdatedFields(instance, updates);
                 // Tell the client exactly which fields this live update revalidated, so it merges:
                 // it clears these fields' prior errors and keeps untouched fields' errors (ADR-0038).
                 effects.setValidatedFields(new ArrayList<>(updates.keySet()));
+            } else if (hasSubmitCall) {
+                errors = fieldValidator.validate(instance);
+            } else {
+                // No form submit and no live update (a magic mutation, an inbound event, or an empty
+                // call): nothing is gated by validation here.
+                errors = Map.of();
             }
             if (errors != null && !errors.isEmpty()) {
                 effects.setValidationErrors(errors);
-            } else {
-                // Phase: CALL per action. A listener may requestEarlyReturn() to short-circuit the
-                // method dispatch (the magic-action seam); the @LievitAction allowlist still applies.
-                for (String call : calls) {
-                    ctx.resetEarlyReturn();
-                    ctx.callName(call);
-                    List<Runnable> finishes = lifecycle.trigger(LifecyclePhase.CALL, ctx);
-                    if (!ctx.earlyReturn()) {
-                        effects.captureReturn(invokeAction(metadata, instance, call));
-                    }
-                    runFinishes(finishes);
-                }
-                // Inbound events (ADR-0030): invoke every matching @LievitOn listener with its
-                // payload. A matched event counts as a rendering action so the component re-renders.
-                invokeInboundEvents(metadata, instance, inboundEvents, ctx);
             }
+            // A real form-submit handler is skipped while validation errors stand; a magic mutation
+            // and an inbound event run regardless (they are not form submits).
+            boolean submitBlocked = hasSubmitCall && errors != null && !errors.isEmpty();
+
+            // Phase: CALL per action, in order. A listener may requestEarlyReturn() to short-circuit
+            // the method dispatch (the magic-action seam); the @LievitAction allowlist still applies.
+            for (String call : calls) {
+                if (submitBlocked && !MagicAction.isMagic(call)) {
+                    continue; // a real form-submit action waits for the form to validate
+                }
+                ctx.resetEarlyReturn();
+                ctx.callName(call);
+                List<Runnable> finishes = lifecycle.trigger(LifecyclePhase.CALL, ctx);
+                if (!ctx.earlyReturn()) {
+                    effects.captureReturn(invokeAction(metadata, instance, call));
+                }
+                runFinishes(finishes);
+            }
+            // Inbound events (ADR-0030): invoke every matching @LievitOn listener with its payload.
+            // A matched event counts as a rendering action so the component re-renders. An event is
+            // not a form submit, so it is delivered independent of this component's validation.
+            invokeInboundEvents(metadata, instance, inboundEvents, ctx);
 
             // Phase: RENDER (skippable). A listener may requestSkipRender() (the renderless seam);
             // the render hook then does not run. Children are still re-declared on a render.
@@ -617,7 +644,11 @@ public final class WireDispatcher {
         for (Map.Entry<String, Object> sub : nestedMap.entrySet()) {
             FormField formField = formMeta.fields().get(sub.getKey());
             if (formField != null) {
-                formField.write(formInstance, sub.getValue());
+                // Symmetric with rehydrate() of a top-level @Wire field: a @w tuple reconstructs to
+                // the exact type (a LocalDate, an enum, a BigDecimal with its scale), a plain scalar
+                // passes through, so a typed form field round-trips instead of failing Field.set
+                // (ADR-0020). The form object is no longer String/primitive-only.
+                formField.write(formInstance, synthesizers.hydrate(sub.getValue()));
             }
         }
         field.write(componentInstance, formInstance);
@@ -777,7 +808,11 @@ public final class WireDispatcher {
             formInstance = formMeta.newInstance();
             field.write(instance, formInstance);
         }
-        formField.write(formInstance, value);
+        // Symmetric with applyTopLevelUpdate of a top-level @Wire field: a raw wire:model scalar (a
+        // date input string, a select enum name) is coerced to the form field's declared type before
+        // binding (ADR-0020), so a typed form field accepts a LocalDate / enum / BigDecimal instead
+        // of throwing on Field.set with a String.
+        formField.write(formInstance, synthesizers.hydrateForUpdate(formField.type(), value));
     }
 
     /**
@@ -949,7 +984,10 @@ public final class WireDispatcher {
             }
         } else {
             for (FormField formField : formMeta.fields().values()) {
-                nested.put(formField.name(), formField.read(formInstance));
+                // Symmetric with readWire() of a top-level @Wire field: a typed value (LocalDate,
+                // enum, BigDecimal) dehydrates to a @w tuple that survives the codec and rehydrates
+                // to the exact type, a scalar passes through unchanged (ADR-0020).
+                nested.put(formField.name(), synthesizers.dehydrate(formField.read(formInstance)));
             }
         }
         return nested;

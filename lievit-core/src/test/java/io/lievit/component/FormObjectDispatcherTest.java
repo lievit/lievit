@@ -7,6 +7,8 @@ package io.lievit.component;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -365,5 +367,106 @@ class FormObjectDispatcherTest {
         @Wire
         @io.lievit.LievitProperty(locked = true)
         ServerOnlyForm form = new ServerOnlyForm();
+    }
+
+    // --- Typed form fields round-trip through the synthesizer registry (ADR-0020) ---------------
+
+    enum Priority {
+        LOW,
+        HIGH
+    }
+
+    public static class TypedForm implements LievitFormObject {
+        public LocalDate due = LocalDate.of(2026, 1, 1);
+        public Priority priority = Priority.LOW;
+        public BigDecimal amount = new BigDecimal("0.00");
+    }
+
+    @LievitComponent(template = "typed")
+    static class TypedComponent {
+        @Wire
+        TypedForm form = new TypedForm();
+
+        @LievitAction
+        void noop() {}
+    }
+
+    /**
+     * @spec.given a TypedComponent whose form holds a LocalDate, an enum, and a scaled BigDecimal
+     * @spec.when  the wire state is dehydrated (mount) and fed straight back as a snapshot (rehydrate)
+     * @spec.then  every typed sub-field reconstructs to its exact value: a form object is no longer
+     *     String/primitive-only, it round-trips typed fields through the synthesizer registry
+     *     (ADR-0020, the kit-CRUD blocker)
+     * @spec.adr   ADR-0020
+     */
+    @Test
+    void typed_form_fields_round_trip_through_dehydrate_and_rehydrate() {
+        ComponentMetadata meta = ComponentMetadata.of(TypedComponent.class);
+        TypedComponent original = new TypedComponent();
+        original.form.due = LocalDate.of(2026, 6, 23);
+        original.form.priority = Priority.HIGH;
+        original.form.amount = new BigDecimal("19.90");
+
+        Map<String, Object> dehydrated = dispatcher.mount(meta, original).wire();
+
+        TypedComponent target = new TypedComponent();
+        dispatcher.call(meta, target, dehydrated, Map.of(), List.of());
+
+        assertThat(target.form.due).isEqualTo(LocalDate.of(2026, 6, 23));
+        assertThat(target.form.priority).isEqualTo(Priority.HIGH);
+        // Exact scale preserved (the BigDecimal-loses-scale bug is gone): "19.90", not 19.9.
+        assertThat(target.form.amount).isEqualByComparingTo("19.90");
+        assertThat(target.form.amount.scale()).isEqualTo(2);
+    }
+
+    /**
+     * @spec.given a TypedComponent and a dotted-path update carrying raw wire:model strings for a
+     *     date, an enum name, and a decimal
+     * @spec.when  the dispatcher applies the updates
+     * @spec.then  each raw string is coerced to the form field's declared type before binding (the
+     *     LocalDate / enum / BigDecimal are set, not a String into a typed field): the update path
+     *     reuses the same synthesizer golden path as a top-level @Wire field (ADR-0020)
+     * @spec.adr   ADR-0020
+     */
+    @Test
+    void dotted_path_update_coerces_raw_strings_to_the_typed_form_fields() {
+        ComponentMetadata meta = ComponentMetadata.of(TypedComponent.class);
+        TypedComponent instance = new TypedComponent();
+        Map<String, Object> snapshotWire = dispatcher.mount(meta, new TypedComponent()).wire();
+        Map<String, Object> updates = Map.of(
+                "form.due", "2026-12-31",
+                "form.priority", "HIGH",
+                "form.amount", "42.50");
+
+        dispatcher.call(meta, instance, snapshotWire, updates, List.of());
+
+        assertThat(instance.form.due).isEqualTo(LocalDate.of(2026, 12, 31));
+        assertThat(instance.form.priority).isEqualTo(Priority.HIGH);
+        assertThat(instance.form.amount).isEqualByComparingTo("42.50");
+        assertThat(instance.form.amount.scale()).isEqualTo(2);
+    }
+
+    /**
+     * @spec.given a TypedComponent with typed form fields set to known values
+     * @spec.when  the wire state is dehydrated to the snapshot
+     * @spec.then  each typed sub-field is emitted as a @w tuple (not a bare value the codec would
+     *     mangle), so it survives the JSON snapshot and rehydrates exactly (ADR-0020)
+     * @spec.adr   ADR-0020
+     */
+    @Test
+    void typed_form_fields_dehydrate_to_tuple_envelopes() {
+        ComponentMetadata meta = ComponentMetadata.of(TypedComponent.class);
+        TypedComponent original = new TypedComponent();
+        original.form.amount = new BigDecimal("7.25");
+
+        Map<String, Object> wire = dispatcher.mount(meta, original).wire();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> formMap = (Map<String, Object>) wire.get("form");
+        // A typed value dehydrates to a @w-tagged tuple map, never the bare typed object.
+        assertThat(formMap.get("amount")).isInstanceOf(Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> amountTuple = (Map<String, Object>) formMap.get("amount");
+        assertThat(amountTuple).containsKey("@w");
     }
 }

@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The validation gate is now intent-driven, not shape-driven** (three silent-drop bugs collapsed
+  into one correct decision): a failing `@Wire`-field validation used to skip a single `else` block
+  that bundled three unrelated intents (real form-submit actions, framework magic mutations, inbound
+  events), so any unrelated invalid field silently dropped all three. The dispatcher now gates ONLY
+  the real form-submit `@LievitAction` calls. A magic `$set` / `$toggle` mutation applies regardless
+  of an unrelated invalid field (the "click expand, nothing happens because an email field is empty"
+  bug is gone), and an inbound dispatched `@LievitOn` event is delivered independent of validation
+  (an event is not a form submit). One POST carrying a magic mutation and a real submit gates each
+  intent independently. Net less code: the gate no longer bundles three concerns behind one `if`.
+- **`LievitFormObject` typed fields now round-trip without loss** (the kit-CRUD blocker): the
+  form-object dehydrate / rehydrate / dotted-update paths went through `FormField.read` / `write`
+  (numeric coercion only), so a typed sub-field bypassed the synthesizer registry: a `LocalDate`
+  threw on the raw `Field.set`, a `BigDecimal` lost its scale, an enum could not bind. The three
+  paths now reuse the existing synthesizer golden path (`synthesizers.dehydrate` / `hydrate` /
+  `hydrateForUpdate(formField.type(), value)`), the same machinery a top-level `@Wire` field uses
+  (ADR-0020), so a form object can hold typed fields, not just String / primitive.
+
 ### Changed
 
 - **`dropdown-menu` gains an optional `triggerClass` param** (backflow from gest, dogfood-then-extract):
