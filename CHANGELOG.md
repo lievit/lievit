@@ -37,6 +37,17 @@ All notable changes to this project are documented here. Format follows
   + void prepare-hook, or empty template + markup-returning render) are unaffected.
 ### Security
 
+- **Prototype pollution closed in the wire-snapshot surgical merge** (`lievit-ui/runtime/merge.ts`,
+  ADR-0024 / #87): `writePath` walked a dot-keyed path and created intermediate objects without
+  rejecting prototype-chain segments, so a path whose segment was `__proto__` (or `constructor` /
+  `prototype`) wrote onto `Object.prototype` instead of the snapshot. `writePath` is fed `pending`
+  field paths reconciled against the server snapshot on every wire response, partly attacker-
+  influenced, so this was a real prototype-pollution vector, not theoretical. `merge.ts` now refuses
+  any path containing a forbidden segment: `writePath` is a no-op on such a path, `readPath` reports
+  it as absent (`undefined`), matching the existing missing-segment contract, so the legitimate #87
+  reconciliation, dot-keyed nesting, array-index removal and key-order / sparse-key handling are
+  unchanged. Tests pin that `__proto__.polluted` and `constructor.prototype.x` (anywhere in the path)
+  leave `Object.prototype` clean and never throw, while legitimate paths still merge.
 - **Reserved-key smuggling at the dehydrate/hydrate boundary is closed** (`SynthesizerRegistry`,
   ADR-0020): the typed-tuple envelope was detected purely structurally, so a client-controlled plain
   `Map` or `DynamicObject` whose key was literally `@w` (or any reserved `@`-sigil key, e.g. `@memo`)
