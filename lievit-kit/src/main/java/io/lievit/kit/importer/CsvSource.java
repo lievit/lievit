@@ -4,21 +4,28 @@
  */
 package io.lievit.kit.importer;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+
 /**
- * A minimal, dependency-free CSV parser for an uploaded import file: detects the delimiter (comma /
- * semicolon / tab), extracts the header row, and yields each data row as a header→cell map. Handles
- * the common dialects an admin upload throws at it: quoted fields with embedded delimiters and
- * newlines, doubled quotes ({@code ""}) as an escaped quote, and a leading UTF-8 BOM.
+ * A CSV parser for an uploaded import file: detects the delimiter (comma / semicolon / tab),
+ * extracts the header row, and yields each data row as a header→cell map. Handles the dialects an
+ * admin upload throws at it: quoted fields with embedded delimiters and newlines, doubled quotes
+ * ({@code ""}) as an escaped quote, and a leading UTF-8 BOM.
  *
- * <p>Deliberately small: not a full RFC-4180 library, but enough for the import flow's "upload a
- * spreadsheet export" case. An adopter who needs more wires their own {@link Importer} feeding rows
- * from a fuller parser.
+ * <p>The byte-level parsing is Apache Commons CSV's {@link CSVParser} over {@link CSVFormat#RFC4180}
+ * (ADR-0084): RFC-4180 quoting/escaping/embedded-delimiter/embedded-newline handling is the
+ * library's, not hand-rolled. This type owns only the kit concerns the library does not: stripping a
+ * leading UTF-8 BOM and auto-detecting the delimiter from the header line.
  */
 public final class CsvSource {
 
@@ -60,6 +67,31 @@ public final class CsvSource {
         List<String> headers = records.get(0);
         List<List<String>> dataRows = records.subList(1, records.size());
         return new CsvSource(headers, dataRows, delimiter);
+    }
+
+    /**
+     * Tokenizes CSV text into records via Apache Commons CSV's {@link CSVParser} (ADR-0084): RFC-4180
+     * quoting/escaping, embedded delimiters and newlines, and doubled-quote unescaping are the
+     * library's. Empty lines are ignored, matching the original "skip blank rows" behaviour. The
+     * first record (when present) is the header row.
+     */
+    private static List<List<String>> tokenize(String text, char delimiter) {
+        CSVFormat format =
+                CSVFormat.RFC4180
+                        .builder()
+                        .setDelimiter(delimiter)
+                        .setIgnoreEmptyLines(true)
+                        .get();
+        List<List<String>> records = new ArrayList<>();
+        try (CSVParser parser = CSVParser.parse(text, format)) {
+            for (CSVRecord record : parser) {
+                records.add(List.of(record.values()));
+            }
+        } catch (IOException e) {
+            // Parsing an in-memory String never does real I/O. Surface defensively.
+            throw new UncheckedIOException(e);
+        }
+        return records;
     }
 
     /** @return the header column names, in file order */
@@ -126,59 +158,5 @@ public final class CsvSource {
             }
         }
         return best;
-    }
-
-    private static List<List<String>> tokenize(String text, char delimiter) {
-        List<List<String>> records = new ArrayList<>();
-        List<String> current = new ArrayList<>();
-        StringBuilder field = new StringBuilder();
-        boolean inQuotes = false;
-        boolean rowHasContent = false;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (inQuotes) {
-                if (c == '"') {
-                    if (i + 1 < text.length() && text.charAt(i + 1) == '"') {
-                        field.append('"');
-                        i++;
-                    } else {
-                        inQuotes = false;
-                    }
-                } else {
-                    field.append(c);
-                }
-                continue;
-            }
-            if (c == '"') {
-                inQuotes = true;
-                rowHasContent = true;
-            } else if (c == delimiter) {
-                current.add(field.toString());
-                field.setLength(0);
-                rowHasContent = true;
-            } else if (c == '\n' || c == '\r') {
-                if (c == '\r' && i + 1 < text.length() && text.charAt(i + 1) == '\n') {
-                    i++;
-                }
-                current.add(field.toString());
-                field.setLength(0);
-                if (rowHasContent || current.size() > 1 || !current.get(0).isEmpty()) {
-                    records.add(new ArrayList<>(current));
-                }
-                current.clear();
-                rowHasContent = false;
-            } else {
-                field.append(c);
-                rowHasContent = true;
-            }
-        }
-        // Flush the trailing field/row if the file did not end with a newline.
-        if (field.length() > 0 || !current.isEmpty()) {
-            current.add(field.toString());
-            if (rowHasContent || current.size() > 1 || !current.get(0).isEmpty()) {
-                records.add(new ArrayList<>(current));
-            }
-        }
-        return records;
     }
 }

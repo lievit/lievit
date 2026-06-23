@@ -78,6 +78,23 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **`lievit-kit` CSV is now RFC-4180 via Apache Commons CSV; the hand-rolled CSV mechanics are
+  retired** (ADR-0084: in-house CSV is data-critical, the quoting/escaping/embedded-delimiter/newline
+  edge cases silently corrupt data, so it failed the cost test). The byte-level read/write moved off
+  the three hand-rolled code paths onto the canonical library: `CsvFormat.assemble` (export) now
+  serializes through `CSVPrinter` over `CSVFormat.RFC4180` (configured with the dialect's separator /
+  quote / line ending), `CsvSource` (import) parses through `CSVParser`, and `ImportAction`'s
+  failed-rows report writes through `CSVPrinter` instead of its own `csvLine`/`escape`. The public
+  API is unchanged: the `ExportColumn`/`ImportColumn` column model, the `Exporter`/`Importer`
+  contracts, the `ExportAction`/`ImportAction`/`ExportBulkAction` surface, the `CsvFormat` dialect
+  presets (`standard()`/`excelItalian()`/`tabSeparated()`), the UTF-8 BOM option, and the delimiter
+  auto-detection all keep their signatures and behaviour. One visible improvement falls out of the
+  correct library: a field with leading/trailing spaces is now quoted on export so a trimming reader
+  cannot eat the spaces (the old writer left it unquoted). Added a round-trip suite proving an
+  embedded delimiter, an embedded quote, an embedded newline, surrounding spaces, an empty field, and
+  a formula-looking value survive export→import losslessly under both the comma and the semicolon
+  dialect. Pulls in `org.apache.commons:commons-csv:1.14.1` (Apache-2.0; not managed by the Spring
+  Boot BOM, so version-pinned in `lievit-kit/pom.xml`).
 - **Removed the vestigial Lit references from `lievit-ui` and the README** (an honesty fix: Lit was
   deliberately dismantled but two surfaces still advertised it). The `lievit-ui` client is the
   dependency-free TypeScript runtime; nothing in the shipped code imports Lit, and the test suite
