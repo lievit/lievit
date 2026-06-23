@@ -5,14 +5,15 @@
 # Spec — dialog (EXEMPLAR: overlay, WIRE + focus-trap + popover seam)
 
 - **tier**: WIRE + ENH (`focus-trap.enhancer.ts` + the popover/overlay seam)
-- **priority**: P0
+- **build sequence**: S0  (every component ships — no MMP cut, `03`)
 - **status (current)**: COVERED (re-forge of `registry/jte/modal.jte` + `alert-dialog.jte`)
-- **@provenance**:
-    - a11y: WAI-ARIA APG Dialog (modal) + **React Aria `useDialog` / `FocusScope` interaction spec**
-      (Apache-2.0, adapted — transcribed into the template + `focus-trap` enhancer, NOT copied as React code)
-    - inventory: Ant Design Modal (MIT, design-adapted: sizes, footer actions, closable; CUT
-      confirm()-imperative-API → compose `alert-dialog` instead)
-    - styling: ORIGINAL over `--lv-*` tokens; visual rhythm inspired by Tailwind UI (NO code copied)
+- **credits** (maintainer note, not a legal record — `02` is "no literal code-copy", output is original):
+    - a11y: WAI-ARIA APG Dialog (modal) + **react-aria `useDialog` / `FocusScope` interaction model** as the
+      pattern reference (the focus order + trap + ARIA wiring, transcribed into ORIGINAL template +
+      `focus-trap` enhancer; no react-aria source copied)
+    - inventory: Ant Design Modal as inventory reference (sizes, footer actions, closable; the
+      confirm()-imperative-API maps to composing `alert-dialog` instead)
+    - styling: ORIGINAL generation over `--lv-*` (OKLCH) tokens; look inspired by Tailwind UI (NO code copied)
 
 ## 1. What it is
 A modal dialog: an overlay scrim + a centered panel whose OPEN-STATE is a server fact (`@Wire boolean open`)
@@ -104,7 +105,8 @@ none (the overlay tokens `--lv-color-overlay` + `--lv-z-overlay/modal` already e
 
 ## 8. Agent instructions
 Style ORIGINALLY over `--lv-*`; read public APG Dialog + React Aria `useDialog`/`FocusScope` SPEC + Ant
-Design Modal feature set from training; do NOT reproduce Tailwind UI code. Compose `focus-trap` + the popover
+Design Modal feature set from training; never paste literal source from react-aria / ant-design / Tailwind UI
+(the one bright line, `02`) — generate original code. Compose `focus-trap` + the popover
 seam — do NOT hand-roll focus trapping or scroll lock (the single-source rule; drawer/sheet/slide-over depend
 on the SAME enhancer being correct). The dialog body is OWNED template markup, NOT a `Content` slot (WIRE has
 none — server-first refactor blueprint §1.b). Render the panel as a JTE boolean-attribute conditional

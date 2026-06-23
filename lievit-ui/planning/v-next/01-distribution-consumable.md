@@ -2,169 +2,162 @@
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 -->
-# 01 — Distribution: consumable by IMPORT (RFC 0036, the structural delta)
+# 01 — Distribution: ONE Maven artifact, consumed by IMPORT (RFC 0036)
 
-STATUS: blueprint, 2026-06-23. The DECISION is locked (RFC 0036, Francesco): the DEFAULT is non-copy-in
-(import / dependency); copy-in (the `lievit add` CLI registry) stays as the OPTIONAL opt-out (shadcn model,
-no vendor lock-in). This doc is the buildable plan to make import-by-default real, with the hard parts flagged.
+STATUS: blueprint, 2026-06-23. **DECIDED (Francesco): lievit ships as a Java/Maven LIBRARY, not an
+npm package.** The adopter (gest, or any Spring app) adds ONE Maven dependency and gets EVERYTHING:
+the JTE primitive templates, the client JS runtime (served from inside the jar), and the WIRE Java
+types. No npm. No copy-in by default. Copy-in (the `lievit add` CLI registry) stays as the OPTIONAL
+opt-out (shadcn model, no vendor lock-in).
 
-Docs-first basis (verified 2026-06-23 via context7 `/casid/jte`): JTE supports precompiling templates from a
-`sourceDirectory` and shipping a **self-contained jar with the precompiled `.class` (+ `.bin`) files**, loaded
-at runtime by `TemplateEngine.createPrecompiled(ContentType.Html)` straight from the application classloader.
-That is the mechanism the import path is built on. The blocker the RFC found ("lievit-ui ships no `.jte` in
-any jar") is real but solvable; below is how.
+The DEFAULT is import: `io.github.lievit:lievit-ui:<version>` and you are done. The JTE half is
+imported via **Path B**, PROVEN by the Phase-0 spike (below). The runtime ships as a pre-built JS
+bundle resource INSIDE the same jar (webjar-style), served by lievit's Spring integration. So the
+adopter gets templates + runtime + Java from ONE coordinate.
 
-## 0. The two channels, the two artifacts
+Docs-first basis (verified 2026-06-23 via context7 `/casid/jte`): JTE resolves template-to-template
+calls (`@template.lievit.button(...)`) at the CALLER's compile time from the `.jte` SOURCE. A jar that
+ships only precompiled `.class` files cannot satisfy a caller's `@template.lievit.*` reference, because
+the caller's JTE compiler needs the `.jte` source to resolve the cross-template call. That single fact
+is why Path A does not work and Path B does — see §1.
 
-lievit-ui has TWO kinds of source to distribute, and they ship through two different registries:
+## 0. One artifact, three payloads (no second registry)
 
-| Channel | What | Today (RFC 0036 finding) | v-next target |
+lievit-ui has three kinds of source to distribute. v-next ships ALL of them in ONE Maven jar:
+
+| Payload | What | Today (RFC 0036 finding) | v-next target (in the ONE jar) |
 |---|---|---|---|
-| **JTE primitives** (PARTIAL `.jte` + WIRE `.jte` + the WIRE Java) | the server-rendered components | only in `registry/` as copy-in source; NOT in any Maven jar | a **published Maven jar** the adopter precompiles against (import) |
-| **TS runtime** (`runtime/**` + the `*.enhancer.ts`) | the dependency-free client glue | only in `registry/`; `package.json` is `private:true`, no `exports`, no npm path | a **published npm package** with `exports` (import) |
+| **JTE primitives** (PARTIAL + WIRE `.jte`) | the server-rendered components | only in `registry/` as copy-in source; NOT in any jar | the `.jte` **SOURCES shipped as jar resources**, unpacked + precompiled by the adopter (Path B) |
+| **WIRE Java** (`<Name>Component.java`) | the typed server half | already import-native via JitPack | unchanged: normal Java classes in the jar |
+| **Client runtime** (`runtime/**` + enhancers) | the dependency-free client glue | only in `registry/`; `package.json` `private:true` | a **pre-built JS bundle, shipped as a jar resource** (webjar-style), served by lievit's Spring integration |
 
-Copy-in (`lievit add <component>`) stays for BOTH, as opt-out, unchanged in mechanism (ADR-0009 stays valid;
-RFC 0036 demotes it from default to option). An adopter who wants to own + edit a component still runs the CLI.
+There is no npm package and no separate JS registry to operate. The runtime is a build ARTIFACT
+produced inside lievit's build and embedded in the jar; the adopter never touches a JS toolchain.
+
+Copy-in (`lievit add <component>`) stays for the JTE + runtime source, as opt-out, unchanged in
+mechanism (ADR-0009 stays valid; RFC 0036 demotes it from default to option). An adopter who wants to
+OWN + edit a component still runs the CLI and gets the source copied into its tree.
 
 ---
 
-## 1. JTE primitives as a precompilable jar artifact (the hard one)
+## 1. JTE primitives by import: Path B, confirmed by the spike
 
 ### 1.a The target
 
-`gest` (and any adopter) adds a Maven dependency on `io.github.lievit:lievit-ui:<version>` and gets the
-primitive `.jte` templates resolvable at build + runtime WITHOUT copying them into `apps/gest/src/main/jte/`.
-A change to a primitive = change it in lievit, publish, bump the pin (the upstream-first cycle of ADR
+`gest` (and any adopter) adds the Maven dependency and references `@template.lievit.button(...)` /
+`@template.kit.table(...)` WITHOUT copying any `.jte` into `apps/gest/src/main/jte/`. A change to a
+primitive = change it in lievit, publish, bump the pin (the upstream-first cycle of ADR
 sw-construction-004 + RFC 0036). Today gest vendors copies that drift silently; this kills the drift.
 
-### 1.b What JTE actually supports (docs-first, the load-bearing facts)
+### 1.b Why Path A (precompiled classes) does NOT work — the spike's finding
 
-1. **Precompile from a filesystem `sourceDirectory`** via `jte-maven-plugin` `precompile` goal → emits
-   template `.java`, javac-compiles to `.class` under a `targetDirectory` (`jte-classes`).
-2. **Ship those `.class` (+ `.bin` for binary templates) inside a jar** ("self-contained JAR with
-   precompiled templates", documented for Gradle; the Maven equivalent is adding `jte-classes` to the jar
-   via `maven-resources`/`build-helper`).
-3. **Load them at runtime** with `TemplateEngine.createPrecompiled(ContentType.Html)` — it reads the
-   precompiled template classes from the **application classloader**, i.e. transitively from any jar on the
-   classpath. This is the seam that makes a jar-shipped template resolvable by an adopter with NO copy.
+Path A would have lievit ship its templates as PRECOMPILED `.class` files and let the adopter's engine
+find them on the classpath via `createPrecompiled`. The spike disproved it for our case:
 
-### 1.c The two viable build paths (and which is canonical)
+- JTE resolves `@template.lievit.button(...)` at the CALLER's COMPILE time, from the `.jte` SOURCE of
+  the called template. The adopter's `jte-maven-plugin` precompile pass needs `lievit/button.jte`
+  present as source to generate the call site. A jar with only lievit's precompiled `.class` files does
+  not expose that source, so the adopter's compile of its OWN templates cannot resolve the cross-jar
+  `@template.lievit.*` call.
+- `createPrecompiled` resolves a precompiled template the RUNTIME can render directly, but it does not
+  make lievit's templates compose-able from the adopter's not-yet-compiled templates. The compose seam
+  is compile-time, in the adopter's tree.
 
-**Path A — lievit-ui ships its OWN precompiled templates in its jar; the adopter's engine finds them on
-the classpath.**
-- lievit-ui's Maven build precompiles `registry/jte/**` + `registry/wire/**/*.jte` to `jte-classes`, packs
-  them into `lievit-ui.jar`.
-- gest stays on `createPrecompiled(ContentType.Html)` (it already runs precompiled in prod for parity — the
-  deploy lesson). At runtime gest's engine loads BOTH gest's own precompiled templates AND lievit-ui's from
-  the classpath, because precompiled templates are just classes.
-- **Hard part (flag)**: the template-NAME namespace. A precompiled template's class name is derived from its
-  path under the `sourceDirectory`. gest references `@template.lievit.button(...)` → expects the template at
-  `lievit/button.jte` in ITS source tree. For the jar's precompiled class to answer that name, the jar must
-  precompile its templates under the SAME logical root (`lievit/...`, `kit/...`) the adopter references, and
-  the two precompiled sets must not COLLIDE on class names. This needs verification on a spike: do two
-  precompiled `jte-classes` sets (gest's + the jar's) coexist on one classpath without name clash, and does
-  `createPrecompiled` resolve `lievit/button` to the jar's class? **This is the #1 build risk; spike it in
-  Phase 0 before committing.**
+So precompiled-classes-in-the-jar is a dead end for a template LIBRARY whose templates are called by
+the adopter's templates. The spike settled this empirically; do not relitigate from first principles.
 
-**Path B — lievit-ui ships the `.jte` SOURCES as jar resources; the adopter precompiles them together with
-its own, via a multi-root `sourceDirectory`.**
-- lievit-ui.jar contains `src/main/jte/lievit/**` etc. as plain resources (`.jte` files under `META-INF` or
-  a resources root).
-- gest's `jte-maven-plugin` precompiles from a `sourceDirectory` that includes BOTH gest's templates AND the
-  unpacked jar templates. The jar templates are unpacked (e.g. `maven-dependency-plugin:unpack` of the
-  `.jte` resources into `target/jte-sources/lievit/...`) before precompile, then precompiled as one tree.
-- **Hard part (flag)**: the unpack step is a build wart (RFC 0036 noted `jte-maven-plugin` precompiles from
-  ONE filesystem `sourceDirectory`, no documented jar mode). It works (unpack → single root → precompile) but
-  it is non-zero-config. It is also the SAFER path because the adopter compiles everything as one coherent
-  tree (no two-precompiled-set collision risk of Path A).
+### 1.c Path B (the confirmed model): the jar ships `.jte` SOURCES, the adopter precompiles them with its own
 
-**Recommendation**: spike BOTH in Phase 0. Path A is cleaner IF the namespace coexistence holds; Path B is
-the reliable fallback (unpack-then-precompile is deterministic and a Makefile target hides the wart). Lock
-the choice in an ADR (`sw-architecture-007`, the RFC's promotion target) after the spike. Do NOT pick from
-first principles — this is exactly the "docs-first on the precompile config BEFORE executing" the RFC demands.
+- **lievit-ui.jar contains the `.jte` SOURCES** as jar resources (under a resources root, e.g.
+  `META-INF/lievit/jte/lievit/**` + `.../kit/**`).
+- The adopter's build **unpacks** those `.jte` sources into its precompile source tree
+  (`maven-dependency-plugin:unpack` → `target/jte-sources/lievit/...`, `kit/...`) BEFORE the JTE
+  precompile goal runs.
+- The adopter's `jte-maven-plugin` precompiles ONE coherent `sourceDirectory` that includes BOTH its
+  own templates AND the unpacked lievit templates. Everything compiles as one tree; the adopter's
+  `@template.lievit.button(...)` resolves against the unpacked `lievit/button.jte`. In prod the adopter
+  runs precompiled (gest already does, for parity — the deploy lesson).
+- **Namespace coexistence is a NON-ISSUE.** Each logical root (`lievit/`, `kit/`, the adopter's own)
+  becomes a Java SUB-PACKAGE of the generated template classes. `lievit/button.jte` →
+  `gg.jte.generated...lievit.JtebuttonGenerated`; the adopter's `home/dashboard.jte` →
+  `...home.Jte...`. Different packages, no class-name collision. The two-precompiled-set collision that
+  worried Path A simply does not arise, because there is only ONE precompile pass over one tree.
 
-### 1.d The WIRE Java half (already solved)
+### 1.d The build step (deterministic, hideable)
 
-The WIRE component Java classes (`<Name>Component.java`) already ship in the lievit-ui jar path via JitPack
-(gest already pins lievit Java types this way — RFC 0036 Stadio 0). No change needed: the Java half is
-import-native today. Only the `.jte` half is the gap, and §1.c closes it.
+The unpack-then-precompile is the one extra build step. It is fully deterministic (unpack the jar's
+`.jte` resources → single source root → precompile → done) and hidden behind a **Maven profile / Make
+target** so the adopter does not hand-wire it:
 
-### 1.e The anti-shadow guard (RFC 0036 Stadio 3, KEEP)
+- a `lievit-import` Maven profile binds `maven-dependency-plugin:unpack` (lievit's `.jte` resources) to
+  `generate-sources`, just before `jte-maven-plugin:precompile`.
+- a `make code-docs`-style target (or the adopter's existing precompile step) drives it; the wart is a
+  one-time config, not a per-build manual action. Lock the precise binding in the ADR
+  (`sw-architecture-007`, the RFC's promotion target).
 
-A CI check FAILS if an adopter ships a `.jte` (or TS module) that SHADOWS a lievit primitive of the same
-logical name. Default = consume-canonical; the escape-hatch (a genuine domain customization, or an adopter
-who deliberately opted into copy-in for one component) is DECLARED explicitly (a marker comment / registry
-entry), never a silent copy. This is the poka-yoke that makes "you cannot diverge in silence" true. It is
-already active in gest (RFC 0036); v-next keeps it as the consumption contract for every `apps/*`.
+### 1.e The WIRE Java half (already solved)
+
+The WIRE component Java classes (`<Name>Component.java`) already ship in the jar (gest already pins
+lievit Java types via JitPack — RFC 0036 Stadio 0). No change: the Java half is import-native today.
+Only the `.jte` half needed the spike, and §1.c closes it.
+
+### 1.f The anti-shadow guard (RFC 0036 Stadio 3, KEEP)
+
+A CI check FAILS if an adopter ships a `.jte` (or runtime module) that SHADOWS a lievit primitive of
+the same logical name. Default = consume-canonical; the escape-hatch (a genuine domain customization,
+or an adopter who deliberately opted into copy-in for one component) is DECLARED explicitly (a marker
+comment / registry entry), never a silent copy. This is the poka-yoke that makes "you cannot diverge
+in silence" true. It is already active in gest (RFC 0036); v-next keeps it as the consumption contract
+for every `apps/*`.
 
 ---
 
-## 2. The TS runtime as an npm package (the tractable one)
+## 2. The client runtime: a jar-served JS bundle (no npm)
 
 ### 2.a The target
 
-`gest` adds `@lievit/ui` (or `lievit-ui`) as an npm dependency, imports `startLievit` + the features +
-the enhancers, and deletes `apps/gest/frontend/src/lievit/**`. The runtime is the kept DEPENDENCY (it always
-was, per the server-first blueprint §1.c); npm is its canonical channel. JitPack=Maven-only was the historical
-reason it was vendored; npm fixes that.
+`gest` gets the client runtime from the SAME Maven dependency. lievit's Spring integration serves the
+pre-built bundle as a static resource (webjar-style: a `/lievit/lievit-runtime.js` route, or a
+`classpath:/META-INF/resources/lievit/` mapping picked up by Spring's resource handling). gest's
+template includes `<script src="/lievit/runtime.js">` (or imports it via its existing bundler if it
+prefers), and deletes `apps/gest/frontend/src/lievit/**`. No `@lievit/ui` npm dependency, no copy-in.
 
 ### 2.b The concrete build changes
 
-- **`lievit-ui/package.json`**: flip `private:true` → publishable. Add:
-  - `"name": "@lievit/ui"` (or the chosen scope), `"version"` (SemVer, see §2.d), `"license": "Apache-2.0"`,
-    `"type": "module"`.
-  - `"exports"` map: a main barrel (`startLievit` + `installAllFeatures`), plus subpath exports for the
-    enhancers so an adopter imports only what it uses (tree-shakeable):
-    ```json
-    "exports": {
-      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-      "./features": { "import": "./dist/features/index.js" },
-      "./enhancers/*": { "import": "./dist/enhancers/*.js" }
-    }
-    ```
-  - `"files": ["dist"]`, `"sideEffects": false` (the runtime is mostly pure; the feature-install modules that
-    register directives are the exception — mark those explicitly so tree-shaking doesn't drop a needed
-    `installAllFeatures` side effect). **Flag**: audit which modules have register-on-import side effects
-    before setting `sideEffects:false` globally; an over-broad `false` would tree-shake away the directive
-    registrations. This is the #1 npm-packaging risk.
-- **Build**: add a bundler/`tsc` build emitting `dist/` (ESM + `.d.ts`). The runtime is already
-  dependency-free + strict-CSP-safe (ADR-0019), so the build is plain `tsc` (or `tsup`/`esbuild` for the
-  barrel) with `declaration:true`. No transpilation gymnastics. Keep the 60-80 kb budget (ADR-0019); a
-  bundle-size check in CI guards it.
-- **Publish**: a `RELEASING.md`-driven `npm publish` (the repo already has a `RELEASING.md` for the Maven
-  side; add the npm flow). [OPEN DECISION D4: publish to the public npm registry, or to GitHub Packages, or
-  a git-dep pinned to a sha as the BRIDGE until npm-publish is set up? RFC 0036 names "a git-dep pinned or a
-  re-vendor scripted+gated as the bridge". Recommendation: ship the git-dep-pinned bridge first (zero
-  registry setup, unblocks gest immediately), then public npm once the package shape is stable. Flag for
-  Francesco — it gates whether gest can de-vendor the runtime in the same cycle as the jte jar.]
+- **lievit's build produces the bundle as an artifact**: the existing TS sources (`runtime/**` +
+  the `*.enhancer.ts`, dependency-free + strict-CSP-safe, ADR-0019) are built with `tsc`/`esbuild`
+  into ONE ESM bundle, emitted into lievit's Maven resources (`src/main/resources/META-INF/resources/
+  lievit/`) BEFORE the jar is packaged. Keep the 60-80 kb budget (ADR-0019); a bundle-size check in
+  CI guards it.
+- **lievit ships a tiny Spring auto-config** (or documents the resource mapping) so the adopter gets
+  the `/lievit/*.js` route by adding the dependency — webjar ergonomics without the webjar packaging
+  ceremony.
+- **the runtime CODE does not change.** ADR-0019's architecture (dependency-free, registry-based
+  extension, bespoke morph) is sound and untouched. This is purely a DELIVERY change: same modules,
+  now built into a jar-embedded bundle instead of a vendored `frontend/src/lievit/**` tree.
+- **`package.json` stays `private:true`.** It is the build manifest for producing the bundle, not a
+  published package. No npm publish, no `exports` map to maintain, no public npm scope.
 
-### 2.c What does NOT change
+### 2.c Versioning — one version, one artifact
 
-The runtime CODE. ADR-0019's architecture (dependency-free, registry-based extension, bespoke morph) is
-sound and untouched. This is purely a PACKAGING change: same modules, now with an `exports` surface + a
-`dist` build + a publish step. The enhancers move under a clear `enhancers/` export subpath but keep their
-behavior.
-
-### 2.d Versioning
-
-- **SemVer on the public surface**: the `exports` API (`startLievit` signature, the directive/lifecycle
-  registry shapes, the enhancer module names) is the contract. A breaking change to it = major bump.
-- **Lockstep with the jte jar**: the runtime version and the lievit-ui Maven jar version move together (a
-  wire template that emits a new `l:*` directive needs the runtime that handles it). Document the
-  compatibility matrix in `RELEASING.md`; a mismatched pair is a deploy footgun. [OPEN DECISION D5: same
-  version number for both jar + npm, or independent SemVer with a documented compat matrix? Recommendation:
-  same number (one release = one version across both artifacts) — simplest to reason about, matches "one
-  release = one version" of the deploy lessons.]
+There is now ONE artifact (the Maven jar) carrying templates + runtime + Java, so there is ONE version.
+A wire template that emits a new `l:*` directive ships in the same jar as the runtime that handles it,
+so they can never drift apart. SemVer on the public surface: the `@template.lievit.*` names + `@param`
+shapes, the WIRE Java types, and the runtime's directive/lifecycle registry shapes are the contract; a
+breaking change to any of them = a major bump. The jar-only model retires the jar↔npm compat-matrix
+problem entirely (it was an artifact of two registries; there is now one).
 
 ---
 
 ## 3. Copy-in stays as the opt-out (ADR-0009 demoted, not deleted)
 
 The `lievit add <component>` CLI + the `registry.json` manifest stay exactly as built. They are now the
-OPT-OUT for an adopter who wants to OWN + edit a specific component (the shadcn no-vendor-lock-in value).
-The default is import; copy-in is one CLI command away. No mechanism change — only the DEFAULT framing flips
-(RFC 0036). The registry build (`build-registry.ts`) keeps producing `registry.json` from the registry tree;
-the same tree is the precompile source for the jar (§1) — one source, two distribution channels.
+OPT-OUT for an adopter who wants to OWN + edit a specific component (the shadcn no-vendor-lock-in
+value). The default is import (the Maven jar); copy-in is one CLI command away, copying the `.jte` +
+the enhancer source into the adopter's tree. No mechanism change — only the DEFAULT framing flips
+(RFC 0036). The registry build (`build-registry.ts`) keeps producing `registry.json` from the registry
+tree; the SAME tree is the source for the jar's bundled `.jte` resources (§1) and the bundled runtime
+(§2) — one source, packaged once.
 
 ---
 
@@ -172,28 +165,29 @@ the same tree is the precompile source for the jar (§1) — one source, two dis
 
 | Change | Difficulty | Risk |
 |---|---|---|
-| flip `package.json` private→public + `exports` + `dist` build | LOW | the `sideEffects` audit (could tree-shake away directive registration) — §2.b |
-| publish runtime to npm (or git-dep bridge) | LOW-MED | registry/publish setup; the bridge defers it |
-| precompile jte primitives into the lievit-ui jar | **MED-HIGH** | the template-NAME namespace coexistence (Path A) or the unpack-then-precompile wart (Path B) — §1.c, the #1 risk, spike in Phase 0 |
-| adopter (gest) consumes jte from jar, deletes vendored copies | MED | bound to the precompile-path choice; per-stage, each green (RFC 0036 staging) |
+| ship lievit's `.jte` SOURCES as jar resources | LOW | packaging-only (resources root) |
+| build the runtime into a jar-embedded JS bundle + serve it (Spring resource/auto-config) | LOW-MED | the resource mapping + the bundle-size budget — §2.b |
+| adopter unpacks lievit `.jte` + precompiles as ONE tree (Path B, behind a Maven profile / Make target) | MED | the unpack→single-root→precompile binding; deterministic, hide it in a profile — §1.d |
+| adopter (gest) consumes from the jar, deletes vendored `.jte` + `frontend/src/lievit/**` | MED | per-stage, each green (RFC 0036 staging); bound to the Path-B build wiring |
 | anti-shadow CI guard | LOW | already built in gest (RFC 0036 Stadio 3) |
-| version lockstep jar↔npm | LOW | a documented compat matrix + RELEASING.md flow |
 
-**The single gating spike (Phase 0)**: prove an adopter can precompile + render a lievit-ui primitive
-resolved FROM THE JAR (not a copy), via Path A or Path B, with the gest-parity precompiled engine. Until that
-spike is green, import-by-default for the JTE half is unproven. The npm half is low-risk and can ship first.
+**The Phase-0 spike (DONE): proven** an adopter can unpack + precompile + render a lievit-ui primitive
+resolved FROM THE JAR (not a copy) via Path B, with the gest-parity precompiled engine. Path A
+(precompiled classes) was tried and rejected (§1.b). The runtime-from-jar half is low-risk and can
+ship alongside.
 
 ---
 
 ## 5. Open decisions for Francesco (distribution)
 
-- **D4 — runtime publish channel**: public npm vs GitHub Packages vs git-dep-pinned bridge first.
-  Recommendation: git-dep bridge now, public npm when stable.
-- **D5 — version scheme**: single version across jar+npm vs independent SemVer + compat matrix.
-  Recommendation: single version.
-- **D6 — precompile path**: Path A (jar ships precompiled classes, classpath resolution) vs Path B
-  (jar ships `.jte` sources, adopter unpacks + precompiles as one tree). Recommendation: spike both Phase 0,
-  lock in the `sw-architecture-007` ADR; bias to B if A's namespace coexistence is shaky.
-- **D7 — npm scope/name**: `@lievit/ui`? Confirm the npm org/scope (ties to the `io.lievit` Maven coordinates
-  + the `lievit.io` domain — memory: lievit canonical ns is `io.lievit`, org `lievit`). Recommendation:
-  `@lievit/ui`.
+- **D4 — DECIDED**: lievit ships as ONE Maven/Java library; the client runtime is a jar-served JS
+  bundle (webjar-style), NOT a separate npm package. No npm.
+- **D6 — DECIDED by the spike**: the JTE half imports via **Path B** (jar ships `.jte` sources, adopter
+  unpacks + precompiles them with its own as one tree). Path A (precompiled classes) does not work —
+  JTE resolves template-to-template calls at the caller's compile time from `.jte` source. Lock in ADR
+  `sw-architecture-007`.
+- **D5 — CLOSED by D4**: there is ONE artifact, so ONE version; the jar↔npm compat-matrix question is
+  retired (no npm).
+- **D7 — CLOSED by D4**: no npm scope to choose. The Maven coordinates stay `io.github.lievit:lievit-ui`
+  (the `io.lievit` namespace, org `lievit`, domain `lievit.io` — memory: lievit canonical ns is
+  `io.lievit`).

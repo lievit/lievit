@@ -6,15 +6,16 @@
 
 - **tier**: WIRE (+ HTMX for async option fetch) + ENH (`collection-nav.enhancer.ts`, the shared listbox
   roving/typeahead mechanism)
-- **priority**: P0
+- **build sequence**: S0  (every component ships — no MMP cut, `03`)
 - **status (current)**: COVERED (re-forge of `registry/jte/combobox.jte` + `select`/`native-select`; the
   rich custom-rendered select, distinct from the platform `native-select` PARTIAL)
-- **@provenance**:
-    - a11y: WAI-ARIA APG Listbox + Combobox + **React Aria `useSelect` / `useListBox` interaction spec**
-      (Apache-2.0, adapted — transcribed into the template + `collection-nav` enhancer, NOT copied as React code)
-    - inventory: Ant Design Select (MIT, design-adapted: search, groups, custom option render; CUT tags-mode
-      → that is `tags-input`; CUT virtualized 10k-option list → escape-hatch)
-    - styling: ORIGINAL over `--lv-*` tokens; visual rhythm inspired by Tailwind UI (NO code copied)
+- **credits** (maintainer note, not a legal record — `02` is "no literal code-copy", output is original):
+    - a11y: WAI-ARIA APG Listbox + Combobox + **react-aria `useSelect` / `useListBox` interaction model**
+      as the pattern reference (the keyboard map + ARIA wiring + focus order, transcribed into ORIGINAL
+      template + `collection-nav` enhancer; no react-aria source copied)
+    - inventory: Ant Design Select as inventory reference (search, groups, custom option render; tags-mode
+      lives in `tags-input`; a virtualized 10k-option list composes the data-grid virtualization enhancer)
+    - styling: ORIGINAL generation over `--lv-*` (OKLCH) tokens; look inspired by Tailwind UI (NO code copied)
 
 ## 1. What it is
 A custom-rendered single-select: a trigger button + a popover listbox of options (token-styled, optionally
@@ -112,7 +113,8 @@ Reads `--lv-color-{popover,popover-fg,border,input,accent,accent-fg,primary,ring
 
 ## 8. Agent instructions
 Style ORIGINALLY over `--lv-*`; read public APG Listbox/Combobox + React Aria `useSelect` SPEC + Ant Design
-Select feature set from training; do NOT reproduce Tailwind UI code. Compose `collection-nav` + the popover
+Select feature set from training; never paste literal source from react-aria / ant-design / Tailwind UI
+(the one bright line, `02`) — generate original code. Compose `collection-nav` + the popover
 seam — do NOT hand-roll roving, typeahead, or positioning (that is the failure mode this whole single-source
 rule prevents). Validate the selected id ∈ options in the Java action BEFORE mutating `value`. Mirror the
 WIRE conventions (server-first refactor blueprint §1.b): owned template markup, boolean state as JTE boolean

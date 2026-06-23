@@ -22,12 +22,12 @@ reversible part the agent ships.
 # Spec — <component>
 
 - **tier**: PARTIAL | WIRE | HTMX | (+ENH if a typed-TS enhancer is needed)
-- **priority**: P0 | P1 | P2
+- **build sequence**: S0 | S1 | S2  (sequence only; every component ships — no MMP cut, `03`)
 - **status (current)**: COVERED (re-forge of registry/jte/<name>.jte) | NET-NEW
-- **@provenance**:
-    - a11y: <WAI-ARIA APG pattern> + <React Aria hook spec, Apache-2.0, adapted | BUILT against raw APG>
-    - inventory: <Ant Design component, MIT, design-adapted | none>
-    - styling: ORIGINAL over --lv-* tokens; visual rhythm inspired by Tailwind UI (NO code copied)
+- **credits** (maintainer note, not a legal record — `02` is "no literal code-copy", output is original):
+    - a11y: <WAI-ARIA APG pattern> + <react-aria interaction model as pattern reference | BUILT against raw APG>
+    - inventory: <Ant Design component as inventory reference | none>
+    - styling: ORIGINAL generation over --lv-* (OKLCH) tokens; visual look inspired by Tailwind UI (NO code copied)
 
 ## 1. What it is (one paragraph)
 The job of the component, the decision rule for its tier, and why server-first works for it.
@@ -58,7 +58,7 @@ A table: param · type · default · meaning. Mirrors the JTE @param shape (or t
 
 ## 5. Tokens
 The --lv-* tokens it reads. Any NET-NEW token proposed (justified, additive, goes in :root + .dark).
-No literal colours, ever.
+Colour tokens are authored in OKLCH (source-of-truth format, `00` §4). No literal colours, ever.
 
 ## 6. Wire actions (WIRE/HTMX only)
 - the l:* directives the template binds (l:click="action", l:model="field", l:keydown.enter, $set('f','v')).
@@ -82,11 +82,12 @@ lesson). Each row is a concrete assertion:
   abuse-case from button.jte).
 
 ## 8. Agent instructions (the discipline reminders, verbatim in the spec)
-- Style ORIGINALLY over --lv-* tokens. You MAY read public react-aria + ant-design patterns from training
-  knowledge. You MUST NOT reproduce Tailwind UI code/markup/class-strings — implement the visual intent from
-  the token system + the APG structure. (Licensing gate, 02-licensing.md §3.)
+- Generate ORIGINAL code over --lv-* tokens. You MAY read react-aria + ant-design + Tailwind UI as
+  references for PATTERN (a11y, inventory) and LOOK. You MUST NOT paste literal source from ANY of them
+  (no react-aria / ant-design / Tailwind-UI code or class strings) — the output is always original
+  generation. (The one bright line, 02-licensing.md.)
 - Compose the ONE shared a11y mechanism (popover seam / focus-trap / collection-nav); do NOT hand-roll it.
-- Mirror button.jte's house conventions exactly (header doc-comment incl. @provenance, typed @param,
+- Mirror button.jte's house conventions exactly (header doc-comment incl. the credits line, typed @param,
   data-slot, the two escaping channels, zero <script>).
 - Minimal code to GREEN against the acceptance tests; refactor only while green.
 ```
@@ -101,7 +102,8 @@ lesson). Each row is a concrete assertion:
   focus management + the shared-mechanism composition. These get the most review attention; they are where a
   naive fan-out diverges.
 
-The Phase-1 checkpoint reviews the ~32 P0 specs first (the golden path), in batches, before any P0
-implementation; P1/P2 specs follow. A spec that composes a shared mechanism is only approvable AFTER that
+The Phase-1 checkpoint reviews the S0 specs first (the golden path, build-first), in batches, before the S0
+implementation; S1/S2 specs follow in sequence (every component ships — no MMP cut). A spec that composes a
+shared mechanism is only approvable AFTER that
 mechanism (popover seam / focus-trap / collection-nav) is itself specced + built (Phase 0), so the
 dependency order is real, not nominal.

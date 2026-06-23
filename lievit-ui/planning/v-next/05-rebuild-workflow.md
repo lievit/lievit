@@ -10,9 +10,14 @@ produces a divergent library, hand-rolled-and-subtly-wrong a11y, accidental lice
 green-at-all-costs tests that certify a fake substrate. Each phase below targets one of those failures.
 
 The phases respect the Bezos doors: the DEDUCIBLE + irreversible work (the contract, the distribution build,
-the licensing gate, the a11y pattern catalog) is WATERFALLED up front (Phase 0); the per-component work is
-spec-first then implemented in parallel (Phases 1-2); integration is gated by an HONEST, adversarial master
-gate (Phase 3); adoption is last (Phase 4).
+the a11y pattern catalog) is WATERFALLED up front (Phase 0); the per-component work is spec-first then
+implemented in parallel (Phases 1-2); integration is gated by an HONEST, adversarial master gate (Phase 3);
+adoption is last (Phase 4).
+
+**Scope is the COMPLETE library (Francesco: "no MMP ma completo al 100% non negoziabile").** There is no
+P0-only first cut. Every component in `03-component-inventory.md` ships. Priority survives ONLY as a build
+SEQUENCE (S0 golden-path first, then S1, then S2 heaviest-client) — what to build first, never what to
+build at all. The exit condition is the complete set green, not a slice.
 
 ---
 
@@ -22,42 +27,50 @@ Everything that, if wrong, makes every later component wrong. Waterfall it; do n
 
 1. **The architecture contract** (`00-architecture-contract.md`) — reviewed + locked by Francesco. This is
    the shared target; without it, fan-out diverges.
-2. **The consumable-distribution build** (`01-distribution-consumable.md`) — the gating SPIKE: prove an
-   adopter can precompile + render a lievit-ui primitive resolved FROM THE JAR (Path A or B), and prove the
-   runtime publishes (npm or the git-dep bridge). Lock the choice in ADR `sw-architecture-007`. **Until this
-   spike is green, "import-by-default" is unproven — do it FIRST.**
-3. **The licensing gate** (`02-licensing.md`) — `/NOTICE` + `licenses/` + the `@provenance` header mandate +
-   the doc-header lint + the packaging test, ALL in place. This is a one-way door (public redistribution);
-   no component conversion starts until it is settled.
+2. **The consumable-distribution build** (`01-distribution-consumable.md`) — the gating SPIKE is DONE: it
+   PROVED an adopter can unpack + precompile + render a lievit-ui primitive resolved FROM THE JAR via
+   **Path B** (Path A / precompiled-classes was tried and rejected — JTE resolves template-to-template
+   calls at the caller's compile time from `.jte` source). lievit ships as ONE Maven jar (templates +
+   jar-served JS runtime + Java); no npm. Lock the model in ADR `sw-architecture-007`. The remaining
+   Phase-0 work is wiring the unpack-then-precompile build step behind a Maven profile / Make target.
+3. **The licensing posture** (`02-licensing.md`) — DECIDED + lightweight: the only rule is "no literal
+   code-copy from any source" (react-aria / ant-design / tailwind-ui are pattern + look references, output
+   is original generation). A short `CREDITS.md`/README note is the only attribution. There is NO
+   NOTICE / per-component provenance gate / packaging test to stand up — the heavy machinery is removed.
+   Nothing here blocks component work; the spec template already carries the one-line discipline reminder.
 4. **The token extension** — any net-new tokens (the Tailwind-UI-grade refresh) added to `:root` + `.dark`,
-   additive, byte-stable for the existing 31. Decide D1 (hex vs OKLCH).
+   additive. Token source-of-truth format is **OKLCH** (D1 decided, see `00-architecture-contract.md` §4).
 5. **The a11y pattern catalog (the shared mechanisms)** — build + spec the THREE single-source mechanisms
    (`00` §2.b, `03` §4): the popover/overlay seam (exists from Wave 3, audit + harden it), `focus-trap.
    enhancer.ts` (NET-NEW), `collection-nav.enhancer.ts` (NET-NEW). These are built ONCE here so ~20
    components compose them in Phase 2 instead of hand-rolling. Each ships with its own axe + keyboard + focus
    tests. **This is the highest-leverage phase-0 work** — it is what prevents 20 divergent focus traps.
 
-Exit gate: contract locked, distribution spike green + ADR written, licensing gate live in CI, tokens
-extended, the 3 shared a11y mechanisms built + tested. Nothing component-specific yet.
+Exit gate: contract locked, distribution model locked + ADR written + the Path-B build step wired, the
+no-literal-copy rule recorded (+ `CREDITS.md`), tokens extended in OKLCH, the 3 shared a11y mechanisms
+built + tested. Nothing component-specific yet.
 
 ---
 
 ## Phase 1 — Specs (per-component, parallelizable AUTHORING, ONE reviewable checkpoint)
 
-Author one spec per component (`04-component-spec-template.md`), starting with the ~32 P0 set. Specs can be
-DRAFTED in parallel (cheap, generation is cheap), but they converge at a single **REVIEW CHECKPOINT**:
-Francesco (or an adversarial fresh-context pass) approves the P0 specs in batches BEFORE any P0 implementation.
+Author one spec per component (`04-component-spec-template.md`) for the COMPLETE set, in build-SEQUENCE
+order (S0 golden-path first, then S1, then S2). Specs can be DRAFTED in parallel (cheap, generation is
+cheap), but they converge at a single **REVIEW CHECKPOINT**: Francesco (or an adversarial fresh-context
+pass) approves the specs in SEQUENCE batches BEFORE the matching implementation. The sequence is an
+ordering of the same complete scope, not a slice of it — every component is specced and built.
 
 Why a checkpoint here: the spec is the porta-a-senso-unico (the DESIGN is the irreversible part). A wrong
-spec, fanned out to an implementation agent, produces a wrong component fast. Reviewing 32 short specs is far
-cheaper than reviewing 32 implementations + their tests. The spec review catches: wrong tier choice, a
+spec, fanned out to an implementation agent, produces a wrong component fast. Reviewing a short spec is far
+cheaper than reviewing an implementation + its tests. The spec review catches: wrong tier choice, a
 keyboard map that doesn't match the APG pattern, a variant vocabulary that drifts from the shared set, a
-missing `@provenance`, a component that should compose a shared mechanism but re-specs it.
+component that should compose a shared mechanism but re-specs it.
 
 A spec that composes a shared mechanism is only APPROVABLE after that mechanism exists (Phase 0) — so the
 dependency order is enforced, not nominal.
 
-Exit gate: the P0 specs are reviewed + approved; P1/P2 specs follow the same loop in later batches.
+Exit gate: the S0 specs are reviewed + approved (build-first batch); S1/S2 specs follow the same loop in
+later sequence batches, until the complete set is specced.
 
 ---
 
@@ -107,11 +120,12 @@ that hurts"; "validating the lock is the default statistical outcome, near-zero 
    keyboard test assert the OBSERVABLE outcome or just that a handler exists? does the wire IT assert the
    re-rendered STATE or just that the action returned? A "pass" that survives the refutation is real; one
    that doesn't goes back to Phase 2.
-5. **the licensing gate**: every component has `@provenance`; no Tailwind-UI code provenance; NOTICE +
-   licenses ship in both artifacts.
-6. **the distribution gate**: an adopter-shaped consumer (a throwaway project, or gest itself) imports the
-   jar + npm artifacts and renders a primitive WITHOUT a copy — the import-by-default claim is proven end to
-   end, not asserted.
+5. **the no-literal-copy check** (light): a best-effort grep flags any verbatim react-aria / ant-design /
+   Tailwind-UI source string for human review. This is the whole licensing gate now — no `@provenance`
+   completeness gate, no NOTICE/licenses packaging assertion (the heavy machinery was removed, `02`).
+6. **the distribution gate**: an adopter-shaped consumer (a throwaway Spring project, or gest itself) adds
+   the ONE Maven dependency, unpacks + precompiles (Path B), and renders a primitive WITHOUT a copy, with
+   the jar-served runtime loading — the import-by-default claim is proven end to end, not asserted. No npm.
 
 The fix loop is **bounded by honest gates, not by green**: a red gate sends the component back to Phase 2
 with the specific refutation; it does NOT get "fixed" by weakening the test (the hard rule: never weaken a
@@ -119,20 +133,23 @@ contract or delete an assertion to make a build pass). The loop terminates when 
 survived the adversarial pass — not when the runner prints BUILD SUCCESS.
 
 Exit gate: the integrated library passes the master gate AND the adversarial pass; `registry.json`
-regenerated + reviewed; the jar + npm artifacts build + are consumable by import.
+regenerated + reviewed; the ONE Maven jar (templates + jar-served runtime + Java) builds + is consumable
+by import (Path B), no npm.
 
 ---
 
 ## Phase 4 — Adoption (lievitKIT consumes by import, gest adopts ~90% lievitKIT)
 
 1. **lievitKIT consumes lievit-ui by IMPORT** (not copy-in): the kit's families (`kit-table`, `kit-form`,
-   …) compose the v-next primitives from the jar + npm artifacts. The kit's own `jte-compile` + render gate
-   proves the composition renders.
+   …) compose the v-next primitives from the ONE Maven jar (templates + jar-served runtime + Java). The
+   kit's own `jte-compile` + render gate proves the composition renders.
 2. **gest adopts ~90% lievitKIT by import** (RFC 0036 decision): gest de-vendors the lievit/kit copies
-   (`apps/gest/src/main/jte/{lievit,kit}/**` + `frontend/src/lievit/**`), consumes the artifacts, keeps the
-   anti-shadow guard active. Custom only for the ~10% lievitKIT does not cover (gest domain composition: the
-   calendar page, the scaduta row, the activity forms — the primitives, never the domain compositions, are
-   the import). This is the RFC 0036 staged execution, each stage green (the gest staging-first flow).
+   (`apps/gest/src/main/jte/{lievit,kit}/**` + `frontend/src/lievit/**`), consumes the ONE Maven artifact
+   (Path-B unpack + precompile + the jar-served runtime), keeps the anti-shadow guard active. Custom only
+   for the ~10% lievitKIT does not cover (gest domain composition: the calendar page, the scaduta row, the
+   activity forms — the primitives, never the domain compositions, are the import). This is the RFC 0036
+   staged execution, each stage green (the gest staging-first flow). gest's cutover runs LAST, after the
+   complete lievit library is built + green (D16), on Francesco's explicit go.
 3. **the dogfood loop closes the right way**: a primitive improvement now flows UPSTREAM (fix in lievit,
    publish, bump the pin) instead of being buried in a gest copy — the whole point of RFC 0036.
 
@@ -147,10 +164,10 @@ proves no silent divergence; the dogfood→extract loop is upstream-first.
 |---|---|
 | 10 agents diverge (10 dialects of variant/size/slot APIs) | **contract-first** (Phase 0) + **spec-first** (Phase 1): the agent implements an approved design, not its own |
 | each hand-rolls a focus trap / roving listbox (10 subtly-wrong a11y impls) | **single-source-a11y** (Phase 0 shared mechanisms): ~20 components COMPOSE 3 sources |
-| accidental Tailwind-UI / license contamination | **licensing gate first** (Phase 0) + `@provenance` per component + the CI grep |
+| accidental literal code-copy from a source | **one bright line** (`02`): no literal copy of react-aria / ant-design / Tailwind-UI source + the best-effort CI grep |
 | green-at-all-costs tests on fake substrates certify nothing | **honest/adversarial master gate** (Phase 3): real runtime, refute-by-default, no test-weakening |
 | file-granularity races (3 agents on one component's contract) | **component-granularity** + **one worktree each** (Phase 2) |
-| import-by-default asserted but never proven | the **distribution spike** (Phase 0) + the **distribution gate** (Phase 3) prove it end to end |
+| import-by-default asserted but never proven | the **distribution spike (DONE, Path B)** + the **distribution gate** (Phase 3) prove the one-Maven-jar import end to end |
 | "done" = BUILD SUCCESS | "done" = every gate green AND survived the adversarial pass (Phase 3) |
 
 The throughput of parallel fan-out is REAL and kept (Phase 2 is genuinely parallel) — but it is throughput
@@ -162,11 +179,13 @@ serial where it's irreversible (contract, distribution, licensing, shared a11y).
 
 ## Open decisions for Francesco (workflow)
 
-- **D14 — checkpoint owner**: who runs the Phase-1 spec review + the Phase-3 adversarial pass — Francesco
-  directly, or a fresh-context adversarial agent with Francesco on the irreversible calls? Recommendation:
-  agent-runs-the-pass, Francesco-approves-the-doors (specs + the distribution/licensing ADRs).
-- **D15 — P0-only first cut**: ship v-next as the ~32 P0 set FIRST (a minimum MARKETABLE slice, excellently
-  done — the MMP-not-MVP rule), then P1/P2 in later rounds? Recommendation: yes — a narrow excellent P0
-  library that lievitKIT + gest fully consume beats a broad half-done 60. Flag.
-- **D16 — gest cutover timing**: Phase 4 changes gest's build inputs (RFC 0036). It runs on Francesco's
-  explicit go, staged, each green — NOT in autonomous nightly work (the RFC's standing constraint).
+- **D14 — checkpoint owner** (OPEN): who runs the Phase-1 spec review + the Phase-3 adversarial pass —
+  Francesco directly, or a fresh-context adversarial agent with Francesco on the irreversible calls?
+  Recommendation: agent-runs-the-pass, Francesco-approves-the-doors (specs + the distribution ADR). This is
+  the one genuinely-open workflow decision.
+- **D15 — DECIDED (no MMP, complete library)**: there is no P0-only first cut. The COMPLETE set ships
+  (`03`). Priority is a build SEQUENCE (S0→S1→S2), not a scope slice. The exit condition is the complete
+  set green.
+- **D16 — DECIDED (gest cutover LAST)**: Phase 4 changes gest's build inputs (RFC 0036) and runs LAST,
+  after the complete lievit library is built + green — on Francesco's explicit go, staged, each green, NOT
+  in autonomous nightly work (the RFC's standing constraint). Timing within that window stays Francesco's.

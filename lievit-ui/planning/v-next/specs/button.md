@@ -5,13 +5,13 @@
 # Spec — button (EXEMPLAR: trivial, platform-a11y, PARTIAL)
 
 - **tier**: PARTIAL
-- **priority**: P0
+- **build sequence**: S0  (every component ships — no MMP cut, `03`)
 - **status (current)**: COVERED (re-forge of `registry/jte/button.jte`)
-- **@provenance**:
-    - a11y: WAI-ARIA APG Button (native `<button>` / `<a href>` — platform-supplied; no React Aria hook
+- **credits** (maintainer note, not a legal record — `02` is "no literal code-copy", output is original):
+    - a11y: WAI-ARIA APG Button (native `<button>` / `<a href>` — platform-supplied; no react-aria reference
       needed because the native element carries role + keyboard + disabled for free)
-    - inventory: Ant Design Button (MIT, design-adapted: sizes + variants + icon-only + loading)
-    - styling: ORIGINAL over `--lv-*` tokens; visual rhythm inspired by Tailwind UI (NO code copied)
+    - inventory: Ant Design Button as inventory reference (sizes + variants + icon-only + loading)
+    - styling: ORIGINAL generation over `--lv-*` (OKLCH) tokens; look inspired by Tailwind UI (NO code copied)
 
 ## 1. What it is
 A token-styled button, or a link styled as a button when `href` is set. STATIC presentational → PARTIAL: it
@@ -85,6 +85,7 @@ DB-derived action (the reactive-list rule — `revokeDevice` + `wireArgs={id: ro
 - **JTE compiles + renders**: covered by `test/jte-compile`.
 
 ## 8. Agent instructions
-Style ORIGINALLY over `--lv-*`; you may read public Ant Design Button / shadcn Button patterns from training;
-do NOT reproduce Tailwind UI code. Mirror the CURRENT `button.jte` exactly (it is already the house exemplar);
+Generate ORIGINAL code over `--lv-*`; you may read Ant Design Button / shadcn / Tailwind UI as references;
+never paste literal source from any of them (the one bright line, `02`). Mirror the CURRENT `button.jte`
+exactly (it is already the house exemplar);
 the only DELTA is the net-new `loading` state + the explicit a11y test gate. Minimal code to GREEN.

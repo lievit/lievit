@@ -23,15 +23,18 @@ of these are reopened. The v-next rebuild is NOT a greenfield. It is three delta
 1. **a11y delta** — every component's accessibility pattern is pinned to a single source of truth
    (WAI-ARIA APG + react-aria's interaction model), made explicit in the spec, and asserted by axe-core
    + keyboard tests. Today a11y lives as prose in JTE header comments; v-next makes it a tested contract.
-2. **inventory/feature delta** — the component SET and each component's VARIANT/feature surface are
-   re-scoped against Ant Design's completeness (what a gestionale/admin actually needs), pruned by
-   appropriate-complexity (NOT cloning all of Ant Design).
+2. **inventory/feature delta** — the component SET is the COMPLETE ant-design-equivalent surface (Francesco:
+   "completo al 100%, no MMP"; `03-component-inventory.md`). Appropriate-complexity here means COMPLETENESS
+   is the right complexity for a DEFINITIVE library (you adopt it because it has everything); restraint lives
+   in each component's VARIANT surface (no gratuitous variants) and in the build TIER (server-first + one
+   shared a11y source), never in cutting components.
 3. **styling delta** — the visual conventions are upgraded toward Tailwind-UI-grade polish, implemented
    as ORIGINAL markup over the existing `--lv-*` tokens (Tailwind UI is inspiration-only, never copied;
    see `02-licensing.md`).
 
 Plus the structural delta that motivates the whole rebuild (RFC 0036): the library becomes consumable
-by IMPORT (`01-distribution-consumable.md`), not copy-in-by-default.
+by IMPORT as ONE Maven/Java artifact (templates + jar-served JS runtime + Java, no npm;
+`01-distribution-consumable.md`), not copy-in-by-default.
 
 What does NOT change (the invariant spine — do not reinvent any of these):
 - The three tiers (PARTIAL / WIRE / HTMX-pattern) and the no-Lit rule.
@@ -124,8 +127,9 @@ Mirror `button.jte` exactly. The mandatory shape of every `.jte`:
    `<name> partial -- <one-line what>` · `TIER:` · `STRUCTURE (scientific decision rule):` cite the
    source mapped (WAI-ARIA APG / react-aria / Ant Design feature / shadcn) and why it wins ·
    `A11y (<pattern>):` roles, keyboard, focus, live regions · `Params:` one line per `@param` ·
-   `Usage:` 1-2 `@template.<name>(...)` examples. **The cited source is mandatory in v-next** (it is the
-   provenance record the licensing gate audits — see `02-licensing.md`).
+   `Usage:` 1-2 `@template.<name>(...)` examples. The cited source documents WHERE the a11y/inventory idea
+   came from (a credits/maintainer note, not a legal provenance record — `02-licensing.md` is decided +
+   lightweight: the only rule is no literal code-copy, output is original generation).
 2. **Typed `@param` with defaults.** No data hardcoded inside the partial (option lists, labels,
    enums-as-strings arrive via `@param` from the controller's typed model — the "no data in a partial"
    rule, repo CLAUDE.md). Content/children come in as `gg.jte.Content` slots (`content`, plus optional
@@ -158,9 +162,16 @@ KEPT byte-stable. v-next extends it; it does not replace it. The contract:
 - **Net-new tokens are additive and namespaced.** The Tailwind-UI-grade styling delta may need a few new
   tokens (e.g. a denser `--lv-space-7`, a `--lv-shadow-inner` for inset controls, a focus-within ring
   variant). Each is proposed in the spec, justified, added to the `:root` + `.dark` blocks, and documented
-  as additive. **No new token may be a literal colour baked into a component.** [OPEN DECISION D1: do we
-  introduce an OKLCH parallel palette now, or stay hex? The file documents hex-for-coherence; a Tailwind-UI
-  refresh is the moment to decide. Flag for Francesco.]
+  as additive. **No new token may be a literal colour baked into a component.**
+- **Colour token SOURCE-OF-TRUTH format is OKLCH** (D1 DECIDED, Francesco). Every colour token is authored
+  in OKLCH (`oklch(L C H)`), the perceptually-uniform modern-CSS format with native browser support in
+  2026. OKLCH buys better theming + contrast math (programmatic tints/shades, predictable lightness for
+  hover/active/disabled states, easier WCAG-contrast reasoning) — exactly what the Tailwind-UI-grade refresh
+  + the dark-mode re-point need. Hex is allowed ONLY as a COMPILED fallback if a concrete target ever needs
+  it (a build step can emit a hex twin); it is never the authored source. The existing hex colour tokens are
+  migrated to OKLCH as part of the token extension (values chosen to match the current look, so the migration
+  is visually byte-stable even though the literal strings change). Structural tokens (spacing, radius, type,
+  z, motion) are unaffected.
 - **The brand-able seam stays ~20 tokens.** An adopter rebrands by overriding the semantic colour pairs +
   `--lv-radius` + the fonts. v-next must not grow the rebrand surface; a Tailwind-UI look is achieved by
   the DEFAULT token VALUES + the markup, not by forcing adopters to set more tokens.
@@ -235,7 +246,7 @@ enforced, not trusted:
 
 | Contract clause | Enforced by |
 |---|---|
-| reads `var(--lv-*)`, no literal colours | a token-lint (grep for hex/rgb in component bodies) in CI |
+| reads `var(--lv-*)`, no literal colours | a token-lint (grep for hex/rgb/`oklch(` literals in component bodies) in CI |
 | no `<script>` / inline `on*=` in a `.jte` | the existing anti-pattern grep |
 | header doc-comment present + cites a source | a doc-header lint (extend the existing partial-header lint) |
 | `@param` typed, no hardcoded option lists | review + the lint |
@@ -251,9 +262,9 @@ of `05-rebuild-workflow.md`).
 
 ## 8. Open decisions for Francesco (architecture-contract level)
 
-- **D1 — token format**: stay hex (current, "one coherent format") or introduce an OKLCH palette with the
-  Tailwind-UI refresh? Hex is byte-stable + simpler; OKLCH is the modern shadcn-v4 default + better for
-  programmatic tints. Recommendation: stay hex for v-next (additive only), revisit as its own ADR.
+- **D1 — DECIDED: OKLCH**. Colour tokens are authored in OKLCH (perceptually uniform, native 2026 browser
+  support, better theming/contrast math, the shadcn-v4 default); hex only as a compiled fallback if a target
+  ever needs it. The existing hex tokens migrate to OKLCH, values matched so the look is byte-stable. See §4.
 - **D2 — enhancer count ceiling**: the single-source-a11y rule proposes ~3 net-new shared enhancers
   (`focus-trap`, `collection-nav`, and reuse of the popover seam). Confirm we are willing to own these as
   first-class runtime extensions (they are the react-aria interaction model, transcribed). Recommendation: yes.
