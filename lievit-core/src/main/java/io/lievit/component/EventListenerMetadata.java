@@ -6,7 +6,6 @@ package io.lievit.component;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,6 +37,17 @@ public final class EventListenerMetadata {
 
     /** Each declared listener: its name template and the handler method (null for a class-level $refresh). */
     public record Listener(String nameTemplate, @Nullable Method handler) {}
+
+    /**
+     * A listener whose name template has been interpolated against a component instance's state: the
+     * resolved event name plus its handler ({@code null} handler = a class-level {@code $refresh}
+     * listener). Two listeners may resolve to the same name (e.g. two {@code @LievitOn("saved")}
+     * methods): both are present, so every matching handler fires (the load-bearing guarantee). The
+     * ordering follows reflection (class-level listeners first, then method-level in
+     * {@code getDeclaredMethods()} order, each name-array in source order); the JVM does not order
+     * distinct methods, so do not rely on relative order across methods.
+     */
+    public record ResolvedListener(String name, @Nullable Method handler) {}
 
     private final List<Listener> listeners;
 
@@ -95,18 +105,23 @@ public final class EventListenerMetadata {
 
     /**
      * Resolves the listeners' names against a component instance's state, interpolating any
-     * {@code {dotted.path}} placeholder, and returns a map from the resolved event name to its
-     * handler ({@code null} handler = a class-level {@code $refresh} listener). When two listeners
-     * resolve to the same name, the last declared wins.
+     * {@code {dotted.path}} placeholder, and returns the resolved listeners in reflection order.
+     *
+     * <p>Unlike a {@code Map<name, handler>}, this keeps EVERY listener even when two resolve to the
+     * same name: a component declaring two {@code @LievitOn("saved")} methods yields two entries, so
+     * the invoker can fire both (Livewire fires all matching listeners). Collapsing into a map here
+     * silently dropped all but the last-declared handler.
      *
      * @param instance the component instance (read for placeholder values)
-     * @return resolved event name → handler (or {@code null} for a bare refresh listener)
+     * @return the resolved listeners (name + handler), in reflection order (see {@link
+     *     ResolvedListener}); a {@code null} handler is a class-level {@code $refresh} listener
      */
-    public Map<String, @Nullable Method> resolve(Object instance) {
-        Map<String, @Nullable Method> resolved = new LinkedHashMap<>();
+    public List<ResolvedListener> resolve(Object instance) {
+        List<ResolvedListener> resolved = new ArrayList<>(listeners.size());
         for (Listener listener : listeners) {
-            resolved.put(PlaceholderNames.interpolate(listener.nameTemplate(), instance),
-                    listener.handler());
+            resolved.add(new ResolvedListener(
+                    PlaceholderNames.interpolate(listener.nameTemplate(), instance),
+                    listener.handler()));
         }
         return resolved;
     }

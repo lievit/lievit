@@ -58,6 +58,31 @@ class EventListenerTest {
         @Wire int n;
     }
 
+    @LievitComponent
+    static class TwoListeners {
+        @Wire String log = "";
+
+        @LievitOn("saved")
+        void auditSaved() {
+            this.log += "audit;";
+        }
+
+        @LievitOn("saved")
+        void notifySaved() {
+            this.log += "notify;";
+        }
+    }
+
+    @LievitComponent
+    static class MultiName {
+        @Wire int n;
+
+        @LievitOn({"saved", "stored"})
+        void onEither() {
+            this.n++;
+        }
+    }
+
     private WireDispatcher dispatcher() {
         return new WireDispatcher(
                 new PayloadGuard(), NoOpFieldValidator.INSTANCE, new SynthesizerRegistry(),
@@ -119,9 +144,46 @@ class EventListenerTest {
     @Test
     void a_class_level_listener_is_a_bare_refresh() {
         EventListenerMetadata meta = EventListenerMetadata.of(ClassLevel.class);
-        Map<String, java.lang.reflect.Method> resolved = meta.resolve(new ClassLevel());
-        assertThat(resolved).containsKey("refresh-list");
-        assertThat(resolved.get("refresh-list")).isNull();
+        List<EventListenerMetadata.ResolvedListener> resolved = meta.resolve(new ClassLevel());
+        assertThat(resolved).singleElement()
+                .satisfies(listener -> {
+                    assertThat(listener.name()).isEqualTo("refresh-list");
+                    assertThat(listener.handler()).isNull();
+                });
+    }
+
+    /**
+     * @spec.given a component with TWO @LievitOn("saved") handlers (audit and notify)
+     * @spec.when  a wire call carries one inbound "saved" event
+     * @spec.then  BOTH handlers fire (not just the last-declared one the old map collapsed onto)
+     * @spec.adr   ADR-0030
+     */
+    @Test
+    void two_handlers_for_one_event_both_fire() {
+        ComponentMetadata meta = ComponentMetadata.of(TwoListeners.class);
+        WireCall result = dispatcher().call(
+                meta, new TwoListeners(), Map.of("log", ""), Map.of(), List.of(),
+                List.of(new InboundEvent("saved", null)));
+        // Both ran: the bug dropped one (a Map<name, handler> kept only the last). Method order
+        // across distinct methods is not a JVM guarantee (getDeclaredMethods is unordered), so we
+        // assert both fired, not their relative order.
+        assertThat(result.wire().get("log").toString())
+                .contains("audit;")
+                .contains("notify;");
+    }
+
+    /**
+     * @spec.given a single @LievitOn({"saved","stored"}) method (two names, one handler)
+     * @spec.when  the listeners are resolved against an instance
+     * @spec.then  both names appear, in the array's declaration order (a stable, source-ordered case)
+     * @spec.adr   ADR-0030
+     */
+    @Test
+    void multiple_names_on_one_listener_resolve_in_array_order() {
+        EventListenerMetadata meta = EventListenerMetadata.of(MultiName.class);
+        List<EventListenerMetadata.ResolvedListener> resolved = meta.resolve(new MultiName());
+        assertThat(resolved).extracting(EventListenerMetadata.ResolvedListener::name)
+                .containsExactly("saved", "stored");
     }
 
     /**

@@ -24,8 +24,27 @@ All notable changes to this project are documented here. Format follows
   paths now reuse the existing synthesizer golden path (`synthesizers.dehydrate` / `hydrate` /
   `hydrateForUpdate(formField.type(), value)`), the same machinery a top-level `@Wire` field uses
   (ADR-0020), so a form object can hold typed fields, not just String / primitive.
+- **`@LievitOn` no longer drops a handler when two listeners share an event name.**
+  `EventListenerMetadata.resolve()` collapsed the listeners into a `Map<resolvedName, Method>`, so a
+  component declaring two `@LievitOn("saved")` methods kept only the last-declared one and silently
+  dropped the other (Livewire fires *all* matching listeners). `resolve()` now returns a
+  `List<ResolvedListener>` (reflection order) and `EventInvoker.invokeMatching` invokes every pair
+  whose name matches. A two-handlers-one-event test pins both firing.
+- **`@LievitRender` single-file vs multi-file ambiguity now fails fast at reflect time.** A component
+  declaring both a named `@LievitComponent(template="...")` AND a markup-returning `@LievitRender`
+  method was undefined (the adapter silently picked a winner). `ComponentMetadata.of` now rejects the
+  combo at startup with a message naming both halves and the fix; the two legal modes (named template
+  + void prepare-hook, or empty template + markup-returning render) are unaffected.
 
 ### Changed
+
+- **The public-annotation surface is now documented by role, not by a count.** The "seven / eight /
+  nine annotations" slogan had drifted out of sync with the actual 20 runtime `@interface` types,
+  teaching a false invariant. `package-info.java` replaces the integer with a stable ROLE taxonomy
+  (bootstrap / component / state / action / events / lifecycle / authorization / loading / page), and
+  a build-time `AnnotationTaxonomyInvariantTest` asserts the documented set equals the actual set of
+  runtime annotations in `io.lievit`, so the doc can never silently drift again. The per-annotation
+  javadoc "one of the seven public annotations" lines were updated to the role-based language.
 
 - **`dropdown-menu` gains an optional `triggerClass` param** (backflow from gest, dogfood-then-extract):
   extra utility classes applied to the trigger `<button>` itself (the wrapper's `cssClass` left the

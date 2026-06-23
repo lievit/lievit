@@ -44,15 +44,14 @@ package io.lievit;
  * <p>Security: the nested fields of a form object are subject to the same guards as top-level
  * {@code @Wire} fields. The nesting is bounded at exactly one level (form object → scalar/list/map
  * fields): a form object may not contain another form object. The {@link io.lievit.wire.PayloadGuard}
- * allowlist and depth caps apply to every value. No new annotation is introduced; the
- * seven-annotation cap of ADR-0002 is preserved.
+ * allowlist and depth caps apply to every value. No new annotation is introduced (ADR-0002).
  *
  * <p>Bean Validation ({@code jakarta.validation.constraints.*}) annotations on the form object's
  * fields are honored when {@link #validate()} is called from a {@link LievitAction} method; they
  * have no effect otherwise (the wire layer does not validate implicitly).
  *
- * <p>This interface is not one of the seven public annotations (ADR-0002) — it is a plain Java
- * interface and does not count against the cap.
+ * <p>This is a plain Java marker interface, not one of the public annotations (see the package
+ * taxonomy; ADR-0002).
  */
 public interface LievitFormObject {
 

@@ -19,7 +19,7 @@ import java.lang.annotation.Target;
  * {@link Wire}-bound state, after which the component re-renders (ADR-0001, wire-protocol.md).
  *
  * <p>An action runs within the protocol action timeout (5 s in v0.1); exceeding it is a
- * {@code 504}. One of the seven public annotations (ADR-0002).
+ * {@code 504}. The action annotation of the lievit public API (see the package taxonomy; ADR-0002).
  */
 @Documented
 @Target(ElementType.METHOD)

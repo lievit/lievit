@@ -17,7 +17,7 @@ import java.lang.annotation.Target;
  * NOT run on subsequent wire calls: those rehydrate state from the snapshot instead of mounting
  * fresh (ADR-0001, wire-protocol.md, phase 1).
  *
- * <p>One of the seven public annotations (ADR-0002).
+ * <p>A lifecycle annotation of the lievit public API (see the package taxonomy; ADR-0002).
  */
 @Documented
 @Target(ElementType.METHOD)

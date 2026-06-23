@@ -41,8 +41,8 @@ import java.lang.annotation.Target;
  * a dispatched event the framework routed. Calling it as a frontend action is an
  * {@code UNKNOWN_COMPONENT} like any other non-action method (ADR-0013).
  *
- * <p>Adding {@code @LievitOn} is governed by ADR-0030 (it supersedes the seven-annotation cap of
- * ADR-0002 for the runtime-parity surface).
+ * <p>The events annotation of the lievit public API (see the package taxonomy); adding it is
+ * governed by ADR-0030.
  */
 @Documented
 @Target({ElementType.METHOD, ElementType.TYPE})

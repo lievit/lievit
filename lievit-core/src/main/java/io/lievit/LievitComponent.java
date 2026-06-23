@@ -18,7 +18,7 @@ import java.lang.annotation.Target;
  * class is implicitly a Spring {@code @Component}. Its fully-qualified name is what the wire
  * snapshot's {@code cls} field resolves to at unwrap time (ADR-0001, wire-protocol.md).
  *
- * <p>One of the seven public annotations (ADR-0002).
+ * <p>The component annotation of the lievit public API (see the package taxonomy; ADR-0002).
  */
 @Documented
 @Target(ElementType.TYPE)
