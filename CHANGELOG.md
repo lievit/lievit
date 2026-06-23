@@ -6,6 +6,28 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The client runtime's DOM morph is now Idiomorph, vendored** (ADR-0084: renounce in-house where a
+  proven implementation exists). lievit shipped a bespoke ~390-line morph; DOM morphing is a hard
+  algorithm (its #12 unkeyed-sibling mis-pair was the standing evidence), so it is replaced by
+  **Idiomorph** (the htmx-ecosystem morph, 0BSD, eval-free), vendored as a single file with a
+  provenance header at `lievit-ui/runtime/vendor/idiomorph.js` (pinned v0.7.4). The bundle stays
+  dependency-free (no npm dep) and CSP-clean (no `eval` / `new Function`). `runtime/morph.ts` is now a
+  thin lievit wiring around Idiomorph's callbacks that preserves every wire-relied behavior: the
+  client-owned `data-lievit-rt-*` markers survive a morph (`beforeAttributeUpdated`); native + custom-
+  element value/checked follow the lievit #13 rule (a server-asserted value clears/updates a dirty
+  `.value`, an un-asserted re-render keeps in-progress typing — the inverse of Idiomorph's native
+  input sync, run in `afterNodeMorphed`); the ADR-0019 morph hooks (`l:ignore` skip/self/children,
+  `l:transition` deferred removal) map onto `beforeNodeMorphed` / `beforeAttributeUpdated` /
+  `beforeNodeRemoved`. Net win: a leading insertion among ID-keyed siblings now keeps node identity
+  and in-progress typing (the #12 bug is gone for keyed nodes; Idiomorph MOVES the keyed node instead
+  of destroy+recreate), and focus + caret selection survive a morph (Idiomorph `restoreFocus`).
+  A genuinely UNKEYED sibling (no `id`) still mis-pairs on a leading shift — fundamental to any
+  greedy, no-LCS morph — so the mitigation remains to key siblings with a stable `id`. Note: the
+  bespoke morph keyed on `id` THEN `name`; Idiomorph keys on `id` only, so a `name`-only sibling
+  reorder no longer preserves identity (use `id`).
+
 ### Fixed
 
 - **The validation gate is now intent-driven, not shape-driven** (three silent-drop bugs collapsed

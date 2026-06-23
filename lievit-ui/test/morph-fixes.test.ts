@@ -7,13 +7,17 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { morph } from "../runtime/morph.js";
 
 /**
- * Morph regression tests for three fixes:
+ * Morph regression tests for three fixes (the morph algorithm is Idiomorph since ADR-0084; these
+ * pin the lievit wiring around it):
  *  - #13: a native text input the user typed into can be SERVER-CLEARED / changed (the dirty `.value`
  *    property follows a server-asserted value, not just the attribute).
  *  - render-rec: client-runtime morph markers live under ONE reserved prefix (`data-lievit-rt-*`),
  *    preserved across a morph; a non-namespaced stale attribute is still reconciled away.
- *  - #12: golden tests DOCUMENTING the current (deliberately simple, no-LCS/no-backtracking) morph
- *    behaviour on a leading tag-shift, and that KEYING is the user-side mitigation.
+ *  - #12: a leading sibling insertion. Idiomorph matches siblings by ID-SET first, soft-match (tag +
+ *    position) second; it has no LCS pass. So an ID-keyed sibling keeps its identity (and in-progress
+ *    typing) across the shift — the bug the bespoke morph hit is GONE for keyed nodes; a genuinely
+ *    UNKEYED sibling (no id) still pairs by position and mis-pairs, which is fundamental to any greedy
+ *    morph, so the user-side mitigation remains: give siblings a stable `id`.
  */
 
 function root(html: string): HTMLElement {
@@ -102,20 +106,19 @@ describe("morph: client markers are preserved under one reserved prefix (render-
   });
 });
 
-describe("morph: leading tag-shift mis-pairs unkeyed siblings (#12, documented non-goal)", () => {
+describe("morph: leading sibling insertion (#12, Idiomorph id-set matching)", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
   });
 
-  it("GOLDEN: a leading same-tag insertion mis-pairs unkeyed inputs (the live node takes the wrong slot)", () => {
-    // This documents the CURRENT behaviour, not the desired one. The morph is deliberately no-LCS /
-    // no-backtracking (a non-goal, see morph.ts): with two same-tag unkeyed inputs, prepending a new
-    // input shifts positions by one. Positional same-tag matching pairs the live FIRST input against
-    // the new FIRST input and morphs it in place, so the live first node ends up showing what the
-    // server intended for a DIFFERENT slot — and the in-progress typing in the live first input is
-    // overwritten by the morph. Keying (next test) is the supported mitigation.
-    // Inputs distinguished only by class (NO id, NO name) are genuinely UNKEYED: `keyOf` keys on
-    // id then name, so these match purely by position.
+  it("GOLDEN: a leading insertion among genuinely UNKEYED inputs still mis-pairs (no LCS, fundamental)", () => {
+    // Inputs distinguished only by class (NO id) are genuinely unkeyed: Idiomorph matches siblings by
+    // id-set first, then soft-match (tag + position). With no id there is nothing to key on, so a
+    // prepended same-tag input shifts positions by one and the live FIRST node is reused for the new
+    // FIRST slot — its identity (and the in-progress typing the morph then overwrites) drifts to the
+    // wrong logical field. This is fundamental to any greedy, no-LCS morph (bespoke OR Idiomorph); the
+    // mitigation is keying (next test). The point of this golden is to PIN that lievit does not claim
+    // to solve anonymous-sibling identity, so adopters know to key.
     document.body.innerHTML =
       '<div data-lievit-component="X"><input class="a" value="A"><input class="b" value="B"></div>';
     const el = document.body.firstElementChild as HTMLElement;
@@ -130,16 +133,16 @@ describe("morph: leading tag-shift mis-pairs unkeyed siblings (#12, documented n
 
     const inputs = Array.from(el.querySelectorAll("input")) as HTMLInputElement[];
     expect(inputs.map((i) => i.getAttribute("class"))).toEqual(["new", "a", "b"]);
-    // The documented #12 mis-pair: positional matching reused the live FIRST node for the new FIRST
-    // slot (class="new"), so its node identity drifted to the WRONG logical field (the live "a" input
-    // is now the "new" field). That identity drift is the limitation; a keyed sibling avoids it.
+    // The #12 mis-pair persists for anonymous siblings: positional matching reused the live FIRST node
+    // for the new FIRST slot (class="new"), so its node identity drifted to the wrong logical field.
     expect(inputs[0], "the live first node drifted into the wrong slot").toBe(liveFirst);
     expect(inputs[0].getAttribute("class")).toBe("new");
   });
 
-  it("GOLDEN: KEYING the inputs preserves identity (and typing) across the same leading insertion", () => {
-    // The user-side mitigation: give each input a stable key (`id` is the key). Then the morph MATCHES
-    // keyed nodes wherever they sit (move, not recreate), so the dirty value in "a" survives.
+  it("GOLDEN: ID-KEYING the inputs preserves identity (and typing) across the same leading insertion (#12 FIXED for keyed nodes)", () => {
+    // The win Idiomorph brings over the bespoke morph: id-set matching MOVES a keyed node wherever it
+    // sits (it does NOT destroy+recreate it), so the dirty value in "a" survives the leading insertion.
+    // This is the case the bespoke morph's #12 limitation targeted; with Idiomorph it is correct.
     document.body.innerHTML =
       '<div data-lievit-component="X"><input id="a" name="a"><input id="b" name="b"></div>';
     const el = document.body.firstElementChild as HTMLElement;
@@ -153,7 +156,7 @@ describe("morph: leading tag-shift mis-pairs unkeyed siblings (#12, documented n
 
     const after = el.querySelector("#a")! as HTMLInputElement;
     expect(Array.from(el.querySelectorAll("input")).map((i) => i.id)).toEqual(["new", "a", "b"]);
-    expect(after, "the keyed input kept its node identity").toBe(liveA);
+    expect(after, "the keyed input kept its node identity (moved, not recreated)").toBe(liveA);
     expect(after.value, "keyed -> the in-progress typing survived").toBe("user typing in A");
   });
 });
