@@ -34,6 +34,7 @@
 
 import type { DispatchedEvent } from "../effects.js";
 import type { LievitRuntime } from "../runtime.js";
+import { openReconnectingSource, type ReconnectOptions } from "./reconnecting-source.js";
 
 /** The default SSE endpoint the server channel is mapped to. */
 export const DEFAULT_BROADCAST_URL = "/lievit/broadcast";
@@ -89,23 +90,24 @@ export interface BroadcastOptions {
 }
 
 /**
- * Opens a real same-origin SSE `EventSource` at `url` (the browser transport). `withCredentials` so
- * the session cookie rides the request and the server resolves the `Principal`.
+ * Opens a real same-origin SSE `EventSource` at `url` (the browser transport), self-healing across
+ * connection drops (ADR-0086): capped jittered exponential backoff on reconnect, resuming from the last
+ * seen event id (`Last-Event-ID` gap-recovery; the server must emit `id:` per event for replay).
+ * `withCredentials` so the session cookie rides the request and the server resolves the `Principal`.
  *
  * @param url the SSE endpoint URL
- * @returns a {@link BroadcastSource} over the live `EventSource`
+ * @param reconnect optional backoff/jitter tuning (defaults are htmx-sse-like)
+ * @returns a {@link BroadcastSource} over the live, reconnecting `EventSource`
  */
-export function openBroadcastSource(url: string): BroadcastSource {
-  const es = new EventSource(url, { withCredentials: true });
+export function openBroadcastSource(url: string, reconnect: ReconnectOptions = {}): BroadcastSource {
   return {
-    onMessage: (handler) => {
-      const listener = (event: MessageEvent): void => handler(event.data);
-      es.addEventListener("message", listener);
-      return () => {
-        es.removeEventListener("message", listener);
-        es.close();
-      };
-    },
+    onMessage: (handler) =>
+      openReconnectingSource(
+        url,
+        (target) => new EventSource(target, { withCredentials: true }),
+        (message) => handler(message.data),
+        reconnect,
+      ),
   };
 }
 
