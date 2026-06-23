@@ -15,6 +15,12 @@
  *   link with `data-no-progress-bar`; bar color configurable via {@link NavigateOptions.progressColor}.
  * - **scroll**: a forward navigation resets scroll to top; `l:navigate.preserve-scroll` keeps the
  *   current offset; back/forward restores the saved offset from the cache.
+ * - **title + focus**: the swap syncs the `<title>` to the incoming page and moves keyboard focus to
+ *   the new page's primary target (autofocus / `<main>` / first heading) for a11y.
+ * - **in-flight guard**: a monotonic navigation token supersedes a slower in-flight navigation, so a
+ *   second click or a Back issued before the first fetch resolves cannot desync body from URL.
+ * - **cache invalidation**: a `lievit:navigate-invalidate` event drops a stale snapshot (one `{url}`
+ *   or, with no detail, the whole cache) after a wire mutation changed server state.
  * - **`@persist`**: an element marked `l:persist="key"` is carried across the swap as the SAME live
  *   DOM node (Livewire `@persist`): its node identity (and so an `<audio>`/`<video>` mid-playback)
  *   survives the navigation. Lievit-native: no Alpine `x-persist`, the live node is detached to a
@@ -75,6 +81,16 @@ class PageCache {
 
   has(url: string): boolean {
     return this.entries.has(url);
+  }
+
+  /** Drops a single URL's snapshot (e.g. a wire mutation made the cached page stale). */
+  delete(url: string): void {
+    this.entries.delete(url);
+  }
+
+  /** Drops every snapshot (e.g. a global invalidation after a mutation that affects many pages). */
+  clear(): void {
+    this.entries.clear();
   }
 }
 
@@ -224,6 +240,13 @@ export function installNavigate(runtime: LievitRuntime, options: NavigateOptions
   const baseAssets = trackedAssets(doc);
   const progress = new ProgressBar(doc, options.progressColor ?? DEFAULT_PROGRESS_COLOR);
 
+  // Monotonic navigation token. Every navigation intent (click, popState, history move) bumps it;
+  // an async navigation that finds the token moved past its own value has been SUPERSEDED by a later
+  // intent and must not swap, pushState, or scroll. Without this, a second click (or a Back) issued
+  // while a first fetch is still in flight lets the slower fetch resolve last and win the morph +
+  // pushState, desyncing the visible body from the address bar.
+  let navToken = 0;
+
   function emit(name: string, detail: Record<string, unknown>): void {
     win.dispatchEvent(new CustomEvent(name, { detail }));
   }
@@ -280,21 +303,68 @@ export function installNavigate(runtime: LievitRuntime, options: NavigateOptions
     const persisted = detachPersisted(doc.body);
     morph(doc.body, incomingDoc.body.innerHTML);
     restorePersisted(doc.body, persisted);
+    // The tab title must follow the navigation; the head merge is additive (it never replaces the
+    // live <title>), so without this the address bar changes but the tab keeps the old page's title.
+    const incomingTitle = incomingDoc.querySelector("title")?.textContent;
+    if (incomingTitle != null) {
+      doc.title = incomingTitle;
+    }
     runtime.start(doc.body);
+    moveFocusToNewPage();
     emit("lievit:navigated", { url, cached: fromCache });
     return true;
   }
 
+  /**
+   * a11y: a body swap leaves keyboard focus on `<body>` (the previously focused node was removed), so
+   * a screen reader announces nothing and a keyboard user is dumped at the top of the tab order. Move
+   * focus to the new page's primary target so the new content is announced and the next Tab is
+   * meaningful: an explicit `[autofocus]`, else the `<main>` / `[role=main]` landmark, else the first
+   * heading. The target is focused programmatically (made focusable with `tabindex="-1"` if needed,
+   * without joining the tab order). No-op if the page already moved focus into an element itself.
+   */
+  function moveFocusToNewPage(): void {
+    const active = doc.activeElement;
+    if (active != null && active !== doc.body && active !== doc.documentElement) {
+      return; // the new page (or runtime.start) already placed focus; do not steal it.
+    }
+    const target =
+      doc.body.querySelector<HTMLElement>("[autofocus]") ??
+      doc.body.querySelector<HTMLElement>("main, [role='main']") ??
+      doc.body.querySelector<HTMLElement>("h1, h2, [role='heading']");
+    if (target == null) {
+      return;
+    }
+    if (target.tabIndex < 0 && !target.hasAttribute("tabindex")) {
+      target.setAttribute("tabindex", "-1"); // focusable programmatically, but not in the tab order.
+    }
+    target.focus({ preventScroll: true }); // scroll is owned by the scroll-restoration path.
+  }
+
   async function go(url: string, push: boolean, preserveScroll: boolean, showBar: boolean): Promise<void> {
+    const token = ++navToken;
+    // A new navigation owns the progress bar from here: clear any bar a superseded navigation left
+    // up (it returned early on the token check without hiding it). Idempotent when no bar is shown.
+    progress.hide();
     emit("lievit:navigate", { url });
-    cache.set(win.location.href, doc.body.innerHTML, win.scrollY);
+    // Read the TARGET from cache BEFORE snapshotting the page we are leaving. Order matters: when the
+    // target URL equals the current URL (a same-page move, or a popState whose entry was invalidated),
+    // snapshotting first would store the current DOM under that key and `cache.get(url)` would then
+    // hand back the snapshot we just took, short-circuiting the fetch and replaying the leaving page
+    // (this is what defeated cache invalidation: the dropped entry was immediately re-created).
     const cached = cache.get(url);
+    cache.set(win.location.href, doc.body.innerHTML, win.scrollY);
     let html = cached?.html ?? null;
     if (html == null) {
       if (showBar) {
         progress.show();
       }
       html = await fetchBody(url);
+      // The fetch is the only await; a later navigation may have superseded us while it was open.
+      // If so, abort: do not hide a bar a newer navigation may own, do not swap, do not pushState.
+      if (token !== navToken) {
+        return;
+      }
       progress.hide();
     }
     if (html == null) {
@@ -347,25 +417,56 @@ export function installNavigate(runtime: LievitRuntime, options: NavigateOptions
     void fetchBody(url).then((html) => {
       if (html != null) {
         cache.set(url, html, 0);
+      } else {
+        // A failed prefetch (network/external/error response) must not poison the URL forever:
+        // drop it from the in-flight set so a later hover can retry instead of staying un-prefetched.
+        prefetched.delete(url);
       }
     });
   };
 
   const onPopState = (): void => {
+    // A history move supersedes any in-flight forward navigation: bump the token so a slower forward
+    // fetch that resolves after this Back/Forward aborts instead of overwriting the restored page.
+    ++navToken;
     const url = win.location.href;
     const cached = cache.get(url);
     if (cached != null) {
-      // Back/forward: replay from cache without a fetch, restore scroll.
-      swap(cached.html, url, true);
-      win.scrollTo(0, cached.scrollY);
+      // Back/forward: replay from cache without a fetch, restore scroll. Only restore scroll if the
+      // swap actually happened; a changed-bundle cache entry triggers a full reload (swap → false)
+      // and `scrollTo` on a page about to be replaced is both pointless and visibly wrong.
+      const swapped = swap(cached.html, url, true);
+      if (swapped) {
+        win.scrollTo(0, cached.scrollY);
+      }
     } else {
       void go(url, false, true, true); // unknown entry: do not reset scroll on a history move.
+    }
+  };
+
+  // Cache invalidation hook: a wire mutation can make a snapshot in the LRU stale (a page navigated
+  // away from is replayed from its navigate-time DOM on Back, so a later server-state change would
+  // not be reflected). The app/wire layer dispatches `lievit:navigate-invalidate` with an optional
+  // `{ url }` to drop one snapshot (current page if omitted), or no detail to clear the whole cache.
+  // Opt-in: nothing fires it by default, so default behavior is unchanged.
+  const onInvalidate = (event: Event): void => {
+    const detail = (event as CustomEvent).detail as { url?: string } | null | undefined;
+    if (detail != null && typeof detail.url === "string") {
+      cache.delete(new URL(detail.url, win.location.href).href);
+      prefetched.delete(new URL(detail.url, win.location.href).href);
+    } else if (detail != null && "url" in detail) {
+      // explicit `{ url: undefined }` or `{}`: invalidate the current page.
+      cache.delete(win.location.href);
+    } else {
+      cache.clear();
+      prefetched.clear();
     }
   };
 
   doc.addEventListener("click", onClick);
   doc.addEventListener("pointerenter", onPointerEnter, true);
   win.addEventListener("popstate", onPopState);
+  win.addEventListener("lievit:navigate-invalidate", onInvalidate);
   // First load fires only `navigated` (Livewire parity).
   emit("lievit:navigated", { url: win.location.href, cached: false });
 
@@ -373,5 +474,6 @@ export function installNavigate(runtime: LievitRuntime, options: NavigateOptions
     doc.removeEventListener("click", onClick);
     doc.removeEventListener("pointerenter", onPointerEnter, true);
     win.removeEventListener("popstate", onPopState);
+    win.removeEventListener("lievit:navigate-invalidate", onInvalidate);
   };
 }

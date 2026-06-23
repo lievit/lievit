@@ -8,6 +8,38 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **`l:navigate` SPA navigation hardened on its hard edges (ADR-0084).** ADR-0084 keeps `navigate.ts`
+  rather than adopting a heavy dep (Turbo Drive / hx-boost fight the CSP-clean bundle + the wire/morph
+  swap), and flags it as the #1 place to find robustness bugs before 1.0; this pass de-risks the hard
+  edges and pins each with a golden test (`test/navigate-harden.test.ts`):
+  - **In-flight navigation race**: a second click (or any navigation) issued before the first fetch
+    resolved let the slower fetch win the morph + `pushState`, desyncing the visible body from the
+    address bar. A monotonic navigation token now supersedes a stale in-flight navigation: a fetch
+    that resolves after a newer navigation began aborts (no swap, no `pushState`, no scroll).
+  - **Back/forward during an in-flight forward navigation**: `popState` now bumps the same token, so
+    a slow forward fetch that resolves after a Back cannot overwrite the restored page.
+  - **Cache invalidation was defeated by `go()`'s own snapshot**: `go` snapshotted the page being
+    left and *then* read the cache for the target, so navigating to the current URL (or a `popState`
+    whose entry had been invalidated) handed back the just-stored snapshot and short-circuited the
+    fetch, replaying the stale page. The target is now read from the cache BEFORE the leaving page is
+    snapshotted. A new opt-in `lievit:navigate-invalidate` event (`{ url }` to drop one snapshot, no
+    detail to clear all) lets the wire layer evict a page made stale by a mutation.
+  - **`popState` restored scroll even when the swap forced a full reload** (changed tracked bundle):
+    `scrollTo` on a page about to be replaced is pointless and visibly wrong; it now fires only when
+    the swap actually happened.
+  - **Failed prefetch poisoned the URL forever**: a `l:navigate.hover` prefetch that failed left the
+    URL in the in-flight set, so a later hover never retried; a failed prefetch is now evicted so a
+    subsequent hover re-prefetches.
+  - **Progress-bar leak**: a superseded navigation could leave its top-of-page bar up; the
+    successor navigation now clears it (idempotent).
+  - **Tab title was not synced**: the head merge is additive (never replaces `<title>`), so the URL
+    changed but the tab kept the old title; the swap now syncs `document.title` to the incoming page.
+  - **Focus was lost on every navigation (a11y)**: a body swap dropped keyboard focus to `<body>`
+    (nothing announced, keyboard user dumped at the top of the tab order). Focus now moves to the new
+    page's primary target (`[autofocus]` → `<main>`/`[role=main]` → first heading), made
+    programmatically focusable with `tabindex="-1"` without joining the tab order, never stealing
+    focus the page placed itself. All changes are CSP-clean (no inline script, no `eval`,
+    `createElement` for any injected node).
 - **The validation gate is now intent-driven, not shape-driven** (three silent-drop bugs collapsed
   into one correct decision): a failing `@Wire`-field validation used to skip a single `else` block
   that bundled three unrelated intents (real form-submit actions, framework magic mutations, inbound
