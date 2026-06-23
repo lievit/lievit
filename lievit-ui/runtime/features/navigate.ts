@@ -28,8 +28,9 @@
  *
  * ## The residual glue (the ~10-20% Turbo does not cover) — this file
  *
- * Turbo swaps the `<body>` but knows nothing about lievit's wire components (`[l:component]` /
- * `l:*` directives). After every Drive swap those components are FRESH, unbound DOM. The load-bearing
+ * Turbo swaps the `<body>` but knows nothing about lievit's wire components (the
+ * `data-lievit-component` roots and their `l:*` directives). After every Drive swap those components
+ * are FRESH, unbound DOM. The load-bearing
  * glue: on `turbo:load` / `turbo:render`, re-run {@link LievitRuntime.start} over the new body so each
  * wire component re-registers its snapshot and re-binds its directives (`runtime.start` is idempotent
  * and re-scannable on a subtree, so it is safe to call after every swap).
