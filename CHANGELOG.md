@@ -8,6 +8,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **`dropdown-menu` gains an optional `triggerClass` param** (backflow from gest, dogfood-then-extract):
+  extra utility classes applied to the trigger `<button>` itself (the wrapper's `cssClass` left the
+  inline-flex button content-tight). Empty default, backward-compatible. `kit/page/user-menu` uses it
+  for a new `inFooter` placement: the user menu can now render as a full-width sidebar-FOOTER row
+  (`triggerClass = "w-full justify-between"`, opens upward, name + chevron `lv-sidebar-collapsible` so a
+  collapsed icon rail shows the avatar only), the Filament panel user-menu placement, in addition to the
+  default compact topbar trigger.
+- **Table chrome Filament-fidelity pass** (backflow from gest): the data-column header cells
+  (`lievit-ui` `table/head` + `lievit-kit` `kit/table/sortable-head`) lighten from the heavy 70%-surface
+  band to a subtle 35% tint with a small muted-semibold label (faithful `fi-ta-header-cell`); data cells
+  (`table/cell`) get comfortable `px-3 py-3` padding (was cramped `p-2`); and `kit/table` shows an
+  `l:loading.delay` spinner on the results row during a wire call (Filament's `fi-ta` async indicator).
 - **lievit-ui is now a SERVER component library** (ADR-0012): the 46 light-DOM Lit islands were
   retired in favour of one predictable, convention-driven model: JTE partials for presentation,
   lievit-wire components (typed Java state + `l:*`) for stateful interactivity, htmx/native for

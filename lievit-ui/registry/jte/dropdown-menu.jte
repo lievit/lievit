@@ -48,6 +48,10 @@
     String         placement = "bottom"     "bottom" | "top": preferred side (flips when cramped).
     boolean        disabled = false         disables the trigger so the menu cannot open.
     String         cssClass = ""            extra utility classes on the wrapper.
+    String         triggerClass = ""        extra utility classes on the trigger <button> itself
+                                            (e.g. "w-full justify-between" for a full-width row trigger:
+                                            the wrapper's w-full alone leaves the inline-flex button
+                                            content-tight, so the button needs its own width token).
 
   Usage:
     @@template.lievit.dropdown-menu(
@@ -67,6 +71,7 @@
 @param String placement = "bottom"
 @param boolean disabled = false
 @param String cssClass = ""
+@param String triggerClass = ""
 !{var anchorName = "--" + id + "-anchor";}
 !{var area = "top".equals(placement) ? "top span-all" : "bottom span-all";}
 
@@ -77,7 +82,7 @@
     popovertarget="${id}"
     aria-haspopup="menu"
     disabled="${disabled}"
-    class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
+    class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] ${triggerClass}"
     style="anchor-name:${anchorName};"
   >${trigger}</button>
 

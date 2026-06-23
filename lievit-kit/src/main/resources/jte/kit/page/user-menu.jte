@@ -23,19 +23,42 @@
   Params:
     page - the KitPageView render bundle (read .userName() + .avatarSrcOrNull() + .userInitials() +
            .userMenu() + theme facts).
+    inFooter - true => the menu renders in the SIDEBAR FOOTER (Filament panel user-menu placement),
+               not the topbar: the trigger is a full-width row (avatar + name + chevron-up), the
+               dropdown opens UPWARD (placement "top"), and the name + chevron are lv-sidebar-collapsible
+               so a collapsed icon rail shows the avatar only. false (default) => the compact topbar
+               trigger (avatar + md:name + chevron-down).
 --%>
 @param KitPageView page
+@param boolean inFooter = false
+<%-- triggerClass below: the footer trigger spans the whole (expanded) sidebar like Filament's
+     user-menu. The wrapper's w-full is not enough, the trigger <button> is inline-flex so it stays
+     content-tight; w-full on the BUTTON makes it fill the footer, justify-between pushes the chevron to
+     the far edge. The collapsed icon rail still degrades to the centred avatar via the footer's
+     lv-sidebar-collapsible rule on the name + chevron. --%>
 @template.lievit.dropdown-menu(
   id = "kit-page-user-menu",
-  placement = "bottom",
-  cssClass = "shrink-0",
+  placement = inFooter ? "top" : "bottom",
+  cssClass = inFooter ? "w-full" : "shrink-0",
+  triggerClass = inFooter ? "w-full justify-between" : "",
   trigger = @`
-    <span class="flex items-center gap-[var(--lv-space-2)]">
-      @template.lievit.avatar(name = page.userName(), src = page.avatarSrcOrNull(),
-        initials = page.userInitials().isBlank() ? null : page.userInitials(), size = "sm")
-      <span class="hidden text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] md:inline">${page.userName()}</span>
-      @template.lievit.icon(name = "chevron-down", cssClass = "text-[var(--lv-color-muted-fg)]")
-    </span>
+    @if(inFooter)
+      <%-- Sidebar-footer trigger (Filament panel user-menu placement): a full-width row, the name a
+           lv-sidebar-collapsible label that the collapsed icon rail hides, leaving avatar + chevron. --%>
+      <span class="flex w-full items-center gap-[var(--lv-space-2)]">
+        @template.lievit.avatar(name = page.userName(), src = page.avatarSrcOrNull(),
+          initials = page.userInitials().isBlank() ? null : page.userInitials(), size = "sm")
+        <span class="lv-sidebar-collapsible flex-1 min-w-0 truncate text-left text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)]">${page.userName()}</span>
+        @template.lievit.icon(name = "chevron-up", cssClass = "lv-sidebar-collapsible text-[var(--lv-color-muted-fg)]")
+      </span>
+    @else
+      <span class="flex items-center gap-[var(--lv-space-2)]">
+        @template.lievit.avatar(name = page.userName(), src = page.avatarSrcOrNull(),
+          initials = page.userInitials().isBlank() ? null : page.userInitials(), size = "sm")
+        <span class="hidden text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] md:inline">${page.userName()}</span>
+        @template.lievit.icon(name = "chevron-down", cssClass = "text-[var(--lv-color-muted-fg)]")
+      </span>
+    @endif
   `,
   content = @`
     <%-- Profile header: the signed-in identity, the Filament user-menu profile block. --%>

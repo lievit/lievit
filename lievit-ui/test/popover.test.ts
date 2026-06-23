@@ -159,6 +159,23 @@ describe("dropdown-menu.jte: native popover menu of real items", () => {
     expect(jte).not.toMatch(/<script/i);
     expect(markup).not.toMatch(/\son[a-z]+=/i);
   });
+
+  test("the optional triggerClass appends utilities to the trigger <button> itself", () => {
+    // The param exists with an empty default (backward-compatible: an un-passed trigger is unchanged).
+    expect(jte, "triggerClass param missing").toContain('@param String triggerClass = ""');
+    // It is interpolated onto the TRIGGER button class (so a caller can pass e.g. "w-full
+    // justify-between" for a full-width row trigger), NOT onto the wrapper (cssClass owns that).
+    const triggerButton = markup.slice(
+      markup.indexOf('data-slot="dropdown-menu-trigger"'),
+      markup.indexOf("</button>"),
+    );
+    expect(triggerButton, "triggerClass not applied to the trigger button").toContain(
+      "${triggerClass}",
+    );
+    // The wrapper keeps its own cssClass; triggerClass must not leak onto it.
+    const wrapper = markup.slice(0, markup.indexOf('data-slot="dropdown-menu-trigger"'));
+    expect(wrapper, "triggerClass leaked onto the wrapper").not.toContain("${triggerClass}");
+  });
 });
 
 describe("dropdown-menu/item.jte: real <a href> / <button>, role=menuitem", () => {
