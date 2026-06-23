@@ -84,3 +84,54 @@ describe("surgical snapshot merge (ADR-0024 #87)", () => {
     expect(merged.items).toEqual([]);
   });
 });
+
+describe("prototype-pollution guard (security)", () => {
+  // writePath sits on the wire deserialization path (pending field paths reconciled against the
+  // server snapshot on every response), so a dot-keyed segment of __proto__ / constructor / prototype
+  // must never reach the JS prototype chain.
+
+  it("writePath does not pollute Object.prototype via a __proto__ path", () => {
+    const state: WireState = {};
+    expect(() => writePath(state, "__proto__.polluted", "yes")).not.toThrow();
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined(); // prototype untouched
+    expect((state as Record<string, unknown>).polluted).toBeUndefined(); // not even on the target
+  });
+
+  it("writePath does not pollute via a constructor.prototype path", () => {
+    const state: WireState = {};
+    expect(() => writePath(state, "constructor.prototype.x", "boom")).not.toThrow();
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+  });
+
+  it("writePath refuses a forbidden segment anywhere in the path, not just the head", () => {
+    const state: WireState = {};
+    expect(() => writePath(state, "user.__proto__.isAdmin", true)).not.toThrow();
+    expect(({} as Record<string, unknown>).isAdmin).toBeUndefined();
+  });
+
+  it("readPath treats a __proto__ path as absent (never reads off the prototype chain)", () => {
+    const state: WireState = { user: { name: "ada" } };
+    expect(readPath(state, "__proto__")).toBeUndefined();
+    expect(readPath(state, "user.__proto__.name")).toBeUndefined();
+    expect(readPath(state, "constructor")).toBeUndefined();
+  });
+
+  it("mergeNewSnapshot ignores a pending __proto__ path without polluting or throwing", () => {
+    const base: WireState = { a: "edit" };
+    const server: WireState = { a: "edit" };
+    const merged = mergeNewSnapshot(base, server, {
+      pendingPaths: ["__proto__.polluted", "constructor.prototype.x", "a"],
+    });
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+    expect(merged.a).toBe("edit"); // the legitimate pending path still merges
+  });
+
+  it("still merges legitimate paths normally with the guard in place", () => {
+    const base: WireState = { user: { name: "client-edit" }, b: 1 };
+    const server: WireState = { user: { name: "client-edit" }, b: 2 };
+    const merged = mergeNewSnapshot(base, server, { pendingPaths: ["user.name"] });
+    expect((merged.user as WireState).name).toBe("client-edit"); // in-flight edit preserved
+    expect(merged.b).toBe(2); // server change authoritative
+  });
+});
