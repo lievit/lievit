@@ -142,9 +142,13 @@ export class DirectiveRegistry {
   }
 }
 
-/** A per-element marker attribute so a directive binds an element at most once (idempotent scan). */
+/**
+ * A per-element marker attribute so a directive binds an element at most once (idempotent scan).
+ * Under the reserved client-marker prefix (render-rec) so the morph preserves it without a per-name
+ * allowlist entry (the server never authors `data-lievit-rt-*`).
+ */
 function boundMarker(attribute: string): string {
-  return `data-lievit-bound-${attribute.replace(/[^a-z]/gi, "-")}`;
+  return `data-lievit-rt-bound-${attribute.replace(/[^a-z]/gi, "-")}`;
 }
 
 /** Guards a bind so it runs at most once per element+attribute; returns false if already bound. */

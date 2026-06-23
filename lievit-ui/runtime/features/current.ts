@@ -27,7 +27,7 @@ import type { LievitRuntime } from "../runtime.js";
 
 const NAME = "current";
 const DEFAULT_CLASS = "active";
-const BOUND_ATTR = "data-lievit-current-bound";
+const BOUND_ATTR = "data-lievit-rt-current-bound";
 const CURRENT_ATTR = "data-current";
 
 /** Normalizes a path for comparison: strips a trailing slash (except root) unless `strict` keeps it. */

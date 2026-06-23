@@ -418,7 +418,7 @@ function toggleLoading(root: Element, loading: boolean): void {
     } else if (el instanceof HTMLAnchorElement) {
       el.setAttribute("aria-disabled", String(loading));
     } else {
-      html.toggleAttribute("data-lievit-loading-active", loading);
+      html.toggleAttribute("data-lievit-rt-loading-active", loading);
     }
   }
 }

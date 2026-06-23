@@ -184,6 +184,45 @@ All notable changes to this project are documented here. Format follows
   five template adapters, the Spring Boot starter, the admin kit, the CLI) plus a runnable
   golden-path example.
 
+### Fixed
+
+- **Island vs whole-component snapshot race — silent lost update (#7).** An `l:island` re-render and a
+  whole-component re-render share one `state.snapshot` but ran their commits across an `await` with no
+  ordering, so a `l:model` edit typed while an island call was in flight was silently wiped (the
+  island's commit cleared the WHOLE pending set; `SnapshotCodec.verify` checks signature+expiry only,
+  no CAS, so it was silent, not a 409). The snapshot-commit critical section is now serialized per
+  component (a `commitChain` mutex) so concurrent island/whole-component commits apply one at a time in
+  completion order, and a commit drops ONLY the pending paths it actually sent, preserving a newer edit
+  that arrived mid-flight. The network stays concurrent (independent scopes still fly in parallel).
+- **`.async` same-scope race — silent `@Wire` clobber (#8).** `l:async` actions bypass the commit
+  queue to run in parallel, but each rotated the shared snapshot, so a stateful `.async` action
+  silently lost-updated `@Wire` (the markup advertised safe parallel mutation it could not deliver).
+  `.async` is now RESTRICTED to renderless / side-effect-only actions: a `.async` run never reads or
+  rotates the snapshot, never merges, never morphs — it applies only its side effects (`dispatch` /
+  `redirect` / `url` / `js`). To mutate `@Wire`, use a normal queued action.
+- **File-upload re-entrancy — orphaned controller + stale-ref clobber (#9).** A second file pick
+  overwrote the in-flight `AbortController`, orphaning the first (uncancellable), and a slow first
+  upload could write a stale temp-ref over `@Wire` out of order. `uploads.handle()` now aborts any
+  existing controller for the input before starting, tags each run with a monotonic id, and drops a
+  superseded run's `setModel` so only the latest pick's ref lands.
+- **Native text input could not be server-cleared once typed into (#13).** A dirty `.value` detaches
+  from the `value` attribute, so a server-asserted empty/changed value reconciled only the attribute
+  and never reached the screen. The morph now pushes a server-asserted `value`/`checked` onto the live
+  property, so a server clear (`value=""`) or change actually lands; an un-asserted re-render still
+  preserves in-progress typing.
+
+### Changed
+
+- **Client-runtime morph markers are namespaced under one reserved prefix `data-lievit-rt-*`.** The
+  morph's "preserve client-owned attributes" allowlist was a per-NAME list that had to grow with every
+  new marker (re-creating the same double-bind defect each time). All runtime bind/state markers
+  (`bound-*`, `init-fired`, `current-bound`, `page-bound`, `poll-armed`, `lazy-loaded`, `upload-bound`,
+  `loading-active`) moved under `data-lievit-rt-`, and `isClientOwnedMarker` is now a one-line
+  `startsWith`. Behaviour identical; adding the next marker needs no morph edit. The no-LCS /
+  no-backtracking morph mis-pair of unkeyed siblings on a leading tag-shift (#12) is documented as a
+  deliberate non-goal in the morph source, with keying as the user-side mitigation (golden tests pin
+  both the mis-pair and the keyed fix).
+
 ## [0.1.0] - unreleased
 
 _Wire protocol v0.1 target. Not yet shipped._

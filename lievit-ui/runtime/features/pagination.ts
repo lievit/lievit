@@ -56,7 +56,7 @@ export function installPagination(runtime: LievitRuntime, scrollToTop: ScrollToT
   runtime.directives.register({
     name: NAME,
     bind(element, _attribute, value, rt) {
-      const marker = "data-lievit-page-bound";
+      const marker = "data-lievit-rt-page-bound";
       if (element.hasAttribute(marker)) {
         return;
       }

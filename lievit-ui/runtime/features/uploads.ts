@@ -180,6 +180,11 @@ export function installUploads(
 ): { cancel: (input: Element) => void } {
   const transport = options.transport ?? fetchTransport(options);
   const inflight = new WeakMap<Element, AbortController>();
+  // The monotonic id of the LATEST run started for an input (#9): a second file pick before the
+  // first upload settles bumps this, so a slow first run that resolves late knows it was superseded
+  // and skips its `setModel` (an out-of-order write would clobber `@Wire` with stale refs).
+  const latestRun = new WeakMap<Element, number>();
+  let runCounter = 0;
 
   function emit(input: Element, name: string, detail: Record<string, unknown>): void {
     input.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
@@ -190,8 +195,15 @@ export function installUploads(
     if (files.length === 0) {
       return;
     }
+    // Re-entrancy guard (#9): a second pick must not orphan the first AbortController (it would
+    // become uncancellable) and must not let a slow first upload win the race. Abort the previous
+    // run for this input before starting, and tag this run so a superseded late resolution is dropped.
+    inflight.get(input)?.abort();
     const controller = new AbortController();
     inflight.set(input, controller);
+    const runId = ++runCounter;
+    latestRun.set(input, runId);
+    const superseded = (): boolean => latestRun.get(input) !== runId;
     emit(input, "lievit:upload-start", { count: files.length });
     try {
       const refs = await transport.upload(
@@ -199,6 +211,11 @@ export function installUploads(
         (fraction) => emit(input, "lievit:upload-progress", { fraction }),
         controller.signal,
       );
+      // A newer pick superseded this run while it was uploading: drop the result so an out-of-order
+      // write never clobbers `@Wire` with stale refs (the newer run owns the field now).
+      if (superseded()) {
+        return;
+      }
       // Set the field to a single ref (single input) or an array (multiple), then defer to the
       // next action like any l:model (the reference rides the normal wire payload).
       const value = input.multiple ? refs : refs[0];
@@ -207,18 +224,22 @@ export function installUploads(
     } catch (error) {
       if (controller.signal.aborted) {
         emit(input, "lievit:upload-cancel", {});
-      } else {
+      } else if (!superseded()) {
         emit(input, "lievit:upload-error", { message: String(error) });
       }
     } finally {
-      inflight.delete(input);
+      // Only the latest run owns the input's in-flight slot; a superseded run settling late must not
+      // delete the newer run's controller (which would leak it past a `$cancelUpload`).
+      if (inflight.get(input) === controller) {
+        inflight.delete(input);
+      }
     }
   }
 
   runtime.directives.register({
     name: "upload",
     bind(element, _attribute, value, rt) {
-      const marker = "data-lievit-upload-bound";
+      const marker = "data-lievit-rt-upload-bound";
       if (element.hasAttribute(marker) || !(element instanceof HTMLInputElement)) {
         return;
       }
