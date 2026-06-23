@@ -35,6 +35,27 @@ All notable changes to this project are documented here. Format follows
   method was undefined (the adapter silently picked a winner). `ComponentMetadata.of` now rejects the
   combo at startup with a message naming both halves and the fix; the two legal modes (named template
   + void prepare-hook, or empty template + markup-returning render) are unaffected.
+### Security
+
+- **Reserved-key smuggling at the dehydrate/hydrate boundary is closed** (`SynthesizerRegistry`,
+  ADR-0020): the typed-tuple envelope was detected purely structurally, so a client-controlled plain
+  `Map` or `DynamicObject` whose key was literally `@w` (or any reserved `@`-sigil key, e.g. `@memo`)
+  was mis-read as a typed-state tuple on the next hydrate, corrupting integrity or self-DoSing the
+  request (a 422/500; the `ClassInstantiationGuard` already capped the blast radius at integrity +
+  self-DoS, never RCE). Reserved-sigil keys on the plain-map / `DynamicObject` path are now escaped on
+  dehydrate (a leading `@` is doubled: `@w` → `@@w`) and unescaped on hydrate, so user data can never be
+  shaped into an envelope. The documented invariant "a `DynamicObject` / plain map can never smuggle a
+  typed object" is now literally true by construction, not by coincidence. Plain maps without sigil keys
+  are untouched, so the Counter snapshot stays byte-identical. New round-trip tests pin a user map keyed
+  `@w` (and a `DynamicObject` keyed `@w`) reconstructing as DATA.
+- **`ChecksumFailureLimiter` no longer grows unbounded under IP rotation** (memory-DoS): the per-client
+  `ConcurrentHashMap` never evicted a client whose deque had drained, so a rotating-IP attacker turned
+  the anti-brute-force control into a memory-DoS vector (the "bounded by the active client set" claim
+  was false). Drained entries are now evicted on touch under the deque lock (value-checked remove, no
+  lost in-flight failure), plus an amortized sweep on `recordFailure` once the map outgrows the
+  plausible active set, so the map collapses back to the currently-active clients. No new dependency
+  (`lievit-core` stays pure-Java, zero-Spring); a test pins that 2000 rotated IPs collapse to the live
+  set after the window elapses.
 
 ### Changed
 
