@@ -163,9 +163,12 @@ public final class ComponentMetadata {
             }
         }
 
+        String template = component.template();
+        rejectAmbiguousRender(type, template, renderHook);
+
         return new ComponentMetadata(
                 type,
-                component.template(),
+                template,
                 Map.copyOf(fields),
                 Map.copyOf(formObjects),
                 Map.copyOf(methods),
@@ -173,6 +176,44 @@ public final class ComponentMetadata {
                 mountHook,
                 renderHook,
                 modelable);
+    }
+
+    /**
+     * Rejects the undefined single-file-vs-multi-file render combination at reflect time (startup),
+     * so the adapter never has to silently pick a winner.
+     *
+     * <p>The two render modes are mutually exclusive (ADR-0001, {@link LievitRender}):
+     * <ul>
+     *   <li><b>multi-file</b>: {@code @LievitComponent(template="...")} names a template; a
+     *       {@code @LievitRender} method, if any, is a {@code void} prepare-hook (its return is
+     *       ignored by {@code invokeHook}).
+     *   <li><b>single-file</b>: an empty {@code template} plus a {@code @LievitRender} method that
+     *       <em>returns markup</em> (a non-{@code void} return) which IS the render.
+     * </ul>
+     *
+     * <p>A non-empty template AND a markup-returning {@code @LievitRender} is the illegal combo: the
+     * named template would render one thing and the returned markup another, and which wins is
+     * adapter-dependent (undefined). Fail fast with a message that names both halves and the fix.
+     */
+    private static void rejectAmbiguousRender(
+            Class<?> type, String template, @Nullable Method renderHook) {
+        if (template.isEmpty() || renderHook == null) {
+            return; // single-file, or multi-file without a render hook: unambiguous.
+        }
+        if (renderHook.getReturnType() != void.class) {
+            throw new IllegalArgumentException(
+                    type.getName()
+                            + " declares both @LievitComponent(template=\""
+                            + template
+                            + "\") and a markup-returning @LievitRender method ("
+                            + renderHook.getName()
+                            + " returns "
+                            + renderHook.getReturnType().getSimpleName()
+                            + "): which renders is undefined. Use either a named template with a"
+                            + " void @LievitRender prepare-hook (multi-file), or an empty template"
+                            + " with a markup-returning @LievitRender (single-file), not both"
+                            + " (ADR-0001).");
+        }
     }
 
     /**

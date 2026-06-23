@@ -22,9 +22,9 @@ import org.jspecify.annotations.Nullable;
  * the wire), {@link #disableBackButtonCache()} is a no-op rather than a crash, so a component still
  * mounts statelessly.
  *
- * <p>This is a runtime API, not an annotation: it keeps the public surface at seven annotations
- * (ADR-0002) while giving components the Livewire {@code $this->disableBackButtonCache()} ergonomics,
- * mirroring how {@link LievitEffects} added {@code redirect()} / {@code dispatch()}.
+ * <p>This is a runtime API, not an annotation: it gives components the Livewire
+ * {@code $this->disableBackButtonCache()} ergonomics without adding to the annotation surface
+ * (ADR-0002), mirroring how {@link LievitEffects} added {@code redirect()} / {@code dispatch()}.
  */
 public final class LievitResponse {
 

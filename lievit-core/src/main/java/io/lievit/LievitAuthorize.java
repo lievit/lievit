@@ -50,9 +50,9 @@ import java.lang.annotation.Target;
  * component's own {@code @Wire} state ({@code hasPermission(#root.this.invoice, 'update')}). The
  * component property must be readable (a public getter). The expression is a SpEL string, not a Java
  * symbol, so it is engine-evaluated by the host's expression handler; nothing in lievit-core depends
- * on Spring (ADR-0007 boundary). This is the eighth annotation, deliberately admitted by the ADR
- * that supersedes ADR-0002: authorization is security-critical and cannot be expressed as
- * convention.
+ * on Spring (ADR-0007 boundary). The authorization annotation of the lievit public API (see the
+ * package taxonomy), deliberately admitted by the ADR that supersedes ADR-0002: authorization is
+ * security-critical and cannot be expressed as convention.
  */
 @Documented
 @Target(ElementType.METHOD)

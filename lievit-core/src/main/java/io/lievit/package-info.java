@@ -4,21 +4,71 @@
  */
 
 /**
- * The lievit public API: nine annotations (ADR-0002's seven-annotation cap superseded by ADR-0015
- * for {@code @LievitComputed} and by ADR-0012 / the URL-binding feature for {@code @LievitUrl}).
+ * The lievit public API, organized by role. Learn the surface by what each annotation is FOR, not by
+ * counting them: the set grows as parity features land (ADR-0030, ADR-0031, ...), so a fixed integer
+ * is a slogan that drifts. The roles below are stable; the
+ * {@code io.lievit.AnnotationTaxonomyInvariantTest} build-time test asserts that this documented set
+ * is exactly the set of runtime {@code @interface} types in this package, so the doc cannot silently
+ * drift from the code.
  *
- * <p>{@link io.lievit.EnableLievit}, {@link io.lievit.LievitComponent},
- * {@link io.lievit.Wire}, {@link io.lievit.LievitAction},
- * {@link io.lievit.LievitMount}, {@link io.lievit.LievitRender},
- * {@link io.lievit.LievitProperty},
- * {@link io.lievit.LievitComputed}. They map onto six user-facing concepts:
- * Component, Wire, Action, Mount, Render, Computed.
+ * <p><b>Bootstrap</b> — turn the framework on.
+ * <ul>
+ *   <li>{@link io.lievit.EnableLievit} — enable the starter autoconfiguration.
+ * </ul>
  *
- * <p>{@link io.lievit.LievitUrl} is field-level metadata that tunes how an existing
- * {@code @Wire} field crosses the wire (it reflects the field into the URL query string); it is
- * applied alongside {@code @Wire}, in the same family as {@code @LievitProperty}. {@code @LievitProperty}
- * also carries the {@code modelable} attribute (ADR-0016, nested-component two-way bind), which adds
- * no new annotation.
+ * <p><b>Component</b> — declare a component.
+ * <ul>
+ *   <li>{@link io.lievit.LievitComponent} — mark a class as a server-side component.
+ * </ul>
+ *
+ * <p><b>State</b> — the wire-bound fields and how they cross the wire.
+ * <ul>
+ *   <li>{@link io.lievit.Wire} — bind a field bidirectionally to the template.
+ *   <li>{@link io.lievit.LievitProperty} — extended per-field metadata (serialize / lock / modelable).
+ *   <li>{@link io.lievit.LievitComputed} — a memoized value derived from {@code @Wire} state.
+ *   <li>{@link io.lievit.LievitUrl} — reflect a {@code @Wire} field into the URL query string.
+ *   <li>{@link io.lievit.LievitSession} — persist a {@code @Wire} field across a full page refresh.
+ * </ul>
+ *
+ * <p><b>Action</b> — methods the client can call, and how the response renders.
+ * <ul>
+ *   <li>{@link io.lievit.LievitAction} — a method callable from the template.
+ *   <li>{@link io.lievit.LievitJson} — an action exposed as a JSON RPC endpoint (no re-render).
+ *   <li>{@link io.lievit.LievitRenderless} — an action that skips the re-render.
+ *   <li>{@link io.lievit.LievitTransition} — an action that drives the morph transition.
+ * </ul>
+ *
+ * <p><b>Events</b> — the receiving half of dispatch.
+ * <ul>
+ *   <li>{@link io.lievit.LievitOn} — listen for a named browser event.
+ * </ul>
+ *
+ * <p><b>Lifecycle</b> — hooks around mount and render.
+ * <ul>
+ *   <li>{@link io.lievit.LievitMount} — runs once before the first render.
+ *   <li>{@link io.lievit.LievitRender} — the single-file render, or a multi-file pre-render hook.
+ * </ul>
+ *
+ * <p><b>Authorization</b> — gate an action / listener.
+ * <ul>
+ *   <li>{@link io.lievit.LievitAuthorize} — a Spring Security expression guarding an action.
+ * </ul>
+ *
+ * <p><b>Loading</b> — when and how a component's body is fetched.
+ * <ul>
+ *   <li>{@link io.lievit.LievitLazy} — defer the real render behind a placeholder.
+ *   <li>{@link io.lievit.LievitIsolate} — send this component's updates in their own request.
+ * </ul>
+ *
+ * <p><b>Page</b> — route-target full-page components.
+ * <ul>
+ *   <li>{@link io.lievit.LievitPage} — map a full-page component directly to a route.
+ *   <li>{@link io.lievit.LievitLayout} — the layout a full-page component renders inside.
+ *   <li>{@link io.lievit.LievitTitle} — the {@code <title>} a full-page component sets.
+ * </ul>
+ *
+ * <p>{@code LievitFormObject} is a plain Java marker interface, not an annotation, and so is not part
+ * of this set.
  */
 @NullMarked
 package io.lievit;

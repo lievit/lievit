@@ -12,6 +12,8 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
+import io.lievit.component.EventListenerMetadata.ResolvedListener;
+
 /**
  * Resolves an {@link InboundEvent} against a component's {@link EventListenerMetadata} and invokes
  * the matching {@code @LievitOn} handler with the event payload (ADR-0030). Pure reflection, zero
@@ -68,13 +70,16 @@ public final class EventInvoker {
         if (metadata.isEmpty()) {
             return false;
         }
-        Map<String, @Nullable Method> resolved = metadata.resolve(instance);
+        // A list, not a map: two listeners may resolve to the same name (two @LievitOn("saved")
+        // methods); both must fire. A map kept only the last (the lost-handler bug). Livewire fires
+        // every matching listener.
+        List<ResolvedListener> resolved = metadata.resolve(instance);
         boolean matched = false;
-        for (Map.Entry<String, @Nullable Method> entry : resolved.entrySet()) {
-            if (!entry.getKey().equals(event.name())) {
+        for (ResolvedListener listener : resolved) {
+            if (!listener.name().equals(event.name())) {
                 continue;
             }
-            Method handler = entry.getValue();
+            Method handler = listener.handler();
             if (handler != null) {
                 if (!authorized.test(handler)) {
                     // Denied: the handler never ran, so it is not a match (no re-render, no effect).
