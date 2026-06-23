@@ -56,7 +56,6 @@ async function main(): Promise<void> {
     // The heavy editor engines + the runtime are external: the islands wrap them via injected
     // factories / a renderer seam (or import the runtime as a peer), so they are never bundled here.
     external: [
-      "lit",
       "@tiptap/*",
       "@codemirror/*",
       "codemirror",

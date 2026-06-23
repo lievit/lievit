@@ -1,7 +1,7 @@
 {
   "name": "@lievit/lievit-ui",
   "version": "0.1.0",
-  "description": "lievit-ui: a copy-in component registry of owned-source Lit primitives and design tokens (shadcn model). Not a runtime dependency; the source the `lievit add` CLI copies from.",
+  "description": "lievit-ui: a copy-in component registry of owned-source server-rendered JTE primitives + a dependency-free TypeScript client runtime + design tokens (shadcn model). Not a runtime dependency; the source the `lievit add` CLI copies from.",
   "license": "Apache-2.0",
   "author": "Francesco Bilotta",
   "type": "module",
@@ -19,8 +19,7 @@
     "test:jte-compile": "bash test/jte-compile/run.sh"
   },
   "dependencies": {
-    "@floating-ui/dom": "^1.7.6",
-    "lit": "^3.2.1"
+    "@floating-ui/dom": "^1.7.6"
   },
   "optionalDependencies": {
     "@codemirror/state": "^6.5.2",
