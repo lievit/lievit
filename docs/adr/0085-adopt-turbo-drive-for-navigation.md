@@ -103,6 +103,63 @@ content="morph">`, which uses Idiomorph) — that is orthogonal, opt-in per app,
 the wire loop. Likewise `runtime/merge.ts` is the **wire snapshot surgical merge** (ADR-0024), part
 of the component reactivity model, and is unrelated to navigation — it is NOT touched.
 
+## Backend contract for adopters (the #1 gotcha for Spring MVC people)
+
+Adopting Turbo Drive is not only a client change: **it imposes a server-side contract on every
+standard `<form method=post>` navigation.** lievit's audience is Spring MVC developers, and the
+default Spring MVC form idiom (`return "view"` on a validation error, `redirect:` → 302 on success)
+**silently breaks under Turbo**. This is the single most important thing an adopter must know, so it
+is recorded here as a first-class part of the decision, not buried in a guide. The full how-to with
+code lives in `docs/guide/turbo-backend-contract.md`; the rules and their authority are below.
+
+Verified against the **official Turbo 8 handbook**, 2026-06-23:
+- Form Submissions: <https://turbo.hotwired.dev/handbook/drive#redirecting-after-a-form-submission>
+- Streams: <https://turbo.hotwired.dev/handbook/streams#streaming-from-http-responses>
+
+### The scope rule (load-bearing): only standard form navigations are affected
+
+| Path | What it is | Affected by Turbo? |
+|---|---|---|
+| **Standard `<form method=post>`** (the kit auth/resource forms JS-off; any MVC form post that navigates) | A real browser form submission Turbo **intercepts** | **YES** — the contract below applies |
+| **lievit wire** (`l:model` / `l:submit` / `l:click` → the runtime's programmatic `fetch` to `/lievit/*`) | A `fetch()` the runtime makes itself; the reply is the effects channel (JSON), not a navigation | **NO — exempt.** Turbo only intercepts `<a>` clicks and real `<form>` submits; it never sees a programmatic `fetch`. Wire endpoints carry their own redirect over the effects channel (`effects.redirect`) and must keep returning **200** |
+| **lievit SSE** (`stream.ts` / `broadcast.ts` `EventSource` on `/lievit/*`) | An out-of-band server→client channel | **NO — exempt.** Not a navigation |
+
+So the contract is **narrow**: it binds the controller actions behind plain server-rendered forms,
+and nothing on the wire. Never "fix" a wire endpoint to 303 — that would break the effects channel.
+
+### The two rules (the contract)
+
+1. **Success → 303 See Other** (Post/Redirect/Get). The handbook: *"After a stateful request from a
+   form submission, Turbo Drive expects the server to return an HTTP 303 redirect response, which it
+   will then follow and use to navigate."* A successful POST that returns **200 with HTML** does
+   **not** render: Turbo stays on the current URL and discards the body (it cannot replicate the
+   browser's "resubmit this form?" dialog on a 200-POST). Spring's `redirect:` prefix defaults to
+   **302 Found**, not 303; adopters must force `HttpStatus.SEE_OTHER` (a `RedirectView` with
+   `setStatusCode(SEE_OTHER)`, or `ResponseEntity` with `303`). 303 is also the semantically correct
+   PRG code: it forces the follow-up to be a **GET** regardless of the original method.
+
+2. **Validation error → 422 Unprocessable Content** (any 4xx/5xx works; 422 is the convention).
+   The handbook: *"the response is rendered with either a 4xx or 5xx status code … form validation
+   errors [are] rendered by having the server respond with `422 Unprocessable Content`."* The default
+   Spring idiom — re-render the form view with `return "form"`, which is a **200** — is the trap: on a
+   200-POST Turbo discards the re-rendered HTML and the user never sees the errors. The fix is to
+   set the response status to 422 while still returning the form view (`@ResponseStatus`, or set the
+   status on the `HttpServletResponse`/`ResponseEntity` before returning the view name).
+
+### Turbo Streams ↔ lievit SSE (no collision; both exempt, different formats)
+
+Turbo Streams (`text/vnd.turbo-stream.html`; Turbo injects this MIME into the `Accept` header on
+POST/PUT/PATCH/DELETE form submits, and a server **may** answer with `<turbo-stream>` HTML actions
+instead of a redirect) is **dormant in lievit**: per decision §2, lievit ships no `<turbo-stream>`
+markup, so the custom element registers but never fires. lievit's own real-time channel is its
+**SSE** (`stream.ts`, `broadcast.ts`): an `EventSource` over `/lievit/*` carrying lievit's JSON
+envelopes (`{target, content, replace}` / `{name, detail, to}`), **not** Turbo's HTML-action format.
+They share only the `EventSource` *transport*; the *wire format* and the *element* differ. An adopter
+who wants Turbo's `<turbo-stream-source>` live-stream (an `EventSource`/WebSocket emitting
+`<turbo-stream>` elements) opts in with their own markup and a `text/vnd.turbo-stream.html` endpoint —
+that is additive and does not touch lievit's SSE. Adopters should **not** answer a lievit wire POST
+with `text/vnd.turbo-stream.html`: the wire reply is the effects channel.
+
 ## Consequences
 
 - ~377 lines of navigation engine retired; lievit owns ~115 lines of glue + an ambient type shim,

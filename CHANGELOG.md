@@ -28,7 +28,33 @@ All notable changes to this project are documented here. Format follows
   bespoke morph keyed on `id` THEN `name`; Idiomorph keys on `id` only, so a `name`-only sibling
   reorder no longer preserves identity (use `id`).
 
+### Documentation
+
+- **The Turbo Drive backend contract is now documented for adopters** (ADR-0085 follow-up). Adopting
+  Turbo Drive imposed an undocumented **server-side** contract on every standard `<form method=post>`
+  navigation, and the default Spring MVC form idiom violates it silently — the #1 gotcha for the
+  Spring-MVC audience. Verified against the official Turbo 8 handbook and recorded in two places:
+  a **"Backend contract for adopters"** section in `docs/adr/0085-adopt-turbo-drive-for-navigation.md`
+  and a new guide `docs/guide/turbo-backend-contract.md` (linked from the guide read order). The two
+  rules: a successful form POST must redirect with **303 See Other** (Spring's `redirect:` defaults to
+  302; a 200 carrying HTML is discarded by Turbo), and a validation error must re-render the form with
+  **422 Unprocessable Content** (the default `return "view"` → 200 is silently dropped, so the user
+  never sees the errors). The **scope rule** is load-bearing: only standard form navigations are
+  affected — the lievit **wire** (`l:model`/`l:submit` → programmatic `fetch`) and lievit **SSE**
+  (`stream.ts`/`broadcast.ts`) are exempt and keep returning 200. Also documents the
+  Turbo-Streams ↔ lievit-SSE relationship: Turbo Streams (`text/vnd.turbo-stream.html`) is dormant
+  (lievit ships no `<turbo-stream>` markup); lievit's SSE shares only the `EventSource` transport, not
+  the wire format.
+
 ### Fixed
+
+- **The `kit-crud-admin` example now obeys the Turbo form contract** (ADR-0085). The product
+  controller (`ProductAdminController`) returned Spring's default **302** on a successful create/edit/
+  delete and a **200** on a validation error — both wrong under Turbo (a 200-POST is discarded, hiding
+  the validation errors). Fixed to **303 See Other** on success (create/edit/delete) and **422
+  Unprocessable Content** on a validation re-render, so the demo is correct for the audience that
+  copies it. The lievit wire endpoints are untouched (exempt). New `TurboFormContractTest` pins the
+  three status codes.
 
 - **Runtime CSS scoping (`scoped-css.ts`) no longer corrupts real-world stylesheets** (ADR-0084
   watch list: the selector-rewrite scoper is a dependency-free hand-roll kept on purpose, hardened
