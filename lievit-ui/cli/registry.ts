@@ -56,7 +56,7 @@ export interface RegistryItem {
   name: string;
   type: RegistryItemType;
   description: string;
-  /** npm packages the component needs (e.g. ["lit"]). */
+  /** npm packages the component needs (e.g. ["@floating-ui/dom"]). */
   dependencies: string[];
   /** other registry items, by name, this one needs. */
   registryDependencies: string[];

@@ -27,7 +27,8 @@ For:     Spring developers building interactive, business / internal / CRUD-heav
          the Livewire / Hotwire developer experience on the JVM.
 Does:    HTML over the wire, Spring-native: a reactive component is a typed Java class;
          lievit syncs the DOM over a stateless, HMAC-signed wire call.
-Stack:   Java 25 + Spring Boot 4 + JTE (primary) + htmx 2 + Lit 3. GraalVM-native day one.
+Stack:   Java 25 + Spring Boot 4 + JTE (primary) + htmx 2 + a dependency-free
+         TypeScript client runtime bundle. GraalVM-native day one.
 Cost:    Apache 2.0, no SaaS, no paywall, no data egress.
 Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a component
          library, not a kit. You bring Spring; lievit makes it interactive.
@@ -115,7 +116,7 @@ What is in the build today versus what the ADRs name as deliberately deferred. T
 | Security | HMAC + `kid` rotation, locked fields, settable/callable allowlist, payload caps, fail-closed errors, checksum-failure rate limit | [wire protocol](docs/wire-protocol.md), [ADR-0013](docs/adr/0013-payload-hardening.md), [ADR-0014](docs/adr/0014-fail-closed-error-rendering.md) |
 | Admin (lievit-kit) | Resource / Form (text, textarea, select, toggle, date, belongs-to) / Table (columns, filters, grouping, summaries, soft-delete, reordering) / Actions (create, edit, delete, bulk, form) / Infolists / Panels / dashboard widgets / DB notifications; async jobs (sync default + executor opt-in), CSV import / export, multi-tenancy, clusters, settings | [guide](docs/guide/kit-admin.md) |
 | Real-time | SSE broadcast channel (opt-in `lievit.broadcast.enabled`, per-`Principal`), live-push notifications, echo-listener bridge into the dispatch routing | [ADR-0040](docs/adr/0040-realtime-broadcast-channel-sse.md) |
-| UI (lievit-ui) | 28 copy-in light-DOM Lit components + design tokens; dependency-free client runtime bundle | [guide](docs/guide/lievit-ui.md), [ADR-0009](docs/adr/0009-lievit-ui-copy-in-registry.md), [ADR-0019](docs/adr/0019-client-runtime-bundle.md) |
+| UI (lievit-ui) | 68 copy-in server-rendered JTE component primitives + design tokens, driven by a dependency-free TypeScript client runtime (no Lit, no framework) | [guide](docs/guide/lievit-ui.md), [ADR-0009](docs/adr/0009-lievit-ui-copy-in-registry.md), [ADR-0019](docs/adr/0019-client-runtime-bundle.md) |
 | Testing | `Lievit.test()` headless harness (typed state read-back, hostile-seat affordances) | [ADR-0010](docs/adr/0010-dev-test-harness.md) |
 
 ### Roadmap (named in the ADRs, NOT in the build)
@@ -541,8 +542,12 @@ sequence that produced the state (`expected @Wire count == 1 but was 0 after cal
 
 ## Custom elements
 
-lievit ships brand-visible custom elements: `<lievit-loading>`, `<lievit-error>`,
-`<lievit-stream>` (the `<lievit-*>` prefix, Lit-based).
+lievit reserves a brand-visible `<lievit-*>` custom-element namespace (`<lievit-loading>`,
+`<lievit-error>`, `<lievit-stream>`; ADR-0005). These are plain native custom elements with no
+framework behind them: the client is the dependency-free TypeScript runtime, not Lit. Today the
+loading / error UX ships as runtime attribute directives (`l:loading`, `data-lievit-error-for`);
+`<lievit-stream>` is reserved for the `stream` effect, which is on the roadmap (see the roadmap
+table; SSE broadcast is the shipped real-time path).
 
 ## Theming
 

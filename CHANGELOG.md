@@ -59,6 +59,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **Removed the vestigial Lit references from `lievit-ui` and the README** (an honesty fix: Lit was
+  deliberately dismantled but two surfaces still advertised it). The `lievit-ui` client is the
+  dependency-free TypeScript runtime; nothing in the shipped code imports Lit, and the test suite
+  actively gates against any `import ... from "lit"` / `LitElement`. Concretely: dropped the unused
+  `lit` dependency from `lievit-ui/package.json` (and its lockfile entry + the stale package
+  description), dropped the dead `"lit"` entry from the esbuild externals in `build-islands.ts`, and
+  corrected the README Stack line, the lievit-ui feature-matrix row (now "68 copy-in server-rendered
+  JTE component primitives driven by a dependency-free TypeScript client runtime", not "28 light-DOM
+  Lit components"), and the Custom-elements section (the `<lievit-*>` tags are plain native custom
+  elements reserved by ADR-0005, not "Lit-based"; loading/error UX ships today as runtime attribute
+  directives, `<lievit-stream>` is reserved for the roadmap `stream` effect). `npm ci` + the full
+  vitest suite (1773 tests) + `tsc` stay green with Lit absent, proving nothing imported it.
 - **The public-annotation surface is now documented by role, not by a count.** The "seven / eight /
   nine annotations" slogan had drifted out of sync with the actual 20 runtime `@interface` types,
   teaching a false invariant. `package-info.java` replaces the integer with a stable ROLE taxonomy
