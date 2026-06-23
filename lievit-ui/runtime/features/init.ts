@@ -17,7 +17,7 @@ import type { LievitRuntime } from "../runtime.js";
 
 const NAME = "init";
 /** Marks an element whose init action already fired, so a re-scan after a morph does not re-fire. */
-const FIRED_ATTR = "data-lievit-init-fired";
+const FIRED_ATTR = "data-lievit-rt-init-fired";
 
 /**
  * Installs `l:init` on a runtime.

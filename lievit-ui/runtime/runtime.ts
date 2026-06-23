@@ -101,6 +101,17 @@ interface ComponentState {
   readonly pendingPaths: Set<string>;
   /** A promise chain that serializes this component's commits (request bundling, #95). */
   inFlight: Promise<void>;
+  /**
+   * A per-component mutex serializing the snapshot-commit critical section (#7). It wraps ONLY the
+   * post-response commit (snapshot rotation + ephemeral rebuild + morph), never the network: an
+   * island re-render and a whole-component re-render still fly to the wire concurrently (independent
+   * scopes, the matrix governs aborts), but their commits apply ONE AT A TIME and in completion
+   * order. Without it, two calls that both read snapshot S0, then rebuild the shared `state.ephemeral`
+   * across their `await`, silently drop one another's just-committed `l:model` edits (`SnapshotCodec`
+   * has no CAS, so the loss is silent, not a 409). Renderless `.async` calls (#8) never rotate the
+   * snapshot, so they stay off this chain and keep their parallelism.
+   */
+  commitChain: Promise<void>;
   /** True while a (non-async) call for this component is on the wire (disable-during-request, #125). */
   busy: boolean;
 }
@@ -596,6 +607,17 @@ export class LievitRuntime {
    * The async action path (`l:click.async`, #97): issue the call concurrently, NOT through the
    * per-component commit queue, so two `.async` actions run in parallel.
    *
+   * `.async` is RESTRICTED to renderless / side-effect-only actions (#8). Two `.async` calls bypass
+   * the serialized commit chain AND each other's commit mutex, so if they both rotated the shared
+   * `state.snapshot` the later one would silently clobber the earlier's `@Wire` state (`SnapshotCodec`
+   * has no CAS, so the loss is silent, not a 409). Rather than give every `.async` call its own
+   * snapshot lane (more machinery, and there is only one server-side snapshot per component), we
+   * withdraw the false promise the markup makes: a `.async` run is dispatched `renderless`, so it
+   * NEVER reads/rotates the snapshot, never merges, and never morphs the component — it runs only for
+   * its side effects (`dispatch` / `redirect` / `url` / `js`). A `.async` action that tries to mutate
+   * `@Wire` state therefore cannot clobber it: the returned snapshot is ignored. To mutate `@Wire`,
+   * use a normal (queued) action.
+   *
    * @param element any element inside the component
    * @param action the action to invoke
    * @param meta coarse call metadata
@@ -605,7 +627,7 @@ export class LievitRuntime {
     if (state == null) {
       return;
     }
-    await this.dispatch(state, [action], meta);
+    await this.dispatch(state, [action], meta, null, [], true);
   }
 
   /**
@@ -694,6 +716,7 @@ export class LievitRuntime {
         ephemeral: decodeWire(snapshot),
         pendingPaths: new Set(),
         inFlight: Promise.resolve(),
+        commitChain: Promise.resolve(),
         busy: false,
       });
     }
@@ -844,6 +867,7 @@ export class LievitRuntime {
     meta: CallMeta = {},
     island: string | null = null,
     inboundEvents: readonly import("./wire.js").InboundWireEvent[] = [],
+    renderless = false,
   ): Promise<void> {
     // --- Per-scope concurrency (#95, ADR-0051): apply the cancel-vs-queue matrix against any
     // in-flight call for this (component, island) scope. A poll arriving behind an in-flight user
@@ -856,10 +880,32 @@ export class LievitRuntime {
       return;
     }
     try {
-      await this.dispatchAdmitted(state, calls, meta, island, inboundEvents, decision.signal);
+      await this.dispatchAdmitted(
+        state,
+        calls,
+        meta,
+        island,
+        inboundEvents,
+        decision.signal,
+        renderless,
+      );
     } finally {
       this.concurrency.end(state.componentId, island, decision.token);
     }
+  }
+
+  /**
+   * Runs `commit` inside the per-component snapshot mutex (#7) and awaits it. It serializes ONLY the
+   * synchronous post-response commit section (snapshot rotation + ephemeral rebuild + morph), never
+   * the network above it: an island re-render and a whole-component re-render still fly to the wire
+   * concurrently, but their commits apply ONE AT A TIME and in completion order, so they can never
+   * interleave a rebuild of the shared `state.ephemeral` and silently drop one another's edits.
+   */
+  private async commitSerialized(state: ComponentState, commit: () => void): Promise<void> {
+    const next = state.commitChain.then(commit);
+    // Keep the mutex alive even if a commit throws (a failure must not freeze the chain).
+    state.commitChain = next.catch(() => {});
+    await next;
   }
 
   /**
@@ -874,6 +920,7 @@ export class LievitRuntime {
     island: string | null,
     inboundEvents: readonly import("./wire.js").InboundWireEvent[],
     signal: AbortSignal,
+    renderless: boolean,
   ): Promise<void> {
     const baseWire: WireState = { ...state.ephemeral };
     const pendingPaths = Array.from(state.pendingPaths);
@@ -976,89 +1023,127 @@ export class LievitRuntime {
     };
     this.interceptors.success(okOutcome);
 
-    // --- Surgical merge (#87): the server is authoritative, but a pending edit to a path the
-    // server did not change survives. Rebuild the ephemeral mirror from the merged state. ---------
-    const serverWire = decodeWire(response.snapshot);
-    if (Object.keys(serverWire).length > 0) {
-      const intent: MergeIntent = { pendingPaths };
-      const merged = mergeNewSnapshot(baseWire, serverWire, intent);
-      // The pending edits the server reconciled are now committed; drop them.
-      for (const key of Object.keys(state.pendingUpdates)) {
-        delete state.pendingUpdates[key];
-      }
-      state.pendingPaths.clear();
-      for (const key of Object.keys(state.ephemeral)) {
-        delete state.ephemeral[key];
-      }
-      Object.assign(state.ephemeral, merged);
-      // Fire `$watch` listeners for any field the server changed (ADR-0030): a watch reacts to a
-      // server-pushed value, not only a local `l:model` edit.
-      for (const [field, value] of Object.entries(merged)) {
-        if (!Object.is(baseWire[field], value)) {
-          this.fireWatchers(state.root, field, value);
+    // --- Renderless `.async` short-circuit (#8): a `.async` call is side-effect-only. It must NOT
+    // touch the shared `state.snapshot` / `state.ephemeral` (no merge, no rotation) nor morph the
+    // component, because it ran with no place in the commit chain and would silently clobber a
+    // concurrent queued call's `@Wire` state (no CAS on the snapshot). Apply only the non-DOM effects
+    // it produced (dispatch / redirect / url / js), then finish. Any pending updates stay pending:
+    // they ride the next NORMAL call, where the snapshot actually rotates.
+    if (renderless) {
+      this.interceptors.sync(okOutcome);
+      this.applyNonDomEffects(state, response.effects, okOutcome);
+      this.interceptors.effect(okOutcome);
+      state.busy = false;
+      this.interceptors.morphed(okOutcome);
+      this.lifecycle.afterCall({ ...ctx, status: 200, ok: true, reason: null });
+      this.interceptors.finish(okOutcome);
+      this.interceptors.render(okOutcome);
+      return;
+    }
+
+    // --- Snapshot-commit critical section (#7): serialized per component so an island re-render and a
+    // whole-component re-render (concurrent on the wire, sharing ONE `state.snapshot`) apply ONE AT A
+    // TIME and in completion order, instead of interleaving their ephemeral rebuilds across the await
+    // and silently dropping one another's just-typed edits. The whole section is synchronous (no await
+    // inside), so the serial chain makes it atomic; the network above stayed concurrent.
+    await this.commitSerialized(state, () => {
+      // --- Surgical merge (#87): the server is authoritative, but a pending edit to a path the
+      // server did not change survives. Rebuild the ephemeral mirror from the merged state. -------
+      const serverWire = decodeWire(response.snapshot);
+      // Drop ONLY the pending edits THIS call carried (the paths captured at send time), never the
+      // whole live set (#7): a newer local `l:model` edit that arrived while this call was on the
+      // wire (e.g. on a concurrent island scope) has NOT been sent yet, so clearing it here would
+      // silently lose it. The just-sent paths are committed; later ones stay pending for the next call.
+      const clearSentPending = (): void => {
+        for (const path of pendingPaths) {
+          delete state.pendingUpdates[path];
+          state.pendingPaths.delete(path);
         }
+      };
+      if (Object.keys(serverWire).length > 0) {
+        const intent: MergeIntent = { pendingPaths };
+        const merged = mergeNewSnapshot(baseWire, serverWire, intent);
+        clearSentPending();
+        // Rebuild the ephemeral mirror from the merged server state, then RE-OVERLAY any edit still
+        // pending (an in-flight edit on another scope) so the authoritative-but-stale server snapshot
+        // does not revert it: the live edit is the freshest client truth until its own call commits.
+        for (const key of Object.keys(state.ephemeral)) {
+          delete state.ephemeral[key];
+        }
+        Object.assign(state.ephemeral, merged);
+        for (const path of state.pendingPaths) {
+          if (path in state.pendingUpdates) {
+            state.ephemeral[path] = state.pendingUpdates[path] as never;
+          }
+        }
+        // Fire `$watch` listeners for any field the server changed (ADR-0030): a watch reacts to a
+        // server-pushed value, not only a local `l:model` edit.
+        for (const [field, value] of Object.entries(merged)) {
+          if (!Object.is(baseWire[field], value)) {
+            this.fireWatchers(state.root, field, value);
+          }
+        }
+      } else {
+        clearSentPending();
       }
-    } else {
-      for (const key of Object.keys(state.pendingUpdates)) {
-        delete state.pendingUpdates[key];
+      this.interceptors.sync(okOutcome);
+
+      // Capture validation errors for the error directives before they fire on `afterCall` (#101).
+      // A live `validateOnly` update (ADR-0038) carries `validatedFields`: merge so editing one field
+      // does not wipe another field's still-shown error (clear the revalidated fields, then apply the
+      // new errors, keeping untouched fields). A submit has no `validatedFields`: full replace (the
+      // whole returned bag is authoritative).
+      const newErrors = response.effects?.errors ?? {};
+      const validatedFields = response.effects?.validatedFields;
+      if (validatedFields != null) {
+        const mergedErrors: Record<string, readonly string[]> = {
+          ...(this.lastErrors.get(state.root) ?? {}),
+        };
+        for (const field of validatedFields) {
+          delete mergedErrors[field];
+        }
+        for (const [field, messages] of Object.entries(newErrors)) {
+          mergedErrors[field] = messages;
+        }
+        this.lastErrors.set(state.root, mergedErrors);
+      } else {
+        this.lastErrors.set(state.root, newErrors);
       }
-      state.pendingPaths.clear();
-    }
-    this.interceptors.sync(okOutcome);
+      // Record the server transition control (#113, @LievitTransition) for THIS update so the
+      // transition feature reads it across the morph; a no-transition call clears it (the static
+      // `l:transition` markup then decides). A DOM stamp would be reconciled away by the morph.
+      this.lastTransition.set(state.root, response.effects?.transition ?? null);
 
-    // Capture validation errors for the error directives before they fire on `afterCall` (#101).
-    // A live `validateOnly` update (ADR-0038) carries `validatedFields`: merge so editing one field
-    // does not wipe another field's still-shown error (clear the revalidated fields, then apply the
-    // new errors, keeping untouched fields). A submit has no `validatedFields`: full replace (the
-    // whole returned bag is authoritative).
-    const newErrors = response.effects?.errors ?? {};
-    const validatedFields = response.effects?.validatedFields;
-    if (validatedFields != null) {
-      const merged: Record<string, readonly string[]> = { ...(this.lastErrors.get(state.root) ?? {}) };
-      for (const field of validatedFields) {
-        delete merged[field];
+      // --- Apply non-DOM effects (dispatch / redirect blockable / url / js), then morph (#93 order)
+      this.applyNonDomEffects(state, response.effects, okOutcome);
+      this.interceptors.effect(okOutcome);
+
+      // --- Morph: only the named islands if the call was island-targeted (#89), else the whole root.
+      const islandNames = response.effects?.islands;
+      if (islandNames != null && islandNames.length > 0) {
+        const fragments = parseIslands(response.html).filter((f) => islandNames.includes(f.name));
+        morphIslands(state.root, fragments);
+      } else {
+        // Whole-component morph through the composed morph hooks so `l:ignore` (skip subtrees) and
+        // `l:transition` (defer removal) shape it without editing the morph algorithm (ADR-0019).
+        morph(state.root, response.html, this.composedMorphHooks(state.root));
       }
-      for (const [field, messages] of Object.entries(newErrors)) {
-        merged[field] = messages;
+      // Stash the rotated snapshot AFTER the morph: the server's re-rendered root carries no
+      // data-lievit-snapshot attribute (the snapshot rides the header, not the body), so morphing
+      // first then writing the attribute keeps the live snapshot from being reconciled away.
+      if (response.snapshot.length > 0) {
+        state.snapshot = response.snapshot;
+        state.root.setAttribute(SNAPSHOT_ATTR, response.snapshot);
       }
-      this.lastErrors.set(state.root, merged);
-    } else {
-      this.lastErrors.set(state.root, newErrors);
-    }
-    // Record the server transition control (#113, @LievitTransition) for THIS update so the
-    // transition feature reads it across the morph; a no-transition call clears it (the static
-    // `l:transition` markup then decides). A DOM stamp would be reconciled away by the morph.
-    this.lastTransition.set(state.root, response.effects?.transition ?? null);
+      // Re-scan: a morph may have introduced new `l:*` elements (idempotent on existing ones).
+      this.directives.scan(state.root, this.directiveRuntime);
+      state.busy = false;
 
-    // --- Apply non-DOM effects (dispatch / redirect blockable / url / js), then morph (#93 order)
-    this.applyNonDomEffects(state, response.effects, okOutcome);
-    this.interceptors.effect(okOutcome);
-
-    // --- Morph: only the named islands if the call was island-targeted (#89), else the whole root.
-    const islandNames = response.effects?.islands;
-    if (islandNames != null && islandNames.length > 0) {
-      const fragments = parseIslands(response.html).filter((f) => islandNames.includes(f.name));
-      morphIslands(state.root, fragments);
-    } else {
-      // Whole-component morph through the composed morph hooks so `l:ignore` (skip subtrees) and
-      // `l:transition` (defer removal) shape it without editing the morph algorithm (ADR-0019).
-      morph(state.root, response.html, this.composedMorphHooks(state.root));
-    }
-    // Stash the rotated snapshot AFTER the morph: the server's re-rendered root carries no
-    // data-lievit-snapshot attribute (the snapshot rides the header, not the body), so morphing
-    // first then writing the attribute keeps the live snapshot from being reconciled away.
-    if (response.snapshot.length > 0) {
-      state.snapshot = response.snapshot;
-      state.root.setAttribute(SNAPSHOT_ATTR, response.snapshot);
-    }
-    // Re-scan: a morph may have introduced new `l:*` elements (idempotent on existing ones).
-    this.directives.scan(state.root, this.directiveRuntime);
-    state.busy = false;
-
-    this.interceptors.morphed(okOutcome);
-    this.lifecycle.afterCall({ ...ctx, status: 200, ok: true, reason: null });
-    this.interceptors.finish(okOutcome);
-    this.interceptors.render(okOutcome);
+      this.interceptors.morphed(okOutcome);
+      this.lifecycle.afterCall({ ...ctx, status: 200, ok: true, reason: null });
+      this.interceptors.finish(okOutcome);
+      this.interceptors.render(okOutcome);
+    });
   }
 
   /**

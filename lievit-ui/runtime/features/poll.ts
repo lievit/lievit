@@ -27,7 +27,7 @@ import type { LievitRuntime } from "../runtime.js";
 
 const NAME = "poll";
 /** Marks an element already armed, so a re-scan after a morph does not double-schedule. */
-const ARMED_ATTR = "data-lievit-poll-armed";
+const ARMED_ATTR = "data-lievit-rt-poll-armed";
 const DEFAULT_INTERVAL_MS = 2000;
 /** Named interval presets (ms). */
 const PRESETS: Record<string, number> = { "keep-alive": 5000, visible: 2000 };

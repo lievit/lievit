@@ -24,6 +24,19 @@
  * lievit wire contract (the 200 body is the component's rendered markup). Strict-CSP-safe: it parses
  * via the inert template element, never `eval`/`innerHTML`-executes script.
  *
+ * ## Non-goal: no LCS, no backtracking (a deliberate limitation, #12)
+ *
+ * The child matcher is single-pass and greedy: a keyed node (`id`, then `name`) is matched wherever
+ * it sits; an UNKEYED node is matched purely by position among same-tag siblings. There is no
+ * longest-common-subsequence diff and no backtracking. The consequence: a LEADING tag/element shift
+ * among unkeyed siblings can MIS-PAIR them — e.g. prepending a new same-tag element reuses the live
+ * first node for the new first slot, so an unkeyed input's node identity (and any in-progress typing
+ * the morph then overwrites) drifts to the wrong logical field. This is rare and the simplicity is
+ * worth more than an LCS pass for the wire's typical re-render shapes, so it is a NON-GOAL, not a bug
+ * to fix here. The user-side MITIGATION is KEYING: give siblings a stable `id`/`name` (the `wire:key`
+ * idiom) and the matcher moves the keyed node instead of recreating it, preserving identity across
+ * the shift. `test/morph-fixes.test.ts` pins both the mis-pair (golden) and the keyed mitigation.
+ *
  * ## The morph hooks (ADR-0019 extension seam)
  *
  * ADR-0019 anticipated that `l:ignore` (skip a subtree from morphing) and `l:transition` (defer a
@@ -211,8 +224,18 @@ function morphElement(oldEl: Element, newEl: Element, hooks: MorphHooks): void {
   if (mode !== "children") {
     // "children" means "freeze the element itself" — skip its own attribute reconciliation.
     reconcileAttributes(oldEl, newEl);
-    if (liveValue != null && !serverAsserts(newEl, liveValue.kind)) {
-      restoreUncontrolledValue(oldEl, liveValue);
+    if (liveValue != null) {
+      if (serverAsserts(newEl, liveValue.kind)) {
+        // The server asserted a value/checked for this control: it is the source of truth (#13). A
+        // native control DETACHES its `.value` property from the `value` attribute the moment the
+        // user types, so `reconcileAttributes` setting the attribute above does NOT move the dirty
+        // property — a server-asserted empty/changed value would never reach the screen. Push the
+        // server's asserted value onto the live property so a clear ("") or a change actually lands.
+        applyServerAssertedValue(oldEl, newEl, liveValue.kind);
+      } else {
+        // The server left the control untouched: keep the user's in-progress typing across the morph.
+        restoreUncontrolledValue(oldEl, liveValue);
+      }
     }
   }
 
@@ -283,6 +306,33 @@ function serverAsserts(newEl: Element, kind: LiveValue["kind"]): boolean {
   return kind === "checked" ? newEl.hasAttribute("checked") : newEl.hasAttribute("value");
 }
 
+/**
+ * Pushes the server's ASSERTED value/checked (read from `newEl`'s reflected attribute) onto `oldEl`'s
+ * live property (#13). Needed because a native `<input>`/`<textarea>` detaches its `.value` (and a
+ * checkbox its `.checked`) from the corresponding attribute the moment the user types/toggles: after
+ * that, `setAttribute("value", "")` does not move the dirty `.value`, so a server clear or change is
+ * invisible. The server remains the source of truth for an asserted value, so we write the property
+ * directly. An ABSENT attribute on the asserted kind (e.g. `checked` removed) asserts the empty /
+ * unchecked state, which is exactly the clear the property must follow.
+ */
+function applyServerAssertedValue(oldEl: Element, newEl: Element, kind: LiveValue["kind"]): void {
+  if (kind === "checked") {
+    const checked = newEl.hasAttribute("checked");
+    if (oldEl instanceof HTMLInputElement) {
+      oldEl.checked = checked;
+    } else if (isCustomElement(oldEl) && "checked" in oldEl) {
+      (oldEl as unknown as { checked: boolean }).checked = checked;
+    }
+    return;
+  }
+  const value = newEl.getAttribute("value") ?? "";
+  if (oldEl instanceof HTMLInputElement || oldEl instanceof HTMLTextAreaElement) {
+    oldEl.value = value;
+  } else if (isCustomElement(oldEl)) {
+    defaultWriteControlValue(oldEl, value);
+  }
+}
+
 function restoreUncontrolledValue(el: Element, live: LiveValue): void {
   if (live.kind === "checked" && el instanceof HTMLInputElement) {
     el.checked = live.value;
@@ -298,29 +348,30 @@ function restoreUncontrolledValue(el: Element, live: LiveValue): void {
 }
 
 /**
- * Whether an attribute is a CLIENT-runtime bind/state marker the server never authors. The runtime
- * stamps these to record "this element is already wired by feature X" (`data-lievit-bound-l-click`,
- * `data-lievit-init-fired`, the poll/lazy/current/dirty/upload/loading markers). They are absent from
- * every server render, so a plain "remove what the new markup dropped" reconcile would strip them on
- * EVERY morph; the post-morph re-scan would then re-bind the directive and STACK a second listener
- * (one click -> N wire calls; an `l:init` would re-fire in a loop). The morph must preserve them: they
- * are owned by the client, not the server snapshot.
+ * The single reserved attribute prefix for EVERY client-runtime morph marker (#13/render-rec). The
+ * runtime stamps these to record "this element is already wired by feature X" (the `bound-*` per
+ * directive, `init-fired`, the poll/lazy/current/page/upload/loading markers). The server NEVER
+ * authors anything under this prefix, so {@link isClientOwnedMarker} is a one-line `startsWith`:
+ * adding the NEXT marker only requires choosing a name under this prefix, never editing the morph's
+ * allowlist (which is exactly the double-bind defect a per-NAME allowlist re-created each time).
  *
- * The server-authored `data-lievit-*` attributes (`-component`, `-id`, `-snapshot`, `-island`, `-key`,
- * `-sort-key`, `-scope`, `-style-*`, `-release`, `-error-for`, ...) are always present in the new
- * markup, so they reconcile normally and never reach this guard.
+ * It is deliberately NOT `data-lievit-` (that namespace is shared with the SERVER-authored attributes
+ * `-component`, `-id`, `-snapshot`, `-island`, `-key`, `-sort-key`, `-scope`, `-style-*`, `-release`,
+ * `-error-for`, ...): a `startsWith("data-lievit-")` would wrongly preserve those too. The `-rt-`
+ * segment (runtime) fences the client-owned subset off from the server-authored one.
+ */
+export const CLIENT_MARKER_PREFIX = "data-lievit-rt-";
+
+/**
+ * Whether an attribute is a CLIENT-runtime bind/state marker the server never authors. Such markers
+ * are absent from every server render, so a plain "remove what the new markup dropped" reconcile
+ * would strip them on EVERY morph; the post-morph re-scan would then re-bind the directive and STACK
+ * a second listener (one click -> N wire calls; an `l:init` would re-fire in a loop). The morph must
+ * preserve them: they are owned by the client, not the server snapshot. Every client marker lives
+ * under {@link CLIENT_MARKER_PREFIX}, so this is a single prefix test (no per-name allowlist to grow).
  */
 function isClientOwnedMarker(name: string): boolean {
-  return (
-    name.startsWith("data-lievit-bound-") ||
-    name === "data-lievit-init-fired" ||
-    name === "data-lievit-current-bound" ||
-    name === "data-lievit-page-bound" ||
-    name === "data-lievit-poll-armed" ||
-    name === "data-lievit-lazy-loaded" ||
-    name === "data-lievit-upload-bound" ||
-    name === "data-lievit-loading-active"
-  );
+  return name.startsWith(CLIENT_MARKER_PREFIX);
 }
 
 /** Adds/updates/removes attributes so `oldEl`'s attributes match `newEl`'s. */
