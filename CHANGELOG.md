@@ -149,6 +149,24 @@ All notable changes to this project are documented here. Format follows
   a formula-looking value survive export→import losslessly under both the comma and the semicolon
   dialect. Pulls in `org.apache.commons:commons-csv:1.14.1` (Apache-2.0; not managed by the Spring
   Boot BOM, so version-pinned in `lievit-kit/pom.xml`).
+- **SPA navigation is now Turbo Drive; the hand-rolled `navigate.ts` is retired** (ADR-0085, the
+  reframed clause-1 of ADR-0084: "lievit = glue golden path"). lievit deleted ~377 lines of its own
+  navigation engine (fetch + body morph + `<head>` merge + history + page cache + progress bar +
+  scroll + `l:persist` + hover prefetch) and adopted **Turbo Drive** (`@hotwired/turbo` 8.0.23, MIT,
+  37signals), **vendored first-party** at `lievit-ui/runtime/vendor/turbo.es2017-esm.js` (no CDN, no
+  runtime npm dep, verified `eval`-free so it runs under `script-src 'self'`). Drive is used
+  standalone (Frames/Streams stay dormant, opt-in via markup). Each old responsibility maps to a
+  Turbo-native mechanism: head merge → Drive's head reconciliation; tracked-asset reload →
+  `data-turbo-track="reload"`; progress bar → `.turbo-progress-bar`; `l:persist` →
+  `data-turbo-permanent`; hover prefetch → Drive's default prefetch; scroll → Drive's restoration.
+  **Author contract changes from opt-in to opt-out**: all same-origin links are SPA by default; opt
+  out with `data-turbo="false"`; a leftover `l:navigate` attribute is a harmless no-op. lievit keeps
+  only the thin residual glue in `features/navigate.ts` (export name `installNavigate` unchanged): it
+  re-binds wire components after each Turbo swap (`runtime.start` on `turbo:load`, the load-bearing
+  glue) and bridges Turbo's lifecycle events to lievit's existing `lievit:navigate*` CustomEvents, so
+  `l:current` and the broadcast channel keep working unmodified. The per-wire-call surgical morph
+  (`morph.ts`, ADR-0019) and the wire snapshot merge (`merge.ts`, ADR-0024) are a different
+  granularity and are **untouched**.
 - **Removed the vestigial Lit references from `lievit-ui` and the README** (an honesty fix: Lit was
   deliberately dismantled but two surfaces still advertised it). The `lievit-ui` client is the
   dependency-free TypeScript runtime; nothing in the shipped code imports Lit, and the test suite

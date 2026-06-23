@@ -1,8 +1,14 @@
 # ADR-0050: Navigate depth (head merge, @persist, progress bar, scroll opt-in)
 
-- **Status:** accepted
+- **Status:** superseded by [ADR-0085](0085-adopt-turbo-drive-for-navigation.md)
 - **Date:** 2026-06-18
 - **Deciders:** Francesco Bilotta
+
+> **Superseded (2026-06-23, ADR-0085).** The whole `installNavigate` SPA implementation this ADR
+> extends was retired in favor of Turbo Drive. Every responsibility below now maps to a Turbo-native
+> mechanism: head merge → Drive's head reconciliation; `@persist` → `data-turbo-permanent`; progress
+> bar → Drive's `.turbo-progress-bar`; scroll → Drive's scroll restoration; tracked-asset reload →
+> `data-turbo-track="reload"`. Kept for history; do not implement against it.
 
 ## Context
 

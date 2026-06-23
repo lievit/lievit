@@ -148,7 +148,7 @@ individually). They are CSP-safe (no inline `eval`).
 | `l:show="expr"` | Toggle visibility via inline `display` without removing the node from the DOM. |
 | `l:confirm="message"` | Native confirmation dialog before an action. |
 | `l:confirm.prompt="message\|requiredText"` | Require a typed string to confirm. |
-| `l:navigate[.hover]="url"` | SPA-style navigation (optionally prefetch on hover). |
+| ~~`l:navigate[.hover]`~~ | **Retired (ADR-0085): SPA navigation is now Turbo Drive.** All same-origin links are SPA by default; opt a link out with `data-turbo="false"`. Prefetch-on-hover is Turbo's default. An `l:navigate` attribute is now a harmless no-op. |
 | `l:ignore[.self\|.children]` | Exclude an element / subtree from morphing (preserve third-party DOM). |
 | `l:current[.exact]="class"` | Mark the active link (default class `active`). |
 | `l:click.async` | Run the action concurrently instead of queueing it behind in-flight calls. |

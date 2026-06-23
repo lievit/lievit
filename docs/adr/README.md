@@ -68,6 +68,7 @@ they are `accepted`. Each entry's status is shown in the index below.
 - [ADR-0072](0072-convert-neutral-view-ast.md): A neutral view AST + the `ViewConverter` facade; round-trip idempotent (#141). **accepted**
 - [ADR-0073](0073-cli-scaffolding-formats-and-siblings.md): CLI scaffolding formats (`--sfc`/`--mfc`/`--class`) + colocated siblings, `make:form`/`make:layout` (#141). **accepted**
 - [ADR-0074](0074-convert-command-refuses-lossy-by-default.md): The `convert` command auto-detects direction and refuses a lossy convert by default (`--force` to override) (#141). **accepted**
+- [ADR-0085](0085-adopt-turbo-drive-for-navigation.md): Adopt Turbo Drive (vendored first-party, standalone) for SPA navigation; retire the hand-rolled `navigate.ts`; lievit keeps only the wire-rebind glue + the Turbo→lievit event bridge. **accepted** (supersedes the navigation half of ADR-0019 and all of ADR-0050; the per-wire-call morph and `merge.ts` are untouched)
 
 ## How to add an ADR
 
