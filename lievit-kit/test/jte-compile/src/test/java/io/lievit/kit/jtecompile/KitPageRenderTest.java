@@ -160,6 +160,45 @@ class KitPageRenderTest {
     }
 
     @Test
+    void renders_the_topbar_user_menu_as_a_compact_trigger_not_a_full_width_row() {
+        // The default placement (inFooter=false): the topbar trigger is a compact chevron-down cluster,
+        // NOT a full-width row. This pins the backward-compatible default of the inFooter param.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        String html = render("kit/page/user-menu.jte", model);
+
+        assertTrue(html.contains("kit-page-user-menu"), "user menu missing:\n" + html);
+        assertTrue(html.contains("data-lucide=\"chevron-down\""), "topbar chevron-down missing");
+        // The compact trigger does not take the full sidebar width (that is the footer placement only).
+        assertFalse(html.contains("w-full justify-between"), "topbar trigger must not be a full-width row");
+        assertFalse(html.contains("data-lucide=\"chevron-up\""), "topbar must open downward, not upward");
+    }
+
+    @Test
+    void renders_the_footer_user_menu_as_a_full_width_upward_row() {
+        // inFooter=true (Filament panel user-menu placement): the trigger is a full-width row whose
+        // <button> carries w-full justify-between (the triggerClass seam on the dropdown-menu partial),
+        // opens UPWARD (chevron-up), and the name + chevron are lv-sidebar-collapsible so a collapsed
+        // icon rail shows the avatar only.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("inFooter", true);
+        String html = render("kit/page/user-menu.jte", model);
+
+        assertTrue(html.contains("kit-page-user-menu"), "user menu missing:\n" + html);
+        // The dropdown-menu trigger <button> spans the footer: w-full justify-between is applied to it.
+        assertTrue(html.contains("w-full justify-between"), "footer trigger not full-width:\n" + html);
+        // Opens upward and shows the chevron-up glyph (timegrid-style upward menu in a footer).
+        assertTrue(html.contains("data-lucide=\"chevron-up\""), "footer chevron-up missing");
+        assertFalse(html.contains("data-lucide=\"chevron-down\""), "footer must not show the topbar chevron-down");
+        // The name + chevron collapse with the icon rail.
+        assertTrue(html.contains("lv-sidebar-collapsible"), "footer collapsible label/chevron missing");
+        // The user identity + logout still render (the menu body is placement-independent).
+        assertTrue(html.contains("Francesco Bilotta"), "user name missing in footer menu");
+        assertTrue(html.contains("/logout"), "logout action missing in footer menu");
+    }
+
+    @Test
     void renders_the_page_header_breadcrumb_heading_and_header_actions() {
         Map<String, Object> model = new HashMap<>();
         model.put("page", pageView());
