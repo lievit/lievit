@@ -37,6 +37,25 @@ All notable changes to this project are documented here. Format follows
   + void prepare-hook, or empty template + markup-returning render) are unaffected.
 ### Security
 
+- **The DSL's URL-attribute XSS gap is closed with context-aware encoding + a URL scheme allowlist**
+  (`lievit-dsl`, ADR-0084): the render-time escaper was a correct 5-char escaper (`& < > " '`) for
+  element text and quoted-attribute-value positions, but it had no URL-attribute context. A `@Wire`
+  value bound into a URL-bearing attribute (`href`, `src`, `formaction`, `xlink:href`, `poster`, ...)
+  carrying `javascript:alert(1)` or `data:text/html,<script>…` has no `< > & " '` to escape, so it
+  survived intact and executed on click: a real XSS vector. The DSL now (a) delegates encoding to the
+  **OWASP Java Encoder** (`Encode.forHtmlContent` for text, `Encode.forHtmlAttribute` for ordinary
+  attributes) instead of the hand-rolled escaper, and (b) detects URL-bearing attributes by name and
+  runs their value through a **scheme allowlist** before attribute-encoding: only `http`, `https`,
+  `mailto`, `tel` and scheme-less relative / absolute-path / scheme-relative / anchor / query URLs
+  pass; any other scheme is replaced with `about:blank#blocked` and a dev warning is logged. The
+  scheme test strips the control/whitespace characters a browser ignores and is case-insensitive, so
+  the classic evasions (` javascript:`, `java\tscript:`, `java\nscript:`, `java\0script:`,
+  `JaVaScRiPt:`) are all caught; legal URLs (`https://x`, `/path`, `./rel`, `#anchor`, `?q=1`,
+  `mailto:a@b`, `tel:+39…`) pass byte-for-byte unchanged. Encoding alone never neutralized the
+  scheme (it is a valid URI), so the allowlist is the actual fix and OWASP encoding is the correct
+  base layer for the other contexts. New `UrlAttributeEscapingTest` pins the blocked vectors and the
+  legal pass-through; the attribute golden moves to OWASP's canonical entity spellings (`&#34;`).
+
 - **Reserved-key smuggling at the dehydrate/hydrate boundary is closed** (`SynthesizerRegistry`,
   ADR-0020): the typed-tuple envelope was detected purely structurally, so a client-controlled plain
   `Map` or `DynamicObject` whose key was literally `@w` (or any reserved `@`-sigil key, e.g. `@memo`)
