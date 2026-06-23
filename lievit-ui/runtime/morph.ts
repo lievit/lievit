@@ -4,50 +4,45 @@
  */
 
 /**
- * A small, bespoke DOM morph (wire-protocol.md §5; ADR-0001 chose Idiomorph as the *principle* —
- * "morph, do not replace innerHTML" — but lievit ships its own implementation rather than vendoring
- * a copy, keeping the bundle dependency-free and license-clean). It walks the live DOM toward the
- * freshly rendered markup, preserving node identity where structure matches so focus, selection,
- * scroll, in-flight transitions and uncontrolled input state survive the patch.
+ * The lievit DOM morph (wire-protocol.md §5). It walks the live DOM toward freshly rendered markup,
+ * preserving node identity where structure matches so focus, selection, scroll, in-flight transitions
+ * and uncontrolled input state survive the patch.
  *
- * The algorithm is deliberately the dumbest thing that works (no virtual DOM, no LCS diff):
+ * ## Idiomorph, vendored (ADR-0084)
  *
- * 1. Match children pairwise, preferring a stable key (`id`, then `name`) so a reordered keyed node
- *    is *moved*, not destroyed and recreated; otherwise match by position among same-tag nodes.
- * 2. For a matched element: reconcile attributes in place (add/update/remove) and recurse into
- *    children. Live form-control value/checked state is preserved unless the server explicitly sets
- *    it (the server is the source of truth only for what it renders; uncontrolled typing survives).
- * 3. For an unmatched new node: import and insert it. For a leftover old node: remove it.
- * 4. Text nodes update `nodeValue` in place rather than replacing, so the text node identity holds.
+ * The morphing ALGORITHM is **Idiomorph** (the htmx-ecosystem morph, vendored at
+ * {@link ./vendor/idiomorph.js}, 0BSD, eval-free). lievit previously shipped a bespoke ~390-line
+ * morph; ADR-0084 ("renounce in-house where a proven implementation exists") retired it: DOM morphing
+ * is a hard algorithm (its #12 unkeyed-sibling mis-pair was the standing evidence), and a single
+ * battle-tested file vendored-with-provenance keeps the bundle dependency-free while fixing that whole
+ * class of bug (Idiomorph's id-set matching pairs reordered/shifted siblings correctly).
  *
- * Scope: it morphs the *children* of a root element toward a new HTML string, which is exactly the
- * lievit wire contract (the 200 body is the component's rendered markup). Strict-CSP-safe: it parses
- * via the inert template element, never `eval`/`innerHTML`-executes script.
+ * This file is the THIN lievit wiring around Idiomorph. It maps every behavior the wire relies on onto
+ * Idiomorph's callbacks WITHOUT editing the vendored file:
  *
- * ## Non-goal: no LCS, no backtracking (a deliberate limitation, #12)
+ * - **client-owned markers** (`data-lievit-rt-*`): the server never authors them, so a plain
+ *   "remove what the new markup dropped" reconcile would strip them on every morph and the post-morph
+ *   re-scan would re-bind directives and stack duplicate listeners. {@link CLIENT_MARKER_PREFIX} +
+ *   `beforeAttributeUpdated` keep them (Idiomorph never removes them).
+ * - **native input value / checked (#13)**: the server is the source of truth ONLY for what it
+ *   renders. A re-render that ASSERTS a control's value (a reflected `value`/`checked` attribute)
+ *   pushes that onto the live property (clear or change, defeating the dirty-property detach); a
+ *   re-render that does NOT assert it preserves the user's in-progress typing. This is the inverse of
+ *   Idiomorph's native `syncInputValue` (which clears a value-less input), so we run lievit's
+ *   value reconcile in `afterNodeMorphed`, overwriting Idiomorph's native sync. Extends to custom-
+ *   element controls (`<wa-input>`/`<wa-checkbox>`) through {@link defaultWriteControlValue}.
+ * - **focus + selection across a morph**: Idiomorph's `restoreFocus` (on by default).
+ * - **the morph hooks (ADR-0019 seam)**: {@link MorphHooks.elementMode} (`l:ignore`) and
+ *   {@link MorphHooks.beforeRemove} (`l:transition`) map onto `beforeNodeMorphed` /
+ *   `beforeAttributeUpdated` / `beforeNodeRemoved`.
  *
- * The child matcher is single-pass and greedy: a keyed node (`id`, then `name`) is matched wherever
- * it sits; an UNKEYED node is matched purely by position among same-tag siblings. There is no
- * longest-common-subsequence diff and no backtracking. The consequence: a LEADING tag/element shift
- * among unkeyed siblings can MIS-PAIR them — e.g. prepending a new same-tag element reuses the live
- * first node for the new first slot, so an unkeyed input's node identity (and any in-progress typing
- * the morph then overwrites) drifts to the wrong logical field. This is rare and the simplicity is
- * worth more than an LCS pass for the wire's typical re-render shapes, so it is a NON-GOAL, not a bug
- * to fix here. The user-side MITIGATION is KEYING: give siblings a stable `id`/`name` (the `wire:key`
- * idiom) and the matcher moves the keyed node instead of recreating it, preserving identity across
- * the shift. `test/morph-fixes.test.ts` pins both the mis-pair (golden) and the keyed mitigation.
- *
- * ## The morph hooks (ADR-0019 extension seam)
- *
- * ADR-0019 anticipated that `l:ignore` (skip a subtree from morphing) and `l:transition` (defer a
- * node's removal so it can animate out) would each need "a small morph hook". {@link MorphHooks} is
- * that seam: a feature passes callbacks to {@link morph} (the runtime forwards the hooks it has been
- * given) WITHOUT editing this file's algorithm. `elementMode` lets a feature freeze a live node (the
- * third-party-managed DOM case); `beforeRemove` lets a feature take over the removal of a leftover
- * node (the animate-out case) and report whether it has handled it.
+ * Scope: it morphs the *children* of a root element toward a new HTML string, or the root element
+ * itself when the markup re-renders a single same-tag root (so the root's own attributes reconcile).
+ * That is exactly the lievit wire contract (the 200 body is the component's rendered markup).
  */
 
 import { defaultWriteControlValue } from "./controls.js";
+import { Idiomorph } from "./vendor/idiomorph.js";
 
 /** How an element is morphed (see {@link MorphHooks.elementMode}). */
 export type MorphMode = "morph" | "skip" | "self" | "children";
@@ -77,172 +72,147 @@ export interface MorphHooks {
   readonly beforeRemove?: (node: Node) => boolean | undefined;
 }
 
-/** No-op hooks: the default when a caller passes none (preserves the plain bespoke algorithm). */
+/** No-op hooks: the default when a caller passes none. */
 const NO_HOOKS: MorphHooks = {};
 
 /**
  * Morphs the children of `root` to match `newHtml`. The root element itself is kept; only its
- * subtree is reconciled.
+ * subtree is reconciled, UNLESS `newHtml` re-renders a single root element of the same tag, in which
+ * case the root's own attributes reconcile too (the component-root re-render case).
  *
  * @param root the live element whose subtree is patched (the component root)
  * @param newHtml the freshly rendered HTML for that subtree (the wire 200 body)
  * @param hooks optional morph hooks (ADR-0019 seam for `l:ignore` / `l:transition`); omitted = the
- *     plain bespoke morph
+ *     plain morph
  */
 export function morph(root: Element, newHtml: string, hooks: MorphHooks = NO_HOOKS): void {
+  // The wire body is the component root's own markup. If it re-renders a SINGLE root element of the
+  // same tag, the live root is kept and its own attributes reconcile too (the component-root
+  // re-render case); we always morph its CHILDREN with `morphStyle: "innerHTML"`.
+  //
+  // Why not Idiomorph's `outerHTML` mode for the root? Its soft-match requires id-compatibility: a
+  // live root carrying an `id` (or a `data-lievit-id`-style distinguisher) the server markup omits
+  // fails the match, so Idiomorph would ADD the new root as a sibling instead of morphing into the
+  // live one (the teleport anchor would then never re-render). The bespoke morph matched the root by
+  // TAG only and reconciled its attributes; we keep that contract by reconciling the root's own
+  // attributes here (markers preserved), then morphing children id-independently with innerHTML.
   const template = document.createElement("template");
   template.innerHTML = newHtml;
-  // The wire body is the component root's own markup; if it re-renders a single root element that
-  // matches the live root's tag, morph into it (so the root's attributes reconcile too). Otherwise
-  // morph the parsed fragment's children directly into the live root's children.
   const parsedRoot = template.content.firstElementChild;
-  if (
+  const singleSameTagRoot =
     template.content.childElementCount === 1 &&
     parsedRoot != null &&
-    parsedRoot.tagName === root.tagName
-  ) {
-    morphElement(root, parsedRoot, hooks);
-  } else {
-    morphChildren(root, template.content, hooks);
+    parsedRoot.tagName === root.tagName;
+  if (singleSameTagRoot) {
+    // Reconcile the root element's own attributes (the children morph below). The root is never a
+    // form control and is not subject to `l:ignore` (the hooks apply to its descendants), so a plain
+    // marker-aware attribute reconcile is exactly the bespoke contract for it.
+    reconcileRootAttributes(root, parsedRoot!);
   }
+  const childrenHtml = singleSameTagRoot ? parsedRoot!.innerHTML : newHtml;
+
+  // Per-morph mode tracking for the `l:ignore.self` / `l:ignore.children` partial-freeze cases,
+  // which Idiomorph has no single flag for: we resolve the mode once per element (in
+  // `beforeNodeMorphed`) and consult it in `beforeAttributeUpdated` (freeze own attrs) and to gate
+  // the value reconcile / children recursion.
+  const modeOf = new WeakMap<Node, MorphMode>();
+  // Elements whose CHILDREN are frozen (`"self"` mode = `l:ignore.children`). Idiomorph has no
+  // single "morph attrs but not children" flag, so we freeze each child individually: a child whose
+  // live parent is in this set is skipped (`beforeNodeMorphed` returns false), leaving the subtree
+  // exactly as the user/third party left it while the element's own attributes still reconcile.
+  const childrenFrozen = new WeakSet<Node>();
+
+  Idiomorph.morph(root, childrenHtml, {
+    morphStyle: "innerHTML",
+    restoreFocus: true,
+    callbacks: {
+      beforeNodeMorphed: (oldNode, newNode) => {
+        if (!isElement(oldNode) || !isElement(newNode)) {
+          return true;
+        }
+        // A child of a "self"-frozen element: leave it (and its subtree) untouched.
+        if (oldNode.parentNode != null && childrenFrozen.has(oldNode.parentNode)) {
+          return false;
+        }
+        const mode = hooks.elementMode?.(oldNode, newNode) ?? "morph";
+        modeOf.set(oldNode, mode);
+        if (mode === "skip") {
+          // Freeze the element and its whole subtree: Idiomorph touches neither.
+          return false;
+        }
+        if (mode === "self") {
+          // Reconcile this element's own attributes (handled below) but freeze its children.
+          childrenFrozen.add(oldNode);
+        }
+        // Snapshot the live (possibly user-edited) control value BEFORE Idiomorph reconciles
+        // attributes, so the `afterNodeMorphed` reconcile can restore in-progress typing or apply a
+        // server-asserted value (#13). Skipped for "children" mode (the element itself is frozen).
+        if (mode !== "children") {
+          const live = uncontrolledValue(oldNode);
+          if (live != null) {
+            liveValues.set(oldNode, live);
+          }
+        }
+        return true;
+      },
+      afterNodeMorphed: (oldNode, newNode) => {
+        if (!isElement(oldNode) || !isElement(newNode)) {
+          return;
+        }
+        const mode = modeOf.get(oldNode) ?? "morph";
+        if (mode === "children") {
+          // "children" mode froze the element itself: no value reconcile for it.
+          return;
+        }
+        const live = liveValues.get(oldNode);
+        if (live == null) {
+          return;
+        }
+        liveValues.delete(oldNode);
+        // The server is the source of truth ONLY for a control it re-asserts. Idiomorph's native
+        // `syncInputValue` already ran during attribute reconciliation; lievit's contract (#13)
+        // overwrites it here: an asserted value lands on the live property (clear/change), an
+        // un-asserted re-render keeps the user's in-progress typing.
+        if (serverAsserts(newNode, live.kind)) {
+          applyServerAssertedValue(oldNode, newNode, live.kind);
+        } else {
+          restoreUncontrolledValue(oldNode, live);
+        }
+      },
+      beforeAttributeUpdated: (attributeName, node, mutationType) => {
+        // Client-runtime markers are owned by the client, never the server snapshot: keep them so a
+        // re-scan does not re-bind directives and stack duplicate listeners.
+        if (mutationType === "remove" && isClientOwnedMarker(attributeName)) {
+          return false;
+        }
+        // "self" mode (`l:ignore.children`) reconciles the element's own attributes, "children" mode
+        // (`l:ignore.self`) freezes them. The mode was resolved in `beforeNodeMorphed`.
+        if (modeOf.get(node) === "children") {
+          return false; // freeze this element's own attributes
+        }
+        return true;
+      },
+      beforeNodeRemoved: (node) => {
+        // A leftover live node the new markup dropped. A feature (l:transition) may claim its removal
+        // to animate it out and remove it itself later; if claimed, Idiomorph leaves it in place.
+        if (hooks.beforeRemove?.(node) === true) {
+          return false;
+        }
+        return true;
+      },
+    },
+  });
 }
 
-/** A stable key for a node: its `id`, then its `name`; `null` means "match by position". */
-function keyOf(node: Node): string | null {
-  if (node.nodeType !== Node.ELEMENT_NODE) {
-    return null;
-  }
-  const el = node as Element;
-  const id = el.getAttribute("id");
-  if (id != null && id.length > 0) {
-    return `#${id}`;
-  }
-  const name = el.getAttribute("name");
-  if (name != null && name.length > 0) {
-    return `@${el.tagName}:${name}`;
-  }
-  return null;
-}
+/**
+ * Per-morph snapshot of a control's live value, keyed by node. Set in `beforeNodeMorphed`, consumed
+ * (and cleared) in `afterNodeMorphed`. A module-level WeakMap rather than a closure variable so a
+ * nested morph (Idiomorph recurses through the same callbacks) never clobbers an outer snapshot.
+ */
+const liveValues = new WeakMap<Node, LiveValue>();
 
-/** Reconciles `oldParent`'s children toward `newParent`'s children. */
-function morphChildren(oldParent: Node, newParent: Node, hooks: MorphHooks): void {
-  // Index keyed old children so a reordered keyed node is reused rather than rebuilt.
-  const keyed = new Map<string, Node>();
-  for (let n = oldParent.firstChild; n != null; n = n.nextSibling) {
-    const key = keyOf(n);
-    if (key != null) {
-      keyed.set(key, n);
-    }
-  }
-
-  let oldChild = oldParent.firstChild;
-  let newChild = newParent.firstChild;
-
-  while (newChild != null) {
-    const nextNew = newChild.nextSibling;
-    const newKey = keyOf(newChild);
-
-    // A keyed new node: reuse the matching old node wherever it currently sits (move it here).
-    if (newKey != null && keyed.has(newKey)) {
-      const match = keyed.get(newKey)!;
-      keyed.delete(newKey);
-      if (match !== oldChild) {
-        oldParent.insertBefore(match, oldChild);
-      } else {
-        oldChild = oldChild.nextSibling;
-      }
-      morphNode(match, newChild, hooks);
-      newChild = nextNew;
-      continue;
-    }
-
-    // Positional match: same node kind and (for elements) same tag → morph in place.
-    if (oldChild != null && keyOf(oldChild) == null && compatible(oldChild, newChild)) {
-      const nextOld = oldChild.nextSibling;
-      morphNode(oldChild, newChild, hooks);
-      oldChild = nextOld;
-      newChild = nextNew;
-      continue;
-    }
-
-    // No match: import the new node and insert it before the current old cursor.
-    oldParent.insertBefore(document.importNode(newChild, true), oldChild);
-    newChild = nextNew;
-  }
-
-  // Remove any old children the new markup did not account for, unless a hook claims the removal
-  // (e.g. an out-transition that animates the node away and removes it itself).
-  while (oldChild != null) {
-    const next = oldChild.nextSibling;
-    const claimed = hooks.beforeRemove?.(oldChild) === true;
-    if (!claimed) {
-      oldParent.removeChild(oldChild);
-    }
-    oldChild = next;
-  }
-}
-
-/** Two nodes are positionally compatible if same node type and, for elements, same tag. */
-function compatible(a: Node, b: Node): boolean {
-  if (a.nodeType !== b.nodeType) {
-    return false;
-  }
-  if (a.nodeType === Node.ELEMENT_NODE) {
-    return (a as Element).tagName === (b as Element).tagName;
-  }
-  return true;
-}
-
-/** Morphs one node (text → text in place, element → element, else replace). */
-function morphNode(oldNode: Node, newNode: Node, hooks: MorphHooks): void {
-  if (oldNode.nodeType === Node.TEXT_NODE && newNode.nodeType === Node.TEXT_NODE) {
-    if (oldNode.nodeValue !== newNode.nodeValue) {
-      oldNode.nodeValue = newNode.nodeValue;
-    }
-    return;
-  }
-  if (oldNode.nodeType === Node.ELEMENT_NODE && newNode.nodeType === Node.ELEMENT_NODE) {
-    morphElement(oldNode as Element, newNode as Element, hooks);
-    return;
-  }
-  // Mismatched kinds (e.g. text vs comment): replace wholesale.
-  oldNode.parentNode?.replaceChild(document.importNode(newNode, true), oldNode);
-}
-
-/** Reconciles an element's attributes and recurses into its children. */
-function morphElement(oldEl: Element, newEl: Element, hooks: MorphHooks): void {
-  // The morph seam (ADR-0019): a feature may freeze this node or its subtree (`l:ignore`).
-  const mode = hooks.elementMode?.(oldEl, newEl) ?? "morph";
-  if (mode === "skip") {
-    return; // the element and its whole subtree are left exactly as the user/third party left them.
-  }
-
-  // Snapshot uncontrolled form state before attribute reconciliation, restore it after unless the
-  // server re-asserted it: a re-render the user's typing did not address must not wipe that typing.
-  const liveValue = uncontrolledValue(oldEl);
-
-  if (mode !== "children") {
-    // "children" means "freeze the element itself" — skip its own attribute reconciliation.
-    reconcileAttributes(oldEl, newEl);
-    if (liveValue != null) {
-      if (serverAsserts(newEl, liveValue.kind)) {
-        // The server asserted a value/checked for this control: it is the source of truth (#13). A
-        // native control DETACHES its `.value` property from the `value` attribute the moment the
-        // user types, so `reconcileAttributes` setting the attribute above does NOT move the dirty
-        // property — a server-asserted empty/changed value would never reach the screen. Push the
-        // server's asserted value onto the live property so a clear ("") or a change actually lands.
-        applyServerAssertedValue(oldEl, newEl, liveValue.kind);
-      } else {
-        // The server left the control untouched: keep the user's in-progress typing across the morph.
-        restoreUncontrolledValue(oldEl, liveValue);
-      }
-    }
-  }
-
-  if (mode !== "self") {
-    // "self" means "freeze the children" — reconcile this element only, do not recurse.
-    morphChildren(oldEl, newEl, hooks);
-  }
+function isElement(node: Node): node is Element {
+  return node.nodeType === Node.ELEMENT_NODE;
 }
 
 /** The live, user-edited value of an input/textarea/checkbox, or `null` for other elements. */
@@ -251,10 +221,10 @@ type LiveValue =
   | { readonly kind: "checked"; readonly value: boolean };
 
 /**
- * Whether `el` is a custom element (a hyphenated tag, the platform rule). Native controls keep
- * their dedicated branch above; only a custom element falls through to the property convention so a
- * Web Awesome `<wa-input>` / `<wa-select>` / `<wa-checkbox>` survives a re-render the same way a
- * native control does.
+ * Whether `el` is a custom element (a hyphenated tag, the platform rule). Native controls keep their
+ * dedicated branch; only a custom element falls through to the property convention so a Web Awesome
+ * `<wa-input>` / `<wa-select>` / `<wa-checkbox>` survives a re-render the same way a native control
+ * does.
  */
 function isCustomElement(el: Element): boolean {
   return el.tagName.includes("-");
@@ -309,11 +279,9 @@ function serverAsserts(newEl: Element, kind: LiveValue["kind"]): boolean {
 /**
  * Pushes the server's ASSERTED value/checked (read from `newEl`'s reflected attribute) onto `oldEl`'s
  * live property (#13). Needed because a native `<input>`/`<textarea>` detaches its `.value` (and a
- * checkbox its `.checked`) from the corresponding attribute the moment the user types/toggles: after
- * that, `setAttribute("value", "")` does not move the dirty `.value`, so a server clear or change is
- * invisible. The server remains the source of truth for an asserted value, so we write the property
- * directly. An ABSENT attribute on the asserted kind (e.g. `checked` removed) asserts the empty /
- * unchecked state, which is exactly the clear the property must follow.
+ * checkbox its `.checked`) from the corresponding attribute the moment the user types/toggles; after
+ * that, a server clear or change is invisible unless written to the property directly. An ABSENT
+ * attribute on the asserted kind (e.g. `checked` removed) asserts the empty / unchecked state.
  */
 function applyServerAssertedValue(oldEl: Element, newEl: Element, kind: LiveValue["kind"]): void {
   if (kind === "checked") {
@@ -352,8 +320,7 @@ function restoreUncontrolledValue(el: Element, live: LiveValue): void {
  * runtime stamps these to record "this element is already wired by feature X" (the `bound-*` per
  * directive, `init-fired`, the poll/lazy/current/page/upload/loading markers). The server NEVER
  * authors anything under this prefix, so {@link isClientOwnedMarker} is a one-line `startsWith`:
- * adding the NEXT marker only requires choosing a name under this prefix, never editing the morph's
- * allowlist (which is exactly the double-bind defect a per-NAME allowlist re-created each time).
+ * adding the NEXT marker only requires choosing a name under this prefix.
  *
  * It is deliberately NOT `data-lievit-` (that namespace is shared with the SERVER-authored attributes
  * `-component`, `-id`, `-snapshot`, `-island`, `-key`, `-sort-key`, `-scope`, `-style-*`, `-release`,
@@ -374,16 +341,19 @@ function isClientOwnedMarker(name: string): boolean {
   return name.startsWith(CLIENT_MARKER_PREFIX);
 }
 
-/** Adds/updates/removes attributes so `oldEl`'s attributes match `newEl`'s. */
-function reconcileAttributes(oldEl: Element, newEl: Element): void {
-  // Set or update everything the new markup declares.
+/**
+ * Reconciles the root element's own attributes toward `newEl`'s, preserving the client-runtime
+ * markers the server never authors (same rule Idiomorph's `beforeAttributeUpdated` enforces for the
+ * descendants). Used for the single-same-tag-root re-render: the live root is kept by identity (so
+ * selectors / focus / the teleport anchor survive) and only its attributes move, while its children
+ * morph through Idiomorph in `innerHTML` mode.
+ */
+function reconcileRootAttributes(oldEl: Element, newEl: Element): void {
   for (const attr of Array.from(newEl.attributes)) {
     if (oldEl.getAttribute(attr.name) !== attr.value) {
       oldEl.setAttribute(attr.name, attr.value);
     }
   }
-  // Remove anything the new markup dropped, EXCEPT the client-runtime bind markers (the server never
-  // authors them; stripping them re-binds directives and stacks duplicate listeners on every morph).
   for (const attr of Array.from(oldEl.attributes)) {
     if (!newEl.hasAttribute(attr.name) && !isClientOwnedMarker(attr.name)) {
       oldEl.removeAttribute(attr.name);
