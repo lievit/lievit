@@ -64,6 +64,8 @@ runtime/
   features/      # the batch-2 client features (Epic #34), each plugs into the extension API:
                  #   confirm, show, ignore, init, loading, dirty, poll, transition, lazy,
                  #   stream, navigate, pagination, uploads (+ installAllFeatures)
+                 #   navigate.ts = the Turbo Drive glue (ADR-0085): re-binds wire components after a
+                 #   Turbo swap + bridges Turbo events to lievit:navigate*; vendor/ holds Turbo Drive.
   index.ts       # the public barrel
 ```
 
@@ -83,14 +85,15 @@ const lievit = startLievit({
 
 ### Extension API (for later client features)
 
-Two public extension points let batch-2 features (loading/dirty, `wire:navigate`, polling,
-`wire:ignore`) plug in **without editing the core bundle**:
+Two public extension points let batch-2 features (loading/dirty, polling, `l:ignore`) plug in
+**without editing the core bundle** (SPA navigation itself is now Turbo Drive, ADR-0085, not a
+directive — see below):
 
 ```ts
 // 1. Register a new l:* directive. The registry IS the API: a built-in directive has no privilege
 //    a third-party one lacks.
 lievit.directives.register({
-  name: "navigate",                                   // makes l:navigate="/path" live app-wide
+  name: "track",                                      // makes l:track="event" live app-wide
   bind(el, _attribute, value, rt) {
     el.addEventListener("click", () => rt.callAction(el, value));
   },
@@ -146,7 +149,7 @@ installAllFeatures(lievit);
 | `l:transition[.fade\|.duration.Nms]` | animate in/out across a morph (WAAPI fade + deferred removal) |
 | `l:lazy="action"` | defer load until visible (IntersectionObserver) |
 | `l:stream="name"` | consume SSE envelopes into a target (append/replace); `openStream(root, url)` |
-| `l:navigate[.hover]` | SPA nav: fetch + body morph + history + events + hover prefetch + asset-diff reload |
+| ~~`l:navigate[.hover]`~~ | retired (ADR-0085): SPA nav is **Turbo Drive** (vendored, standalone). All same-origin links are SPA by default; `data-turbo="false"` opts out; prefetch-on-hover is default. The `navigate` feature is now the wire-rebind glue + the Turbo→`lievit:navigate*` event bridge. |
 | `l:page="action"` | pagination link → page action + scroll-to-top (URL sync via the `url` effect) |
 | `l:upload="field"` | file upload → signed temp-path ref + lifecycle events (`installUploads`) |
 | `l:teleport="selector"` | relocate the element's content to a target (e.g. `body`) while it stays component-owned: reactive across morphs, events preserved, multiple teleports (`installTeleport`, ADR-0052) |

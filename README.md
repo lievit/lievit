@@ -103,7 +103,7 @@ What is in the build today versus what the ADRs name as deliberately deferred. T
 |---|---|---|
 | Wire runtime | Stateless HMAC-signed snapshot, mount/render/action/re-render loop, codec, registry, dispatcher, `POST /lievit/{id}/call` + batch `/lievit/update` | [guide](docs/guide/components-and-wire.md), [ADR-0001](docs/adr/0001-wire-protocol-v0.1.md) |
 | Component API | `@LievitComponent` / `@Wire` / `@LievitAction` / `@LievitMount` / `@LievitRender` / `@LievitProperty` / `@LievitComputed` / `@LievitUrl` / `@LievitOn` / `@LievitRenderless` / `@LievitSession` / `@LievitLayout` / `@LievitTitle` | [guide](docs/guide/components-and-wire.md) |
-| Directives | `l:click` / `l:submit` / `l:keydown` / `l:model[.live/.lazy/.blur/.debounce]`; v4: `l:bind` / `l:text` / `l:dirty` / `l:error(s)` / `l:ref` / `l:sort` / `l:loading` / `l:island`; opt-in: `l:show` / `l:confirm` / `l:navigate` / `l:ignore` / `l:current` | [guide](docs/guide/directives.md), [ADR-0024](docs/adr/0024-v4-client-convergence.md) |
+| Directives | `l:click` / `l:submit` / `l:keydown` / `l:model[.live/.lazy/.blur/.debounce]`; v4: `l:bind` / `l:text` / `l:dirty` / `l:error(s)` / `l:ref` / `l:sort` / `l:loading` / `l:island`; opt-in: `l:show` / `l:confirm` / `l:ignore` / `l:current`. SPA navigation is **Turbo Drive** (ADR-0085), not a directive. | [guide](docs/guide/directives.md), [ADR-0024](docs/adr/0024-v4-client-convergence.md), [ADR-0085](docs/adr/0085-adopt-turbo-drive-for-navigation.md) |
 | Events & effects | `@LievitOn`, `dispatch` / `dispatchSelf` / `dispatchTo`, `$dispatch`, the `Lievit-Effects` channel (redirect / dispatch / returns / url / errors / islands / js / release) | [guide](docs/guide/events.md), [ADR-0030](docs/adr/0030-runtime-parity-events-lifecycle-magic-redirects.md) |
 | Lifecycle & computed | `@LievitComputed`; convention hooks `boot`/`booted`/`hydrate`/`dehydrate`/`updating(Prop)`/`updated(Prop)`/`rendering`/`rendered`; the lifecycle bus | [guide](docs/guide/computed-and-lifecycle.md), [ADR-0015](docs/adr/0015-computed-properties.md), [ADR-0022](docs/adr/0022-request-lifecycle-bus.md) |
 | Magic actions | `$set` / `$toggle` / `$refresh` / `$get` / `$parent` (settable-allowlist enforced) | [guide](docs/guide/directives.md), [ADR-0030](docs/adr/0030-runtime-parity-events-lifecycle-magic-redirects.md) |
@@ -485,7 +485,7 @@ global fan-out — the Echo-listener bridge). Wire the client once:
 import { startLievit, installBroadcast } from "@lievit/lievit-ui";
 
 const lievit = startLievit({ csrfToken, csrfHeader });
-installBroadcast(lievit);   // opens the SSE channel; closes it on l:navigate
+installBroadcast(lievit);   // opens the SSE channel; closes it on navigation (Turbo Drive, ADR-0085)
 ```
 
 Live push is best-effort (a recipient with no open client receives nothing live); the durable

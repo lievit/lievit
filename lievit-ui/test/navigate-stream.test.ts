@@ -4,8 +4,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LievitRuntime } from "../runtime/runtime.js";
-import { installNavigate } from "../runtime/features/navigate.js";
 import {
   applyStreamEnvelope,
   consumeStream,
@@ -116,41 +114,6 @@ describe("streaming (#153)", () => {
   });
 });
 
-describe("l:navigate (#155)", () => {
-  it("intercepts an internal left-click, swaps the body, updates history, fires events", async () => {
-    document.body.innerHTML = '<a href="/next" l:navigate>next</a><div id="here">A</div>';
-    const nextHtml = "<html><body><a href=\"/\" l:navigate>home</a><div id=\"here\">B</div></body></html>";
-    const fetchImpl = vi.fn(async () => new Response(nextHtml, { status: 200 })) as unknown as typeof fetch;
-    const events: string[] = [];
-    for (const e of ["lievit:navigate", "lievit:navigating", "lievit:navigated"]) {
-      window.addEventListener(e, () => events.push(e));
-    }
-    const pushState = vi.spyOn(window.history, "pushState").mockImplementation(() => {});
-
-    const rt = new LievitRuntime();
-    installNavigate(rt, { fetchImpl });
-
-    document.querySelector("a")!.dispatchEvent(new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }));
-    await new Promise((r) => setTimeout(r, 0));
-
-    expect(fetchImpl).toHaveBeenCalled();
-    expect(document.getElementById("here")!.textContent).toBe("B"); // body morphed
-    expect(pushState).toHaveBeenCalled();
-    expect(events).toContain("lievit:navigate");
-    expect(events).toContain("lievit:navigated");
-  });
-
-  it("does not intercept a modified click (ctrl/meta) — lets the browser handle it", async () => {
-    document.body.innerHTML = '<a href="/next" l:navigate>next</a>';
-    const fetchImpl = vi.fn(async () => new Response("", { status: 200 })) as unknown as typeof fetch;
-    const rt = new LievitRuntime();
-    installNavigate(rt, { fetchImpl });
-
-    document.querySelector("a")!.dispatchEvent(
-      new MouseEvent("click", { button: 0, metaKey: true, bubbles: true, cancelable: true }),
-    );
-    await new Promise((r) => setTimeout(r, 0));
-
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-});
+// l:navigate moved to Turbo Drive (ADR-0085): the SPA-navigation tests now live in
+// `navigate-turbo.test.ts` (the wire-rebind glue + the Turbo→lievit event bridge). The old
+// hand-rolled fetch/morph/history tests were deleted with `navigate.ts`'s implementation.
