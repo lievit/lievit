@@ -67,10 +67,32 @@ function pathSegments(path: string): string[] {
   return path.split(".");
 }
 
+/**
+ * Keys that must never be walked or written, because writing them mutates the JS prototype chain
+ * instead of the wire snapshot (prototype-pollution). Path segments arrive partly from the wire
+ * (server snapshot keys + client `pending` paths reconciled on every response), so a hostile
+ * `__proto__.polluted` / `constructor.prototype.x` segment must be refused, not honoured.
+ */
+const FORBIDDEN_SEGMENTS: ReadonlySet<string> = new Set([
+  "__proto__",
+  "prototype",
+  "constructor",
+]);
+
+/** True if any segment of the path is a prototype-pollution sink (`__proto__`/`prototype`/`constructor`). */
+function isUnsafePath(segs: readonly string[]): boolean {
+  return segs.some((seg) => FORBIDDEN_SEGMENTS.has(seg));
+}
+
 /** Reads the value at a dot-path from a wire value, or `undefined` if any segment is missing. */
 export function readPath(state: WireValue, path: string): WireValue | undefined {
+  const segs = pathSegments(path);
+  // A prototype-pollution segment can never name real wire data: treat the path as absent.
+  if (isUnsafePath(segs)) {
+    return undefined;
+  }
   let cursor: WireValue | undefined = state;
-  for (const seg of pathSegments(path)) {
+  for (const seg of segs) {
     if (Array.isArray(cursor)) {
       const i = Number.parseInt(seg, 10);
       cursor = Number.isInteger(i) ? cursor[i] : undefined;
@@ -93,6 +115,11 @@ export function readPath(state: WireValue, path: string): WireValue | undefined 
  */
 export function writePath(state: WireState, path: string, value: WireValue): void {
   const segs = pathSegments(path);
+  // Refuse to walk/write a prototype-pollution path (`__proto__`/`prototype`/`constructor`): such a
+  // segment names the JS prototype chain, not wire data, so honouring it would mutate Object.prototype.
+  if (isUnsafePath(segs)) {
+    return;
+  }
   let cursor: Record<string, WireValue> | WireValue[] = state;
   for (let i = 0; i < segs.length - 1; i++) {
     const seg = segs[i]!;

@@ -66,17 +66,22 @@ class HtmlGoldenTest {
     /**
      * @spec.given an attacker-controlled attribute value that tries to break out of its quotes
      * @spec.when  it is set with attr(name, value) and rendered
-     * @spec.then  the quotes and angle brackets are escaped, so it cannot inject a second attribute
+     * @spec.then  the quote is encoded (OWASP forHtmlAttribute), so it cannot break out of its
+     *             double quotes to inject a second attribute or a handler
      * @spec.adr   ADR-0018
+     * @spec.adr   ADR-0084
      */
     @Test
     void escapes_attribute_values_so_they_cannot_break_out() {
         Html tree = input().attr("value", "\"><img src=x onerror=alert(1)>");
 
+        // OWASP forHtmlAttribute encodes the breakout quote as &#34; (and < as &lt;); it leaves >
+        // intact because > cannot terminate a quoted attribute value, only the closing quote can.
+        // The security property is that the leading " is neutralized, so the value stays inside its
+        // quotes and the injected <img ...> never becomes a real element.
         assertThat(tree.render())
-                .isEqualTo(
-                        "<input value=\"&quot;&gt;&lt;img src=x onerror=alert(1)&gt;\">")
-                .doesNotContain("<img");
+                .isEqualTo("<input value=\"&#34;>&lt;img src=x onerror=alert(1)>\">")
+                .doesNotContain("\"><img");
     }
 
     /**

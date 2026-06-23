@@ -9,8 +9,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * One HTML attribute on an {@link Element}: a name and an optional value. A {@code null} value
  * renders the attribute as a boolean attribute (just the name, e.g. {@code disabled}); a non-null
- * value is HTML-escaped for attribute position by {@link Escaping#attribute} so it can never break
- * out of its double quotes (ADR-0018).
+ * value is context-aware encoded at render time (ADR-0018, ADR-0084): an ordinary attribute through
+ * {@link Escaping#attribute} so it can never break out of its double quotes, a URL-bearing attribute
+ * ({@code href}, {@code src}, {@code formaction}, {@code xlink:href}, ...) through {@link
+ * Escaping#urlAttribute}, which additionally vets the URL scheme against an allowlist so a {@code
+ * javascript:} / {@code data:} payload cannot survive and execute.
  *
  * <p>The attribute name is validated against an HTML name grammar at construction time: a malformed
  * name (whitespace, {@code =}, quotes, {@code /}, {@code >}) is rejected, so an attacker-influenced
@@ -37,7 +40,15 @@ public record Attr(String name, @Nullable String value) {
     void renderTo(StringBuilder out) {
         out.append(' ').append(name);
         if (value != null) {
-            out.append("=\"").append(Escaping.attribute(value)).append('"');
+            // URL-bearing attributes (href, src, formaction, xlink:href, ...) need scheme
+            // validation on top of attribute encoding: a javascript:/data: URL carries no quote
+            // to escape and would otherwise survive intact and execute (ADR-0084). Ordinary
+            // attributes only need quote-safe encoding.
+            String encoded =
+                    Escaping.isUrlAttribute(name)
+                            ? Escaping.urlAttribute(value)
+                            : Escaping.attribute(value);
+            out.append("=\"").append(encoded).append('"');
         }
     }
 

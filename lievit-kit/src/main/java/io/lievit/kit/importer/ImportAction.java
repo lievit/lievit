@@ -176,37 +176,29 @@ public final class ImportAction {
      */
     public String failedRowsCsv(JobRun run) {
         Objects.requireNonNull(run, "run");
-        StringBuilder out = new StringBuilder();
         List<String> headerNames = new java.util.ArrayList<>();
         for (ImportColumn<?> column : importer.columns()) {
             headerNames.add(column.name());
         }
         headerNames.add("error");
-        out.append(csvLine(headerNames)).append('\n');
-        for (var failed : run.progress().failedRows()) {
-            List<String> cells = new java.util.ArrayList<>(failed.data());
-            cells.add(failed.reason());
-            out.append(csvLine(cells)).append('\n');
+
+        // Commons CSV owns the RFC-4180 quoting (ADR-0084); comma + LF keeps the failed-rows report
+        // byte-compatible with the original hand-rolled writer.
+        StringBuilder out = new StringBuilder();
+        org.apache.commons.csv.CSVFormat format =
+                org.apache.commons.csv.CSVFormat.RFC4180.builder().setRecordSeparator('\n').get();
+        try (org.apache.commons.csv.CSVPrinter printer =
+                new org.apache.commons.csv.CSVPrinter(out, format)) {
+            printer.printRecord(headerNames);
+            for (var failed : run.progress().failedRows()) {
+                List<String> cells = new java.util.ArrayList<>(failed.data());
+                cells.add(failed.reason());
+                printer.printRecord(cells);
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
         }
         return out.toString();
-    }
-
-    private static String csvLine(List<String> cells) {
-        StringBuilder line = new StringBuilder();
-        for (int i = 0; i < cells.size(); i++) {
-            if (i > 0) {
-                line.append(',');
-            }
-            line.append(escape(cells.get(i)));
-        }
-        return line.toString();
-    }
-
-    private static String escape(String cell) {
-        if (cell.contains(",") || cell.contains("\"") || cell.contains("\n") || cell.contains("\r")) {
-            return '"' + cell.replace("\"", "\"\"") + '"';
-        }
-        return cell;
     }
 
     /**

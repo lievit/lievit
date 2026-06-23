@@ -23,6 +23,11 @@
             <groupId>org.jspecify</groupId>
             <artifactId>jspecify</artifactId>
         </dependency>
+        <!-- OWASP Java Encoder (BSD): context-aware output encoding (ADR-0084). -->
+        <dependency>
+            <groupId>org.owasp.encoder</groupId>
+            <artifactId>encoder</artifactId>
+        </dependency>
 
         <!-- Tests. -->
         <dependency>

@@ -6,8 +6,51 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The client runtime's DOM morph is now Idiomorph, vendored** (ADR-0084: renounce in-house where a
+  proven implementation exists). lievit shipped a bespoke ~390-line morph; DOM morphing is a hard
+  algorithm (its #12 unkeyed-sibling mis-pair was the standing evidence), so it is replaced by
+  **Idiomorph** (the htmx-ecosystem morph, 0BSD, eval-free), vendored as a single file with a
+  provenance header at `lievit-ui/runtime/vendor/idiomorph.js` (pinned v0.7.4). The bundle stays
+  dependency-free (no npm dep) and CSP-clean (no `eval` / `new Function`). `runtime/morph.ts` is now a
+  thin lievit wiring around Idiomorph's callbacks that preserves every wire-relied behavior: the
+  client-owned `data-lievit-rt-*` markers survive a morph (`beforeAttributeUpdated`); native + custom-
+  element value/checked follow the lievit #13 rule (a server-asserted value clears/updates a dirty
+  `.value`, an un-asserted re-render keeps in-progress typing — the inverse of Idiomorph's native
+  input sync, run in `afterNodeMorphed`); the ADR-0019 morph hooks (`l:ignore` skip/self/children,
+  `l:transition` deferred removal) map onto `beforeNodeMorphed` / `beforeAttributeUpdated` /
+  `beforeNodeRemoved`. Net win: a leading insertion among ID-keyed siblings now keeps node identity
+  and in-progress typing (the #12 bug is gone for keyed nodes; Idiomorph MOVES the keyed node instead
+  of destroy+recreate), and focus + caret selection survive a morph (Idiomorph `restoreFocus`).
+  A genuinely UNKEYED sibling (no `id`) still mis-pairs on a leading shift — fundamental to any
+  greedy, no-LCS morph — so the mitigation remains to key siblings with a stable `id`. Note: the
+  bespoke morph keyed on `id` THEN `name`; Idiomorph keys on `id` only, so a `name`-only sibling
+  reorder no longer preserves identity (use `id`).
+
 ### Fixed
 
+- **Runtime CSS scoping (`scoped-css.ts`) no longer corrupts real-world stylesheets** (ADR-0084
+  watch list: the selector-rewrite scoper is a dependency-free hand-roll kept on purpose, hardened
+  where robustness bugs hide before 1.0). Seven concrete breakages, each pinned by a golden test:
+  - A comma inside a functional pseudo-class (`:not(.b, .c)`, `:is(.a, .b)`, `:has(> img, > svg)`)
+    was split as if it were a selector-list separator, shredding the compound and scoping each
+    fragment wrongly. Splitting is now top-level only (commas inside `()`/`[]`/strings/`\,` escapes
+    are part of one selector).
+  - A comma inside an attribute value (`[data-x="a,b"]`) was likewise split. Same fix.
+  - A brace inside an attribute value (`[data-x="a{b}c"]`) or inside a `/* } { */` comment was
+    treated as a rule-block boundary, mismatching `{`/`}` and corrupting the whole sheet. Block
+    open/close scanning now skips comments and quoted strings.
+  - A leading comment in selector position (`/* note */ .x`) leaked into the scoped selector and
+    broke the rule; it is now stripped from the selector head.
+  - `@keyframes` step selectors (`from`, `to`, `50%`) and `@font-face` descriptors could be
+    rewritten as element selectors when nested under a scoped at-rule; only the rule-list at-rules
+    (`@media`/`@supports`/`@container`/`@layer`/`@scope`) recurse, everything else passes through.
+  - An escaped comma in a class name (`.foo\,bar`) was split as a separator.
+  - A media condition (`@media (min-width: 600px)`) is kept verbatim and never scoped as a selector.
+  A real-CSSOM integration test (happy-dom `getComputedStyle`) proves a `:not()`-bearing scoped rule
+  reaches the owning component and not an identically-classed foreign one. Behavior is identical to
+  before for all previously-valid input; only the broken cases changed. CSP-clean (no parser, no eval).
 - **The validation gate is now intent-driven, not shape-driven** (three silent-drop bugs collapsed
   into one correct decision): a failing `@Wire`-field validation used to skip a single `else` block
   that bundled three unrelated intents (real form-submit actions, framework magic mutations, inbound
@@ -37,6 +80,36 @@ All notable changes to this project are documented here. Format follows
   + void prepare-hook, or empty template + markup-returning render) are unaffected.
 ### Security
 
+- **The DSL's URL-attribute XSS gap is closed with context-aware encoding + a URL scheme allowlist**
+  (`lievit-dsl`, ADR-0084): the render-time escaper was a correct 5-char escaper (`& < > " '`) for
+  element text and quoted-attribute-value positions, but it had no URL-attribute context. A `@Wire`
+  value bound into a URL-bearing attribute (`href`, `src`, `formaction`, `xlink:href`, `poster`, ...)
+  carrying `javascript:alert(1)` or `data:text/html,<script>…` has no `< > & " '` to escape, so it
+  survived intact and executed on click: a real XSS vector. The DSL now (a) delegates encoding to the
+  **OWASP Java Encoder** (`Encode.forHtmlContent` for text, `Encode.forHtmlAttribute` for ordinary
+  attributes) instead of the hand-rolled escaper, and (b) detects URL-bearing attributes by name and
+  runs their value through a **scheme allowlist** before attribute-encoding: only `http`, `https`,
+  `mailto`, `tel` and scheme-less relative / absolute-path / scheme-relative / anchor / query URLs
+  pass; any other scheme is replaced with `about:blank#blocked` and a dev warning is logged. The
+  scheme test strips the control/whitespace characters a browser ignores and is case-insensitive, so
+  the classic evasions (` javascript:`, `java\tscript:`, `java\nscript:`, `java\0script:`,
+  `JaVaScRiPt:`) are all caught; legal URLs (`https://x`, `/path`, `./rel`, `#anchor`, `?q=1`,
+  `mailto:a@b`, `tel:+39…`) pass byte-for-byte unchanged. Encoding alone never neutralized the
+  scheme (it is a valid URI), so the allowlist is the actual fix and OWASP encoding is the correct
+  base layer for the other contexts. New `UrlAttributeEscapingTest` pins the blocked vectors and the
+  legal pass-through; the attribute golden moves to OWASP's canonical entity spellings (`&#34;`).
+
+- **Prototype pollution closed in the wire-snapshot surgical merge** (`lievit-ui/runtime/merge.ts`,
+  ADR-0024 / #87): `writePath` walked a dot-keyed path and created intermediate objects without
+  rejecting prototype-chain segments, so a path whose segment was `__proto__` (or `constructor` /
+  `prototype`) wrote onto `Object.prototype` instead of the snapshot. `writePath` is fed `pending`
+  field paths reconciled against the server snapshot on every wire response, partly attacker-
+  influenced, so this was a real prototype-pollution vector, not theoretical. `merge.ts` now refuses
+  any path containing a forbidden segment: `writePath` is a no-op on such a path, `readPath` reports
+  it as absent (`undefined`), matching the existing missing-segment contract, so the legitimate #87
+  reconciliation, dot-keyed nesting, array-index removal and key-order / sparse-key handling are
+  unchanged. Tests pin that `__proto__.polluted` and `constructor.prototype.x` (anywhere in the path)
+  leave `Object.prototype` clean and never throw, while legitimate paths still merge.
 - **Reserved-key smuggling at the dehydrate/hydrate boundary is closed** (`SynthesizerRegistry`,
   ADR-0020): the typed-tuple envelope was detected purely structurally, so a client-controlled plain
   `Map` or `DynamicObject` whose key was literally `@w` (or any reserved `@`-sigil key, e.g. `@memo`)
@@ -59,6 +132,41 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **`lievit-kit` CSV is now RFC-4180 via Apache Commons CSV; the hand-rolled CSV mechanics are
+  retired** (ADR-0084: in-house CSV is data-critical, the quoting/escaping/embedded-delimiter/newline
+  edge cases silently corrupt data, so it failed the cost test). The byte-level read/write moved off
+  the three hand-rolled code paths onto the canonical library: `CsvFormat.assemble` (export) now
+  serializes through `CSVPrinter` over `CSVFormat.RFC4180` (configured with the dialect's separator /
+  quote / line ending), `CsvSource` (import) parses through `CSVParser`, and `ImportAction`'s
+  failed-rows report writes through `CSVPrinter` instead of its own `csvLine`/`escape`. The public
+  API is unchanged: the `ExportColumn`/`ImportColumn` column model, the `Exporter`/`Importer`
+  contracts, the `ExportAction`/`ImportAction`/`ExportBulkAction` surface, the `CsvFormat` dialect
+  presets (`standard()`/`excelItalian()`/`tabSeparated()`), the UTF-8 BOM option, and the delimiter
+  auto-detection all keep their signatures and behaviour. One visible improvement falls out of the
+  correct library: a field with leading/trailing spaces is now quoted on export so a trimming reader
+  cannot eat the spaces (the old writer left it unquoted). Added a round-trip suite proving an
+  embedded delimiter, an embedded quote, an embedded newline, surrounding spaces, an empty field, and
+  a formula-looking value survive export→import losslessly under both the comma and the semicolon
+  dialect. Pulls in `org.apache.commons:commons-csv:1.14.1` (Apache-2.0; not managed by the Spring
+  Boot BOM, so version-pinned in `lievit-kit/pom.xml`).
+- **SPA navigation is now Turbo Drive; the hand-rolled `navigate.ts` is retired** (ADR-0085, the
+  reframed clause-1 of ADR-0084: "lievit = glue golden path"). lievit deleted ~377 lines of its own
+  navigation engine (fetch + body morph + `<head>` merge + history + page cache + progress bar +
+  scroll + `l:persist` + hover prefetch) and adopted **Turbo Drive** (`@hotwired/turbo` 8.0.23, MIT,
+  37signals), **vendored first-party** at `lievit-ui/runtime/vendor/turbo.es2017-esm.js` (no CDN, no
+  runtime npm dep, verified `eval`-free so it runs under `script-src 'self'`). Drive is used
+  standalone (Frames/Streams stay dormant, opt-in via markup). Each old responsibility maps to a
+  Turbo-native mechanism: head merge → Drive's head reconciliation; tracked-asset reload →
+  `data-turbo-track="reload"`; progress bar → `.turbo-progress-bar`; `l:persist` →
+  `data-turbo-permanent`; hover prefetch → Drive's default prefetch; scroll → Drive's restoration.
+  **Author contract changes from opt-in to opt-out**: all same-origin links are SPA by default; opt
+  out with `data-turbo="false"`; a leftover `l:navigate` attribute is a harmless no-op. lievit keeps
+  only the thin residual glue in `features/navigate.ts` (export name `installNavigate` unchanged): it
+  re-binds wire components after each Turbo swap (`runtime.start` on `turbo:load`, the load-bearing
+  glue) and bridges Turbo's lifecycle events to lievit's existing `lievit:navigate*` CustomEvents, so
+  `l:current` and the broadcast channel keep working unmodified. The per-wire-call surgical morph
+  (`morph.ts`, ADR-0019) and the wire snapshot merge (`merge.ts`, ADR-0024) are a different
+  granularity and are **untouched**.
 - **Removed the vestigial Lit references from `lievit-ui` and the README** (an honesty fix: Lit was
   deliberately dismantled but two surfaces still advertised it). The `lievit-ui` client is the
   dependency-free TypeScript runtime; nothing in the shipped code imports Lit, and the test suite

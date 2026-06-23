@@ -45,9 +45,26 @@ if (!customElements.get("morph-check")) {
   customElements.define("morph-check", MorphCheckControl);
 }
 
-describe("morph (bespoke DOM patch, wire-protocol §5)", () => {
+describe("morph (Idiomorph-backed DOM patch, wire-protocol §5)", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+  });
+
+  it("preserves focus and caret selection across a re-render (Idiomorph restoreFocus)", () => {
+    document.body.innerHTML =
+      '<div data-lievit-component="X"><input id="q" name="q" value="hello"><span>0</span></div>';
+    const el = document.body.firstElementChild as HTMLElement;
+    const input = el.querySelector("input")!;
+    input.focus();
+    input.setSelectionRange(2, 4); // caret across "ll"
+
+    // A re-render that re-asserts the same value must keep focus + the caret selection.
+    morph(el, '<div data-lievit-component="X"><input id="q" name="q" value="hello"><span>1</span></div>');
+
+    expect(el.querySelector("input")).toBe(input); // same node
+    expect(document.activeElement).toBe(input); // focus survived
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 4]); // caret survived
+    expect(el.querySelector("span")!.textContent).toBe("1");
   });
 
   it("updates a changed text node in place, preserving the node identity", () => {
