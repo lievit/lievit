@@ -139,4 +139,46 @@ class ImportActionTest {
         assertThat(source.rawRows()).singleElement().asList()
                 .containsExactly("Ada, the first", "she said \"hi\"");
     }
+
+    /**
+     * @spec.given a quoted field carrying an embedded newline
+     * @spec.when  it is parsed
+     * @spec.then  the newline stays inside the one field, not read as a row boundary (RFC-4180)
+     */
+    @Test
+    void it_parses_an_embedded_newline_inside_quotes() {
+        CsvSource source = CsvSource.parse("name,note\n\"Ada\",\"line1\nline2\"\n");
+
+        assertThat(source.rowCount()).isEqualTo(1);
+        assertThat(source.rawRows()).singleElement().asList()
+                .containsExactly("Ada", "line1\nline2");
+    }
+
+    /**
+     * @spec.given a row with a leading-space field and an empty field
+     * @spec.when  it is parsed
+     * @spec.then  the surrounding space is preserved and the empty field stays an empty string
+     *     (RFC-4180 does not trim; the empty cell is not dropped)
+     */
+    @Test
+    void it_preserves_spaces_and_empty_fields() {
+        CsvSource source = CsvSource.parse("a,b,c\n  padded  ,,z\n");
+
+        assertThat(source.rawRows()).singleElement().asList()
+                .containsExactly("  padded  ", "", "z");
+    }
+
+    /**
+     * @spec.given a semicolon-delimited file with a quoted field containing the semicolon
+     * @spec.when  it is parsed with delimiter auto-detection
+     * @spec.then  the semicolon dialect is detected and the quoted delimiter stays inside the field
+     */
+    @Test
+    void it_autodetects_a_semicolon_dialect_and_keeps_the_quoted_delimiter() {
+        CsvSource source = CsvSource.parse("name;note\nAda;\"a;b\"\n");
+
+        assertThat(source.delimiter()).isEqualTo(';');
+        assertThat(source.headers()).containsExactly("name", "note");
+        assertThat(source.rawRows()).singleElement().asList().containsExactly("Ada", "a;b");
+    }
 }

@@ -141,6 +141,46 @@ class CsvFormatTest {
     }
 
     /**
+     * @spec.given a cell with leading and trailing spaces under the default dialect
+     * @spec.when  it is serialized
+     * @spec.then  Commons CSV quotes the surrounding spaces so a downstream reader that trims
+     *     unquoted fields cannot eat them; the spaces survive verbatim (the round-trip test proves
+     *     the parse reads them back unchanged). The retired hand-rolled writer left them unquoted.
+     */
+    @Test
+    void leading_and_trailing_spaces_are_quoted_to_survive() {
+        String doc = ExportFormat.CSV.assemble(List.of("a"), List.of(List.of("  padded  ")));
+
+        assertThat(doc).isEqualTo("a\r\n\"  padded  \"\r\n");
+    }
+
+    /**
+     * @spec.given a row with an empty field between two populated ones
+     * @spec.when  the default dialect serializes it
+     * @spec.then  the empty field is written as nothing between the delimiters (kept, not dropped)
+     */
+    @Test
+    void an_empty_field_is_written_between_delimiters() {
+        String doc =
+                ExportFormat.CSV.assemble(List.of("a", "b", "c"), List.of(List.of("x", "", "z")));
+
+        assertThat(doc).isEqualTo("a,b,c\r\nx,,z\r\n");
+    }
+
+    /**
+     * @spec.given a cell that looks like a spreadsheet formula ({@code =1+1})
+     * @spec.when  the default dialect serializes it
+     * @spec.then  the text is written verbatim: CSV is content-neutral, it does not need quoting and
+     *     gets none (the kit does not do formula-injection escaping; that is the adopter's choice)
+     */
+    @Test
+    void a_formula_looking_value_is_written_verbatim() {
+        String doc = ExportFormat.CSV.assemble(List.of("a"), List.of(List.of("=1+1")));
+
+        assertThat(doc).isEqualTo("a\r\n=1+1\r\n");
+    }
+
+    /**
      * @spec.given a separator equal to the quote char
      * @spec.when  the dialect is built
      * @spec.then  construction is rejected (the two roles must differ)

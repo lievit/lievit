@@ -31,6 +31,15 @@
             <artifactId>jspecify</artifactId>
         </dependency>
 
+        <!-- RFC-4180 CSV read/write (ADR-0084): retires the hand-rolled CSV quoting/escaping/parsing
+             in CsvFormat/CsvSource for the canonical library. Not managed by the Spring Boot BOM, so
+             the version is pinned here. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.14.1</version>
+        </dependency>
+
         <!-- Spring DI: AdminResource is instance-based, discovered as a bean (not static, ADR-0008). -->
         <dependency>
             <groupId>org.springframework</groupId>

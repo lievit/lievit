@@ -4,7 +4,12 @@
  */
 package io.lievit.kit.exporter;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 
 /**
  * A configurable CSV dialect (the configurable face of {@link ExportFormat}): a field {@code
@@ -12,6 +17,11 @@ import java.util.List;
  * a {@code lineEnding}, and a {@code quote} (enclosure) character. RFC-4180 quoting keys off the
  * <em>configured</em> separator: a cell is quoted when it contains the separator, the quote char, a
  * CR, or an LF, and embedded quotes are doubled.
+ *
+ * <p>The byte-level mechanics (RFC-4180 quoting / escaping) are delegated to Apache Commons CSV's
+ * {@link CSVPrinter} over {@link CSVFormat#RFC4180} (ADR-0084), so the hand-rolled quoting this
+ * record used to carry is gone; this type only configures the dialect (separator / quote / line
+ * ending / BOM) and feeds rows to the printer.
  *
  * <p>The Filament precedent is {@code getCsvDelimiter()} returning a single character; here the whole
  * dialect is a value object the caller passes to the export action in place of the {@link
@@ -102,35 +112,23 @@ public record CsvFormat(char separator, boolean bom, String lineEnding, char quo
         if (bom) {
             out.append(UTF8_BOM);
         }
-        out.append(line(headers)).append(lineEnding);
-        for (List<String> row : rows) {
-            out.append(line(row)).append(lineEnding);
+        // Commons CSV owns the RFC-4180 quoting/escaping; this dialect only configures it.
+        CSVFormat format =
+                CSVFormat.RFC4180
+                        .builder()
+                        .setDelimiter(separator)
+                        .setQuote(quote)
+                        .setRecordSeparator(lineEnding)
+                        .get();
+        try (CSVPrinter printer = new CSVPrinter(out, format)) {
+            printer.printRecord(headers);
+            for (List<String> row : rows) {
+                printer.printRecord(row);
+            }
+        } catch (IOException e) {
+            // The Appendable is a StringBuilder: it never throws. Surface defensively.
+            throw new UncheckedIOException(e);
         }
         return out.toString();
-    }
-
-    private String line(List<String> cells) {
-        StringBuilder line = new StringBuilder();
-        for (int i = 0; i < cells.size(); i++) {
-            if (i > 0) {
-                line.append(separator);
-            }
-            line.append(escape(cells.get(i)));
-        }
-        return line.toString();
-    }
-
-    /** RFC-4180 quoting against the configured separator + quote char. */
-    private String escape(String cell) {
-        boolean mustQuote =
-                cell.indexOf(separator) >= 0
-                        || cell.indexOf(quote) >= 0
-                        || cell.indexOf('\n') >= 0
-                        || cell.indexOf('\r') >= 0;
-        if (mustQuote) {
-            String doubled = cell.replace(String.valueOf(quote), String.valueOf(quote) + quote);
-            return quote + doubled + quote;
-        }
-        return cell;
     }
 }
