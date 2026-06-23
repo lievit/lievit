@@ -13,22 +13,39 @@ The problem is not the principle, it is that the principle was applied **without
 
 ## Decision
 
-**Before every "let's do it by hand", apply the COST TEST as a gate:**
+**Before every "let's do it by hand", apply the COST TEST as a gate — THREE clauses:**
 
-> The dependency I avoid is **small AND proven**, AND the thing I write in its place is **easy AND non-critical**?
-> If EITHER half is false (hard algorithm; data-/correctness-critical), the DIY is **debt, not savings** — use the battle-tested solution.
+> **Adopt the battle-tested solution IF ALL THREE hold:**
+> (1) the dependency is **small AND proven**, AND
+> (2) what you'd write instead is **hard OR critical** (hard algorithm; data-/correctness-/security-critical), AND
+> (3) adopting it does **NOT reintroduce an attack surface the design exists to close**.
+>
+> Fail (1)+(2) → the DIY is **debt**, use the dependency. Clause (3) is the **VETO**: if the battle-tested option reopens a door the design deliberately shut, the hand-roll is **CORRECT — keep it**, even when (1) and (2) would say adopt.
 
-"Use the battle-tested solution" does not mandate an npm dependency: a single proven file vendored with clear provenance (e.g. Idiomorph, MIT, one file, zero transitive deps) is often the better supply-chain answer than an npm dep — it keeps the bundle dependency-free WHILE getting the hardened algorithm. The cost test is about the ALGORITHM's provenance, not the delivery channel.
+The third clause is the real output of the audit: it separates the hand-rolls that are debt from the ones that are skill. It explains the consistent record — on the server they took JJWT (standard HS256, no new surface) but NOT Jackson polymorphic deserialization for the synthesizers (that IS the gadget-RCE surface); on the client they reinvented morph (debt — hard, no surface argument) but kept the expression evaluator (a general eval-based lib reopens the injection surface the CSP + restricted grammar exist to close).
+
+"Adopt" does not mandate a package-manager dependency: a single proven file vendored with clear provenance (e.g. Idiomorph, MIT, one file, zero transitive deps) is often the better supply-chain answer than an npm dep — it keeps the bundle dependency-free WHILE getting the hardened algorithm. The test is about the ALGORITHM's provenance, not the delivery channel.
 
 ### Applications (this is the instance; the test is the rule)
 
-| Hand-roll | Cost test | Decision |
+**Group A — fail (1)+(2), no clause-(3) veto → DEBT, adopt the dependency:**
+
+| Hand-roll | Why it fails | Adopt |
 |---|---|---|
-| **CSV** (`lievit-kit` exporter/importer `CsvFormat`/`CsvSource`) | reinvented thing is **data-critical** (RFC-4180 quoting/escaping/embedded-delimiter/newline edge cases — silent corruption risk) → FAILS | **Apache Commons CSV** (RFC-4180, Apache-2.0, minimal read/write surface that fits the column model) |
-| **Morph** (`lievit-ui` runtime `morph.ts`) | reinvented thing is a **hard algorithm** (the #12 unkeyed-sibling mis-pair proves the in-house gaps) → FAILS | **Idiomorph** (MIT, single file, battle-tested by the htmx ecosystem; vendored-with-provenance to keep the bundle dependency-free) |
-| **Navigate** (`lievit-ui` runtime `navigate.ts`, ~377 lines: pushState/LRU/prefetch/scroll) | BORDERLINE: the reinvented thing IS hard (history/scroll/cache/focus), but the alternatives (Turbo Drive, htmx hx-boost) are heavy/opinionated deps that fight the CSP-clean bundle AND lievit's own wire/morph swap model | **KEEP, but WATCH**: it is the #1 place to find robustness bugs before 1.0 → harden with golden tests on the hard edges. If ever replaced, htmx `hx-boost` is the closer fit than Turbo (lighter, MIT, CSP-aligned), but neither is a clean drop-in given the wire owns the swap |
-| **Expression evaluator** (`expression.ts`, recursive-descent for `l:show`/`l:bind`/`l:text`) | PASSES — looks NIH, is the opposite: strict CSP (`script-src 'self'`, no `eval`/`new Function`) excludes Alpine and every eval-based lib; the grammar is **deliberately restricted** (no member access, no calls, no arithmetic) to close the injection surface. A general "battle-tested" library here would reopen exactly the doors the grammar exists to bar | **KEEP** (correct hand-roll, constraint-driven) |
-| **Concurrency** (`concurrency.ts`, dedup/queue of wire-calls) | PASSES — small, intrinsic to the wire model, no proven drop-in equivalent | **KEEP** |
+| **CSV** (`lievit-kit` exporter/importer `CsvFormat`/`CsvSource`) | **data-critical** (RFC-4180 quoting/escaping/embedded-delimiter/newline — silent corruption; the in-house writer shipped leading/trailing spaces unquoted, a real round-trip data loss) | **Apache Commons CSV** (RFC-4180, Apache-2.0, fits the column model) |
+| **Morph** (`lievit-ui` runtime `morph.ts`) | **hard algorithm** (the #12 unkeyed-sibling mis-pair proves the in-house gaps) | **Idiomorph** (MIT, single file, vendored-with-provenance to keep the bundle dependency-free) |
+| **HTML escaping** (`Escaping.java`, the 5-char `& < > " '` DSL escaper) | **security-critical with a CONTEXT GAP**: the 5-char set is correct for text + quoted-attribute-value, but it does NOT cover URL-attribute context — a `@Wire` bound in `<a href="${value}">` lets `javascript:` / `data:text/html,…` through intact (no `<>&"'` to escape) and it executes on click. A real XSS vector, not theoretical | **OWASP Java Encoder** (context-aware: `Encode.forHtml`/`forHtmlAttribute`/`forUriComponent`) **+ an explicit scheme allowlist** (http/https/mailto/relative) on URL attributes, because encoding alone does not stop the `javascript:` scheme |
+
+**Group B — clause (3) VETOES adoption → CORRECT hand-roll, DO NOT TOUCH** (the battle-tested option here reopens a surface the design exists to close, or there is no equivalent that doesn't):
+
+| Hand-roll | The "obvious" library | Why the veto holds |
+|---|---|---|
+| **Typed-state synthesizers** (~1773 lines, 19 files) | Jackson polymorphic deser (`@JsonTypeInfo` with class names) | That is literally the **Jackson-gadget CVE family**, the #1 Java deser RCE vector, on a wire that deserializes attacker-controlled snapshots. An explicit allowlist registry of round-trippable types is the SECURE choice; the library reopens the RCE door |
+| **Expression evaluator** (`expression.ts`) | Alpine / any eval-based expr lib | Strict CSP (`script-src 'self'`, no `eval`/`new Function`) excludes them; the grammar is **deliberately restricted** (no member access, calls, arithmetic) to close injection. A general lib reopens exactly those doors |
+| **`ChecksumFailureLimiter`** | Bucket4j / Resilience4j / Guava RateLimiter | Those are GLOBAL token-bucket; what is needed is a **per-client sliding-window-log with bounded memory** — the per-client map + eviction you must manage yourself anyway. The in-house version handles the hard parts (injectable clock, per-deque lock, value-checked `remove(k,v)` against the race, amortized sweep against IP-rotation memory-DoS). Better than pasting a library |
+| **`concurrency.ts`** (dedup/queue of wire-calls) | — | Small, intrinsic to the wire model, no proven drop-in equivalent |
+
+**Watch list (defensible, but where robustness bugs hide before 1.0 — keep, harden, don't replace):** `navigate.ts` (~377: pushState/LRU/prefetch/scroll), `merge.ts` (~201: head-merge on navigation), `scoped-css.ts` (~164: runtime CSS scoping by selector rewrite — a known footgun). All are Turbo-territory hand-rolls; the dependency-free + wire-owns-the-swap argument defends them, but they get golden tests on the hard edges. (`transition.ts`, `uploads.ts`, `teleport.ts` are low-risk hand-rolls — leave them.) See the open htmx-`hx-boost` evaluation: IF a spike proves it composes with the wire under CSP first-party (no CDN), `hx-boost` could retire `navigate.ts`+`merge.ts` — that is a positioning decision, not settled here.
 
 ## Consequences
 
