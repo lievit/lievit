@@ -30,6 +30,27 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Runtime CSS scoping (`scoped-css.ts`) no longer corrupts real-world stylesheets** (ADR-0084
+  watch list: the selector-rewrite scoper is a dependency-free hand-roll kept on purpose, hardened
+  where robustness bugs hide before 1.0). Seven concrete breakages, each pinned by a golden test:
+  - A comma inside a functional pseudo-class (`:not(.b, .c)`, `:is(.a, .b)`, `:has(> img, > svg)`)
+    was split as if it were a selector-list separator, shredding the compound and scoping each
+    fragment wrongly. Splitting is now top-level only (commas inside `()`/`[]`/strings/`\,` escapes
+    are part of one selector).
+  - A comma inside an attribute value (`[data-x="a,b"]`) was likewise split. Same fix.
+  - A brace inside an attribute value (`[data-x="a{b}c"]`) or inside a `/* } { */` comment was
+    treated as a rule-block boundary, mismatching `{`/`}` and corrupting the whole sheet. Block
+    open/close scanning now skips comments and quoted strings.
+  - A leading comment in selector position (`/* note */ .x`) leaked into the scoped selector and
+    broke the rule; it is now stripped from the selector head.
+  - `@keyframes` step selectors (`from`, `to`, `50%`) and `@font-face` descriptors could be
+    rewritten as element selectors when nested under a scoped at-rule; only the rule-list at-rules
+    (`@media`/`@supports`/`@container`/`@layer`/`@scope`) recurse, everything else passes through.
+  - An escaped comma in a class name (`.foo\,bar`) was split as a separator.
+  - A media condition (`@media (min-width: 600px)`) is kept verbatim and never scoped as a selector.
+  A real-CSSOM integration test (happy-dom `getComputedStyle`) proves a `:not()`-bearing scoped rule
+  reaches the owning component and not an identically-classed foreign one. Behavior is identical to
+  before for all previously-valid input; only the broken cases changed. CSP-clean (no parser, no eval).
 - **The validation gate is now intent-driven, not shape-driven** (three silent-drop bugs collapsed
   into one correct decision): a failing `@Wire`-field validation used to skip a single `else` block
   that bundled three unrelated intents (real form-submit actions, framework magic mutations, inbound
