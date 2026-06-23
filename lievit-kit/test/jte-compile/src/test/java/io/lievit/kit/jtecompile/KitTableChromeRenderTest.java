@@ -176,6 +176,34 @@ class KitTableChromeRenderTest {
     }
 
     @Test
+    void renders_the_filament_fidelity_header_tint_padding_and_a_loading_spinner() {
+        String html = render(populatedModel());
+
+        // Filament fidelity (fi-ta-header-cell): the data-column header cells (sortable-head + the
+        // plain table.head) use a SUBTLE 35% surface tint (the bottom divider does the head/body split),
+        // comfortable px-3 padding, and a small muted-semibold label, not the prior heavy 70% band with
+        // a plain font-medium fg label. The sortable Name header carries the new tint.
+        // (The bulk select-all box still rides data-table.selection-cell, a separate lievit-ui surface
+        // outside this backflow's scope; this asserts the lightened DATA-column header.)
+        int nameHeadStart = html.indexOf("data-sort-key=\"name\"");
+        assertTrue(nameHeadStart >= 0, "sortable Name header not found:\n" + html);
+        String nameHead = html.substring(nameHeadStart, html.indexOf("</th>", nameHeadStart));
+        assertTrue(
+                nameHead.contains("color-mix(in srgb, var(--lv-color-surface) 35%, var(--lv-color-bg))"),
+                "data-column header did not lighten to the subtle 35% tint:\n" + nameHead);
+        assertFalse(
+                nameHead.contains("color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg))"),
+                "the heavy 70% band is still on the data-column header");
+        assertTrue(nameHead.contains("px-[var(--lv-space-3)]"), "data-column header px-3 padding missing");
+        // The label is now a small muted-semibold token (was plain font-medium fg).
+        assertTrue(nameHead.contains("var(--lv-color-muted-fg)"), "header label is not muted");
+        // Filament fidelity (fi-ta async indicator): a l:loading.delay spinner on the results row.
+        assertTrue(html.contains("data-admin-loading"), "loading spinner region missing:\n" + html);
+        assertTrue(html.contains("l:loading.delay"), "l:loading.delay wire directive missing on the spinner");
+        assertTrue(html.contains("data-lucide=\"loader-circle\""), "loader-circle spinner glyph missing");
+    }
+
+    @Test
     void renders_the_bulk_selection_checkboxes_and_the_n_of_m_bar() {
         String html = render(populatedModel());
 

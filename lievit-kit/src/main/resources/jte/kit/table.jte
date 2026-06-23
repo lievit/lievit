@@ -356,12 +356,22 @@
 
   <%-- 9 + 10. Per-page selector, numbered pagination + "Showing X to Y of Z results". --%>
   <div data-slot="kit-table-pagination" class="flex flex-wrap items-center justify-between gap-[var(--lv-space-3)] py-[var(--lv-space-3)]">
-    <div data-admin-results-count aria-live="polite" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
-      @if(pagination.total() == 0)
-        ${labels.noResults()}
-      @else
-        ${labels.resultsCount(pagination.firstShown(), pagination.lastShown(), pagination.total())}
-      @endif
+    <div class="flex items-center gap-[var(--lv-space-2)]">
+      <div data-admin-results-count aria-live="polite" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
+        @if(pagination.total() == 0)
+          ${labels.noResults()}
+        @else
+          ${labels.resultsCount(pagination.firstShown(), pagination.lastShown(), pagination.total())}
+        @endif
+      </div>
+      <%-- Filament fidelity: a loading indicator while a wire call is in flight (filter/sort/page/
+           column change), Filament's fi-ta async spinner. l:loading shows it only during the call; the
+           .delay debounces the flicker on a fast round-trip. Decorative spinner + an AT-only label. --%>
+      <span data-admin-loading l:loading.delay style="display:none;"
+            class="inline-flex items-center gap-[var(--lv-space-1)] text-[var(--lv-color-muted-fg)]">
+        <span aria-hidden="true" class="inline-flex animate-spin">@template.lievit.icon(name = "loader-circle", size = "0.875rem")</span>
+        <span class="sr-only">Loading…</span>
+      </span>
     </div>
     @if(table.hasSizeHref())
       <div data-admin-per-page class="flex items-center gap-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
