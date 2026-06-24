@@ -7,33 +7,9 @@
   owns a form-level validation summary region and stacks its field children.
 
   TIER: STATIC presentational -> JTE partial. No client state: validation runs server-side,
-  the controller passes `errors` (form-level list) or `error` (single back-compat string)
-  down, and this partial does the aria wiring. JS-off the form POSTs natively; with the
-  wire runtime present the same markup submits over the wire.
-
-  V-NEXT CHANGES vs Wave-1b form:
-    - `errors` list param: `java.util.List<java.util.Map<String,String>>` where each map
-      carries "fieldId" (nullable, for anchor links) and "message" keys. Replaces the old
-      single `error` string for the v-next error summary pattern.
-    - `errorSummaryHeading`: customisable heading inside the error summary block.
-    - `focusOnError`: adds `data-lv-autofocus` to the summary when there are errors, so
-      an enhancer (e.g. the wire submit interceptor) can auto-focus it on failed submit.
-    - `layout`: "stacked" | "inline" | "grid" (v-next form-level layout).
-    - `labelWidth`: CSS value for `--lv-form-label-width` (passed to fields via CSS cascade).
-    - `size`: propagated via `--lv-form-size` custom property for fields to inherit.
-    - `autocomplete`, `enctype`, `novalidate`, `headingId`, `ariaLabel` HTML attributes.
-    - `footer` slot: rendered below the content in a `data-slot="form-footer"` wrapper.
-    - Error summary is ALWAYS in DOM (aria-live pre-registered); `hidden` attr gates visibility.
-
-  BACK-COMPAT LAYER (immutable tests pin these contracts):
-    - `error` (single string) back-compat path preserved; maps to a single-entry error
-      list internally when the v-next `errors` list is empty/null.
-    - `data-slot="form-error"` on the error region (jte-static-partials.test.ts pins this).
-    - `role="alert"` + `aria-live="assertive"` on the error region.
-    - `id="${errorId}"` derived from `id` param.
-    - `aria-describedby="${hasError ? errorId : null}"` on the <form>.
-    - `${content}` must appear in the markup.
-    - `method="${method}"` on the <form>.
+  the controller passes `errors` (form-level list) down, and this partial does the aria wiring.
+  JS-off the form POSTs natively; with the wire runtime present the same markup submits over
+  the wire.
 
   STRUCTURE:
     <form data-slot="form" data-form-layout>
@@ -57,16 +33,16 @@
     - `novalidate`: suppresses native browser validation UI (server validates; native popups
       disrupt the custom error pattern). Default true per WAI-ARIA form best practice.
     - `aria-describedby` on the form references the error summary while errors are present
-      (back-compat; removed when no errors to avoid spurious SR description).
+      (removed when no errors to avoid spurious SR description).
 
-  Params (v-next surface):
-    String id                = null    form id (derives the error summary id `<id>-errors`).
+  Params:
+    String id                = null    form id (derives the error summary id <id>-errors).
     String action            = null    form action URL.
     String method            = "post"  native method.
     String layout            = "stacked"  "stacked" | "inline" | "grid" form layout.
     String size              = "md"    size tier propagated via CSS custom property.
-    String labelWidth        = null    CSS value for `--lv-form-label-width` cascade.
-    List<Map<String,String>> errors = []  v-next error list; each entry: "fieldId" + "message".
+    String labelWidth        = null    CSS value for --lv-form-label-width cascade.
+    List<Map<String,String>> errors = []  error list; each entry carries "fieldId" + "message".
     String errorSummaryHeading = "Correggi gli errori prima di procedere"  heading text.
     String autocomplete      = null    native autocomplete attribute.
     boolean novalidate       = true    suppress native browser validation UI.
@@ -80,11 +56,7 @@
     gg.jte.Content header    = null    optional header rendered above the error summary.
     gg.jte.Content footer    = null    optional footer rendered below the content.
 
-  Back-compat params:
-    String error             = null    single form-level error message (back-compat); used when
-                                       `errors` list is null or empty.
-
-  Usage (v-next):
+  Usage:
     @@template.lievit.form(id = "login", action = "/login",
       errors = formErrors, focusOnError = true,
       content = @@`
@@ -92,13 +64,6 @@
           message = errors.email(), content = @@`@@template.lievit.input(name="email",id="email")`)
         @@template.lievit.button(type = "submit", content = @@`Sign in`)
       `)
-
-  Usage (back-compat, old callers unchanged):
-    @@template.lievit.form(id = "login", action = "/login", error = errors.form(), content = @@`
-      @@template.lievit.field(forId = "email", label = "Email", error = errors.email(),
-        control = @@`@@template.lievit.input(name = "email", id = "email")`)
-      @@template.lievit.button(type = "submit", content = @@`Sign in`)
-    `)
 --%>
 @param String id = null
 @param String action = null
@@ -119,17 +84,11 @@
 @param gg.jte.Content content
 @param gg.jte.Content header = null
 @param gg.jte.Content footer = null
-@param String error = null
 
-<%-- Resolve error state: v-next list wins over back-compat single string. --%>
-!{var _hasVnextErrors = errors != null && !errors.isEmpty();}
-!{var _hasSingleError = error != null && !error.isBlank();}
-!{var hasError = _hasVnextErrors || _hasSingleError;}
+<%-- Resolve error state: list drives hasError. --%>
+!{var hasError = errors != null && !errors.isEmpty();}
 !{var formId = (id != null && !id.isBlank()) ? id : null;}
 !{var errorId = formId != null ? formId + "-errors" : "form-errors";}
-
-<%-- For back-compat: `id="${errorId}"` and `data-slot="form-error"` are pinned by the
-     existing test suite; do not rename these. --%>
 
 <form
   data-slot="form"
@@ -148,9 +107,8 @@
 >
   @if(header != null)${header}@endif
 
-  <%-- Error summary: always in DOM for aria-live pre-registration (v-next pattern).
-       `hidden` attr gates visibility; aria-live still registered by the browser.
-       Back-compat: data-slot="form-error" and id="${errorId}" are pinned by tests. --%>
+  <%-- Error summary: always in DOM for aria-live pre-registration.
+       `hidden` attr gates visibility; aria-live still registered by the browser. --%>
   <div
     data-slot="form-error"
     id="${errorId}"
@@ -167,21 +125,17 @@
       @if(errorSummaryHeading != null && !errorSummaryHeading.isBlank())
         <p data-slot="form-error-heading" class="font-[var(--lv-font-medium)] mb-[var(--lv-space-1)]" style="margin:0 0 var(--lv-space-1);">${errorSummaryHeading}</p>
       @endif
-      @if(_hasVnextErrors)
-        <ul class="ml-[var(--lv-space-4)] flex list-disc flex-col gap-[var(--lv-space-1)]">
-          @for(java.util.Map<String, String> err : errors)
-            <li>
-              @if(err.get("fieldId") != null && !err.get("fieldId").isBlank())
-                <a href="#${err.get("fieldId")}" class="underline">${err.get("message")}</a>
-              @else
-                ${err.get("message")}
-              @endif
-            </li>
-          @endfor
-        </ul>
-      @elseif(_hasSingleError)
-        ${error}
-      @endif
+      <ul class="ml-[var(--lv-space-4)] flex list-disc flex-col gap-[var(--lv-space-1)]">
+        @for(java.util.Map<String, String> err : errors)
+          <li>
+            @if(err.get("fieldId") != null && !err.get("fieldId").isBlank())
+              <a href="#${err.get("fieldId")}" class="underline">${err.get("message")}</a>
+            @else
+              ${err.get("message")}
+            @endif
+          </li>
+        @endfor
+      </ul>
     @endif
   </div>
 

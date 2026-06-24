@@ -5,7 +5,7 @@
  * shadcn fidelity Type-2 (#464) -- form-controls compound parts + features.
  * Structural golden over the partial SOURCE (the partials compile in the Java world; this JS
  * suite pins the token-driven styling, the a11y contract and the slot/param API as text):
- *   - field.jte      FieldError MULTI-error <ul> (deduped) + the data-[invalid] destructive cascade on the root
+ *   - field.jte      clean v-next API: status+message for validation intent (error/errors removed)
  *   - field/title    FieldTitle (data-slot="field-title")
  *   - field/set      FieldLegend label variant (compact)
  *   - switch.jte     the `sm` size variant (smaller track + thumb)
@@ -21,49 +21,33 @@ const read = (rel: string) => readFileSync(join(jteDir, rel), "utf8");
 // markup with the leading doc comment stripped, so assertions never match the docs
 const markupOf = (rel: string) => read(rel).replace(/<%--[\s\S]*?--%>/g, "");
 
-describe("field.jte -- FieldError multi-error support", () => {
+describe("field.jte -- clean v-next API (error/errors removed; status+message owns validation intent)", () => {
   const src = read("field.jte");
   const markup = markupOf("field.jte");
 
-  test("declares an errors List<String> param alongside the back-compat single error String", () => {
-    expect(src).toMatch(/@param java\.util\.List<String> errors/);
-    expect(src).toMatch(/@param String error = null/);
+  test("does NOT declare error or errors params (back-compat error-path removed)", () => {
+    expect(src).not.toMatch(/@param java\.util\.List<String> errors/);
+    expect(src).not.toMatch(/@param String error /);
   });
 
-  test("dedupes the errors list (distinct, blanks dropped) before rendering", () => {
-    expect(src).toContain(".filter(e -> e != null && !e.isBlank())");
-    expect(src).toContain(".distinct()");
+  test("does NOT render a role=alert error region (field is not an error-summary)", () => {
+    expect(markup).not.toContain('role="alert"');
+    expect(markup).not.toContain('data-slot="field-error"');
   });
 
-  test("multi-error renders a <ul> with list-disc inside one role=alert region (deduped list)", () => {
-    // v-next: id uses _fid (the resolved controlId ?? forId variable; coordinator JTE fix)
-    expect(markup).toContain('id="${_fid}-error"');
-    expect(markup).toContain('role="alert"');
-    expect(markup).toContain("list-disc");
-    expect(markup).toContain("@for(String msg : errorList)");
-    expect(markup).toContain("<li>${msg}</li>");
+  test("does NOT carry data-invalid (error-path removed; status param owns intent)", () => {
+    expect(src).not.toContain("data-invalid=");
+    expect(src).not.toContain("data-[invalid=true]");
   });
 
-  test("a single-element errors list collapses to text (no <ul>), like shadcn", () => {
-    expect(markup).toContain("@if(errorList.size() == 1)");
+  test("status param drives data-status on root (the clean intent channel)", () => {
+    expect(src).toContain('data-status="${status != null ? status : ""}"');
+    expect(src).toContain("@param String status = null");
   });
 
-  test("the single-String error path stays for back-compat (a <p> role=alert)", () => {
-    // v-next: id uses _fid (the resolved controlId ?? forId variable)
-    expect(markup).toContain('<p data-slot="field-error" id="${_fid}-error" role="alert"');
-    expect(markup).toContain("@elseif(hasSingleError)");
-  });
-
-  test("hasError accounts for both the list and the single string", () => {
-    expect(src).toContain("var hasError = hasErrorList || hasSingleError");
-  });
-});
-
-describe("field.jte -- the data-[invalid] destructive cascade on the root", () => {
-  const src = read("field.jte");
-  test("the Field root tints its labels destructive when invalid (shadcn data-[invalid=true]:text-destructive)", () => {
-    expect(src).toContain("data-[invalid=true]:text-[var(--lv-color-destructive)]");
-    expect(src).toContain('data-invalid="${hasError ? "true" : null}"');
+  test("message param is always in DOM as aria-live polite region (no role=alert reflow)", () => {
+    expect(markup).toContain('aria-live="polite"');
+    expect(markup).toContain('data-slot="field-message"');
   });
 });
 

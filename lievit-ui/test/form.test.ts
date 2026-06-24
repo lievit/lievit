@@ -2,16 +2,16 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * form.jte (v-next) -- structural + a11y contract.
+ * form.jte (v-next clean API) -- structural + a11y contract.
  *
- * Pins the v-next re-forged form partial. No JTE compiler: asserts on the partial
- * SOURCE as text. Shared tests (jte-static-partials) pin the back-compat surface
- * (method, data-slot=form-error, role=alert, aria-live=assertive, errorId, aria-describedby,
- * ${content}); this file pins the v-NEXT additions WITHOUT repeating those.
+ * Pins the v-next form partial after the back-compat single-string `error` alias was removed.
+ * The clean API has ONE error surface: `errors` (List<Map<String,String>>) for the v-next
+ * error-summary. Error reporting is NOT the field's job; the form owns the summary.
  *
  * What this file covers:
  *   - v-next param declarations (errors list, errorSummaryHeading, focusOnError, layout,
  *     size, labelWidth, autocomplete, novalidate, enctype, headingId, ariaLabel, footer).
+ *   - Removed param absent: single-String error.
  *   - Error summary always in DOM (hidden attr gates visibility).
  *   - hidden smart attr on error summary.
  *   - data-lv-autofocus when focusOnError && hasError.
@@ -22,12 +22,11 @@
  *   - novalidate smart boolean attribute.
  *   - footer slot: data-slot=form-footer.
  *   - Error links: <a href="#fieldId"> for errors with fieldId, plain text for form-level.
- *   - data-slot=form-error (back-compat slot name preserved).
- *   - aria-describedby conditional wiring (back-compat).
+ *   - data-slot=form-error (slot name preserved).
+ *   - aria-describedby conditional wiring.
  *   - No io.lievit.* imports.
  *   - No inline <script> / on* handlers (CSP).
  *   - No nested JTE comments.
- *   - Back-compat: error single-string + errorId derivation + data-slot=form-error.
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -62,13 +61,17 @@ describe("form.jte -- security and presentational contract", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §2 v-next param API
+// §2 v-next param API (clean -- no back-compat aliases)
 // ---------------------------------------------------------------------------
 describe("form.jte -- v-next param declarations", () => {
   test("declares errors param as List<Map<String,String>>", () => {
     expect(src).toContain(
       "@param java.util.List<java.util.Map<String, String>> errors = java.util.List.of()"
     );
+  });
+
+  test("does NOT declare single-String error param (back-compat alias removed)", () => {
+    expect(src).not.toMatch(/@param String error /);
   });
 
   test("declares errorSummaryHeading param with Italian default", () => {
@@ -117,11 +120,7 @@ describe("form.jte -- v-next param declarations", () => {
     expect(src).toMatch(/@param gg\.jte\.Content footer/);
   });
 
-  test("back-compat: declares single-String error param", () => {
-    expect(src).toContain("@param String error = null");
-  });
-
-  test("back-compat: declares id, action, method, cssClass params", () => {
+  test("declares id, action, method, cssClass params", () => {
     expect(src).toContain("@param String id = null");
     expect(src).toContain("@param String action = null");
     expect(src).toContain('@param String method = "post"');
@@ -145,7 +144,7 @@ describe("form.jte -- form root attributes", () => {
     expect(markup).toContain('data-form-layout="${layout}"');
   });
 
-  test("method attribute present (back-compat, pinned by shared tests)", () => {
+  test("method attribute present", () => {
     expect(markup).toContain('method="${method}"');
   });
 
@@ -157,7 +156,7 @@ describe("form.jte -- form root attributes", () => {
     expect(markup).toContain('aria-label="${ariaLabel}"');
   });
 
-  test("back-compat: aria-describedby conditional wiring", () => {
+  test("aria-describedby conditional wiring", () => {
     expect(src).toContain('aria-describedby="${hasError ? errorId : null}"');
   });
 });
@@ -199,11 +198,11 @@ describe("form.jte -- error summary a11y and visibility", () => {
     expect(markup).toContain('tabindex="-1"');
   });
 
-  test("back-compat: error summary uses data-slot=form-error (pinned by shared tests)", () => {
+  test("error summary uses data-slot=form-error", () => {
     expect(markup).toContain('data-slot="form-error"');
   });
 
-  test("back-compat: error region has id=${errorId} (pinned by shared tests)", () => {
+  test("error region has id=${errorId}", () => {
     expect(src).toContain('id="${errorId}"');
   });
 
@@ -217,7 +216,7 @@ describe("form.jte -- error summary a11y and visibility", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §6 Error list rendering (v-next)
+// §6 Error list rendering (v-next only)
 // ---------------------------------------------------------------------------
 describe("form.jte -- v-next error list rendering", () => {
   test("iterates errors list with @for", () => {
@@ -238,20 +237,36 @@ describe("form.jte -- v-next error list rendering", () => {
 
   test("errorSummaryHeading is rendered when non-blank", () => {
     expect(markup).toContain("${errorSummaryHeading}");
-    expect(markup).toContain("data-slot=\"form-error-heading\"");
+    expect(markup).toContain('data-slot="form-error-heading"');
   });
 
-  test("back-compat: single error string rendered when v-next list is empty", () => {
-    expect(markup).toContain("_hasSingleError");
-    expect(markup).toContain("${error}");
+  test("does NOT render back-compat single error string (error param removed)", () => {
+    expect(src).not.toContain("_hasSingleError");
+    expect(markup).not.toContain("${error}");
   });
 });
 
 // ---------------------------------------------------------------------------
-// §7 Content and footer slots
+// §7 hasError logic
+// ---------------------------------------------------------------------------
+describe("form.jte -- hasError derivation", () => {
+  test("hasError is derived solely from errors list (no dual-path)", () => {
+    // Clean API: hasError is a single boolean from the list, no back-compat split
+    expect(src).toContain("var hasError = errors != null && !errors.isEmpty();");
+    expect(src).not.toContain("_hasVnextErrors");
+    expect(src).not.toContain("_hasSingleError");
+  });
+
+  test("errorId derived from id param with -errors suffix", () => {
+    expect(src).toContain('formId + "-errors"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §8 Content and footer slots
 // ---------------------------------------------------------------------------
 describe("form.jte -- content and footer slots", () => {
-  test("content slot is rendered (back-compat, pinned by shared tests)", () => {
+  test("content slot is rendered", () => {
     expect(markup).toContain("${content}");
   });
 
@@ -262,20 +277,5 @@ describe("form.jte -- content and footer slots", () => {
 
   test("header slot rendered when non-null", () => {
     expect(markup).toContain("${header}");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// §8 hasError logic
-// ---------------------------------------------------------------------------
-describe("form.jte -- hasError derivation", () => {
-  test("hasError combines v-next errors list AND back-compat single error", () => {
-    expect(src).toContain("_hasVnextErrors");
-    expect(src).toContain("_hasSingleError");
-    expect(src).toContain("var hasError = _hasVnextErrors || _hasSingleError");
-  });
-
-  test("errorId derived from id param with -errors suffix", () => {
-    expect(src).toContain('formId + "-errors"');
   });
 });

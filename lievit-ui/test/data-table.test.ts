@@ -70,7 +70,7 @@ describe("data-table.jte -- server-first table contract", () => {
     expect(src).toMatch(/@param gg\.jte\.Content rows/);
     expect(src).toMatch(/@param int page/);
     expect(src).toMatch(/@param int totalPages/);
-    expect(src).toMatch(/@param String pageHrefPattern/);
+    expect(src).toMatch(/@param String pageBaseUrl/);
     expect(src).toMatch(/@param int rowCount/);
   });
 

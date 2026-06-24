@@ -2,21 +2,23 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * field.jte (v-next) -- structural + a11y contract.
+ * field.jte (v-next clean API) -- structural + a11y contract.
  *
- * Pins the v-next re-forged field partial. No JTE compiler: asserts on the partial
- * SOURCE as text. Shared tests (formctl-compound + jte-static-partials) pin the back-compat
- * surface (forId, control, orientation, error/errors, data-invalid); this file pins the
- * v-NEXT additions WITHOUT repeating the shared golden assertions.
+ * Pins the v-next field partial after the back-compat alias layer was removed.
+ * The clean API has ONE name per concept: controlId (not forId), layout (not orientation),
+ * hint (not description), content (not control). Error signalling is via status + message;
+ * the field is NOT an error-summary (that's form's job).
  *
  * What this file covers:
- *   - v-next param declarations (controlId, layout, size, status, message, hint,
+ *   - param declarations: controlId, layout, size, status, message, hint,
  *     labelTooltip, htmlFor, labelWidth, cssClass, labelCssClass, attrs, dataAttrs,
- *     content slot, leading, extra).
+ *     content slot, leading, extra.
+ *   - Removed params absent: forId, orientation, description, control, fieldContent,
+ *     error, errors.
  *   - data-slot topology: field (root), field-label-row, field-hint, field-control,
- *     field-message, field-extra, field-description (back-compat), field-error (back-compat).
+ *     field-message, field-extra.
  *   - aria-live="polite" on the message <p> (always in DOM).
- *   - id conventions: forId-hint, forId-msg, forId-error, forId-description.
+ *   - id conventions: controlId-hint, controlId-msg (via _cid var).
  *   - data-status, data-layout, data-size on the root.
  *   - label NOT rendered when label param is null.
  *   - Required marker forwarded to label partial.
@@ -26,7 +28,6 @@
  *   - No nested JTE comments.
  *   - dataAttrs safe-escape pattern present.
  *   - has-[:disabled]:opacity-50 on root (disabled cascade).
- *   - Back-compat: forId alias + control slot + orientation + errors/error paths preserved.
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -65,19 +66,23 @@ describe("field.jte -- security and presentational contract", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §2 v-next param API
+// §2 v-next param API (clean -- no back-compat aliases)
 // ---------------------------------------------------------------------------
 describe("field.jte -- v-next param declarations", () => {
-  test("declares controlId param (v-next primary id param)", () => {
+  test("declares controlId param (primary id param)", () => {
     expect(src).toContain("@param String controlId = null");
   });
 
-  test("declares forId param (back-compat alias)", () => {
-    expect(src).toContain("@param String forId = null");
+  test("does NOT declare forId param (back-compat alias removed)", () => {
+    expect(src).not.toMatch(/@param String forId/);
   });
 
   test("declares layout param (v-next layout mode, default vertical)", () => {
     expect(src).toContain('@param String layout = "vertical"');
+  });
+
+  test("does NOT declare orientation param (back-compat alias removed)", () => {
+    expect(src).not.toMatch(/@param String orientation/);
   });
 
   test("declares size param (v-next size tier, default md)", () => {
@@ -92,8 +97,12 @@ describe("field.jte -- v-next param declarations", () => {
     expect(src).toContain("@param String message = null");
   });
 
-  test("declares hint param (v-next hint text, separate from description)", () => {
+  test("declares hint param (v-next hint text)", () => {
     expect(src).toContain("@param String hint = null");
+  });
+
+  test("does NOT declare description param (back-compat alias removed)", () => {
+    expect(src).not.toMatch(/@param String description/);
   });
 
   test("declares labelTooltip param (forwarded to label hint)", () => {
@@ -118,8 +127,16 @@ describe("field.jte -- v-next param declarations", () => {
     expect(src).toContain("@param java.util.Map<String, String> dataAttrs = java.util.Map.of()");
   });
 
-  test("declares content param (v-next primary control slot)", () => {
+  test("declares content param (primary control slot)", () => {
     expect(src).toMatch(/@param gg\.jte\.Content content/);
+  });
+
+  test("does NOT declare control param (back-compat slot removed)", () => {
+    expect(src).not.toMatch(/@param gg\.jte\.Content control/);
+  });
+
+  test("does NOT declare fieldContent param (back-compat slot removed)", () => {
+    expect(src).not.toMatch(/@param gg\.jte\.Content fieldContent/);
   });
 
   test("declares leading and extra slot params", () => {
@@ -127,21 +144,12 @@ describe("field.jte -- v-next param declarations", () => {
     expect(src).toMatch(/@param gg\.jte\.Content extra/);
   });
 
-  test("back-compat: declares control param alongside v-next content", () => {
-    expect(src).toMatch(/@param gg\.jte\.Content control/);
+  test("does NOT declare single error String param (error reporting via status+message)", () => {
+    expect(src).not.toMatch(/@param String error /);
   });
 
-  test("back-compat: declares orientation param alias", () => {
-    expect(src).toMatch(/@param String orientation/);
-  });
-
-  test("back-compat: declares description param", () => {
-    expect(src).toContain("@param String description = null");
-  });
-
-  test("back-compat: declares single error String + List<String> errors", () => {
-    expect(src).toContain("@param String error = null");
-    expect(src).toMatch(/@param java\.util\.List<String> errors/);
+  test("does NOT declare List<String> errors param (error reporting via status+message)", () => {
+    expect(src).not.toMatch(/@param java\.util\.List<String> errors/);
   });
 });
 
@@ -159,8 +167,7 @@ describe("field.jte -- data-slot topology", () => {
 
   test("hint region carries data-slot=field-hint with id convention", () => {
     expect(markup).toContain('data-slot="field-hint"');
-    // v-next: internal var renamed _fid (avoids JTE name clash); tests assert the actual source text.
-    expect(markup).toContain('id="${_fid}-hint"');
+    expect(markup).toContain('id="${_cid}-hint"');
   });
 
   test("control wrapper carries data-slot=field-control", () => {
@@ -175,16 +182,16 @@ describe("field.jte -- data-slot topology", () => {
     expect(markup).toContain('data-slot="field-extra"');
   });
 
-  test("back-compat: description region carries data-slot=field-description with id", () => {
-    expect(markup).toContain('data-slot="field-description"');
-    // v-next: internal var _fid replaces forId in id expressions (coordinator JTE fix)
-    expect(markup).toContain('id="${_fid}-description"');
+  test("does NOT have field-description slot (back-compat description removed)", () => {
+    expect(markup).not.toContain('data-slot="field-description"');
   });
 
-  test("back-compat: error region carries data-slot=field-error with id", () => {
-    expect(markup).toContain('data-slot="field-error"');
-    // v-next: internal var _fid replaces forId in id expressions (coordinator JTE fix)
-    expect(markup).toContain('id="${_fid}-error"');
+  test("does NOT have field-error slot (error reporting via status+message)", () => {
+    expect(markup).not.toContain('data-slot="field-error"');
+  });
+
+  test("does NOT have field-content sub-slot (fieldContent param removed)", () => {
+    expect(markup).not.toContain('data-slot="field-content"');
   });
 });
 
@@ -196,9 +203,8 @@ describe("field.jte -- v-next aria-live message slot", () => {
     expect(markup).toContain('aria-live="polite"');
   });
 
-  test("message <p> id follows the forId-msg convention", () => {
-    // v-next: internal var _fid is used in id expressions; _fid resolves to controlId ?? forId
-    expect(markup).toContain('id="${_fid}-msg"');
+  test("message <p> id follows the controlId-msg convention (via _cid var)", () => {
+    expect(markup).toContain('id="${_cid}-msg"');
   });
 
   test("message content is rendered inside the aria-live region", () => {
@@ -214,8 +220,8 @@ describe("field.jte -- v-next aria-live message slot", () => {
 // §5 Root attribute contract
 // ---------------------------------------------------------------------------
 describe("field.jte -- root attribute contract", () => {
-  test("root carries data-layout (v-next layout)", () => {
-    expect(markup).toContain('data-layout="${_layout}"');
+  test("root carries data-layout driven by layout param", () => {
+    expect(markup).toContain('data-layout="${layout}"');
   });
 
   test("root carries data-size", () => {
@@ -226,19 +232,12 @@ describe("field.jte -- root attribute contract", () => {
     expect(markup).toContain('data-status="${status != null ? status : ""}"');
   });
 
-  test("back-compat: root carries data-orientation (resolved via _layout which merges layout + orientation)", () => {
-    // v-next: data-orientation is set to ${_layout} (the merged layout/orientation value);
-    // the param `orientation` still exists as a back-compat alias, but the attribute now
-    // reads the resolved _layout variable so both callers see the same cascade.
-    expect(markup).toContain('data-orientation="${_layout}"');
+  test("does NOT carry data-orientation (orientation param removed)", () => {
+    expect(markup).not.toContain("data-orientation=");
   });
 
-  test("back-compat: root carries data-invalid driven by hasError", () => {
-    expect(markup).toContain('data-invalid="${hasError ? "true" : null}"');
-  });
-
-  test("back-compat: root carries data-[invalid=true] destructive cascade class", () => {
-    expect(src).toContain("data-[invalid=true]:text-[var(--lv-color-destructive)]");
+  test("does NOT carry data-invalid (error-path removed; status drives intent)", () => {
+    expect(markup).not.toContain("data-invalid=");
   });
 
   test("disabled cascade: has-[:disabled]:opacity-50 on root", () => {
@@ -250,12 +249,11 @@ describe("field.jte -- root attribute contract", () => {
 // §6 Label rendering
 // ---------------------------------------------------------------------------
 describe("field.jte -- label rendering", () => {
-  test("composes @template.lievit.label with back-compat exact invocation (pinned by shared tests)", () => {
-    expect(src).toContain("@template.lievit.label(forId = forId, content = @`${label}`, required = required");
+  test("composes @template.lievit.label with _effectiveFor (derived from htmlFor ?? controlId)", () => {
+    expect(src).toContain("@template.lievit.label(forId = _effectiveFor, content = @`${label}`");
   });
 
   test("label is NOT rendered when label param is null (conditional)", () => {
-    // The label row is gated on label != null && !label.isBlank()
     expect(markup).toContain("@if(label != null && !label.isBlank())");
   });
 
@@ -273,61 +271,20 @@ describe("field.jte -- label rendering", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §7 Control slot
+// §7 Control slot (single clean slot)
 // ---------------------------------------------------------------------------
 describe("field.jte -- control slot resolution", () => {
   test("v-next content slot is rendered when provided", () => {
     expect(markup).toContain("${content}");
   });
 
-  test("back-compat control slot is rendered when content is null", () => {
-    expect(markup).toContain("${control}");
-  });
-
-  test("content slot takes priority over control slot (@if content != null)", () => {
-    // content branch comes before control fallback
-    const contentIdx = markup.indexOf("${content}");
-    const controlIdx = markup.indexOf("${control}");
-    expect(contentIdx).toBeGreaterThanOrEqual(0);
-    expect(controlIdx).toBeGreaterThanOrEqual(0);
-    // content first, then control as fallback
-    expect(contentIdx).toBeLessThan(controlIdx);
+  test("does NOT render a fallback control slot (back-compat control removed)", () => {
+    expect(markup).not.toContain("${control}");
   });
 });
 
 // ---------------------------------------------------------------------------
-// §8 Back-compat error region
-// ---------------------------------------------------------------------------
-describe("field.jte -- back-compat error region", () => {
-  test("multi-error renders a <ul> with list-disc inside one role=alert region", () => {
-    expect(markup).toContain('role="alert"');
-    expect(markup).toContain("list-disc");
-    expect(markup).toContain("@for(String msg : errorList)");
-    expect(markup).toContain("<li>${msg}</li>");
-  });
-
-  test("single-element errorList collapses to text (no <ul>)", () => {
-    expect(markup).toContain("@if(errorList.size() == 1)");
-  });
-
-  test("single-String error path: a <p> with role=alert (back-compat)", () => {
-    // v-next: id uses _fid (the resolved controlId ?? forId variable)
-    expect(markup).toContain('<p data-slot="field-error" id="${_fid}-error" role="alert"');
-    expect(markup).toContain("@elseif(hasSingleError)");
-  });
-
-  test("hasError combines list and single error", () => {
-    expect(src).toContain("var hasError = hasErrorList || hasSingleError");
-  });
-
-  test("errors list is deduped (distinct + blanks dropped)", () => {
-    expect(src).toContain(".filter(e -> e != null && !e.isBlank())");
-    expect(src).toContain(".distinct()");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// §9 dataAttrs safe-escape pattern
+// §8 dataAttrs safe-escape pattern
 // ---------------------------------------------------------------------------
 describe("field.jte -- dataAttrs safe-escape pattern", () => {
   test("uses StringOutput + Escape.htmlAttribute for dynamic data-* (mirrors alert.jte)", () => {
@@ -342,18 +299,14 @@ describe("field.jte -- dataAttrs safe-escape pattern", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §10 back-compat orientation classes
+// §9 Layout classes (data-layout driven, clean)
 // ---------------------------------------------------------------------------
-describe("field.jte -- back-compat layout/orientation classes", () => {
-  test("horizontal flex-row class via data-orientation", () => {
-    expect(markup).toContain("data-[orientation=horizontal]:flex-row");
+describe("field.jte -- layout classes", () => {
+  test("horizontal flex-row class via data-layout", () => {
+    expect(markup).toContain("data-[layout=horizontal]:flex-row");
   });
 
-  test("responsive variant present", () => {
-    expect(markup).toContain("data-[orientation=responsive]");
-  });
-
-  test("field-content sub-slot present for horizontal helper text", () => {
-    expect(markup).toContain('data-slot="field-content"');
+  test("vertical flex-col class via data-layout", () => {
+    expect(markup).toContain("data-[layout=vertical]:flex-col");
   });
 });

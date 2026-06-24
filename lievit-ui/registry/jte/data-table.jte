@@ -62,8 +62,8 @@
     String ariaLabel         = null   aria-label when there is no visible caption.
     int page                 = 0      current page (1-based); a page < 1 hides the pager.
     int totalPages           = 0      total pages; <= 1 hides the pager.
-    String pageHrefPattern   = null   printf pattern for a page URL (one %d = the page number);
-                                      null hides the pager. Forwarded to @template.lievit.pagination.
+    String pageBaseUrl       = null   URL prefix for page links (passed directly to
+                                      @template.lievit.pagination as baseUrl). null hides the pager.
     String klass             = ""     extra classes on the <table>.
 
   Usage:
@@ -75,7 +75,7 @@
       rowCount  = view.rows().size(),
       page      = view.pagination().page(),
       totalPages= view.pagination().totalPages(),
-      pageHrefPattern = "/admin/listings?page=%d",
+      pageBaseUrl = "/admin/listings",
       rows = @@`
         @@for(var row : view.rows())
           @@template.lievit.data-table.row(content = @@`
@@ -94,11 +94,11 @@
 @param String ariaLabel = null
 @param int page = 0
 @param int totalPages = 0
-@param String pageHrefPattern = null
+@param String pageBaseUrl = null
 @param String klass = ""
 
 !{var colCount = headers.size();}
-!{var showPager = pageHrefPattern != null && page >= 1 && totalPages > 1;}
+!{var showPager = pageBaseUrl != null && page >= 1 && totalPages > 1;}
 <div data-slot="data-table" class="lv-data-table relative w-full">
   <div class="lv-data-table-container w-full overflow-x-auto">
     <table
@@ -163,9 +163,6 @@
     </table>
   </div>
   @if(showPager)
-    <%-- pageHrefPattern is a printf "...?page=%d"; v-next pagination takes a baseUrl prefix and
-         appends "?page=N" itself, so strip the canonical page-query suffix to the base. --%>
-    !{var pageBaseUrl = pageHrefPattern == null ? null : pageHrefPattern.replace("?page=%d", "").replace("&page=%d", "");}
     <div data-slot="data-table-pagination" class="mt-[var(--lv-space-3)]">
       @template.lievit.pagination(currentPage = page, totalPages = totalPages, baseUrl = pageBaseUrl)
     </div>

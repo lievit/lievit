@@ -337,38 +337,36 @@ describe("label.jte", () => {
   });
 });
 
-describe("field.jte (FormField + FieldError orchestration)", () => {
+describe("field.jte (FormField clean v-next API)", () => {
   const src = read("field.jte");
-  test("composes the label partial + slots the control + renders an error as role=alert", () => {
+  const fieldMarkup = src.replace(/<%--[\s\S]*?--%>/g, "");
+  test("composes the label partial and renders content slot", () => {
     expect(src).toContain("@template.lievit.label(");
-    expect(src).toContain("${control}");
-    expect(src).toContain('role="alert"');
-    // role=alert already implies an assertive live region: no extra aria-live (double-announce fix)
+    expect(src).toContain("${content}");
+    // Clean break: no back-compat control slot, no role=alert error region in field
+    expect(fieldMarkup).not.toContain("${control}");
+    expect(src).not.toMatch(/@param gg\.jte\.Content control/);
   });
-  test("the description + error ids are derived from the control id (aria-describedby targets)", () => {
-    // v-next: internal var _fid (resolves controlId ?? forId) is used in id expressions;
-    // the param forId still exists as back-compat alias and _fid is derived from it.
-    expect(src).toContain('id="${_fid}-error"');
-    expect(src).toContain('id="${_fid}-description"');
+  test("hint id is derived from controlId (via _cid var)", () => {
+    // Clean break: _cid replaces _fid; forId and description removed
+    expect(src).toContain('id="${_cid}-hint"');
+    expect(src).toContain('id="${_cid}-msg"');
+    expect(src).not.toMatch(/@param String forId/);
+    expect(src).not.toContain('id="${_fid}-description"');
   });
-  test("auto-derives the invalid state from the error: data-invalid wrapper, but NOT an error-coloured label", () => {
-    // v-next: data-invalid on the wrapper signals invalidity (colour-independent; CSS cascade);
-    // the label call no longer passes error=hasError because the label must NOT recolour on
-    // invalid (WCAG 1.4.1 anti-pattern removed from label.jte). The wrapper's data-invalid
-    // attribute drives any error-state visual cues (e.g. ring colour), not the label text.
-    expect(src).toContain("var hasError = hasErrorList || hasSingleError");
-    expect(src).toContain('data-invalid="${hasError ? "true" : null}"');
-    // label call: content + required only, no error flag
-    expect(src).toContain("@template.lievit.label(forId = forId, content = @`${label}`, required = required)");
+  test("status drives data-status; no data-invalid (error-path removed)", () => {
+    // Clean break: error/errors params removed; intent comes from status param only
+    expect(src).toContain('data-status="${status != null ? status : ""}"');
+    expect(src).not.toContain("data-invalid=");
+    expect(src).not.toMatch(/@param String error /);
+    expect(src).not.toMatch(/@param java\.util\.List<String> errors/);
     expect(src).not.toContain("error = hasError");
   });
-  test("supports vertical / horizontal / responsive orientation + a FieldContent slot", () => {
-    expect(src).toMatch(/@param String orientation/);
-    // v-next: data-orientation is now set to ${_layout} (the resolved layout ?? orientation value)
-    expect(src).toContain('data-orientation="${_layout}"');
-    expect(src).toContain("data-[orientation=horizontal]:flex-row");
-    expect(src).toContain("data-[orientation=responsive]");
-    expect(src).toContain('data-slot="field-content"');
+  test("uses data-layout (not data-orientation); orientation param removed", () => {
+    // Clean break: layout is the only layout param; orientation alias removed
+    expect(src).toContain('data-layout="${layout}"');
+    expect(src).not.toContain("data-orientation=");
+    expect(src).not.toMatch(/@param String orientation/);
   });
 });
 
