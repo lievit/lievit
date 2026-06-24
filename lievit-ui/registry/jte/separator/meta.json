@@ -1,7 +1,7 @@
 {
   "name": "separator",
   "type": "registry:jte",
-  "description": "A thin divider with role=separator + aria-orientation (decorative=true drops it from the a11y tree). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A visual and semantic dividing line between content sections. Rendered as an <hr> element (horizontal or vertical) which carries role=separator implicitly in all browsers -- zero manual role attribute needed. Three line-stroke variants (default=solid, dashed, dotted). Optional centred label text replaces the <hr> with a flex-row [line][label][line] layout (the Ant Design Divider children use case). decorative=false by default (semantic); set decorative=true to hide the line from the a11y tree via role=presentation. No JS, no enhancer, no client state. CSP-clean. Tokens: --lv-color-border (line colour), --lv-border-width (stroke), --lv-space-4 (block margin), --lv-space-2 (inline margin for vertical), --lv-space-3 (label padding + flanking gap), --lv-text-sm + --lv-color-muted + --lv-font-sans + --lv-font-normal (label typography).",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -12,6 +12,8 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color"],
-  "docs": "Copies the separator partial to your JTE root at lievit/separator.jte, reached as @template.lievit.separator(orientation=...). Pass decorative=true to hide it from assistive tech. The source is yours: edit freely."
+  "tokens": ["color", "space", "type"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the separator partial to your JTE root at lievit/separator.jte, reached as @template.lievit.separator(). Renders an <hr> element whose role=separator is implicit -- no manual role attribute needed. Pass orientation=\"vertical\" for an inline full-height rule in a flex row. Pass variant=\"dashed\" or variant=\"dotted\" to change the stroke style (default is solid). Pass label=\"OR\" for the [line][label][line] layout; labelPosition=\"left\" | \"center\" | \"right\" shifts the label (default center). Pass decorative=true to erase the element from the a11y tree (role=presentation) when the page structure already communicates the grouping. Extra STATIC author-typed HTML attributes via attrs ($unsafe, trusted raw -- never per-row DB values). The source is yours: edit freely."
 }

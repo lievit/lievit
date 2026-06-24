@@ -1,0 +1,19 @@
+{
+  "name": "empty",
+  "type": "registry:jte",
+  "description": "A full-width blank-slate placeholder for surfaces with no data (empty list, empty search, empty inbox). Composes an illustration (default Lucide icon per variant, a custom imageUrl, or a caller-owned image Content slot) + optional title <p> + optional description <p> + optional action Content slot (CTA). Four variants drive the default icon: default (inbox), search (search-x), error (triangle-alert), offline (wifi-off). Three sizes scale the illustration, title, and description proportionally: sm (fits inside a combobox listbox), md (default, inline section), lg (full-page blank-slate). iconOnly=true suppresses text + action (canonical for sm inside small containers). No hardcoded copy: title=null omits the title element; the controller supplies all strings from its own message source. Purely presentational PARTIAL (ADR-0012): no client state, no enhancer, no wire action. Extra attributes via two escaping channels: attrs (TRUSTED raw, $unsafe, STATIC author strings only such as aria-label or id) and dataAttrs (SAFE Map of String to String, each value escaped via Escape.htmlAttribute). The custom imageUrl is also safe-escaped before emission as an src attribute value.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/empty.jte",
+      "type": "registry:jte",
+      "target": "lievit/empty.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the empty partial to your JTE root at lievit/empty.jte, reached as @template.lievit.empty(). Call with no params for a zero-config placeholder. Pass variant to pick the default icon intent (default/search/error/offline). Pass size to scale the illustration (sm/md/lg). Pass title and description as strings from your controller's message source -- the partial never bakes in default copy. Pass imageUrl for a custom illustration URL (safe-escaped as an HTML attribute). Pass imageAlt with a non-empty string to mark the image as semantic (otherwise aria-hidden decorative treatment applies). Pass iconOnly=true to suppress all text and action (canonical empty state inside a combobox dropdown or a small table cell). Pass an action Content slot for a CTA button or link. Pass an image Content slot to fully replace the illustration layer with your own markup. Extra attributes go through two channels: attrs is TRUSTED raw ($unsafe, static author-typed strings only -- aria-label, id, data-testid, wire directives -- NEVER per-row DB values); dataAttrs is SAFE (Map of String to String, each value HTML-escaped via Escape.htmlAttribute, the only safe channel for dynamic data). The source is yours: edit freely."
+}

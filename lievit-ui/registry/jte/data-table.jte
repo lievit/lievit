@@ -163,8 +163,11 @@
     </table>
   </div>
   @if(showPager)
+    <%-- pageHrefPattern is a printf "...?page=%d"; v-next pagination takes a baseUrl prefix and
+         appends "?page=N" itself, so strip the canonical page-query suffix to the base. --%>
+    !{var pageBaseUrl = pageHrefPattern == null ? null : pageHrefPattern.replace("?page=%d", "").replace("&page=%d", "");}
     <div data-slot="data-table-pagination" class="mt-[var(--lv-space-3)]">
-      @template.lievit.pagination(current = page, total = totalPages, hrefPattern = pageHrefPattern)
+      @template.lievit.pagination(currentPage = page, totalPages = totalPages, baseUrl = pageBaseUrl)
     </div>
   @endif
 </div>

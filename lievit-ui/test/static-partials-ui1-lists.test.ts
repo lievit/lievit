@@ -187,12 +187,15 @@ describe("stat-card — KPI tile (kit StatWidget)", () => {
 
 describe("empty.jte already covers Filament's empty-state (icon + heading + description + action)", () => {
   const src = read("empty.jte");
-  test("has the icon tile, the title, the description, and an action slot", () => {
-    expect(src).toContain('data-slot="empty-icon"');
+  test("has the illustration tile, the title, the description, and an action slot", () => {
+    // v-next: data-slot="empty-icon" renamed to "empty-illustration" (supports both icon and
+    // custom image/imageUrl); explicit icon param replaced by variant-driven _defaultIcon switch
+    expect(src).toContain('data-slot="empty-illustration"');
     expect(src).toContain('data-slot="empty-title"');
     expect(src).toContain('data-slot="empty-description"');
     expect(src).toContain("@param gg.jte.Content action = null");
-    expect(src).toContain("@param String icon");
+    // icon is now variant-driven (no explicit icon param); variant drives _defaultIcon
+    expect(src).toContain("@param String variant");
     // No extension needed: the Filament empty-state (EmptyMedia + EmptyTitle + EmptyDescription
     // + EmptyContent) is already fully modelled, so ui1-lists leaves it untouched.
   });

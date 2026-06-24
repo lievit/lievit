@@ -189,21 +189,30 @@ describe("item (#435)", () => {
 
 describe("empty (#433)", () => {
   const src = read("empty");
-  test("title + description + icon + action slot params", () => {
-    expect(src).toContain("@param String title");
-    expect(src).toContain("@param String description");
-    expect(src).toContain("@param String icon");
-    expect(src).toContain("@param gg.jte.Content action");
+  test("title (null-optional) + description + variant-driven icon + action slot params", () => {
+    // v-next: title is null by default (controller provides copy, partial never bakes in defaults);
+    // icon is variant-driven via _defaultIcon switch (no explicit icon param); imageUrl/image slot added
+    expect(src).toContain("@param String title = null");
+    expect(src).toContain("@param String description = null");
+    expect(src).toContain("@param gg.jte.Content action = null");
+    expect(src).toContain("@param String variant = \"default\"");
   });
-  test("renders its icon through the Lucide partial, dashed bordered panel", () => {
-    expect(src).toContain("@template.lievit.icon(name = icon");
-    expect(src).toContain("border-dashed");
-    expect(src).toContain("border-[var(--lv-color-border)]");
+  test("renders its icon through the Lucide partial; no dashed border (presentational region, not a panel)", () => {
+    // v-next: icon is emitted via @template.lievit.icon using the variant-driven _defaultIcon;
+    // the root <div> is a plain flex container with rounded corners and padding (no border-dashed)
+    expect(src).toContain("@template.lievit.icon(name = _defaultIcon");
+    expect(src).toContain("rounded-[var(--lv-radius-lg)]");
+    // no dashed border on the root (that was the old anti-pattern — blank-slate is not a dropzone)
+    expect(src).not.toContain("border-dashed");
   });
-  test("a11y: a live status region by default so async-empty is announced", () => {
-    expect(src).toContain('role="${role}"');
-    expect(src).toContain('@param String role = "status"');
-    expect(src).toContain("aria-live");
+  test("a11y: NOT a live region (surrounding controller owns announcements; assert absence + why)", () => {
+    // v-next: empty dropped role=status / aria-live. A blank-slate state is STATIC presentational;
+    // the surrounding controller (e.g. an htmx fragment, a wire action) owns the DOM swap and any
+    // AT announcement. Baking role=status into the empty partial would cause double-announcement
+    // when the controller already manages a nearby live region — and would fire even when the
+    // empty state is part of the initial render (not an async update).
+    expect(src).not.toContain('role="status"');
+    expect(src).not.toContain("aria-live");
   });
   test("cssClass passes through to the root (shadcn parity: every part merges className)", () => {
     expect(src).toContain("@param String cssClass");

@@ -1,9 +1,9 @@
 {
   "name": "label",
   "type": "registry:jte",
-  "description": "A token-styled native <label> with for/id association and an optional aria-hidden required marker. Server-first replacement for the Lit island (which only wrapped a native <label>).",
+  "description": "A native <label for> partial with optional required marker (aria-hidden * + sr-only text), optional tag, hint icon (composed via tooltip partial), leading/trailing slots, size (sm/md/lg), variant (default/bold typographic), and visually-hidden (sr-only) mode. Server-first PARTIAL (ADR-0012): a label is pure, deterministic markup; the platform supplies click-to-focus and accessible-name binding for free. Replaces the old label.jte (which had text/error params). Composes tooltip for the hint icon. Extra attributes via two escaping channels: attrs (TRUSTED raw, $unsafe, STATIC author strings only) and dataAttrs (SAFE Map<String,String>, each value escaped via Escape.htmlAttribute).",
   "dependencies": [],
-  "registryDependencies": ["tokens"],
+  "registryDependencies": ["tokens", "tooltip", "icon"],
   "files": [
     {
       "path": "jte/label.jte",
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "type"],
-  "docs": "Copies the label partial to your JTE root at lievit/label.jte, reached as @template.lievit.label(forId=..., text=...). Set `forId` to the control's id for native label association. The source is yours: edit freely."
+  "docs": "Copies the label partial to your JTE root at lievit/label.jte, reached as @template.lievit.label(forId=\"email\", content=@`Email`). The content slot is MANDATORY. Set forId to the control's id for an explicit FOR/ID association; omit (null) for an implicit association when the control is a child of the label. required=true renders an aria-hidden * glyph in --lv-color-destructive + a sr-only \" (required)\" sibling that joins the label's accessible name. optional=true renders a visible \"(optional)\" tag in --lv-color-muted-fg (mutually exclusive with required; required wins). hint=\"...\" + hintId=\"...\" composes the tooltip partial around a circle-help icon; the consuming field partial wires aria-describedby=hintId on the control. size is sm/md/lg (text size + line-height matching the associated control's tier). variant is default (--lv-font-medium) or bold (--lv-font-semibold). hidden=true applies the sr-only class so the label stays in the accessibility tree (never display:none). The source is yours: edit freely."
 }

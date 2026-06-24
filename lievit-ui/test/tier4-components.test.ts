@@ -35,66 +35,81 @@ describe("breadcrumb (server-first JTE partial; the <lv-breadcrumb> island is go
     expect(src, "missing param declaration").toMatch(/@param /);
   });
 
-  test("declares a typed list of items (label + optional href) + separator + maxItems + label params", () => {
+  test("declares a typed list of items (label + optional href) + separator + collapsed + maxVisible + navLabel params", () => {
+    // v-next: label→navLabel, maxItems→collapsed(boolean)+maxVisible(int) with different collapse semantics
     expect(src).toContain("@param List<Map<String, String>> items");
     expect(src).toContain("@param String separator");
-    expect(src).toContain("@param int maxItems");
-    expect(src).toContain("@param String label");
+    expect(src).toContain("@param boolean collapsed");
+    expect(src).toContain("@param int maxVisible");
+    expect(src).toContain("@param String navLabel");
   });
 
-  test("the nav landmark carries the aria-label (default Breadcrumb)", () => {
-    expect(src).toMatch(/<nav[\s\S]*?aria-label="\$\{label\}"/);
-    expect(src).toContain('@param String label = "Breadcrumb"');
+  test("the nav landmark carries the aria-label (default Breadcrumb) via navLabel param", () => {
+    // v-next: aria-label reads navLabel, not label
+    expect(src).toMatch(/<nav[\s\S]*?aria-label="\$\{navLabel\}"/);
+    expect(src).toContain('@param String navLabel = "Breadcrumb"');
   });
 
-  test("the trail is an ordered <ol> list, one <li> per rendered crumb (driven by a render plan)", () => {
+  test("the trail is an ordered <ol> list, one <li> per rendered crumb", () => {
+    // Smoke: the breadcrumb.test.ts suite owns the full structural contract;
+    // this tier4 check verifies the list topology is present.
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<ol[\s\n]/);
     expect(markup).toMatch(/<li[\s\n]/);
-    expect(src).toContain("@for(var pos = 0; pos < plan.size(); pos++)");
+    // v-next iterates items with an indexed @for loop (no plan intermediate)
+    expect(src).toMatch(/@for\s*\(int _i = 0; _i < _n; _i\+\+\)/);
   });
 
-  test("non-current items are real <a href> anchors", () => {
-    expect(src).toContain("@if(isCurrent)");
-    expect(src).toMatch(/<a[\s\S]*?href="\$\{href == null \? "#" : href\}"/);
+  test("non-current items are real <a href> anchors (href scheme-guarded)", () => {
+    // v-next: href goes through an allowlist check before emission; non-current items
+    // with a safe href get a real <a data-slot="breadcrumb-link">
+    expect(src).toContain("_isCurrent");
+    expect(src).toContain('data-slot="breadcrumb-link"');
+    expect(src).toMatch(/<a[\s\S]*?data-slot="breadcrumb-link"/);
   });
 
-  test("the current (last) item is aria-current=page and NOT a link", () => {
-    expect(src).toContain("!{var isCurrent = idx == n - 1;}");
-    // the current branch renders a <span aria-current="page">, not an <a>
-    expect(src).toMatch(/<span[^>]*aria-current="page"/);
+  test("the current (last) item carries aria-current=page; link when href set, span when not", () => {
+    // v-next: current item is <a aria-current="page"> when it has an href,
+    // <span aria-current="page"> when href is null (correctly off tab order)
+    expect(src).toContain('data-slot="breadcrumb-page"');
+    expect(src).toMatch(/aria-current="page"/);
+    // both link and non-link variants exist
+    expect(src).toMatch(/<a[\s\S]*?aria-current="page"/);
+    expect(src).toMatch(/<span[\s\S]*?aria-current="page"/);
   });
 
-  test("the separator is rendered between crumbs only (not before the first) and is aria-hidden", () => {
-    expect(src).toContain("!{var isFirst = pos == 0;}");
-    expect(src).toContain("@if(!isFirst)");
-    expect(src).toMatch(/lv-breadcrumb__separator[^"]*"[^>]*aria-hidden="true"/);
+  test("separators are dedicated <li aria-hidden=true> nodes (not inline in item <li>)", () => {
+    // v-next: separators are <li aria-hidden="true" class="lv-breadcrumb__separator...">
+    // inserted between items; no separator before the first item (_i > 0 guard)
+    expect(src).toContain("@if(_i > 0)");
+    expect(src).toMatch(/<li aria-hidden="true" class="lv-breadcrumb__separator/);
     expect(src).toContain("${separator}");
   });
 
-  test("collapse: maxItems>0 + an over-length trail keeps the root + tail and renders one ellipsis", () => {
-    // the plan keeps index 0 (root), a -1 sentinel (ellipsis), then the last maxItems-1 crumbs
-    expect(src).toContain("var collapse = maxItems > 0 && n > maxItems;");
-    expect(src).toContain("!{plan.add(0);}");
-    expect(src).toContain("!{plan.add(-1);}");
-    expect(src).toContain("var tailStart = n - (maxItems - 1);");
-    // the ellipsis item is a decorative BreadcrumbEllipsis with an sr-only "More"
+  test("collapse: collapsed=true keeps first + ellipsis button + last item", () => {
+    // v-next collapse: boolean collapsed param + maxVisible int; when collapsed=true
+    // and items.size() > maxVisible + 2 the middle is hidden. The ellipsis is a
+    // keyboard-reachable <button aria-label="Show full path">.
+    expect(src).toContain("@param boolean collapsed");
+    expect(src).toContain("@param int maxVisible");
+    expect(src).toContain("_doCollapse");
     expect(src).toContain('data-slot="breadcrumb-ellipsis"');
-    expect(src).toMatch(/breadcrumb-ellipsis"[\s\S]*?aria-hidden="true"/);
-    expect(src).toContain('<span class="sr-only">More</span>');
-    expect(src).toContain('@template.lievit.icon(name = "ellipsis"');
+    // ellipsis is a <button> (keyboard-reachable per APG + spec §8)
+    expect(src).toMatch(/<button[\s\S]*?data-slot="breadcrumb-ellipsis"/);
+    expect(src).toContain('aria-label="Show full path"');
   });
 
-  test("no collapse by default (maxItems = 0 renders every crumb)", () => {
-    expect(src).toContain("@param int maxItems = 0");
-    // when not collapsing the plan is the full 0..n-1 range
-    expect(src).toContain("@for(int i = 0; i < n; i++)");
+  test("no collapse by default (collapsed defaults to false)", () => {
+    expect(src).toContain("@param boolean collapsed = false");
+    // full trail path uses @for over all items
+    expect(src).toMatch(/@for\s*\(int _i = 0; _i < _n; _i\+\+\)/);
   });
 
   test("styling is token-driven: no hardcoded hex, no Lit residue, no inline script/handler", () => {
     expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-    expect(src).toContain("var(--lv-color-primary)");
-    expect(src).toContain("var(--lv-color-muted)");
+    // v-next breadcrumb uses muted-fg for non-current items and fg for current item
+    expect(src).toContain("var(--lv-color-muted-fg)");
+    expect(src).toContain("var(--lv-color-fg)");
     expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles|import .*\blit\b/);
     expect(src).not.toMatch(/<script/i);
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");

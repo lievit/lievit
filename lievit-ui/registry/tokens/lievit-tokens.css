@@ -267,6 +267,11 @@
   /* component-specific motion tokens (net-new, additive; set to `none` by prefers-reduced-motion) */
   --lv-motion-switch-thumb: transform 120ms ease; /* switch thumb slide; separate from --lv-duration-fast so timing is tunable per-component */
 
+  /* progress motion aliases (net-new, additive; alias the shared duration/ease tokens so the
+     progress animation can be tuned independently of the global scale) */
+  --lv-motion-duration-slow: 320ms; /* = --lv-duration-slow; aliased for progress indeterminate */
+  --lv-motion-easing-in-out: cubic-bezier(0.4, 0, 0.2, 1); /* = --lv-ease; aliased for progress */
+
   /* ----------------------------------------------------------------------- *
    * ICON sizing (consumed by the Lucide icon partial)                       *
    * ----------------------------------------------------------------------- */
@@ -392,4 +397,40 @@
   :root {
     --lv-motion-switch-thumb: none; /* instant thumb swap instead of sliding transition */
   }
+}
+
+/* ========================================================================= *
+ * PROGRESS ANIMATIONS (@keyframes referenced by progress.jte, CSP-clean)   *
+ * Three animations: indeterminate-line slide, striped-line stripe-march,    *
+ * and indeterminate-arc spin for the circle/dashboard forms.                *
+ * Each is named lv-progress-* so they are namespaced and greppable.        *
+ * motion-reduce:animate-none is applied at the component level; these rules *
+ * are structural (not suppressed here) so they remain valid for adopters    *
+ * who override the component class selectively.                             *
+ * ========================================================================= */
+
+/* lv-progress-slide: the indeterminate line bar -- a 40%-wide fill that slides
+   from -40% to 100% (left edge off-screen left to right), giving the illusion
+   of continuous progress. Duration + easing reference the motion alias tokens
+   defined above so adopters can tune them via :root override. */
+@keyframes lv-progress-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* lv-progress-stripe-move: marches the diagonal stripe repeating-linear-gradient
+   to the right, creating a moving barber-pole effect on a striped determinate bar.
+   The gradient background-size is 24px (2x the 12px stripe period from progress.jte),
+   so stepping 24px recreates the full tile. */
+@keyframes lv-progress-stripe-move {
+  0%   { background-position: 0 0; }
+  100% { background-position: 24px 0; }
+}
+
+/* lv-progress-arc-spin: rotates the short indeterminate arc in the circle/dashboard
+   forms. Applied on the <circle> element directly; transform-origin is the SVG centre
+   (60px 60px for the 120x120 viewBox). */
+@keyframes lv-progress-arc-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

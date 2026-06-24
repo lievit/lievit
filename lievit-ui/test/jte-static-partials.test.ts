@@ -263,13 +263,25 @@ describe("label.jte", () => {
     expect(markup).toMatch(/<label[\s\n]/);
     expect(markup).toContain('for="${forId}"');
   });
-  test("the required marker is hidden from assistive tech", () => {
-    expect(src).toContain('<span aria-hidden="true" class="text-[var(--lv-color-destructive)]">*</span>');
+  test("the required marker is hidden from AT (aria-hidden glyph) and announced as text (sr-only sibling)", () => {
+    // v-next: required marker = aria-hidden * glyph (visual cue) + sr-only " (required)" text
+    // (part of the label's accessible name, read by screen readers as plain text).
+    // The old single-span with aria-hidden alone was insufficient (VoiceOver silence on the *);
+    // the sr-only sibling ensures screen readers announce "Field name (required)".
+    expect(src).toContain('aria-hidden="true"');
+    expect(src).toContain('data-slot="label-required"');
+    expect(src).toContain('<span class="sr-only"> (required)</span>');
   });
-  test("supports the error cue: data-error + a destructive label colour (shadcn's invalid label)", () => {
-    expect(src).toMatch(/@param boolean error/);
-    expect(src).toContain('data-error="${error ? "true" : null}"');
-    expect(src).toContain("data-[error=true]:text-[var(--lv-color-destructive)]");
+  test("no error param: label does NOT recolour on invalid (correct WCAG 1.4.1 behavior)", () => {
+    // v-next: the `error` param and `data-[error=true]:text-[var(--lv-color-destructive)]` are
+    // deliberately REMOVED. WCAG 1.4.1 (Use of Color) prohibits using colour alone to convey
+    // state; recolouring the label text red is an anti-pattern because it creates a colour-only
+    // cue. Invalidity is now communicated by the field wrapper's data-invalid cascade and the
+    // role=alert error message — both are colour-independent signals.
+    expect(src).not.toMatch(/@param boolean error/);
+    expect(src).not.toContain("data-[error=true]:text-[var(--lv-color-destructive)]");
+    // label itself carries no invalidity indication — the wrapper owns it
+    expect(src).not.toContain('data-error=');
   });
 });
 
@@ -285,11 +297,16 @@ describe("field.jte (FormField + FieldError orchestration)", () => {
     expect(src).toContain('id="${forId}-error"');
     expect(src).toContain('id="${forId}-description"');
   });
-  test("auto-derives the invalid state from the error: data-invalid wrapper + error-coloured label", () => {
+  test("auto-derives the invalid state from the error: data-invalid wrapper, but NOT an error-coloured label", () => {
+    // v-next: data-invalid on the wrapper signals invalidity (colour-independent; CSS cascade);
+    // the label call no longer passes error=hasError because the label must NOT recolour on
+    // invalid (WCAG 1.4.1 anti-pattern removed from label.jte). The wrapper's data-invalid
+    // attribute drives any error-state visual cues (e.g. ring colour), not the label text.
     expect(src).toContain("var hasError = hasErrorList || hasSingleError");
     expect(src).toContain('data-invalid="${hasError ? "true" : null}"');
-    // the label receives the error flag so it shows shadcn's destructive-label cue
-    expect(src).toContain("error = hasError");
+    // label call: content + required only, no error flag
+    expect(src).toContain("@template.lievit.label(forId = forId, content = @`${label}`, required = required)");
+    expect(src).not.toContain("error = hasError");
   });
   test("supports vertical / horizontal / responsive orientation + a FieldContent slot", () => {
     expect(src).toMatch(/@param String orientation/);

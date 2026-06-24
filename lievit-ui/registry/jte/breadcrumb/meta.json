@@ -1,9 +1,9 @@
 {
   "name": "breadcrumb",
   "type": "registry:jte",
-  "description": "An accessible breadcrumb navigation trail: <nav aria-label> landmark wrapping an ordered list, real <a href> for non-current items, aria-current='page' on the current (last) item, separator aria-hidden (WAI-ARIA breadcrumb pattern). Pass maxItems to collapse the middle of a long trail to a BreadcrumbEllipsis (root + tail kept), server-pure, no JS. Server-first PARTIAL (ADR-0012, Wave 4): the trail is the server-rendered route, so there is no client state and no island. Replaces the <lv-breadcrumb> Lit island. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "Secondary navigation trail showing the user's current location in a page hierarchy (<nav aria-label> landmark + ordered <ol>, real <a href> for non-current items, aria-current='page' on the current last item, aria-hidden separators). WAI-ARIA APG Breadcrumb (nav of links) pattern. Size param scales type (sm/md/lg), not height. Collapsed mode hides middle items behind a keyboard-reachable <button> ellipsis; expansion is a server-side controller decision (the PARTIAL is stateless). Href scheme allowlist guard (only /, #, http://, https:// trusted). Server-first PARTIAL (ADR-0012), no enhancer, no JS.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon"],
+  "registryDependencies": ["tokens"],
   "files": [
     {
       "path": "jte/breadcrumb.jte",
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the breadcrumb partial to your JTE root at lievit/breadcrumb.jte, reached as @template.lievit.breadcrumb(items=...). Pass items as a List<Map<String,String>> root-to-current, each map keyed label (+ optional href); the last item is rendered as the current page (aria-current='page', not a link). Set separator to change the divider glyph (default '/'). Set maxItems > 0 to collapse a long trail's middle to an ellipsis (root + last maxItems-1 kept). The source is yours: edit freely."
+  "docs": "Copies the breadcrumb partial to your JTE root at lievit/breadcrumb.jte, reached as @template.lievit.breadcrumb(items=...). Pass items as a List<Map<String,String>> root-to-current; each map carries label (required), href (optional; only /, #, http://, https:// allowed — others render as non-link span), and attrs (optional, TRUSTED raw author-controlled extras). The last item is always the current page (aria-current='page'). Set navLabel to override the nav landmark's aria-label (e.g. for i18n). Set separator to change the divider glyph (default '/'). Set size to 'sm' | 'md' | 'lg' for type-scale sizing. Set collapsed=true with maxVisible (default 3) to hide the middle items behind an ellipsis button; the button is keyboard-reachable but inert until wired in a WIRE context. The source is yours: edit freely."
 }

@@ -1,9 +1,9 @@
 {
   "name": "pagination",
   "type": "registry:jte",
-  "description": "Page navigation: previous / next plus a windowed list of numbered page links with ellipsis gaps. Real <a href> per page, so it works JS-off; the caller passes the page math (current + total) and the partial derives the visible window (MUI-style) with shadcn's markup/token styling. A labelled <nav> landmark, aria-current on the active page, aria-disabled boundary controls.",
+  "description": "APG navigation landmark with numbered page controls. Real <a href> per page (URL mode) or <button> elements with data-page (wire mode). Sliding-window algorithm with ellipsis gaps; prev/next; optional total summary, page-size switcher, quick jumper, simple mode. aria-current='page' on active page; aria-label required on the nav landmark. Zero client state: currentPage, totalPages, and baseUrl are all server facts passed as typed @params.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon"],
+  "registryDependencies": ["tokens", "icon", "native-select"],
   "files": [
     {
       "path": "jte/pagination.jte",
@@ -12,6 +12,7 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring", "icon"],
-  "docs": "Copies the pagination partial to your JTE root at lievit/pagination.jte, reached as @template.lievit.pagination(current=..., total=..., hrefPattern=...). Pass the active page (`current`), the total page count (`total`), and a printf-style `hrefPattern` (one %d = the page number, e.g. \"/contatti?page=%d\"); the partial derives the visible window (first + last always, current +/- `siblings`, ellipsis for gaps) and emits a real <a href> per page so it navigates with zero JS. Controls render at the h-9 (md) baseline, flush with a button / input of the matching size. Opt extra attributes onto every navigable link via `linkAttrs` (raw markup, e.g. an htmx/Turbo router hook). Requires the icon partial for the chevron + ellipsis glyphs. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "ring", "font"],
+  "enhancer": null,
+  "docs": "Copies the pagination partial to your JTE root at lievit/pagination.jte. Pass currentPage (1-based, required), totalPages (required; 0 or 1 renders nothing), and either baseUrl (URL mode: emits real <a href> links, Turbo Drive ready) or omit it for wire mode (emits <button type='button'> with data-page on each item; wire the action via pageAttrs='l:click=\"goToPage\"'). Requires the icon partial (chevron-left, chevron-right, ellipsis) and native-select partial (when showSizeSwitcher=true). Size sm/md/lg aligns flush with button/input in a toolbar row. Optional: showTotal (total-items live region), showSizeSwitcher (page-size native-select), showJumper (go-to-page form), simple (prev/next + fraction, no numbered list). The source is yours: edit freely."
 }

@@ -183,33 +183,54 @@ describe("separator", () => {
     expect(src).toContain("@param String orientation");
     expect(src).toContain("@param boolean decorative");
   });
-  test("announced => role=separator + aria-orientation; decorative => dropped + aria-hidden", () => {
-    expect(src).toContain('role="${decorative ? null : "separator"}"');
-    expect(src).toContain('aria-orientation="${decorative ? null : orientation}"');
-    expect(src).toContain('aria-hidden="${decorative ? "true" : null}"');
+  test("announced => <hr> with implicit separator role + aria-orientation; decorative => role=presentation override (no aria-hidden)", () => {
+    // v-next: root is <hr> (carries role="separator" implicitly per HTML-ARIA mapping);
+    // decorative=true adds explicit role="presentation" to override the implicit role.
+    // The <hr> does NOT use aria-hidden for the decorative case — role="presentation" is
+    // the correct suppression mechanism on an element that already has a native role.
+    // aria-orientation is emitted on semantic; omitted on decorative (presentation elements
+    // carry no ARIA state properties).
+    expect(src).toMatch(/<hr/);
+    expect(src).toContain('@param boolean decorative = false');
+    // decorative=false (semantic) is the default; silently erasing the role is the worse error
+    expect(src).toContain('role="${decorative ? "presentation" : null}"');
+    expect(src).toContain('aria-orientation="${decorative ? null : "');
   });
-  test("the rule colour reads the border token", () => {
-    expect(src).toContain("bg-[var(--lv-color-border)]");
+  test("the rule colour reads the border token (border-t / border-l, not bg-)", () => {
+    // v-next: the line stroke is border-top / border-left (color via border-color token),
+    // NOT a background-color fill div — using <hr> with border-t is the correct CSS for a
+    // semantic horizontal rule element.
+    expect(src).toContain("border-t");
+    expect(src).toContain("border-color:var(--lv-color-border)");
+    // bg- fill on the rule would be wrong for an <hr>
+    expect(src).not.toMatch(/class="[^"]*\bbg-\[var\(--lv-color-border\)\]/);
   });
 });
 
 describe("progress", () => {
   const src = read("progress");
-  test("typed value + label params", () => {
-    expect(src).toContain("@param int value");
-    expect(src).toContain("@param String label");
+  test("typed Integer value (null = indeterminate) + label + max params", () => {
+    // v-next: value is Integer (nullable), not int<0; null signals indeterminate to WAI-ARIA
+    expect(src).toContain("@param Integer value = null");
+    expect(src).toContain("@param String label = null");
+    expect(src).toContain("@param int max = 100");
   });
-  test("WAI-ARIA progressbar: role + min/max + label, valuenow only when determinate", () => {
+  test("WAI-ARIA progressbar: role + min/max + label, aria-valuenow emitted only when value is non-null", () => {
+    // v-next: aria-valuemax reads the max param (not hardcoded 100); aria-valuenow is
+    // conditionally emitted via _valuenow local (null when indeterminate, JTE drops the attr)
     expect(src).toContain('role="progressbar"');
     expect(src).toContain('aria-valuemin="0"');
-    expect(src).toContain('aria-valuemax="100"');
-    expect(src).toContain('aria-label="${label}"');
-    expect(src).toContain('aria-valuenow="${indeterminate ? null : String.valueOf(pct)}"');
+    expect(src).toContain('aria-valuemax="${max}"');
+    expect(src).toContain('aria-label="${_ariaLabel}"');
+    // _valuenow is null when indeterminate: JTE omits the attribute entirely (WAI-ARIA 1.2 spec)
+    expect(src).toContain('!{String _valuenow = _indeterminate ? null : String.valueOf(value);}');
+    expect(src).toContain('aria-valuenow="${_valuenow}"');
   });
   test("indeterminate animates and respects reduced motion", () => {
-    expect(src).toContain("@if(indeterminate)");
+    // v-next: _indeterminate boolean derived from (value == null); animation class on the fill
+    expect(src).toContain("_indeterminate");
     expect(src).toContain("motion-reduce:animate-none");
-    expect(src).toContain("bg-[var(--lv-color-primary)]");
+    expect(src).toContain("var(--lv-color-primary)");
   });
 });
 

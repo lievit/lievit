@@ -102,7 +102,7 @@
   class="group/field flex gap-[var(--lv-space-3)] data-[invalid=true]:text-[var(--lv-color-destructive)] data-[orientation=vertical]:flex-col data-[orientation=horizontal]:flex-row data-[orientation=horizontal]:items-center data-[orientation=responsive]:flex-col @md/field-group:data-[orientation=responsive]:flex-row @md/field-group:data-[orientation=responsive]:items-center ${cssClass}"
 >
   @if(label != null && !label.isBlank())
-    @template.lievit.label(forId = forId, text = label, required = required, error = hasError)
+    @template.lievit.label(forId = forId, content = @`${label}`, required = required)
   @endif
   @if(content != null)
     <div data-slot="field-content" class="flex flex-1 flex-col gap-[var(--lv-space-1)]">

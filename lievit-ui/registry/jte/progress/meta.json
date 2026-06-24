@@ -1,7 +1,7 @@
 {
   "name": "progress",
   "type": "registry:jte",
-  "description": "A determinate or indeterminate progress bar with WAI-ARIA progressbar semantics; respects prefers-reduced-motion. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "Determinate / indeterminate progress in four visual forms (line, circle, dashboard, steps). WAI-ARIA 1.2 progressbar role; aria-valuenow omitted for indeterminate; variant intent tokens; striped + animated stripes; showValue label; trailing and footer content slots. CSP-clean, zero JS, server-rendered.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -12,6 +12,10 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "radius"],
-  "docs": "Copies the progress partial to your JTE root at lievit/progress.jte, reached as @template.lievit.progress(value=42, label=...). value < 0 renders the indeterminate animation. The source is yours: edit freely."
+  "tokens": ["color", "radius", "space", "text", "font", "motion"],
+  "cssVars": {
+    "motion": ["--lv-motion-duration-slow", "--lv-motion-easing-in-out"],
+    "keyframes": ["lv-progress-slide", "lv-progress-stripe-move", "lv-progress-arc-spin"]
+  },
+  "docs": "Copies the progress partial to your JTE root at lievit/progress.jte. Reached as @template.lievit.progress(value: 42, max: 100, label: \"Uploading\"). Pass value=null for the indeterminate animation. Four forms: line (default), circle, dashboard, steps. Variants: default, info, success, warning, destructive. The three @keyframes (lv-progress-slide, lv-progress-stripe-move, lv-progress-arc-spin) must be included from lievit-tokens.css."
 }

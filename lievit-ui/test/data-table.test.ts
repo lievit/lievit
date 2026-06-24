@@ -112,8 +112,10 @@ describe("data-table.jte -- server-first table contract", () => {
   });
 
   test("pagination renders via the pagination partial with the server href pattern", () => {
+    // v-next: pagination call uses currentPage/totalPages/baseUrl; data-table strips the
+    // ?page=%d / &page=%d suffix from pageHrefPattern to derive the baseUrl prefix
     expect(markup).toMatch(
-      /@template\.lievit\.pagination\(current = page, total = totalPages, hrefPattern = pageHrefPattern\)/
+      /@template\.lievit\.pagination\(currentPage = page, totalPages = totalPages, baseUrl = pageBaseUrl\)/
     );
   });
 

@@ -83,31 +83,36 @@ describe("static partials b2 -- shared hygiene", () => {
 describe("pagination (#438)", () => {
   const src = read("pagination");
   test("declares the documented param API", () => {
-    for (const p of ["int current", "int total", "String hrefPattern", "int siblings", "String ariaLabel", "String linkAttrs"]) {
+    // v-next: current→currentPage, total→totalPages, hrefPattern→baseUrl (prefix, appends ?page=N),
+    // linkAttrs→pageAttrs, siblings removed (sliding window via windowSize param instead)
+    for (const p of ["int currentPage", "int totalPages", "String baseUrl", "String ariaLabel", "String pageAttrs"]) {
       expect(src).toContain(`@param ${p}`);
     }
   });
 
-  test("asChild / router-Link: linkAttrs is injected as raw markup ($unsafe) on every navigable link, not the disabled spans/ellipsis", () => {
-    expect(src).toContain("@param String linkAttrs");
-    // injected with $unsafe so it lands as attribute markup; once per navigable <a>: prev + numbered (active + inactive) + next = 4
-    const injections = src.match(/\$unsafe\{linkAttrs\}/g) ?? [];
-    expect(injections.length).toBe(4);
-    // the disabled boundary spans + the ellipsis span must NOT carry it (they are not links)
+  test("pageAttrs is injected as raw markup ($unsafe) on every navigable page element, not the ellipsis spans", () => {
+    // v-next: pageAttrs replaces linkAttrs; injected on each navigable <a>/<button> page element
+    expect(src).toContain("@param String pageAttrs");
+    expect(src).toContain("$unsafe{pageAttrs}");
+    // the ellipsis spans must NOT carry pageAttrs (they are presentational, not interactive)
     const ellipsisBlock = src.slice(src.indexOf('data-slot="pagination-ellipsis"'));
     const ellipsisSpan = ellipsisBlock.slice(0, ellipsisBlock.indexOf("</span>"));
-    expect(ellipsisSpan).not.toContain("$unsafe{linkAttrs}");
+    expect(ellipsisSpan).not.toContain("$unsafe{pageAttrs}");
   });
-  test("a11y: a labelled nav landmark, active page is aria-current, ellipsis is hidden", () => {
-    expect(src).toContain('role="navigation"');
-    expect(src).toContain('aria-label="${ariaLabel}"');
+  test("a11y: a labelled nav landmark (native <nav>, no explicit role), active page is aria-current, page list is <ol>", () => {
+    // v-next: native <nav aria-label> carries the landmark role implicitly (no role="navigation" needed)
+    expect(src).toContain('<nav aria-label="${ariaLabel}"');
+    expect(src).not.toContain('role="navigation"');
     expect(src).toContain('aria-current="page"');
+    // ellipsis spans are aria-hidden; page list is <ol> (ordered — communicates sequence to AT)
     expect(src).toMatch(/aria-hidden="true"/);
-    expect(src).toContain('class="sr-only"');
+    expect(src).toMatch(/<ol[\s\n]/);
   });
-  test("derives the page window from params (no hardcoded list) and links are real <a href>", () => {
-    expect(src).toMatch(/@for\s*\(int p/);
-    expect(src).toContain("hrefPattern.formatted(");
+  test("derives the page window from params (sliding window algorithm) and page links are real <a href>", () => {
+    // v-next: sliding window uses wStart/wEnd locals computed from currentPage + windowSize;
+    // URL-mode links are <a href="${baseUrl}?page=${p}">
+    expect(src).toMatch(/@for\s*\(int p = wStart; p <= wEnd; p\+\+\)/);
+    expect(src).toContain("baseUrl}?page=");
     expect(src).toMatch(/<a\b/);
   });
   test("prev/next use Lucide chevrons; disabled at the boundary", () => {
