@@ -17,11 +17,18 @@
  * scale, a type scale (size/weight/line-height), shadows, z-index layers, motion
  * (duration + easing), and a chart palette.
  *
- * Colour FORMAT: hex sRGB. The 31 v0.1 tokens were hex and are kept byte-stable, so the
- * whole palette stays hex for one coherent format (no mixed hex/OKLCH). A retheme overrides
- * the values in whatever format the adopter prefers (hex/OKLCH/hsl); components read the
- * var(), never the format. shadcn v4 ships OKLCH; we map its token STRUCTURE, not its
- * literal values, to preserve the existing neutral Tailwind palette (backward compatible).
+ * Colour FORMAT (v-next, architecture-contract §4 D1 DECIDED):
+ * Source-of-truth is OKLCH (`oklch(L C H)`), the perceptually-uniform format with native
+ * browser support in 2026. OKLCH buys predictable lightness for hover/active/disabled
+ * states, easier WCAG-contrast math, and smoother programmatic tints — exactly what
+ * Tailwind-UI-grade theming and dark-mode re-pointing need.
+ *
+ * Hex fallback pattern (chosen for simplicity over @supports):
+ *   --lv-color-x: #hex;          ← old browsers (no oklch): keep this value
+ *   --lv-color-x: oklch(L C H);  ← modern browsers: override via cascade
+ * A plain double-declaration is the cleanest robust fallback: no wrapping block, no
+ * extra selector specificity, idempotent under cascade. The hex values are
+ * byte-identical to the pre-migration values so the look is visually unchanged.
  *
  * The brand-able seam: an adopter rebrands by overriding ~20 tokens in :root (chiefly the
  * semantic colour pairs + --lv-radius + the fonts); every component follows automatically.
@@ -42,28 +49,41 @@
 
   /* base page surface + body text */
   --lv-color-bg: #ffffff;
+  --lv-color-bg: oklch(1.0000 0 0);
   --lv-color-fg: #111827;
+  --lv-color-fg: oklch(0.2101 0.0318 264.67);
 
   /* a slightly raised neutral surface: table zebra, inset panels (research 4.2) */
   --lv-color-surface: #f9fafb;
+  --lv-color-surface: oklch(0.9846 0.0018 248.57);
   --lv-color-surface-fg: #111827;
+  --lv-color-surface-fg: oklch(0.2101 0.0318 264.67);
 
   /* hairlines, dividers, default control borders */
   --lv-color-border: #d1d5db;
+  --lv-color-border: oklch(0.8717 0.0094 258.38);
 
   /* form-control border (separable from --lv-color-border for inputs) */
   --lv-color-input: #d1d5db;
+  --lv-color-input: oklch(0.8717 0.0094 258.38);
 
   /* low-emphasis text: captions, placeholders, disabled labels */
   --lv-color-muted: #6b7280;
+  --lv-color-muted: oklch(0.5510 0.0234 264.37);
   --lv-color-muted-fg: #6b7280;
+  --lv-color-muted-fg: oklch(0.5510 0.0234 264.37);
   --lv-color-muted-bg: #f3f4f6; /* muted FILL (badge/skeleton background) */
+  --lv-color-muted-bg: oklch(0.9670 0.0030 264.51);
 
   /* card + popover surfaces (shadcn parity; default to bg, overridable) */
   --lv-color-card: #ffffff;
+  --lv-color-card: oklch(1.0000 0 0);
   --lv-color-card-fg: #111827;
+  --lv-color-card-fg: oklch(0.2101 0.0318 264.67);
   --lv-color-popover: #ffffff;
+  --lv-color-popover: oklch(1.0000 0 0);
   --lv-color-popover-fg: #111827;
+  --lv-color-popover-fg: oklch(0.2101 0.0318 264.67);
 
   /* ----------------------------------------------------------------------- *
    * COLOUR -- brand + semantic intents (each intent carries a paired -fg)    *
@@ -71,43 +91,69 @@
 
   /* primary: the main call to action */
   --lv-color-primary: #2563eb;
+  --lv-color-primary: oklch(0.5461 0.2153 262.89);
   --lv-color-primary-fg: #ffffff;
+  --lv-color-primary-fg: oklch(1.0000 0 0);
 
   /* secondary: low-emphasis neutral action (shadcn secondary) */
   --lv-color-secondary: #f3f4f6;
+  --lv-color-secondary: oklch(0.9670 0.0030 264.51);
   --lv-color-secondary-fg: #1f2937;
+  --lv-color-secondary-fg: oklch(0.2781 0.0296 256.86);
 
   /* accent: hover/active tint for menu items, ghost surfaces (shadcn accent) */
   --lv-color-accent: #f3f4f6;
+  --lv-color-accent: oklch(0.9670 0.0030 264.51);
   --lv-color-accent-fg: #1f2937;
+  --lv-color-accent-fg: oklch(0.2781 0.0296 256.86);
 
   /* destructive: the shadcn name for danger (alias below kept for the 28) */
   --lv-color-destructive: #dc2626;
+  --lv-color-destructive: oklch(0.5771 0.2151 27.32);
   --lv-color-destructive-fg: #ffffff;
+  --lv-color-destructive-fg: oklch(1.0000 0 0);
 
   /* status intents (gestionale completeness, research 4.2) */
   --lv-color-success: #16a34a;
+  --lv-color-success: oklch(0.6270 0.1699 149.23);
   --lv-color-success-fg: #ffffff;
+  --lv-color-success-fg: oklch(1.0000 0 0);
   --lv-color-warning: #d97706;
+  --lv-color-warning: oklch(0.6659 0.1574 58.31);
   --lv-color-warning-fg: #ffffff;
+  --lv-color-warning-fg: oklch(1.0000 0 0);
   --lv-color-info: #2563eb; /* aliases primary; kept distinct so a retheme can split them */
+  --lv-color-info: oklch(0.5461 0.2153 262.89);
   --lv-color-info-fg: #ffffff;
+  --lv-color-info-fg: oklch(1.0000 0 0);
   --lv-color-danger: #dc2626; /* alias of --lv-color-destructive; kept for the 28 v0.1 components */
+  --lv-color-danger: oklch(0.5771 0.2151 27.32);
   --lv-color-danger-fg: #ffffff;
+  --lv-color-danger-fg: oklch(1.0000 0 0);
 
   /* chart palette: a 5-step sequential ramp for data-viz (shadcn chart-1..5) */
   --lv-color-chart-1: #93c5fd;
+  --lv-color-chart-1: oklch(0.8091 0.0957 251.83);
   --lv-color-chart-2: #3b82f6;
+  --lv-color-chart-2: oklch(0.6231 0.1881 259.82);
   --lv-color-chart-3: #2563eb;
+  --lv-color-chart-3: oklch(0.5461 0.2153 262.89);
   --lv-color-chart-4: #1d4ed8;
+  --lv-color-chart-4: oklch(0.4882 0.2172 264.38);
   --lv-color-chart-5: #1e40af;
+  --lv-color-chart-5: oklch(0.4244 0.1809 265.64);
 
   /* sidebar surface set (shadcn sidebar tokens; for the app-shell block) */
   --lv-color-sidebar: #f9fafb;
+  --lv-color-sidebar: oklch(0.9846 0.0018 248.57);
   --lv-color-sidebar-fg: #111827;
+  --lv-color-sidebar-fg: oklch(0.2101 0.0318 264.67);
   --lv-color-sidebar-border: #e5e7eb;
+  --lv-color-sidebar-border: oklch(0.9276 0.0059 264.52);
   --lv-color-sidebar-accent: #f3f4f6;
+  --lv-color-sidebar-accent: oklch(0.9670 0.0030 264.51);
   --lv-color-sidebar-accent-fg: #1f2937;
+  --lv-color-sidebar-accent-fg: oklch(0.2781 0.0296 256.86);
 
   /* overlay scrim behind modal surfaces (dialog/drawer backdrop) */
   --lv-color-overlay: rgb(0 0 0 / 0.45);
@@ -180,6 +226,7 @@
    * FOCUS RING -- shared by every interactive primitive                     *
    * ----------------------------------------------------------------------- */
   --lv-color-ring: #2563eb; /* the ring colour token (shadcn --ring) */
+  --lv-color-ring: oklch(0.5461 0.2153 262.89);
   --lv-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-ring) 35%, transparent);
 
   /* ----------------------------------------------------------------------- *
@@ -218,57 +265,97 @@
 .dark,
 [data-theme="dark"] {
   --lv-color-bg: #0a0a0a;
+  --lv-color-bg: oklch(0.1448 0 0);
   --lv-color-fg: #fafafa;
+  --lv-color-fg: oklch(0.9851 0 0);
 
   --lv-color-surface: #171717;
+  --lv-color-surface: oklch(0.2046 0 0);
   --lv-color-surface-fg: #fafafa;
+  --lv-color-surface-fg: oklch(0.9851 0 0);
 
   --lv-color-border: #2e2e2e;
+  --lv-color-border: oklch(0.3012 0 0);
   --lv-color-input: #3a3a3a;
+  --lv-color-input: oklch(0.3485 0 0);
 
   --lv-color-muted: #a1a1aa;
+  --lv-color-muted: oklch(0.7118 0.0130 285.96);
   --lv-color-muted-fg: #a1a1aa;
+  --lv-color-muted-fg: oklch(0.7118 0.0130 285.96);
   --lv-color-muted-bg: #262626;
+  --lv-color-muted-bg: oklch(0.2686 0 0);
 
   --lv-color-card: #171717;
+  --lv-color-card: oklch(0.2046 0 0);
   --lv-color-card-fg: #fafafa;
+  --lv-color-card-fg: oklch(0.9851 0 0);
   --lv-color-popover: #171717;
+  --lv-color-popover: oklch(0.2046 0 0);
   --lv-color-popover-fg: #fafafa;
+  --lv-color-popover-fg: oklch(0.9851 0 0);
 
   --lv-color-primary: #3b82f6;
+  --lv-color-primary: oklch(0.6231 0.1881 259.82);
   --lv-color-primary-fg: #0a0a0a;
+  --lv-color-primary-fg: oklch(0.1448 0 0);
 
   --lv-color-secondary: #262626;
+  --lv-color-secondary: oklch(0.2686 0 0);
   --lv-color-secondary-fg: #fafafa;
+  --lv-color-secondary-fg: oklch(0.9851 0 0);
 
   --lv-color-accent: #2e2e2e;
+  --lv-color-accent: oklch(0.3012 0 0);
   --lv-color-accent-fg: #fafafa;
+  --lv-color-accent-fg: oklch(0.9851 0 0);
 
   --lv-color-destructive: #ef4444;
+  --lv-color-destructive: oklch(0.6369 0.2078 25.32);
   --lv-color-destructive-fg: #fafafa;
+  --lv-color-destructive-fg: oklch(0.9851 0 0);
 
   --lv-color-success: #22c55e;
+  --lv-color-success: oklch(0.7227 0.1920 149.60);
   --lv-color-success-fg: #052e16;
+  --lv-color-success-fg: oklch(0.2664 0.0628 152.96);
   --lv-color-warning: #f59e0b;
+  --lv-color-warning: oklch(0.7686 0.1646 70.08);
   --lv-color-warning-fg: #1c1207;
+  --lv-color-warning-fg: oklch(0.1921 0.0263 68.60);
   --lv-color-info: #3b82f6;
+  --lv-color-info: oklch(0.6231 0.1881 259.82);
   --lv-color-info-fg: #0a0a0a;
+  --lv-color-info-fg: oklch(0.1448 0 0);
   --lv-color-danger: #ef4444;
+  --lv-color-danger: oklch(0.6369 0.2078 25.32);
   --lv-color-danger-fg: #fafafa;
+  --lv-color-danger-fg: oklch(0.9851 0 0);
 
   --lv-color-chart-1: #1e3a8a;
+  --lv-color-chart-1: oklch(0.3790 0.1378 265.53);
   --lv-color-chart-2: #1d4ed8;
+  --lv-color-chart-2: oklch(0.4882 0.2172 264.38);
   --lv-color-chart-3: #2563eb;
+  --lv-color-chart-3: oklch(0.5461 0.2153 262.89);
   --lv-color-chart-4: #3b82f6;
+  --lv-color-chart-4: oklch(0.6231 0.1881 259.82);
   --lv-color-chart-5: #93c5fd;
+  --lv-color-chart-5: oklch(0.8091 0.0957 251.83);
 
   --lv-color-sidebar: #171717;
+  --lv-color-sidebar: oklch(0.2046 0 0);
   --lv-color-sidebar-fg: #fafafa;
+  --lv-color-sidebar-fg: oklch(0.9851 0 0);
   --lv-color-sidebar-border: #2e2e2e;
+  --lv-color-sidebar-border: oklch(0.3012 0 0);
   --lv-color-sidebar-accent: #262626;
+  --lv-color-sidebar-accent: oklch(0.2686 0 0);
   --lv-color-sidebar-accent-fg: #fafafa;
+  --lv-color-sidebar-accent-fg: oklch(0.9851 0 0);
 
   --lv-color-ring: #3b82f6;
+  --lv-color-ring: oklch(0.6231 0.1881 259.82);
 
   /* shadows read darker on a dark canvas */
   --lv-shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
