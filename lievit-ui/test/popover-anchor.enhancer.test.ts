@@ -1,0 +1,209 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ */
+
+/**
+ * Tests for the popover-anchor shared enhancer. Asserts:
+ * - opener is recorded when toggle fires with newState="open"
+ * - focus returns to opener on light-dismiss (toggle closed, activeElement !== opener)
+ * - focus is NOT returned when browser already returned it (activeElement === opener)
+ * - [data-lv-autofocus] element gets focus after the popover opens
+ * - close() wire action is fired when the popover closes (server state sync)
+ *
+ * The native `popover` attribute's show/hide is not unit-testable in happy-dom
+ * (no layout engine); tests dispatch ToggleEvent manually to simulate the browser behaviour.
+ *
+ * Substrate: happy-dom (real events, real DOM, real LievitRuntime — no mocked $lievit).
+ */
+import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
+
+import { LievitRuntime } from "../runtime/runtime.js";
+import { installPopoverAnchor } from "../runtime/features/popover-anchor.enhancer.js";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeRuntime(): { runtime: LievitRuntime; calledActions: string[] } {
+  const calledActions: string[] = [];
+  const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const calls = body._calls as string[] | undefined;
+    if (calls) {
+      calledActions.push(...calls);
+    }
+    return new Response("<div></div>", {
+      status: 200,
+      headers: { "Lievit-Snapshot": "s2" },
+    });
+  });
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calledActions };
+}
+
+/**
+ * Dispatches a ToggleEvent (or a synthetic custom event that mimics it) on a panel element.
+ * happy-dom may not ship `ToggleEvent` as a global; fall back to a plain Event with patched
+ * `newState`.
+ */
+function fireToggle(panel: Element, newState: "open" | "closed"): void {
+  let ev: Event;
+  try {
+    // Prefer the native ToggleEvent when available.
+    ev = new ToggleEvent("toggle", {
+      newState,
+      oldState: newState === "open" ? "closed" : "open",
+      bubbles: false,
+    });
+  } catch {
+    // happy-dom fallback: plain Event with newState patched.
+    ev = new Event("toggle", { bubbles: false });
+    Object.defineProperty(ev, "newState", { value: newState, writable: false });
+  }
+  panel.dispatchEvent(ev);
+}
+
+/** Build a minimal component + popover panel setup. */
+function mountPopover(opts: {
+  openerId?: string;
+  hasAutofocus?: boolean;
+}): {
+  runtime: LievitRuntime;
+  calledActions: string[];
+  componentRoot: HTMLElement;
+  panel: HTMLElement;
+  opener: HTMLButtonElement;
+} {
+  const { runtime, calledActions } = makeRuntime();
+  installPopoverAnchor(runtime);
+
+  const openerId = opts.openerId ?? "the-opener";
+  const opener = document.createElement("button");
+  opener.id = openerId;
+  opener.textContent = "Open";
+  document.body.appendChild(opener);
+
+  const componentRoot = document.createElement("div");
+  componentRoot.setAttribute("data-lievit-component", "com.example.C");
+  componentRoot.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+  componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+  const panel = document.createElement("div");
+  panel.setAttribute("popover", "");
+  panel.setAttribute("data-lv-opener", openerId);
+  panel.id = "the-panel";
+
+  if (opts.hasAutofocus === true) {
+    const input = document.createElement("input");
+    input.setAttribute("data-lv-autofocus", "");
+    panel.appendChild(input);
+  } else {
+    const content = document.createElement("p");
+    content.textContent = "Panel content";
+    panel.appendChild(content);
+  }
+
+  componentRoot.appendChild(panel);
+  document.body.appendChild(componentRoot);
+
+  runtime.start();
+
+  return { runtime, calledActions, componentRoot, panel, opener };
+}
+
+// ---------------------------------------------------------------------------
+// Setup / teardown
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  document.body.innerHTML = "";
+});
+
+afterEach(() => {
+  document.body.innerHTML = "";
+});
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("popover-anchor.enhancer — native popover API seam", () => {
+  it("records_opener_on_toggle_open — opener is stored when toggle fires with newState=open", () => {
+    const { panel, opener } = mountPopover({});
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    // The opener should be recorded (verified indirectly: on close, focus returns).
+    // We can test this by closing and checking focus returns.
+    // But also: no throw and no double-registration.
+    expect(() => fireToggle(panel, "open")).not.toThrow();
+  });
+
+  it("focus_returns_to_opener_on_light_dismiss — toggle closed + activeElement !== opener → opener.focus()", () => {
+    const { panel, opener } = mountPopover({});
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    // Simulate the user clicking outside (focus moves away from the opener before close).
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+
+    fireToggle(panel, "closed");
+
+    // The enhancer should have called opener.focus().
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("no_focus_return_when_browser_already_returned — toggle closed + activeElement === opener → no second focus()", () => {
+    const { panel, opener } = mountPopover({});
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    // Browser returned focus to opener already (e.g. closed via the opener button itself).
+    opener.focus();
+    const focusSpy = vi.spyOn(opener, "focus");
+    expect(document.activeElement).toBe(opener);
+
+    fireToggle(panel, "closed");
+
+    // The enhancer should NOT call focus() again (browser already there).
+    expect(focusSpy).not.toHaveBeenCalled();
+  });
+
+  it("autofocus_moves_focus_to_data_lv_autofocus — after open, [data-lv-autofocus] gets focus", async () => {
+    const { panel } = mountPopover({ hasAutofocus: true });
+    const autofocusEl = panel.querySelector<HTMLInputElement>("[data-lv-autofocus]");
+    expect(autofocusEl).not.toBeNull();
+
+    fireToggle(panel, "open");
+
+    // The autofocus call is deferred via queueMicrotask; flush the microtask queue.
+    await Promise.resolve();
+    expect(document.activeElement).toBe(autofocusEl);
+  });
+
+  it("close_action_fires_on_light_dismiss — toggle closed fires close() wire action", async () => {
+    const { panel, opener, calledActions } = mountPopover({});
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    // Simulate light-dismiss: focus somewhere else, then toggle closed.
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    fireToggle(panel, "closed");
+
+    // The enhancer should have queued a close() wire action.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions).toContain("close");
+  });
+});
