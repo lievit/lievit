@@ -36,7 +36,8 @@ describe("field.jte -- FieldError multi-error support", () => {
   });
 
   test("multi-error renders a <ul> with list-disc inside one role=alert region (deduped list)", () => {
-    expect(markup).toContain('id="${forId}-error"');
+    // v-next: id uses _fid (the resolved controlId ?? forId variable; coordinator JTE fix)
+    expect(markup).toContain('id="${_fid}-error"');
     expect(markup).toContain('role="alert"');
     expect(markup).toContain("list-disc");
     expect(markup).toContain("@for(String msg : errorList)");
@@ -48,7 +49,8 @@ describe("field.jte -- FieldError multi-error support", () => {
   });
 
   test("the single-String error path stays for back-compat (a <p> role=alert)", () => {
-    expect(markup).toContain('<p data-slot="field-error" id="${forId}-error" role="alert"');
+    // v-next: id uses _fid (the resolved controlId ?? forId variable)
+    expect(markup).toContain('<p data-slot="field-error" id="${_fid}-error" role="alert"');
     expect(markup).toContain("@elseif(hasSingleError)");
   });
 
@@ -128,42 +130,54 @@ describe("switch.jte -- size scale (v-next: px-based toolbar-aligned geometry)",
   });
 });
 
-describe("input-group.jte -- block-align + invalid", () => {
+describe("input-group.jte -- slot-based compose model (v-next re-forge)", () => {
+  // NOTE: The old block-align API (leadingAlign/trailingAlign, data-align, has-[block-start/end]
+  // selectors) was deliberately REMOVED in Wave 4. The new surface composes the control via a
+  // required `content` Content slot; addons/elements go into 4 flanking slots
+  // (leadingAddon, trailingAddon, leadingElement, trailingElement). The block-alignment feature
+  // is now the caller's responsibility via layout wrappers.
   const src = read("input-group.jte");
   const markup = markupOf("input-group.jte");
 
-  test("declares leadingAlign/trailingAlign + invalid params", () => {
-    expect(src).toMatch(/@param String leadingAlign = "inline-start"/);
-    expect(src).toMatch(/@param String trailingAlign = "inline-end"/);
+  test("core control comes through a required `content` Content slot (not a hardcoded <input>)", () => {
+    expect(src).toMatch(/@param gg\.jte\.Content content/);
+    expect(markup).toContain("${content}");
+    // No hardcoded inner <input> — the caller supplies the control
+    // (the old name/id/type/placeholder params for the inner input are gone)
+    expect(src).not.toMatch(/@param String name\b/);
+    expect(src).not.toMatch(/@param String placeholder\b/);
+  });
+
+  test("declares leadingAddon, trailingAddon, leadingElement, trailingElement slot params", () => {
+    expect(src).toMatch(/@param gg\.jte\.Content leadingAddon/);
+    expect(src).toMatch(/@param gg\.jte\.Content trailingAddon/);
+    expect(src).toMatch(/@param gg\.jte\.Content leadingElement/);
+    expect(src).toMatch(/@param gg\.jte\.Content trailingElement/);
+  });
+
+  test("role=group is CONDITIONAL on ariaLabel/ariaLabelledBy (WAI-ARIA grouping rule)", () => {
+    // A gratuitous role=group without an accessible name is a WAI-ARIA error;
+    // the new surface only emits it when a shared label is provided.
+    expect(src).toContain("ariaLabel");
+    expect(src).toContain("ariaLabelledBy");
+    expect(src).toContain("hasGroupLabel");
+    expect(markup).toContain('role="${hasGroupLabel ? "group" : null}"');
+    // Old unconditional role=group is gone (deliberate removal: the anti-pattern is corrected)
+  });
+
+  test("invalid state: aria-invalid + data-invalid on the group root + destructive --lv-ring token", () => {
+    // The invalid prop drives a destructive border + focus-within ring using the canonical
+    // --lv-ring-destructive token (not a hardcoded box-shadow string).
     expect(src).toMatch(/@param boolean invalid = false/);
-  });
-
-  test("each addon's data-align is driven by the param (not hardcoded inline-start/end)", () => {
-    expect(markup).toContain('data-align="${leadingAlign}"');
-    expect(markup).toContain('data-align="${trailingAlign}"');
-  });
-
-  test("the wrapper flips to a column + auto height when a block addon is present (shadcn has-[] selectors)", () => {
-    expect(markup).toContain("has-[>[data-align=block-start]]:flex-col");
-    expect(markup).toContain("has-[>[data-align=block-start]]:h-auto");
-    expect(markup).toContain("has-[>[data-align=block-end]]:flex-col");
-    expect(markup).toContain("has-[>[data-align=block-end]]:h-auto");
-  });
-
-  test("block addons take full width + the proper order (above/below)", () => {
-    expect(markup).toContain("data-[align=block-start]:order-first");
-    expect(markup).toContain("data-[align=block-start]:w-full");
-    expect(markup).toContain("data-[align=block-end]:order-last");
-    expect(markup).toContain("data-[align=block-end]:w-full");
-  });
-
-  test("invalid shows a destructive border + ring on the group + aria-invalid on the control", () => {
+    expect(markup).toContain('aria-invalid="${invalid ? "true" : null}"');
     expect(markup).toContain('data-invalid="${invalid ? "true" : null}"');
     expect(markup).toContain("data-[invalid=true]:border-[var(--lv-color-destructive)]");
-    expect(markup).toContain(
-      "data-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)]"
-    );
-    expect(markup).toContain('aria-invalid="${invalid ? "true" : null}"');
+    expect(markup).toContain("data-[invalid=true]:focus-within:shadow-[var(--lv-ring-destructive)]");
+  });
+
+  test("group root carries data-slot=input-group + data-size (hook for adopter CSS + tests)", () => {
+    expect(markup).toContain('data-slot="input-group"');
+    expect(markup).toContain('data-size="${size}"');
   });
 });
 

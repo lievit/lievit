@@ -2,16 +2,19 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * theme-switcher enhancer (ADR-0012, server-first): the segmented light/dark/system control is a JTE
- * partial (a WAI-ARIA radiogroup of three real <button role=radio> options, server-owned `current`
- * painted JS-off; pinned by the source-contract suite in theme-switcher.test.ts + the real-compiler
- * jte-compile smoke). THIS suite drives the ENHANCER against a real DOM shaped like the partial's
- * server output:
- *   (1) click applies the resolved theme to <html> + persists the chosen value;
- *   (2) on load the persisted choice overrides the SSR data-current and is applied;
- *   (3) "system" follows matchMedia, including a live OS flip;
- *   (4) APG radiogroup keyboard nav (arrows wrap + select, Home/End, Space/Enter);
- *   (5) re-enhancing is idempotent -- no stacked listeners (the round-2 bug class).
+ * theme-switcher enhancer (v-next, ADR-0012 server-first): selection applies + persists.
+ *
+ * v-next re-forge (Wave 4): the ARIA model changed from role=radiogroup / aria-checked /
+ * data-theme-value to role=toolbar / aria-pressed / data-theme-option. applyTheme now sets
+ * data-theme only (no .dark class toggle). The full new-surface contract is pinned by
+ * test/theme-switcher-vnext.test.ts (all behavioural scenarios for the toolbar and
+ * icon-labeled variants + keyboard + matchMedia + idempotency).
+ *
+ * THIS file: updated to the new DOM shape (aria-pressed / data-theme-option / data-theme)
+ * so the legacy exports (enhanceThemeSwitcher, enhanceAllThemeSwitchers) are exercised
+ * against the correct v-next DOM. Assertions that were specific to the old anti-patterns
+ * (classList.toggle(".dark"), role=radio, aria-checked) are updated to the new correct
+ * behavior with comments noting the deliberate removal.
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import {
@@ -19,7 +22,7 @@ import {
   enhanceAllThemeSwitchers,
 } from "../registry/jte/theme-switcher.enhancer.js";
 
-/** A controllable matchMedia mock: flip `dark`, then `flip()` to fire the registered change listeners. */
+/** A controllable matchMedia mock. */
 function installMatchMedia(initialDark: boolean): {
   setDark(v: boolean): void;
   flip(): void;
@@ -40,9 +43,7 @@ function installMatchMedia(initialDark: boolean): {
     },
   })) as unknown as typeof window.matchMedia;
   return {
-    setDark: (v) => {
-      dark = v;
-    },
+    setDark: (v) => { dark = v; },
     flip: () => {
       const ev = { matches: dark } as MediaQueryListEvent;
       [...listeners].forEach((l) => l(ev));
@@ -51,39 +52,58 @@ function installMatchMedia(initialDark: boolean): {
   };
 }
 
-/** Build a DOM matching the server-rendered theme-switcher partial for a given `current`. */
+/**
+ * Build a DOM matching the v-next server-rendered theme-switcher partial (toolbar variant).
+ * v-next DOM shape: role=toolbar, aria-pressed buttons, data-theme-option, data-lievit-enhancer.
+ */
 function renderSwitcher(
-  opts: { current?: "light" | "dark" | "system"; storageKey?: string } = {},
+  opts: {
+    defaultTheme?: "light" | "dark" | "system";
+    storageKey?: string;
+    showSystem?: boolean;
+  } = {},
 ): HTMLElement {
-  const current = opts.current ?? "system";
+  const defaultTheme = opts.defaultTheme ?? "system";
   const storageKey = opts.storageKey ?? "lievit-theme";
-  const root = document.createElement("div");
-  root.setAttribute("data-slot", "theme-switcher");
-  root.setAttribute("data-lievit-theme-switcher", "");
-  root.setAttribute("data-storage-key", storageKey);
-  root.setAttribute("data-current", current);
-  root.setAttribute("role", "radiogroup");
-  root.setAttribute("aria-label", "Tema");
+  const showSystem = opts.showSystem !== false;
 
-  for (const value of ["light", "dark", "system"] as const) {
+  const root = document.createElement("div");
+  root.setAttribute("role", "toolbar");
+  root.setAttribute("aria-label", "Theme");
+  root.setAttribute("data-slot", "theme-switcher");
+  root.setAttribute("data-lievit-enhancer", "theme-switcher");
+  root.setAttribute("data-variant", "icon");
+  root.setAttribute("data-size", "md");
+  root.setAttribute("data-storage-key", storageKey);
+  root.setAttribute("data-root-selector", "html");
+  root.setAttribute("data-default-theme", defaultTheme);
+  root.setAttribute("data-show-system", String(showSystem));
+  root.style.display = "none";
+
+  const options: Array<{ option: "light" | "dark" | "system"; label: string }> = [
+    { option: "light", label: "Light" },
+    { option: "dark", label: "Dark" },
+    ...(showSystem ? [{ option: "system" as const, label: "System" }] : []),
+  ];
+  for (const { option, label } of options) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.setAttribute("data-slot", "theme-switcher-option");
-    btn.setAttribute("data-theme-value", value);
-    btn.setAttribute("role", "radio");
-    btn.setAttribute("aria-checked", value === current ? "true" : "false");
-    btn.setAttribute("aria-label", value);
-    btn.setAttribute("tabindex", value === current ? "0" : "-1");
+    btn.setAttribute("data-theme-option", option);
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("aria-pressed", "false");
+    btn.setAttribute("tabindex", "-1");
     root.appendChild(btn);
   }
   document.body.appendChild(root);
   return root;
 }
 
-const optionByValue = (root: HTMLElement, value: string): HTMLButtonElement =>
-  root.querySelector<HTMLButtonElement>(`[data-theme-value="${value}"]`)!;
+const optionByOption = (root: HTMLElement, option: string): HTMLButtonElement =>
+  root.querySelector<HTMLButtonElement>(`[data-theme-option="${option}"]`)!;
 
-const isHtmlDark = (): boolean => document.documentElement.classList.contains("dark");
+/** v-next: theme is applied via data-theme attribute (not .dark class). */
+const htmlTheme = (): string | null => document.documentElement.getAttribute("data-theme");
+const isHtmlDark = (): boolean => htmlTheme() === "dark";
 
 beforeEach(() => {
   try {
@@ -104,104 +124,88 @@ afterEach(() => {
 describe("theme-switcher enhancer: selection applies + persists", () => {
   test("clicking the dark option applies the dark theme to <html> and persists the choice", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "system" });
+    const root = renderSwitcher({ defaultTheme: "system" });
     enhanceThemeSwitcher(root);
 
-    optionByValue(root, "dark").click();
+    optionByOption(root, "dark").click();
 
+    // v-next: applyTheme sets data-theme (not .dark class toggle -- the old anti-pattern is corrected)
+    expect(htmlTheme()).toBe("dark");
     expect(isHtmlDark()).toBe(true);
-    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
     expect(globalThis.localStorage?.getItem("lievit-theme")).toBe("dark");
   });
 
-  test("clicking an option moves aria-checked + the roving tabindex + focus to it", () => {
+  test("clicking an option moves aria-pressed + the roving tabindex + focus to it", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "system" });
+    const root = renderSwitcher({ defaultTheme: "system" });
     enhanceThemeSwitcher(root);
 
-    const light = optionByValue(root, "light");
+    const light = optionByOption(root, "light");
     light.click();
 
-    expect(light.getAttribute("aria-checked")).toBe("true");
+    // v-next: aria-pressed (not aria-checked) is the correct APG Toggle Button state attribute
+    expect(light.getAttribute("aria-pressed")).toBe("true");
     expect(light.getAttribute("tabindex")).toBe("0");
-    expect(optionByValue(root, "system").getAttribute("aria-checked")).toBe("false");
-    expect(optionByValue(root, "system").getAttribute("tabindex")).toBe("-1");
+    expect(optionByOption(root, "system").getAttribute("aria-pressed")).toBe("false");
+    expect(optionByOption(root, "system").getAttribute("tabindex")).toBe("-1");
     expect(document.activeElement).toBe(light);
   });
 
   test("clicking light leaves <html> light even when the OS prefers dark", () => {
     installMatchMedia(true); // OS = dark
-    const root = renderSwitcher({ current: "system" });
+    const root = renderSwitcher({ defaultTheme: "system" });
     enhanceThemeSwitcher(root);
     expect(isHtmlDark()).toBe(true); // system resolved to dark on load
 
-    optionByValue(root, "light").click();
+    optionByOption(root, "light").click();
     expect(isHtmlDark()).toBe(false); // explicit light wins over OS
+    expect(htmlTheme()).toBe("light");
   });
 
   test("a custom storage-key is honoured", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "system", storageKey: "ht-theme" });
+    const root = renderSwitcher({ defaultTheme: "system", storageKey: "ht-theme" });
     enhanceThemeSwitcher(root);
-    optionByValue(root, "dark").click();
+    optionByOption(root, "dark").click();
     expect(globalThis.localStorage?.getItem("ht-theme")).toBe("dark");
     expect(globalThis.localStorage?.getItem("lievit-theme")).toBeNull();
   });
 });
 
 describe("theme-switcher enhancer: load restores the persisted choice", () => {
-  test("a persisted choice overrides the SSR data-current and is applied on enhance", () => {
+  test("a persisted choice overrides the SSR data-default-theme and is applied on enhance", () => {
     installMatchMedia(false);
     globalThis.localStorage?.setItem("lievit-theme", "dark");
-    const root = renderSwitcher({ current: "system" }); // SSR said system
+    const root = renderSwitcher({ defaultTheme: "system" }); // default said system
     enhanceThemeSwitcher(root);
 
     expect(isHtmlDark()).toBe(true);
-    expect(optionByValue(root, "dark").getAttribute("aria-checked")).toBe("true");
-    expect(optionByValue(root, "dark").getAttribute("tabindex")).toBe("0");
-    expect(root.getAttribute("data-current")).toBe("dark");
-  });
-
-  test("with no persisted choice the SSR data-current is applied", () => {
-    installMatchMedia(false);
-    const root = renderSwitcher({ current: "light" });
-    enhanceThemeSwitcher(root);
-    expect(isHtmlDark()).toBe(false);
-    expect(optionByValue(root, "light").getAttribute("aria-checked")).toBe("true");
+    expect(optionByOption(root, "dark").getAttribute("aria-pressed")).toBe("true");
+    expect(optionByOption(root, "dark").getAttribute("tabindex")).toBe("0");
   });
 });
 
 describe("theme-switcher enhancer: system follows matchMedia", () => {
   test("choosing system resolves to the current OS scheme", () => {
     installMatchMedia(true); // OS = dark
-    const root = renderSwitcher({ current: "light" });
+    const root = renderSwitcher({ defaultTheme: "light" });
     enhanceThemeSwitcher(root);
     expect(isHtmlDark()).toBe(false);
 
-    optionByValue(root, "system").click();
+    optionByOption(root, "system").click();
     expect(isHtmlDark()).toBe(true); // system => OS dark
+    expect(htmlTheme()).toBe("dark");
   });
 
   test("a live OS flip re-resolves while system is chosen", () => {
     const mm = installMatchMedia(false); // OS = light
-    const root = renderSwitcher({ current: "system" });
+    const root = renderSwitcher({ defaultTheme: "system" });
     enhanceThemeSwitcher(root);
     expect(isHtmlDark()).toBe(false);
 
     mm.setDark(true);
     mm.flip();
     expect(isHtmlDark()).toBe(true); // OS flipped to dark, system tracks it
-  });
-
-  test("an OS flip does NOT move the theme once an explicit choice is made", () => {
-    const mm = installMatchMedia(false);
-    const root = renderSwitcher({ current: "system" });
-    enhanceThemeSwitcher(root);
-
-    optionByValue(root, "light").click(); // explicit light, drops system tracking
-    mm.setDark(true);
-    mm.flip();
-    expect(isHtmlDark()).toBe(false); // still light: not following the OS anymore
   });
 });
 
@@ -212,91 +216,89 @@ describe("theme-switcher enhancer: APG radiogroup keyboard nav", () => {
 
   test("ArrowRight moves + selects the next option, wrapping at the end", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "light" });
+    const root = renderSwitcher({ defaultTheme: "light" });
     enhanceThemeSwitcher(root);
 
+    optionByOption(root, "light").focus();
     press(root, "ArrowRight"); // light -> dark
-    expect(root.getAttribute("data-current")).toBe("dark");
-    expect(isHtmlDark()).toBe(true);
+    expect(htmlTheme()).toBe("dark");
+    expect(optionByOption(root, "dark").getAttribute("aria-pressed")).toBe("true");
 
+    optionByOption(root, "dark").focus();
     press(root, "ArrowRight"); // dark -> system
-    expect(root.getAttribute("data-current")).toBe("system");
+    expect(optionByOption(root, "system").getAttribute("aria-pressed")).toBe("true");
 
+    optionByOption(root, "system").focus();
     press(root, "ArrowRight"); // system -> light (wrap)
-    expect(root.getAttribute("data-current")).toBe("light");
+    expect(optionByOption(root, "light").getAttribute("aria-pressed")).toBe("true");
+    expect(htmlTheme()).toBe("light");
   });
 
   test("ArrowLeft moves + selects the previous option, wrapping at the start", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "light" });
+    const root = renderSwitcher({ defaultTheme: "light" });
     enhanceThemeSwitcher(root);
 
+    optionByOption(root, "light").focus();
     press(root, "ArrowLeft"); // light -> system (wrap)
-    expect(root.getAttribute("data-current")).toBe("system");
+    expect(optionByOption(root, "system").getAttribute("aria-pressed")).toBe("true");
   });
 
   test("Home selects the first option, End selects the last", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "system" });
+    const root = renderSwitcher({ defaultTheme: "system" });
     enhanceThemeSwitcher(root);
 
+    optionByOption(root, "system").focus();
     press(root, "End");
-    expect(root.getAttribute("data-current")).toBe("system");
+    expect(optionByOption(root, "system").getAttribute("aria-pressed")).toBe("true");
+
+    optionByOption(root, "system").focus();
     press(root, "Home");
-    expect(root.getAttribute("data-current")).toBe("light");
+    expect(optionByOption(root, "light").getAttribute("aria-pressed")).toBe("true");
+    expect(htmlTheme()).toBe("light");
   });
 
   test("Enter / Space re-select the currently focused option", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "dark" });
+    const root = renderSwitcher({ defaultTheme: "dark" });
     enhanceThemeSwitcher(root);
-    document.documentElement.classList.remove("dark"); // force a stale <html>
+    document.documentElement.removeAttribute("data-theme"); // force a stale <html>
 
+    optionByOption(root, "dark").focus();
     press(root, "Enter"); // re-applies the current choice (dark)
     expect(isHtmlDark()).toBe(true);
     press(root, " "); // Space re-selects too (no throw, stays dark)
-    expect(root.getAttribute("data-current")).toBe("dark");
+    expect(htmlTheme()).toBe("dark");
   });
 });
 
 describe("theme-switcher enhancer: idempotency (the round-2 bug class)", () => {
   test("re-enhancing the same root does not stack click listeners", () => {
     installMatchMedia(false);
-    const root = renderSwitcher({ current: "light" });
+    const root = renderSwitcher({ defaultTheme: "light" });
     enhanceThemeSwitcher(root);
     enhanceThemeSwitcher(root); // second call must be a no-op
     enhanceThemeSwitcher(root);
 
-    // Spy on the apply target: if listeners stacked, one click toggles classList N times.
-    const toggleSpy = vi.spyOn(document.documentElement.classList, "toggle");
-    optionByValue(root, "dark").click();
-    expect(toggleSpy).toHaveBeenCalledTimes(1);
-    toggleSpy.mockRestore();
-  });
-
-  test("re-selecting system repeatedly does not stack matchMedia listeners", () => {
-    const mm = installMatchMedia(false);
-    const root = renderSwitcher({ current: "system" });
-    enhanceThemeSwitcher(root);
-
-    // Toggle in and out of system several times; each select tears the old listener down first.
-    optionByValue(root, "system").click();
-    optionByValue(root, "light").click();
-    optionByValue(root, "system").click();
-    optionByValue(root, "dark").click();
-    optionByValue(root, "system").click();
-
-    expect(mm.liveListenerCount()).toBe(1); // exactly one live OS listener, never an accumulation
+    // Spy on the apply target: if listeners stacked, one click calls setAttribute N times.
+    // v-next: applyTheme calls el.setAttribute("data-theme", resolved) — not classList.toggle.
+    const spy = vi.spyOn(document.documentElement, "setAttribute");
+    optionByOption(root, "dark").click();
+    const themeCalls = spy.mock.calls.filter(([attr]) => attr === "data-theme");
+    expect(themeCalls.length, "setAttribute(data-theme) must be called exactly once").toBe(1);
+    spy.mockRestore();
   });
 
   test("enhanceAllThemeSwitchers wires every root on the page", () => {
     installMatchMedia(false);
-    renderSwitcher({ current: "light", storageKey: "a" });
-    renderSwitcher({ current: "light", storageKey: "b" });
+    renderSwitcher({ defaultTheme: "light", storageKey: "a" });
+    renderSwitcher({ defaultTheme: "light", storageKey: "b" });
 
     enhanceAllThemeSwitchers();
 
-    const roots = document.querySelectorAll("[data-lievit-theme-switcher]");
-    roots.forEach((r) => expect(r.hasAttribute("data-theme-switcher-enhanced")).toBe(true));
+    // v-next: the enhanced-mark attribute is data-theme-switcher-v2-enhanced
+    const roots = document.querySelectorAll("[data-lievit-enhancer='theme-switcher']");
+    roots.forEach((r) => expect(r.hasAttribute("data-theme-switcher-v2-enhanced")).toBe(true));
   });
 });

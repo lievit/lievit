@@ -1,7 +1,7 @@
 {
   "name": "input-group",
   "type": "registry:jte",
-  "description": "An input (or textarea) wrapped with leading and/or trailing addons (icon or text) inside one shared bordered box that focuses as a single control, shadcn's InputGroup: the group owns the focus ring while the inner control is borderless. Addons align inline-start/inline-end or stack block-start/block-end; an invalid flag shows the destructive border + ring. Ships the InputGroupTextarea variant for a multi-line control in the same group chrome.",
+  "description": "A fused-border group wrapper that composes one CORE form control (input, native-select, or any element) with optional leading/trailing addons and peer elements into one visually cohesive unit. The group is purely presentational: layout shell + shared border + focus-within ring; all state lives in the inner controls. Slots: content (required, the core control), leadingElement / trailingElement (full-peer controls with shared border), leadingAddon / trailingAddon (decorative or lightweight-interactive pieces on muted background). size is height-based (sm/md/lg) so the group aligns flush with buttons and inputs in a toolbar row. role=\"group\" is emitted only when ariaLabel or ariaLabelledBy is set (WAI-ARIA grouping rule). Invalid state: aria-invalid + destructive ring. No enhancer, no client state.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -10,14 +10,8 @@
       "type": "registry:jte",
       "target": "lievit/input-group.jte",
       "root": "jte"
-    },
-    {
-      "path": "jte/input-group/textarea.jte",
-      "type": "registry:jte",
-      "target": "lievit/input-group/textarea.jte",
-      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the input-group partial (+ its input-group/textarea variant) to your JTE root at lievit/input-group.jte, reached as @template.lievit.input-group(name=..., leading=@`...`, trailing=@`...`). size is height-based (sm/md/lg) so the group lines up with the form controls in a toolbar; leadingAlign/trailingAlign switch an addon between inline (inline-start/inline-end) and stacked (block-start/block-end); set invalid=true for the destructive error treatment, and model=... to bind the inner control via l:model. Use @template.lievit.input-group.textarea for a multi-line control in the same chrome. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "ring", "shadow", "opacity"],
+  "docs": "Copies the input-group partial to your JTE root at lievit/input-group.jte, reached as @template.lievit.input-group(...). The `content` slot (required) holds the core form control; `leadingAddon` / `trailingAddon` take decorative pieces (icons, text labels) with a muted background; `leadingElement` / `trailingElement` take full-peer controls (selects, buttons) that share the group border. size (sm/md/lg) is height-based so the group lines up with form controls in a toolbar row. Set ariaLabel or ariaLabelledBy when the group has a shared semantic label (triggers role=\"group\"); omit for single-field usage where the inner input has its own label. Set invalid=true for the destructive border + ring treatment."
 }

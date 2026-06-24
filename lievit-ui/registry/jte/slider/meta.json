@@ -1,7 +1,7 @@
 {
   "name": "slider",
   "type": "registry:jte",
-  "description": "A token-styled native <input type=range>. Carries the slider role, aria-valuemin/max/now and keyboard navigation for free; POSTs the numeric value, binds via l:model. Server-first replacement for the Lit island.",
+  "description": "APG Slider on a platform native input[type=range]. Single-thumb default, dual-thumb range mode, horizontal or vertical. Marks, value tooltip, disabled, aria-invalid. The slider.enhancer.ts handles --slider-pct sync, range clamp + ARIA constraint updates, and tooltip text on drag.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -12,6 +12,13 @@
       "root": "jte"
     }
   ],
+  "enhancer": "runtime/features/slider.enhancer.ts",
   "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the slider partial to your JTE root at lievit/slider.jte, reached as @template.lievit.slider(name=...). The native range input POSTs its numeric value under `name` (zero JS); bind to a wire field with `model`. The source is yours: edit freely."
+  "tokensNetNew": [
+    "--lv-space-1-5: track thickness md (~6px)",
+    "--lv-space-3-5: thumb diameter sm (~14px)",
+    "--lv-space-4-5: thumb diameter md (~18px)",
+    "--lv-space-5-5: thumb diameter lg (~22px)"
+  ],
+  "docs": "Copies the slider partial to your JTE root at lievit/slider.jte. The native range input is the accessible spine (role=slider + Arrow/Home/End keyboard for free). The optional slider.enhancer.ts keeps --slider-pct in sync and handles range-mode clamp + APG multithumb ARIA constraint updates. Single-thumb: pass value/min/max/step + ariaLabel. Range mode: set rangeMode=true + valueLow/valueHigh + ariaLabelLow/ariaLabelHigh. Marks: pass a List of Map(value,label). Tooltip: showTooltip=\"always|hover|never\"."
 }

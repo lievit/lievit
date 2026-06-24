@@ -152,13 +152,8 @@
           <div data-slot="login-field" class="flex flex-col gap-[var(--lv-space-2)]">
             <label for="${emailId}" class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]">Email</label>
             @template.lievit.input-group(
-              name = emailName,
-              id = emailId,
-              type = "email",
-              value = emailValue,
-              placeholder = "nome@esempio.it",
-              ariaLabel = "Email",
-              leading = @`@template.lievit.icon(name = "mail")`
+              leadingAddon = @`@template.lievit.icon(name = "mail")`,
+              content = @`@template.lievit.input(name = emailName, id = emailId, type = "email", value = emailValue, placeholder = "nome@esempio.it")`
             )
           </div>
 
@@ -170,11 +165,8 @@
               @endif
             </div>
             @template.lievit.input-group(
-              name = passwordName,
-              id = passwordId,
-              type = "password",
-              ariaLabel = "Password",
-              leading = @`@template.lievit.icon(name = "lock")`
+              leadingAddon = @`@template.lievit.icon(name = "lock")`,
+              content = @`@template.lievit.input(name = passwordName, id = passwordId, type = "password")`
             )
           </div>
 

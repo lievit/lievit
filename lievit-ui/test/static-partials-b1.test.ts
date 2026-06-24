@@ -281,30 +281,46 @@ describe("empty (#433)", () => {
 });
 
 describe("input-group (#434)", () => {
+  // v-next re-forge: the hardcoded inner <input> + name/id/type/placeholder/leading/trailing params
+  // were REMOVED. The new surface is a pure compose-the-control wrapper: the caller supplies the
+  // core form control (input, select, etc.) via the required `content` Content slot.
+  // Addons go into 4 flanking slots: leadingAddon, trailingAddon, leadingElement, trailingElement.
+  // role=group is now CONDITIONAL on ariaLabel/ariaLabelledBy (WAI-ARIA correctness rule).
   const src = read("input-group");
   test("real input + leading/trailing addon slots + the documented params", () => {
-    expect(src).toContain("@param String name");
-    expect(src).toContain("@param gg.jte.Content leading");
-    expect(src).toContain("@param gg.jte.Content trailing");
-    expect(src).toMatch(/<input/);
-    expect(src).toContain('data-slot="input-group-control"');
+    // v-next: no hardcoded inner input; control comes through the `content` Content slot.
+    // Addons/elements are leadingAddon, trailingAddon, leadingElement, trailingElement.
+    // Old `name` / `leading` / `trailing` params and data-slot=input-group-control are gone
+    // (the caller's control carries its own name; data-slot is now content/leading-addon/etc.).
+    expect(src).toMatch(/@param gg\.jte\.Content content/);
+    expect(src).toMatch(/@param gg\.jte\.Content leadingAddon/);
+    expect(src).toMatch(/@param gg\.jte\.Content trailingAddon/);
+    expect(src).toMatch(/@param gg\.jte\.Content leadingElement/);
+    expect(src).toMatch(/@param gg\.jte\.Content trailingElement/);
+    expect(src).toContain('data-slot="input-group"');
   });
-  test("a11y: role=group, the group owns the focus ring, inner input is ring/border-free", () => {
-    expect(src).toContain('role="group"');
+  test("a11y: role=group is CONDITIONAL (only with ariaLabel/ariaLabelledBy); group owns focus ring", () => {
+    // WAI-ARIA: role=group without an accessible name is an error; the new surface only
+    // emits role=group when the caller provides a shared label (compound group use-case).
+    // A single-field group is correctly a plain <div> labelled via the inner input's own label.
+    expect(src).toContain("ariaLabel");
+    expect(src).toContain("ariaLabelledBy");
+    expect(src).toContain("hasGroupLabel");
+    // focus-within ring wraps the whole group (not each inner control)
     expect(src).toContain("focus-within:border-[var(--lv-color-ring)]");
     expect(src).toContain("focus-within:shadow-[var(--lv-ring)]");
-    expect(src).toMatch(/border-0/);
-    expect(src).toContain("focus-visible:outline-none");
   });
-  test("label binds to the real input via id (default = name)", () => {
-    expect(src).toContain('id="${inputId}"');
-    expect(src).toContain('name="${name}"');
+  test("label binds to the real input via id (the caller's control carries its own id)", () => {
+    // v-next: the group does not assign an id to an inner input (it has no inner input).
+    // The caller's <input> carries its own id for label binding.
+    // The group exposes ariaDescribedBy to wire hint/error regions onto the root.
+    expect(src).toContain("ariaDescribedBy");
+    expect(src).toContain('aria-describedby="${ariaDescribedBy}"');
   });
-  test("md height baseline is the shadcn h-9 (--lv-space-9, 36px), sm/lg flank it at 32/40", () => {
-    // shadcn fidelity (#463 ④): control baseline is h-9; md=space-9, sm=space-8, lg=space-10.
-    expect(src).toMatch(/default\s*->\s*"h-\[var\(--lv-space-9\)\]"/);
-    expect(src).toMatch(/case "sm" -> "h-\[var\(--lv-space-8\)\]"/);
-    expect(src).toMatch(/case "lg" -> "h-\[var\(--lv-space-10\)\]"/);
-    expect(src).not.toContain("--lv-space-12");
+  test("md height baseline is --lv-space-9 (36px), sm/lg flank it at space-8/space-10 via addon height", () => {
+    // Addon height (not a container height class) enforces the toolbar-aligned baseline.
+    expect(src).toContain("lv-space-9");
+    expect(src).toContain("lv-space-8");
+    expect(src).toContain("lv-space-10");
   });
 });

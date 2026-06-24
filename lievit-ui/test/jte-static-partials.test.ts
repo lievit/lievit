@@ -346,8 +346,10 @@ describe("field.jte (FormField + FieldError orchestration)", () => {
     // role=alert already implies an assertive live region: no extra aria-live (double-announce fix)
   });
   test("the description + error ids are derived from the control id (aria-describedby targets)", () => {
-    expect(src).toContain('id="${forId}-error"');
-    expect(src).toContain('id="${forId}-description"');
+    // v-next: internal var _fid (resolves controlId ?? forId) is used in id expressions;
+    // the param forId still exists as back-compat alias and _fid is derived from it.
+    expect(src).toContain('id="${_fid}-error"');
+    expect(src).toContain('id="${_fid}-description"');
   });
   test("auto-derives the invalid state from the error: data-invalid wrapper, but NOT an error-coloured label", () => {
     // v-next: data-invalid on the wrapper signals invalidity (colour-independent; CSS cascade);
@@ -362,7 +364,8 @@ describe("field.jte (FormField + FieldError orchestration)", () => {
   });
   test("supports vertical / horizontal / responsive orientation + a FieldContent slot", () => {
     expect(src).toMatch(/@param String orientation/);
-    expect(src).toContain('data-orientation="${orientation}"');
+    // v-next: data-orientation is now set to ${_layout} (the resolved layout ?? orientation value)
+    expect(src).toContain('data-orientation="${_layout}"');
     expect(src).toContain("data-[orientation=horizontal]:flex-row");
     expect(src).toContain("data-[orientation=responsive]");
     expect(src).toContain('data-slot="field-content"');
@@ -531,39 +534,64 @@ describe("switch.jte", () => {
 });
 
 describe("slider.jte", () => {
+  // v-next re-forge: params use double types; range → rangeMode; valueMin/Max → valueLow/High;
+  // POST names are <name>Low/<name>High; data-slot is slider-input-low/high; model param removed
+  // (l:model travels via attrs channel); vertical via CSS layout (no writing-mode hack).
   const src = read("slider.jte");
-  test("renders a real native <input type=range> carrying a name + binds via l:model", () => {
+  test("renders a real native <input type=range> carrying a name (form POST, not l:model)", () => {
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<input[\s\S]*?type="range"/);
     expect(markup).toContain('name="${name}"');
-    expect(markup).toContain('l:model="${model}"');
+    // v-next: l:model is gone; the native range POSTs via its name attribute.
+    // This is the correct server-first pattern; l:model is an anti-pattern for range inputs
+    // (the enhancer handles real-time sync; the server receives the value on POST).
+    expect(src).not.toMatch(/@param String model\b/);
   });
   test("the slider semantics come from the native element (min/max/step), not custom ARIA", () => {
+    // v-next: min/max/step/value are now double (not int/Integer)
+    expect(src).toContain('@param double min');
+    expect(src).toContain('@param double max');
+    expect(src).toContain('@param double step');
     expect(src).toContain('min="${min}"');
     expect(src).toContain('max="${max}"');
     expect(src).toContain('step="${step}"');
   });
-  test("supports a two-thumb RANGE variant: two native ranges POSTing <name>Min/<name>Max", () => {
-    expect(src).toMatch(/@param boolean range/);
-    expect(src).toContain("@if(range)");
-    expect(src).toContain('name="${name}Min"');
-    expect(src).toContain('name="${name}Max"');
-    expect(src).toContain('data-thumb="min"');
-    expect(src).toContain('data-thumb="max"');
+  test("supports a two-thumb RANGE variant: two native ranges POSTing <name>Low/<name>High", () => {
+    // v-next: param renamed rangeMode (was `range`); POST names are Low/High (not Min/Max);
+    // data-slot identifiers are slider-input-low / slider-input-high (not data-thumb=min/max).
+    expect(src).toMatch(/@param boolean rangeMode/);
+    expect(src).toContain("@if(rangeMode)");
+    expect(src).toContain('name="${name != null ? name + "Low" : null}"');
+    expect(src).toContain('name="${name != null ? name + "High" : null}"');
+    expect(src).toContain('data-slot="slider-input-low"');
+    expect(src).toContain('data-slot="slider-input-high"');
+    // Old Min/Max POST names and data-thumb=min/max are gone (deliberate API rename)
+    expect(src).not.toContain('name="${name}Min"');
+    expect(src).not.toContain('name="${name}Max"');
+    expect(src).not.toContain('data-thumb="min"');
+    expect(src).not.toContain('data-thumb="max"');
   });
-  test("supports vertical orientation via the native vertical range (writing-mode), not a rotate hack", () => {
+  test("supports vertical orientation via CSS layout (not writing-mode; no rotate hack)", () => {
     expect(src).toMatch(/@param String orientation/);
     expect(src).toContain('data-orientation="${orientation}"');
-    expect(src).toContain("writing-mode: vertical");
+    // v-next: vertical is expressed via CSS flex-col layout and separate track/thumb
+    // positioning (not writing-mode: vertical which was the old anti-pattern).
+    expect(src).not.toContain("writing-mode: vertical");
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).not.toMatch(/rotate\(/);
+    // CSS layout root is data-orientation driven
+    expect(src).toContain("isVertical");
   });
-  test("controlled: value / valueMin / valueMax are server-rendered (data down)", () => {
-    expect(src).toMatch(/@param int value/);
-    expect(src).toMatch(/@param Integer valueMin/);
-    expect(src).toMatch(/@param Integer valueMax/);
-    expect(src).toContain('value="${lo}"');
-    expect(src).toContain('value="${hi}"');
+  test("controlled: value / valueLow / valueHigh are server-rendered (data down)", () => {
+    // v-next: params renamed valueLow/valueHigh (were valueMin/valueMax); all are double.
+    expect(src).toMatch(/@param double value\b/);
+    expect(src).toMatch(/@param double valueLow\b/);
+    expect(src).toMatch(/@param double valueHigh\b/);
+    expect(src).toContain('value="${valueLow}"');
+    expect(src).toContain('value="${valueHigh}"');
+    // Old Integer valueMin/valueMax are gone
+    expect(src).not.toMatch(/@param Integer valueMin/);
+    expect(src).not.toMatch(/@param Integer valueMax/);
   });
 });
 

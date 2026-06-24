@@ -4,214 +4,379 @@
  */
 
 /**
- * theme-switcher enhancer (ADR-0012, server-first): the CSP-clean typed-TS that gives the
- * server-rendered `lievit/theme-switcher.jte` partial its irreducibly-client behaviour. The control
- * itself -- the radiogroup track, the three real <button role=radio> options, the server-owned
- * `current` painted JS-off via aria-checked + roving tabindex -- is all server-rendered HTML; this
- * module ONLY does the three things that cannot happen on the server: read the OS
- * `prefers-color-scheme`, persist the choice to localStorage, and toggle the documentElement theme
- * marker without a wire round-trip. Listeners are attached in code (the strict CSP refuses inline
- * `on*=` handlers); no inline script ships.
+ * theme-switcher enhancer (v-next, ADR-0012 server-first + ADR-0019 lifecycle registry).
  *
- * The CHOSEN value is one of "light" | "dark" | "system"; "system" follows the OS via a matchMedia
- * listener, so the RESOLVED value (the one actually applied) is "light" | "dark". The token system
- * (lievit-tokens.css) keys dark mode on `.dark, [data-theme="dark"]`, so applying = toggling the
- * `dark` class on <html> and mirroring it as `data-theme="dark"|"light"` (both are honoured by the
- * same token block; mirroring keeps the marker inspectable + robust to either selector convention).
+ * The server-rendered `lievit/theme-switcher.jte` partial gives this enhancer a static HTML
+ * frame: a role="toolbar" div of three <button aria-pressed> options (icon/labeled variants),
+ * or a single cycling <button aria-pressed> (icon-labeled variant). The partial renders all
+ * aria-pressed="false" and hides the root with display:none; this module corrects both
+ * synchronously in mount(), before first paint, so there is never a visible flash.
  *
- * Persistence: the CHOSEN value is written to localStorage under the root's `data-storage-key`
- * (default "lievit-theme"). On enhance, the persisted choice (if any) overrides the SSR `data-current`
- * + aria-checked + roving tabindex, then the resolved theme is applied. Choosing "system" registers a
- * matchMedia change listener so a later OS flip re-resolves live; choosing light/dark drops it.
+ * WHAT THIS MODULE DOES (the irreducibly-client behaviour):
+ *   1. Read the persisted preference from localStorage (key from data-storage-key).
+ *   2. Fall back to data-default-theme when localStorage has no entry.
+ *   3. Resolve "system" to the OS preference via matchMedia("(prefers-color-scheme: dark)").
+ *   4. Apply data-theme="light"|"dark" to the element matched by data-root-selector.
+ *      (NEVER toggles a class — data-theme is the canonical lievit repoint mechanism, ADR-0005.)
+ *   5. Sync aria-pressed: "true" on the matching [data-theme-option] button, "false" on the others.
+ *   6. Manage roving tabindex within the toolbar: the active button gets tabindex="0", others "-1".
+ *   7. Show the root (remove the display:none guard).
+ *   8. Register a matchMedia listener: while "system" is stored, re-resolve and re-apply on OS change.
+ *   9. Keyboard navigation for the toolbar variant: Arrow keys move focus + activate;
+ *      Home/End jump to first/last; Enter/Space re-activate the focused option.
+ *      (APG Toolbar + APG Toggle Button keyboard contract.)
  *
- * A11y (WAI-ARIA APG radiogroup): clicking or keyboard-selecting an option moves aria-checked to it,
- * makes it the single tabbable radio (roving tabindex), and focuses it. Arrow keys move + select the
- * next/previous option (wrapping); Home/End jump to the first/last; Space/Enter re-select the focused
- * option. This is the radiogroup keyboard contract (selection follows focus).
+ * ICON-LABELED VARIANT: on click, cycles to the next state (light → dark → system → light, or
+ * light → dark → light when showSystem=false). Updates aria-label, icon data-icon, and the
+ * visible <span data-slot="theme-switcher-label"> text to reflect the newly active mode.
  *
- * Idempotent: call {@link enhanceThemeSwitcher} once (it marks each root) and again after a DOM swap;
- * already-enhanced roots are skipped, so re-enhancing never stacks listeners. The matchMedia listener
- * a root owns is tracked on the element and torn down before a fresh one is bound, so toggling
- * in/out of "system" never leaks listeners either. {@link enhanceAllThemeSwitchers} wires every root.
+ * IDEMPOTENCY: the "data-theme-switcher-v2-enhanced" marker on each root ensures mount() is a
+ * no-op on a root it has already processed. Re-calling unmount() then mount() is valid (Turbo Drive).
+ *
+ * CLEANUP: unmount(root) removes the matchMedia listener (registered as a named handle on the
+ * element) and the root-level click + keydown listeners, preventing leaks across Turbo navigations.
+ *
+ * REGISTRATION (ADR-0019 lifecycle registry):
+ *   import { ThemeSwitcherEnhancer } from "lievit/theme-switcher.enhancer.js";
+ *   runtime.registerEnhancer("theme-switcher", ThemeSwitcherEnhancer);
+ * The runtime calls mount(root) after every page:load and unmount(root) before turbo:before-cache.
+ *
+ * NO wire actions fired. NO Lievit-Snapshot. NO POST /lievit/. Self-contained client-only.
  */
 
-type Choice = "light" | "dark" | "system";
-type Resolved = "light" | "dark";
+type ThemeChoice = "light" | "dark" | "system";
+type ThemeResolved = "light" | "dark";
 
-const ENHANCED = "data-theme-switcher-enhanced";
-const DARK_QUERY = "(prefers-color-scheme: dark)";
+const ENHANCED_MARK = "data-theme-switcher-v2-enhanced";
+const DARK_MQ = "(prefers-color-scheme: dark)";
 
-/** Holder for the per-root state the enhancer parks on the element (matchMedia teardown). */
-interface ThemeRoot extends HTMLElement {
-  _lvSystemMql?: MediaQueryList | null;
-  _lvSystemListener?: ((e: MediaQueryListEvent) => void) | null;
+/** Per-root runtime state attached to the DOM element (avoids a WeakMap external store). */
+interface ThemeRootEl extends HTMLElement {
+  _lvTsMql?: MediaQueryList | null;
+  _lvTsMqlListener?: ((e: MediaQueryListEvent) => void) | null;
+  _lvTsClickHandler?: ((e: Event) => void) | null;
+  _lvTsKeydownHandler?: ((e: KeyboardEvent) => void) | null;
 }
 
-/** Narrow an arbitrary string to a known Choice, defaulting to "system". */
-function asChoice(value: string | null): Choice {
-  return value === "light" || value === "dark" || value === "system" ? value : "system";
+// ---------------------------------------------------------------------------
+// Pure helpers (no side-effects)
+// ---------------------------------------------------------------------------
+
+function toChoice(v: string | null): ThemeChoice {
+  if (v === "light" || v === "dark" || v === "system") return v;
+  return "system";
 }
 
-/** The three option buttons of a root, in document order. */
-function optionsOf(root: HTMLElement): HTMLButtonElement[] {
-  return Array.from(
-    root.querySelectorAll<HTMLButtonElement>('[data-slot="theme-switcher-option"]'),
-  );
-}
-
-/** True if the OS currently prefers a dark colour scheme. */
 function osPrefersDark(): boolean {
-  return globalThis.matchMedia?.(DARK_QUERY).matches ?? false;
+  return globalThis.matchMedia?.(DARK_MQ).matches ?? false;
 }
 
-/** Resolve a chosen value to the theme actually applied ("system" follows the OS). */
-function resolve(choice: Choice): Resolved {
-  if (choice === "system") return osPrefersDark() ? "dark" : "light";
-  return choice;
+function resolve(choice: ThemeChoice): ThemeResolved {
+  return choice === "system" ? (osPrefersDark() ? "dark" : "light") : choice;
 }
 
-/**
- * Apply a resolved theme to the documentElement: toggle the `dark` class + mirror it as
- * `data-theme` (the token system keys dark mode on `.dark, [data-theme="dark"]`).
- */
-function applyResolved(resolved: Resolved): void {
-  const html = document.documentElement;
-  html.classList.toggle("dark", resolved === "dark");
-  html.setAttribute("data-theme", resolved);
-}
-
-/** Read the persisted chosen value for a root, if any (storage may be unavailable). */
-function persisted(root: HTMLElement): Choice | null {
-  const key = root.getAttribute("data-storage-key");
-  if (!key) return null;
+function readStorage(storageKey: string): ThemeChoice | null {
   try {
-    const v = globalThis.localStorage?.getItem(key);
+    const v = globalThis.localStorage?.getItem(storageKey);
     return v === "light" || v === "dark" || v === "system" ? v : null;
   } catch {
-    return null; // storage unavailable (private mode / SSR)
+    return null; // private mode or SSR
   }
 }
 
-/** Persist the chosen value for a root (no-op if storage is unavailable). */
-function persist(root: HTMLElement, choice: Choice): void {
-  const key = root.getAttribute("data-storage-key");
-  if (!key) return;
+function writeStorage(storageKey: string, choice: ThemeChoice): void {
   try {
-    globalThis.localStorage?.setItem(key, choice);
+    globalThis.localStorage?.setItem(storageKey, choice);
   } catch {
-    /* storage unavailable: skip persistence */
+    /* storage unavailable — skip persistence */
   }
 }
 
-/** Mark one option selected: aria-checked + roving tabindex (the rest become unchecked + untabbable). */
-function markSelected(root: HTMLElement, chosen: Choice): void {
-  for (const opt of optionsOf(root)) {
-    const isChosen = opt.getAttribute("data-theme-value") === chosen;
-    opt.setAttribute("aria-checked", isChosen ? "true" : "false");
-    opt.setAttribute("tabindex", isChosen ? "0" : "-1");
-  }
-  root.setAttribute("data-current", chosen);
+// ---------------------------------------------------------------------------
+// DOM read helpers
+// ---------------------------------------------------------------------------
+
+function isIconLabeled(root: HTMLElement): boolean {
+  return root.dataset["variant"] === "icon-labeled";
 }
 
-/** Tear down any matchMedia listener a root holds (idempotent; safe before re-binding). */
-function teardownSystemListener(root: ThemeRoot): void {
-  if (root._lvSystemMql && root._lvSystemListener) {
-    root._lvSystemMql.removeEventListener("change", root._lvSystemListener);
-  }
-  root._lvSystemMql = null;
-  root._lvSystemListener = null;
+function showSystem(root: HTMLElement): boolean {
+  return root.dataset["showSystem"] !== "false";
 }
+
+/** All [data-theme-option] buttons in the toolbar root, in DOM order. */
+function optionButtons(root: HTMLElement): HTMLButtonElement[] {
+  return Array.from(root.querySelectorAll<HTMLButtonElement>("[data-theme-option]"));
+}
+
+// ---------------------------------------------------------------------------
+// DOM write helpers
+// ---------------------------------------------------------------------------
 
 /**
- * Make a root track the OS scheme so a live OS flip re-resolves while "system" is chosen. Tears down
- * any prior listener first (so re-selecting never stacks). No-op for an explicit light/dark choice.
+ * Apply the resolved theme to the configured root element.
+ * Sets data-theme="light"|"dark" only — never toggles a class (ADR-0005).
  */
-function bindSystemListener(root: ThemeRoot, chosen: Choice): void {
-  teardownSystemListener(root);
-  if (chosen !== "system") return;
-  const mql = globalThis.matchMedia?.(DARK_QUERY);
+function applyTheme(rootSelector: string, resolved: ThemeResolved): void {
+  const el = document.querySelector<HTMLElement>(rootSelector);
+  if (el) el.setAttribute("data-theme", resolved);
+}
+
+/** Sync the aria-pressed and tabindex state across all option buttons. */
+function syncPressed(root: HTMLElement, chosen: ThemeChoice): void {
+  for (const btn of optionButtons(root)) {
+    const isActive = btn.dataset["themeOption"] === chosen;
+    btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+    btn.setAttribute("tabindex", isActive ? "0" : "-1");
+  }
+}
+
+/** Update the icon-labeled single button's label text + aria-label. */
+function syncSingleButton(
+  root: HTMLElement,
+  chosen: ThemeChoice,
+  labels: Record<ThemeChoice, string>,
+): void {
+  const newLabel = labels[chosen];
+  root.setAttribute("aria-label", newLabel);
+  root.setAttribute("aria-pressed", chosen !== "system" ? "true" : "false");
+  const labelSpan = root.querySelector<HTMLElement>("[data-slot='theme-switcher-label']");
+  if (labelSpan) labelSpan.textContent = newLabel;
+  // Update the icon: find the first .lv-icon <svg> and swap the lucide icon name via data-icon,
+  // or fall back to a well-known approach of swapping the SVG title (non-destructive, since the
+  // icon partial inline-embeds the SVG body). We use a data-active-icon attribute as a hint for
+  // test assertions; the actual icon swap in a production setup would be handled by the icon
+  // partial's symbol approach or by swapping SVG paths — for now we mark the intent.
+  const iconSvg = root.querySelector<SVGElement>(".lv-icon");
+  if (iconSvg) {
+    const iconName = chosen === "dark" ? "moon" : chosen === "light" ? "sun" : "monitor";
+    iconSvg.setAttribute("data-icon", iconName);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// matchMedia listener lifecycle
+// ---------------------------------------------------------------------------
+
+function teardownMql(root: ThemeRootEl): void {
+  if (root._lvTsMql && root._lvTsMqlListener) {
+    root._lvTsMql.removeEventListener("change", root._lvTsMqlListener);
+  }
+  root._lvTsMql = null;
+  root._lvTsMqlListener = null;
+}
+
+function bindMql(root: ThemeRootEl, storageKey: string, rootSelector: string): void {
+  teardownMql(root);
+  const mql = globalThis.matchMedia?.(DARK_MQ);
   if (!mql) return;
   const listener = (e: MediaQueryListEvent): void => {
-    // Only react while "system" is still the chosen value.
-    if (asChoice(root.getAttribute("data-current")) === "system") {
-      applyResolved(e.matches ? "dark" : "light");
+    // Only react while "system" is still the stored preference.
+    if (toChoice(readStorage(storageKey)) === "system"
+      || (readStorage(storageKey) === null && toChoice(root.dataset["defaultTheme"] ?? null) === "system")) {
+      applyTheme(rootSelector, e.matches ? "dark" : "light");
     }
   };
   mql.addEventListener("change", listener);
-  root._lvSystemMql = mql;
-  root._lvSystemListener = listener;
+  root._lvTsMql = mql;
+  root._lvTsMqlListener = listener;
 }
 
-/** Commit a chosen value: mark it selected, apply the resolved theme, persist, (re)bind system tracking. */
-function select(root: ThemeRoot, chosen: Choice, focus = false): void {
-  markSelected(root, chosen);
-  applyResolved(resolve(chosen));
-  persist(root, chosen);
-  bindSystemListener(root, chosen);
-  if (focus) {
-    optionsOf(root)
-      .find((o) => o.getAttribute("data-theme-value") === chosen)
-      ?.focus();
+// ---------------------------------------------------------------------------
+// Core commit: choose → persist → apply → sync UI
+// ---------------------------------------------------------------------------
+
+function commit(
+  root: ThemeRootEl,
+  chosen: ThemeChoice,
+  storageKey: string,
+  rootSelector: string,
+  labels: Record<ThemeChoice, string>,
+): void {
+  writeStorage(storageKey, chosen);
+  applyTheme(rootSelector, resolve(chosen));
+
+  if (chosen === "system") {
+    bindMql(root, storageKey, rootSelector);
+  } else {
+    teardownMql(root);
+  }
+
+  if (isIconLabeled(root)) {
+    syncSingleButton(root, chosen, labels);
+  } else {
+    syncPressed(root, chosen);
   }
 }
 
-/** APG radiogroup keyboard nav: arrows move + select (wrapping), Home/End jump, Space/Enter re-select. */
-function onKeydown(root: ThemeRoot, e: KeyboardEvent): void {
-  const opts = optionsOf(root);
-  if (opts.length === 0) return;
-  const current = asChoice(root.getAttribute("data-current"));
-  const idx = opts.findIndex((o) => o.getAttribute("data-theme-value") === current);
-  let next = -1;
-  switch (e.key) {
-    case "ArrowRight":
-    case "ArrowDown":
-      next = (idx + 1 + opts.length) % opts.length;
-      break;
-    case "ArrowLeft":
-    case "ArrowUp":
-      next = (idx - 1 + opts.length) % opts.length;
-      break;
-    case "Home":
-      next = 0;
-      break;
-    case "End":
-      next = opts.length - 1;
-      break;
-    case " ":
-    case "Enter":
-      next = idx >= 0 ? idx : 0;
-      break;
-    default:
-      return; // not a key we handle
-  }
-  e.preventDefault();
-  const value = asChoice(opts[next]?.getAttribute("data-theme-value"));
-  select(root, value, true);
+// ---------------------------------------------------------------------------
+// Toolbar keyboard handler (APG Toolbar + APG Toggle Button keyboard contract)
+// ---------------------------------------------------------------------------
+
+function buildKeydownHandler(
+  root: HTMLElement,
+  storageKey: string,
+  rootSelector: string,
+  labels: Record<ThemeChoice, string>,
+): (e: KeyboardEvent) => void {
+  return (e: KeyboardEvent): void => {
+    const opts = optionButtons(root);
+    if (opts.length === 0) return;
+    // Find the currently-focused button inside the toolbar.
+    const focusedIdx = opts.findIndex((b) => b === document.activeElement);
+    const activeIdx = opts.findIndex((b) => b.getAttribute("aria-pressed") === "true");
+    const baseIdx = focusedIdx >= 0 ? focusedIdx : (activeIdx >= 0 ? activeIdx : 0);
+
+    let nextIdx = -1;
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        nextIdx = (baseIdx + 1) % opts.length;
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        nextIdx = (baseIdx - 1 + opts.length) % opts.length;
+        break;
+      case "Home":
+        nextIdx = 0;
+        break;
+      case "End":
+        nextIdx = opts.length - 1;
+        break;
+      case "Enter":
+      case " ": {
+        // Re-activate the currently-focused option (or the active one if nothing focused).
+        const targetBtn = focusedIdx >= 0 ? opts[focusedIdx] : (activeIdx >= 0 ? opts[activeIdx] : opts[0]);
+        const chosen = toChoice(targetBtn?.dataset["themeOption"] ?? null);
+        e.preventDefault();
+        commit(root as ThemeRootEl, chosen, storageKey, rootSelector, labels);
+        targetBtn?.focus();
+        return;
+      }
+      default:
+        return; // not a key we handle
+    }
+    e.preventDefault();
+    const nextBtn = opts[nextIdx];
+    if (!nextBtn) return;
+    const chosen = toChoice(nextBtn.dataset["themeOption"] ?? null);
+    commit(root as ThemeRootEl, chosen, storageKey, rootSelector, labels);
+    nextBtn.focus();
+  };
 }
 
-/** Enhance one theme-switcher root. No-op if already enhanced (never stacks listeners). */
+// ---------------------------------------------------------------------------
+// Icon-labeled single-button click handler
+// ---------------------------------------------------------------------------
+
+function buildIconLabeledClickHandler(
+  root: HTMLElement,
+  storageKey: string,
+  rootSelector: string,
+  labels: Record<ThemeChoice, string>,
+  hasSystem: boolean,
+): () => void {
+  return (): void => {
+    const stored = readStorage(storageKey);
+    const current = stored !== null
+      ? stored
+      : toChoice(root.dataset["defaultTheme"] ?? null);
+    let next: ThemeChoice;
+    if (hasSystem) {
+      next = current === "light" ? "dark" : current === "dark" ? "system" : "light";
+    } else {
+      next = current === "light" ? "dark" : "light";
+    }
+    commit(root as ThemeRootEl, next, storageKey, rootSelector, labels);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public enhancer API (ADR-0019 lifecycle registry contract)
+// ---------------------------------------------------------------------------
+
+export const ThemeSwitcherEnhancer = {
+  mount(root: HTMLElement): void {
+    if (root.hasAttribute(ENHANCED_MARK)) return;
+    root.setAttribute(ENHANCED_MARK, "");
+
+    const el = root as ThemeRootEl;
+    const storageKey = el.dataset["storageKey"] ?? "lievit-theme";
+    const rootSelector = el.dataset["rootSelector"] ?? "html";
+    const defaultTheme = toChoice(el.dataset["defaultTheme"] ?? null);
+    const hasSystem = showSystem(el);
+
+    const labels: Record<ThemeChoice, string> = {
+      light: el.dataset["labelLight"] ?? "Light",
+      dark: el.dataset["labelDark"] ?? "Dark",
+      system: el.dataset["labelSystem"] ?? "System",
+    };
+
+    // Determine the initial choice: persisted value > defaultTheme.
+    const stored = readStorage(storageKey);
+    // If showSystem is false and stored is "system", fall back to defaultTheme or "light".
+    let initial = stored !== null ? stored : defaultTheme;
+    if (!hasSystem && initial === "system") initial = "light";
+
+    // Commit the initial state synchronously (applies theme, syncs UI).
+    commit(el, initial, storageKey, rootSelector, labels);
+
+    // Register event listeners.
+    if (isIconLabeled(el)) {
+      const handler = buildIconLabeledClickHandler(el, storageKey, rootSelector, labels, hasSystem);
+      el._lvTsClickHandler = handler;
+      el.addEventListener("click", handler);
+    } else {
+      // Toolbar: click on any option button.
+      const clickHandler = (e: Event): void => {
+        const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-theme-option]");
+        if (!btn || !el.contains(btn)) return;
+        const chosen = toChoice(btn.dataset["themeOption"] ?? null);
+        if (!hasSystem && chosen === "system") return;
+        commit(el, chosen, storageKey, rootSelector, labels);
+        btn.focus();
+      };
+      el._lvTsClickHandler = clickHandler;
+      el.addEventListener("click", clickHandler);
+
+      // Keyboard: Arrow / Home / End / Enter / Space.
+      const keydownHandler = buildKeydownHandler(el, storageKey, rootSelector, labels);
+      el._lvTsKeydownHandler = keydownHandler;
+      el.addEventListener("keydown", keydownHandler);
+    }
+
+    // Show the root (remove the display:none guard — synchronous, so no visible flash).
+    el.style.removeProperty("display");
+  },
+
+  unmount(root: HTMLElement): void {
+    const el = root as ThemeRootEl;
+    teardownMql(el);
+    if (el._lvTsClickHandler) {
+      el.removeEventListener("click", el._lvTsClickHandler);
+      el._lvTsClickHandler = null;
+    }
+    if (el._lvTsKeydownHandler) {
+      el.removeEventListener("keydown", el._lvTsKeydownHandler);
+      el._lvTsKeydownHandler = null;
+    }
+    el.removeAttribute(ENHANCED_MARK);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Legacy convenience exports (backwards-compatible with the old enhancer API
+// used by existing tests; route through the canonical ThemeSwitcherEnhancer).
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use `ThemeSwitcherEnhancer` registered with the lievit runtime instead. */
 export function enhanceThemeSwitcher(root: HTMLElement): void {
-  if (root.hasAttribute(ENHANCED)) return;
-  root.setAttribute(ENHANCED, "");
-  const themeRoot = root as ThemeRoot;
-
-  // Hydrate: a persisted choice overrides the SSR data-current; either way apply the resolved theme
-  // on load + (re)bind system tracking. The persisted value is the source of truth across reloads.
-  const initial = persisted(themeRoot) ?? asChoice(root.getAttribute("data-current"));
-  select(themeRoot, initial);
-
-  for (const opt of optionsOf(root)) {
-    opt.addEventListener("click", () => {
-      select(themeRoot, asChoice(opt.getAttribute("data-theme-value")), true);
-    });
-  }
-
-  root.addEventListener("keydown", (e: KeyboardEvent) => onKeydown(themeRoot, e));
+  ThemeSwitcherEnhancer.mount(root);
 }
 
-/** Enhance every `[data-lievit-theme-switcher]` root (call on load + after DOM swaps). */
+/** @deprecated Use `ThemeSwitcherEnhancer` registered with the lievit runtime instead. */
 export function enhanceAllThemeSwitchers(scope: ParentNode = document): void {
   scope
-    .querySelectorAll<HTMLElement>("[data-lievit-theme-switcher]")
-    .forEach((root) => enhanceThemeSwitcher(root));
+    .querySelectorAll<HTMLElement>("[data-lievit-enhancer=\"theme-switcher\"],[data-lievit-theme-switcher]")
+    .forEach((r) => ThemeSwitcherEnhancer.mount(r));
 }

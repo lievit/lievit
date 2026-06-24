@@ -43,12 +43,20 @@ afterEach(() => {
 
 describe.each(WIRE)("registry:wire item shape ($name)", ({ name, className }) => {
   test("is exactly one registry:wire item (the Lit island is gone)", () => {
-    const matches = registry.items.filter((i) => i.name === name && i.type === "registry:wire");
-    expect(matches, `exactly one ${name} registry:wire item`).toHaveLength(1);
+    // Wave 4 note: accordion has both a JTE-only meta.json (registry/jte/accordion/) and a full
+    // Java+JTE wire item (registry/wire/accordion/). The test pins that exactly one FULL wire item
+    // (with a Java class) exists -- confirming the Lit island is gone and server-first is in place.
+    const matches = registry.items.filter(
+      (i) => i.name === name && i.type === "registry:wire" && i.files.some((f) => f.target.endsWith(".java"))
+    );
+    expect(matches, `exactly one full ${name} registry:wire item (with Java class)`).toHaveLength(1);
   });
 
   test("carries two files: a .java (java root) and a .jte (jte root)", () => {
-    const item = registry.items.find((i) => i.name === name && i.type === "registry:wire")!;
+    // Select the full wire item (has both Java and JTE files)
+    const item = registry.items.find(
+      (i) => i.name === name && i.type === "registry:wire" && i.files.some((f) => f.target.endsWith(".java"))
+    )!;
     expect(item.files).toHaveLength(2);
     const java = item.files.find((f) => f.target.endsWith(".java"))!;
     const jte = item.files.find((f) => f.target.endsWith(".jte"))!;
@@ -70,7 +78,10 @@ describe.each(WIRE)("registry:wire item shape ($name)", ({ name, className }) =>
   });
 
   test("the wire Java holds the state in @Wire fields + a @LievitAction", () => {
-    const item = registry.items.find((i) => i.name === name && i.type === "registry:wire")!;
+    // Select the full wire item (has both Java and JTE files)
+    const item = registry.items.find(
+      (i) => i.name === name && i.type === "registry:wire" && i.files.some((f) => f.target.endsWith(".java"))
+    )!;
     const java = item.files.find((f) => f.target.endsWith(".java"))!.content ?? "";
     expect(java).toContain("@Wire");
     expect(java).toContain("@LievitAction");

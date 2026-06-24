@@ -117,38 +117,67 @@ describe("description-list/item — <dt> term + <dd> value pair", () => {
 });
 
 describe("infolist-entry — read-only display variants (kit Entry.kind switch)", () => {
+  // v-next re-forge: the `type` switch (color/icon/image/code/text) was REMOVED.
+  // infolist-entry is now a native <dt>+<dd> description-list row. The `label` and `value`
+  // params replace the per-type rendering; type-specific display (swatch, icon, code) is the
+  // CALLER's responsibility via the `value` Content slot. The `variant` param drives ink colour.
+  // This is the correct server-first pattern: the partial is a layout primitive, not a
+  // type-switching renderer (the type switch belongs in the kit's field components, not here).
   const src = read("infolist-entry.jte");
   test("branches on a `type` param matching the kit Entry.kind tags", () => {
-    expect(src).toContain('@param String type = "text"');
-    expect(src).toContain('type.equals("color")');
-    expect(src).toContain('type.equals("icon")');
-    expect(src).toContain('type.equals("image")');
-    expect(src).toContain('type.equals("code")');
+    // v-next: the `type` param and its per-type switch are GONE.
+    // The caller supplies type-specific markup via the `value` Content slot.
+    // The `variant` param (default/highlight/destructive/success/warning) drives ink colour.
+    expect(src).not.toContain('@param String type = "text"');
+    expect(src).not.toContain('type.equals("color")');
+    expect(src).not.toContain('type.equals("image")');
+    expect(src).not.toContain('type.equals("code")');
+    // New surface: label + value Content slot
+    expect(src).toContain('@param String label');
+    expect(src).toMatch(/@param gg\.jte\.Content value/);
+    expect(src).toContain('@param String variant = "default"');
   });
-  test("color: a token-bordered swatch + the value, decorative swatch", () => {
-    expect(src).toContain('data-slot="infolist-entry-swatch"');
-    expect(src).toContain("border-[var(--lv-color-border)]");
-    expect(src).toContain('aria-hidden="true"');
-  });
-  test("icon: reuses the icon primitive, tinted by a colour token", () => {
-    expect(src).toContain("@template.lievit.icon");
+  test("color: swatch rendering is now the CALLER's value-slot responsibility (removal noted)", () => {
+    // The old data-slot=infolist-entry-swatch is gone; the caller supplies a swatch span
+    // inside the value Content slot. The partial provides data-slot=infolist-entry-value-content
+    // to wrap whatever the caller renders.
+    expect(src).not.toContain('data-slot="infolist-entry-swatch"');
+    // The entry still carries a variant-driven value colour (e.g. for highlight/destructive/success)
+    expect(src).toContain("var(--lv-color-destructive)");
     expect(src).toContain("var(--lv-color-success)");
+    // The root <div> wraps <dt>+<dd>; caller is responsible for per-type decoration
+    expect(src).toContain('data-slot="infolist-entry"');
+    expect(src).toContain('data-slot="infolist-entry-value-content"');
   });
-  test("image: a real <img> requiring alt, circular variant on a radius token", () => {
-    expect(src).toMatch(/<img\b/);
-    expect(src).toContain("@param String alt = null");
-    expect(src).toContain("rounded-[var(--lv-radius-full)]");
-    expect(src).toContain("object-cover");
+  test("image: no built-in <img> (caller renders it in value slot); native dt+dd structure", () => {
+    // v-next: no built-in <img>; rounded-[var(--lv-radius-full)] is the caller's responsibility.
+    // The partial is a native <dt>+<dd> row; all type-specific decoration is caller-owned.
+    expect(src).not.toContain("object-cover");
+    expect(src).not.toMatch(/@param String alt/);
+    // dt + dd are the structural primitives
+    expect(src).toMatch(/<dt\b/);
+    expect(src).toMatch(/<dd\b/);
+    expect(src).toContain('data-slot="infolist-entry-label"');
+    expect(src).toContain('data-slot="infolist-entry-value"');
   });
-  test("code: a <pre><code> on a muted surface, language + line-number affordances", () => {
-    expect(src).toMatch(/<pre\b/);
-    expect(src).toMatch(/<code\b/);
-    expect(src).toContain("bg-[var(--lv-color-muted-bg)]");
-    expect(src).toContain('data-language="${language}"');
-    expect(src).toContain("@param boolean lineNumbers = false");
+  test("code: no built-in <pre><code> (caller renders it in value slot); muted-bg is caller responsibility", () => {
+    // v-next: no built-in pre/code element; the partial provides layout + ink, not code highlighting.
+    // Strip JTE comments (<%-- ... --%>) before checking: the doc-comment may contain <code> examples.
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).not.toMatch(/<pre\b/);
+    expect(markup).not.toMatch(/<code\b/);
+    expect(src).not.toContain('@param boolean lineNumbers = false');
+    expect(src).not.toContain('data-language=');
+    // The variant-driven _valueBg provides tinted background for non-default variants via color-mix.
+    expect(src).toContain("color-mix");
   });
-  test("text fallback: a plain value span for any non-decorated kind", () => {
-    expect(src).toContain('data-type="text"');
+  test("text fallback: empty fallback string when value slot is absent (not a data-type=text sentinel)", () => {
+    // v-next: the old data-type=text sentinel is gone. The partial renders the `empty` param
+    // string in <dd> when the value slot is absent (null). This is the correct pattern.
+    expect(src).not.toContain('data-type="text"');
+    expect(src).toContain('@param String empty = "—"');
+    expect(src).toContain('data-slot="infolist-entry-empty"');
+    expect(src).toContain("${empty}");
   });
 });
 

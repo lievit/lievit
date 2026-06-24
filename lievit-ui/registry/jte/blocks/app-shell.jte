@@ -190,12 +190,11 @@
 
       @if(searchAction != null)<form role="search" action="${searchAction}" method="get" class="hidden min-w-0 sm:block">@endif
       <div data-slot="app-shell-search" class="hidden w-[var(--lv-app-shell-search-w,16rem)] min-w-0 sm:block">
+        !{var _searchAttrs = "aria-label=\"" + searchPlaceholder + "\"";}
         @template.lievit.input-group(
-          name = searchName,
-          type = "search",
-          placeholder = searchPlaceholder,
           ariaLabel = searchPlaceholder,
-          leading = @`@template.lievit.icon(name = "search")`
+          leadingAddon = @`@template.lievit.icon(name = "search")`,
+          content = @`@template.lievit.input(name = searchName, type = "search", placeholder = searchPlaceholder, attrs = _searchAttrs)`
         )
       </div>
       @if(searchAction != null)</form>@endif

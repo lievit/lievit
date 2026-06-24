@@ -1,7 +1,7 @@
 {
   "name": "form",
   "type": "registry:jte",
-  "description": "The server-first Form: a native <form> wrapper that owns a form-level validation message region (role=alert) and stacks its field children, the server-rendered analogue of shadcn's Form (FormProvider) + a top-level FormMessage for the error not tied to a single field. Pairs with the field partial, which does the per-field aria wiring. JS-off it POSTs natively; with the wire runtime the same markup submits over the wire.",
+  "description": "v-next server-first Form: a native <form> wrapper that owns a form-level error summary region (always in DOM for aria-live pre-registration) and stacks its field children. v-next adds: errors list (List<Map<String,String>> with fieldId+message for anchor links), errorSummaryHeading, focusOnError (data-lv-autofocus for enhancer focus management), layout (stacked/inline/grid), size + labelWidth propagated via CSS custom properties (--lv-form-size, --lv-form-label-width), autocomplete/enctype/novalidate/ariaLabel/headingId HTML controls, and a footer slot. Back-compat preserved: single-String error path, data-slot=form-error slot name, id/${errorId} derivation, aria-describedby conditional wiring, method/action/cssClass params. Pairs with the field partial for per-field wiring.",
   "dependencies": [],
   "registryDependencies": ["tokens", "field"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the form partial to your JTE root at lievit/form.jte, reached as @template.lievit.form(id=..., action=..., error=..., content=@`...`). Render your fields as @template.lievit.field calls inside the content slot; pass the form-level (non-field) validation message as `error` and it renders a role=alert region the form references via aria-describedby. The source is yours: edit freely."
+  "docs": "Copies the form partial to your JTE root at lievit/form.jte, reached as @template.lievit.form(id=..., action=..., errors=formErrors, content=@`...`). v-next: pass `errors` (List<Map<String,String>> with fieldId+message keys) for an anchored error summary; set focusOnError=true to have a JS enhancer auto-focus the summary after failed submit. Size and labelWidth propagate via --lv-form-size / --lv-form-label-width CSS vars. Back-compat: old callers using `error` (single string) continue to work unchanged. The source is yours: edit freely."
 }
