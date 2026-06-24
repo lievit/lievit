@@ -6,6 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **OKLCH as color-token source-of-truth** (architecture-contract §4 D1, `feat/vnext-oklch-tokens`).
+  Every `--lv-color-*` custom property in `lievit-ui/registry/tokens/lievit-tokens.css` is now
+  authored in `oklch(L C H)` — the perceptually-uniform, native-2026-browser format.
+  All 29 unique hex values (light mode + dark mode across 50 token declarations) were converted via
+  the standard sRGB → linear sRGB → XYZ D65 → OKLab → OKLCH pipeline (Björn Ottosson's OKLab
+  matrices, 4 decimal places on L and C, 2 on H; near-achromatic colors with C < 0.001 get C=0).
+  Fallback pattern: plain double-declaration — the hex value is declared first, the oklch on the
+  immediately following line for the same property. Old browsers that do not understand `oklch()`
+  keep the hex declaration; modern browsers override it via cascade. No `@supports` wrapper needed.
+  Token NAMES are byte-identical: the 31 v0.1 names and all v2 additive names are unchanged.
+  Non-color tokens (spacing, radius, typography, shadows, z-index, motion, icon) are untouched.
+  The v0.1 aliases (`--lv-color-danger`, `--lv-color-info`) are preserved and also converted.
+  `registry/registry.json` regenerated to match (drift-gated by `test/registry-json.test.ts`).
+  All 1803 vitest tests pass; `tsc --noEmit` clean; `npm run build` green.
+
 ### Added
 
 - **SSE reconnection hardening on the live/delivery channels** (ADR-0086). lievit's two real-time
