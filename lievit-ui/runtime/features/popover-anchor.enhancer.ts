@@ -76,6 +76,15 @@ function wirePanel(panel: Element, runtime: LievitRuntime): void {
         const opener = document.getElementById(openerId);
         if (opener != null) {
           openerMap.set(panel, opener);
+          // Additive: sync aria-expanded="true" on the opener when the panel opens.
+          // Guard: only when the opener already carries an aria-expanded attribute (the trigger
+          // opted in as a disclosure trigger). Never adds the attribute to a trigger that did
+          // not declare it. This is additive and correct for all existing disclosure triggers
+          // (navigation-menu, dropdown-menu, popover) that render aria-expanded="false" on the
+          // server and expect the client to keep it in sync with the native popover state.
+          if (opener.hasAttribute("aria-expanded")) {
+            opener.setAttribute("aria-expanded", "true");
+          }
         }
       }
       // Autofocus delegation: move focus to [data-lv-autofocus] if present.
@@ -91,6 +100,12 @@ function wirePanel(panel: Element, runtime: LievitRuntime): void {
       // Focus return: if the browser did not already return focus to the opener, do it.
       if (opener != null && document.activeElement !== opener) {
         opener.focus();
+      }
+
+      // Additive: sync aria-expanded="false" on the opener when the panel closes.
+      // Guard: same as the open path — only when the opener already has aria-expanded.
+      if (opener != null && opener.hasAttribute("aria-expanded")) {
+        opener.setAttribute("aria-expanded", "false");
       }
 
       // Wire sync: call the light-dismiss action on the component owning the panel.

@@ -4,10 +4,10 @@
  */
 
 /**
- * WAI-ARIA APG keyboard navigation for Listbox / Menu (aria-activedescendant model) and Tabs
- * (roving-tabindex model). Both models are parameterised on the same collection root via
- * `data-lievit-collection`; the attribute `data-lievit-collection-roving-tabindex="true"` selects
- * the Tabs model. The two models are NOT interchangeable:
+ * WAI-ARIA APG keyboard navigation for Listbox / Menu (aria-activedescendant model), Tabs
+ * (roving-tabindex model), and Disclosure Navigation (nav mode). All three models are
+ * parameterised on the same collection root via `data-lievit-collection`. The models are NOT
+ * interchangeable:
  *
  *   aria-activedescendant (default, Listbox / Menu):
  *     DOM focus stays on the composite widget root; `aria-activedescendant` on the root (or a
@@ -18,6 +18,20 @@
  *     all others get `tabindex="-1"`. `data-manual-activation="true"` separates focus-movement
  *     (Arrow keys) from activation (Enter / Space); without it Arrow keys both move focus AND
  *     call the select action immediately (automatic-activation, APG default).
+ *
+ *   nav mode (APG Disclosure Navigation, additive — guarded by `data-lievit-collection-mode="nav"`):
+ *     DOM focus MOVES to the target item on Arrow keys (like roving-tabindex), BUT all items
+ *     keep `tabindex="0"` at all times — the enhancer never sets `tabindex="-1"` on any item.
+ *     This implements the APG Disclosure Navigation supplemental keyboard pattern where Tab is
+ *     the primary navigation and arrow keys are a supplemental aid. In this mode:
+ *       - Arrow keys call `element.focus()` on the target item.
+ *       - No `tabindex` attribute is ever written (all items remain `tabindex="0"`).
+ *       - typeahead, Home/End, disabled-skip all work the same as roving-tabindex.
+ *       - `data-manual-activation` and select actions are NOT supported (nav links navigate
+ *         via their natural `href`; the action model is for widget items, not links).
+ *     Guard: `data-lievit-collection-mode="nav"` on the root activates this mode.
+ *     The existing roving-tabindex (`data-lievit-collection-roving-tabindex="true"`) and
+ *     activedescendant (default) modes are completely unaffected.
  *
  * Attribute protocol on the COLLECTION ROOT:
  * - `data-lievit-collection` — activates the enhancer (no value needed)
@@ -30,6 +44,8 @@
  *   element to receive `aria-activedescendant`; defaults to the root itself
  *   (activedescendant mode only; ignored in roving-tabindex mode)
  * - `data-lievit-collection-roving-tabindex` — `"true"` switches to the roving-tabindex model
+ * - `data-lievit-collection-mode` — `"nav"` switches to APG Disclosure Navigation mode (additive;
+ *   takes precedence over `data-lievit-collection-roving-tabindex` when both are set)
  * - `data-manual-activation` — `"true"` (roving-tabindex mode only): Arrow keys move focus but
  *   do NOT call the select action; Enter / Space call it on the focused item
  *
@@ -53,6 +69,13 @@
  *   Event name: `lv:collection-submenu-open` (CustomEvent, bubbles+cancelable). The coordinator /
  *   adopting component listens for this event on the menu container to open the child panel.
  *
+ * Horizontal-bar ArrowDown opens submenu (additive, roving-tabindex + horizontal orientation):
+ *   In HORIZONTAL roving mode, ArrowDown on a top-level item that has `aria-haspopup="menu"`
+ *   dispatches the same `lv:collection-submenu-open` CustomEvent that vertical ArrowRight dispatches.
+ *   Guard: only fires in roving mode with orientation="horizontal" AND the focused item has
+ *   `aria-haspopup="menu"`. Without the guard, ArrowDown falls through unhandled (existing behavior).
+ *   This implements the APG Menubar "Down Arrow opens the submenu" keyboard interaction.
+ *
  * Attribute protocol on each ITEM element inside the collection:
  * - `data-lievit-item` — marks an element as a collection item
  * - `id` — required for `aria-activedescendant` to name the item (activedescendant mode only)
@@ -68,6 +91,7 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/listbox/
  *   https://www.w3.org/WAI/ARIA/apg/patterns/menu/
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
+ *   https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/
  */
 
 import type { LievitRuntime } from "../runtime.js";
@@ -82,6 +106,13 @@ const ESCAPE_ACTION_ATTR = "data-lievit-collection-escape-action";
 const AD_TARGET_ATTR = "data-lievit-collection-activedescendant-target";
 const ROVING_TABINDEX_ATTR = "data-lievit-collection-roving-tabindex";
 const MANUAL_ACTIVATION_ATTR = "data-manual-activation";
+/**
+ * Additive: APG Disclosure Navigation mode. When set to "nav" on the collection root, arrow keys
+ * call element.focus() but do NOT touch tabindex (all items remain tabindex="0"). This is the
+ * third mode alongside aria-activedescendant (default) and roving-tabindex. Takes precedence over
+ * data-lievit-collection-roving-tabindex when both are present.
+ */
+const MODE_ATTR = "data-lievit-collection-mode";
 
 /** Typeahead reset delay in ms. */
 const TYPEAHEAD_DELAY_MS = 500;
@@ -168,8 +199,19 @@ function nextItem(
 // ---------------------------------------------------------------------------
 
 /**
+ * Returns whether a root is in nav mode (APG Disclosure Navigation, additive).
+ * Nav mode: arrow keys call element.focus() but never mutate tabindex.
+ * Takes precedence over roving-tabindex when both attributes are present.
+ */
+function isNavMode(root: Element): boolean {
+  return root.getAttribute(MODE_ATTR) === "nav";
+}
+
+/**
  * Returns whether a root is in roving-tabindex mode (APG Tabs).
  * false = aria-activedescendant mode (APG Listbox / Menu, the default).
+ * NOTE: when isNavMode returns true, isRovingMode should NOT be consulted; nav mode takes
+ * precedence. Always check isNavMode first.
  */
 function isRovingMode(root: Element): boolean {
   return root.getAttribute(ROVING_TABINDEX_ATTR) === "true";
@@ -281,7 +323,9 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
     const wrap = root.getAttribute(WRAP_ATTR) === "true";
     const selectAction = root.getAttribute(SELECT_ACTION_ATTR);
     const escapeAction = root.getAttribute(ESCAPE_ACTION_ATTR);
-    const roving = isRovingMode(root);
+    // Nav mode takes precedence over roving-tabindex when both attributes are present.
+    const nav = isNavMode(root);
+    const roving = !nav && isRovingMode(root);
 
     const items = getItems(root);
 
@@ -290,7 +334,55 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
 
     let handled = false;
 
-    if (roving) {
+    if (nav) {
+      // -----------------------------------------------------------------------
+      // Nav mode (APG Disclosure Navigation — additive, guarded by data-lievit-collection-mode="nav")
+      // -----------------------------------------------------------------------
+      // Arrow keys call element.focus() on the target item, but tabindex is NEVER mutated:
+      // all items remain at their server-rendered tabindex="0". This implements the APG
+      // Disclosure Navigation supplemental keyboard pattern where Tab is the primary navigation
+      // and arrow keys are a supplemental aid that does NOT lock users into a roving sequence.
+      //
+      // The focused item is the current document.activeElement (if it is one of the items),
+      // or null if no item has focus. Because tabindex is never touched, rovingGetFocused()
+      // (which reads tabindex=0) cannot be used here; instead we find the item that is currently
+      // the document's activeElement.
+      const currentFocused = items.find((i) => i === document.activeElement) ?? null;
+
+      const isNextKey = (e.key === "ArrowDown" && isVertical) || (e.key === "ArrowRight" && isHorizontal);
+      const isPrevKey = (e.key === "ArrowUp" && isVertical) || (e.key === "ArrowLeft" && isHorizontal);
+
+      if (isNextKey || isPrevKey) {
+        const target = nextItem(items, currentFocused, isNextKey ? 1 : -1, wrap);
+        if (target != null) {
+          // Move real DOM focus without touching tabindex.
+          (target as HTMLElement).focus();
+        }
+        handled = true;
+      } else if (e.key === "Home") {
+        const enabled = items.filter((i) => !isDisabled(i));
+        if (enabled.length > 0) {
+          (enabled[0] as HTMLElement).focus();
+        }
+        handled = true;
+      } else if (e.key === "End") {
+        const enabled = items.filter((i) => !isDisabled(i));
+        if (enabled.length > 0) {
+          (enabled[enabled.length - 1] as HTMLElement).focus();
+        }
+        handled = true;
+      } else if (e.key === "Escape") {
+        if (escapeAction != null && escapeAction.length > 0) {
+          void runtime.callAction(root, escapeAction, { trigger: root });
+        }
+        handled = true;
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Typeahead: same logic as the other modes, but onMatch calls .focus() without
+        // touching tabindex (consistent with the nav mode contract).
+        handleTypeahead(e.key, currentFocused, (match) => (match as HTMLElement).focus());
+        handled = true;
+      }
+    } else if (roving) {
       // -----------------------------------------------------------------------
       // Roving-tabindex model (APG Tabs)
       // -----------------------------------------------------------------------
@@ -345,6 +437,18 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
           void runtime.callAction(root, escapeAction, { trigger: root });
         }
         handled = true;
+      } else if (e.key === "ArrowDown" && isHorizontal) {
+        // Additive: horizontal-bar ArrowDown opens submenu (APG Menubar pattern).
+        // In HORIZONTAL roving mode, ArrowDown on a top-level item that has aria-haspopup="menu"
+        // dispatches the same lv:collection-submenu-open event that vertical ArrowRight dispatches.
+        // Guard: only when orientation is horizontal (in vertical menus ArrowDown is the navigation
+        // key, already consumed by the isNextKey block above; this branch is only reached when
+        // isHorizontal=true AND the key is ArrowDown, which is NOT in isNextKey for horizontal).
+        // When the focused item does NOT have aria-haspopup="menu", the key is not consumed (noop).
+        if (focused != null && focused.getAttribute("aria-haspopup") === "menu") {
+          focused.dispatchEvent(new CustomEvent(SUBMENU_OPEN_EVENT, { bubbles: true, cancelable: true }));
+          handled = true;
+        }
       } else if (e.key === "ArrowRight" && !isHorizontal) {
         // Additive: submenu open. ArrowRight on a vertical menu item that is a submenu parent
         // (aria-haspopup="menu") dispatches lv:collection-submenu-open on that item. The adopting

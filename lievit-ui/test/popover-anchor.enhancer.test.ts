@@ -275,4 +275,142 @@ describe("popover-anchor.enhancer — native popover API seam", () => {
     // Must NOT contain any other action name (pure fallback).
     expect(calledActions.filter((a) => a !== "close")).toHaveLength(0);
   });
+
+  // ---------------------------------------------------------------------------
+  // ADDITIVE: aria-expanded sync on the opener (guarded by existing aria-expanded attr)
+  // ---------------------------------------------------------------------------
+
+  it("aria_expanded_set_true_on_panel_open — aria-expanded is set to 'true' on the opener when the panel opens", () => {
+    const { runtime, calledActions } = makeRuntime();
+    installPopoverAnchor(runtime);
+
+    const openerId = "disclosure-btn";
+    const opener = document.createElement("button");
+    opener.id = openerId;
+    opener.textContent = "Open menu";
+    // Opener opts in as a disclosure trigger by declaring aria-expanded.
+    opener.setAttribute("aria-expanded", "false");
+    document.body.appendChild(opener);
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.Nav");
+    componentRoot.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const panel = document.createElement("div");
+    panel.setAttribute("popover", "");
+    panel.setAttribute("data-lv-opener", openerId);
+    panel.id = "nav-panel";
+    componentRoot.appendChild(panel);
+    document.body.appendChild(componentRoot);
+
+    runtime.start();
+
+    opener.focus();
+    expect(opener.getAttribute("aria-expanded")).toBe("false");
+
+    fireToggle(panel, "open");
+
+    expect(opener.getAttribute("aria-expanded")).toBe("true");
+    void calledActions; // suppress unused-variable lint; calledActions not relevant here
+  });
+
+  it("aria_expanded_set_false_on_panel_close — aria-expanded is set to 'false' on the opener when the panel closes", () => {
+    const { runtime } = makeRuntime();
+    installPopoverAnchor(runtime);
+
+    const openerId = "disclosure-btn-close";
+    const opener = document.createElement("button");
+    opener.id = openerId;
+    opener.setAttribute("aria-expanded", "false");
+    document.body.appendChild(opener);
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.Nav");
+    componentRoot.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const panel = document.createElement("div");
+    panel.setAttribute("popover", "");
+    panel.setAttribute("data-lv-opener", openerId);
+    panel.id = "nav-panel-close";
+    componentRoot.appendChild(panel);
+    document.body.appendChild(componentRoot);
+
+    runtime.start();
+
+    opener.focus();
+    fireToggle(panel, "open");
+    expect(opener.getAttribute("aria-expanded")).toBe("true");
+
+    // Light-dismiss close.
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    fireToggle(panel, "closed");
+
+    expect(opener.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("aria_expanded_not_added_when_opener_has_no_aria_expanded — opener without aria-expanded never gets the attribute added", () => {
+    // Guard: triggers that did NOT declare aria-expanded should be left untouched.
+    const { panel, opener } = mountPopover({});
+    // The default mountPopover() does NOT set aria-expanded on the opener.
+    expect(opener.hasAttribute("aria-expanded")).toBe(false);
+
+    opener.focus();
+    fireToggle(panel, "open");
+    // Must NOT have been added.
+    expect(opener.hasAttribute("aria-expanded")).toBe(false);
+
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    fireToggle(panel, "closed");
+    // Still not added.
+    expect(opener.hasAttribute("aria-expanded")).toBe(false);
+  });
+
+  it("aria_expanded_sync_does_not_affect_close_action — existing close action still fires when aria-expanded is synced", async () => {
+    // Verify the additive aria-expanded sync does not break the close-action path.
+    const { runtime, calledActions } = makeRuntime();
+    installPopoverAnchor(runtime);
+
+    const openerId = "sync-opener";
+    const opener = document.createElement("button");
+    opener.id = openerId;
+    opener.setAttribute("aria-expanded", "false"); // opts in to aria-expanded sync
+    document.body.appendChild(opener);
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.D");
+    componentRoot.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const panel = document.createElement("div");
+    panel.setAttribute("popover", "");
+    panel.setAttribute("data-lv-opener", openerId);
+    panel.id = "sync-panel";
+    componentRoot.appendChild(panel);
+    document.body.appendChild(componentRoot);
+
+    runtime.start();
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    fireToggle(panel, "closed");
+
+    await new Promise((r) => setTimeout(r, 10));
+    // aria-expanded was synced.
+    expect(opener.getAttribute("aria-expanded")).toBe("false");
+    // The close action still fired.
+    expect(calledActions).toContain("close");
+  });
 });

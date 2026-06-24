@@ -1,23 +1,18 @@
 {
-  "name": "tabs-static",
+  "name": "tabs",
   "type": "registry:jte",
-  "description": "A role=tablist strip + its panels where the active tab is a SERVER fact (each tab is a real <a href>, switching tab is a GET): the server-first, zero-JS layout primitive behind shadcn Tabs and Filament Tabs / schema Tabs (the container the kit's Tabs + InfolistTabs render through). Active tab gets aria-selected + tabindex=0 (roving tabindex); inactive panels are `hidden`. data-slots tabs / tabs-list / tabs-trigger / tabs-content. NOTE: distinct from the INTERACTIVE registry:wire `tabs` whose active id is live @Wire state; this is the presentational render-layer primitive. Plain HTML + --lv-* tokens, no inline script, no <style>, CSP-clean.",
+  "description": "WAI-ARIA APG Tabs: a role=tablist strip of role=tab triggers + role=tabpanel regions. Controlled/uncontrolled headless primitive -- the active tab is server state passed via the plain `activeTab` @param; the caller binds it to their own @Wire field. No @Wire field of its own, no Java component. ENH: collection-nav.enhancer.ts in roving-tabindex mode handles ArrowLeft/Right/Up/Down, Home/End, Enter/Space (manual mode), automatic activation. Supports sm/md/lg sizes (toolbar-aligned), line/card/pill types, eager (all panels in DOM) or lazy HTMX panel swap, closable tabs, addable tab button, manual/automatic activation modes. data-slots: tabs / tabs-list / tabs-trigger / tabs-close / tabs-add / tabs-content. Pure HTML + --lv-* tokens, zero inline script, zero on*= handlers, CSP-clean.",
   "dependencies": [],
-  "registryDependencies": ["tokens"],
+  "registryDependencies": ["tokens", "icon"],
+  "enhancers": ["collection-nav.enhancer.ts"],
   "files": [
     {
       "path": "jte/tabs.jte",
       "type": "registry:jte",
       "target": "lievit/tabs.jte",
       "root": "jte"
-    },
-    {
-      "path": "jte/tabs/panel.jte",
-      "type": "registry:jte",
-      "target": "lievit/tabs/panel.jte",
-      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "type"],
-  "docs": "Copies the static tabs primitive to lievit/tabs.jte (+ lievit/tabs/panel.jte), reached as @template.lievit.tabs(...). Seed tabIds + labels + hrefs (index-aligned) and the active id; compose one @template.lievit.tabs-panel(id=..., active=...) per tab in the content slot. Each tab is a real <a href> GET that re-requests the page with the new active id, so it switches JS-off; the active tab carries aria-selected + tabindex=0 and its panel shows while the others are hidden. This is the LAYOUT render-layer primitive (the kit's static Tabs / InfolistTabs path); for an active tab that is live server state with no full-page GET, use the registry:wire tabs component instead. The source is yours: edit freely (e.g. drop the .jte at a non-lievit package and rename)."
+  "tokens": ["color", "space", "type", "radius", "shadow", "ring", "duration"],
+  "docs": "Copies the headless controlled/uncontrolled tabs primitive to lievit/tabs.jte. Call @template.lievit.tabs(tabsId=..., tabIds=..., tabLabels=..., activeTab=..., tabsLabel=..., selectAction=\"activate\"). The tabsId param is REQUIRED and must be unique on the page -- derive it from your wire component id (e.g. _component.id()) so the ARIA anchors are deterministic. Pass tabIcons / tabClosable / tabDisabled as parallel lists (index-aligned with tabIds; may be shorter -- missing entries default to no icon / false / false). For controlled use: bind activeTab to your @Wire field and set selectAction to your activate action. For lazy HTMX panels: set lazyLoad=true and provide a GET endpoint at /tabs/{tabsId}/panel/{tabId} returning the panel fragment. The panel body regions in this copied-in template are OWNED markup: replace the placeholder <p data-tabs-body=\"...\"> per tab with your real server-rendered content. collection-nav.enhancer.ts must be installed on the runtime (installCollectionNav(runtime)) for arrow-key roving and automatic/manual activation."
 }

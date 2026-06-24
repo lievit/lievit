@@ -1,0 +1,33 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * accordion.css -- component-scoped styles for the accordion primitive.
+ *
+ * WHY THIS FILE EXISTS:
+ *   The chevron rotation on open/close cannot be expressed as an inline style (CSP-clean rule:
+ *   no style attribute carrying logic) or as a Tailwind utility (the details[open] selector is
+ *   not a utility class). It requires a CSS rule that reads the native <details open> attribute.
+ *   This file is the only non-token-inline CSS the accordion needs.
+ *
+ * WHAT IT DOES:
+ *   1. Rotates the .lv-accordion-chevron span 180deg when its ancestor <details> is open.
+ *   2. Removes the default WebKit disclosure triangle (list-style:none handles Firefox/Chrome;
+ *      ::-webkit-details-marker handles older WebKit).
+ *
+ * USAGE:
+ *   Copy this file to your project and link it alongside the accordion templates.
+ *   Alternatively, paste these rules into your project's own stylesheet.
+ *   No --lv-* tokens are needed here; timing uses the token read via var() in the inline style
+ *   on the .lv-accordion-chevron span (see accordion-item.jte).
+ */
+
+/* Rotate the chevron 180deg when the <details> panel is open. */
+details[open] > summary .lv-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+/* Remove the default browser disclosure triangle on <summary>. */
+summary::-webkit-details-marker {
+  display: none;
+}

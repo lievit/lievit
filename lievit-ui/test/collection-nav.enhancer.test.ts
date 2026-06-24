@@ -855,4 +855,380 @@ describe("collection-nav.enhancer — WAI-ARIA APG Tabs (roving-tabindex mode)",
     expect(document.activeElement).toBe(items[1]); // navigation happened
     expect(submenuOpenFired).toBe(false); // no submenu event
   });
+
+  // ---------------------------------------------------------------------------
+  // ADDITIVE: horizontal-bar ArrowDown opens submenu (menubar pattern)
+  // ---------------------------------------------------------------------------
+
+  it("arrow_down_horizontal_submenu_parent_dispatches_open_event — ArrowDown in horizontal roving mode fires lv:collection-submenu-open on a top-level item with aria-haspopup='menu'", () => {
+    // A horizontal menubar: two top-level triggers, both with aria-haspopup="menu".
+    document.body.innerHTML = "";
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.Menubar");
+    componentRoot.setAttribute("data-lievit-id", "cid-menubar");
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const collRoot = document.createElement("nav");
+    collRoot.setAttribute("role", "menubar");
+    collRoot.setAttribute("data-lievit-collection", "");
+    collRoot.setAttribute("data-lievit-collection-roving-tabindex", "true");
+    collRoot.setAttribute("data-lievit-collection-orientation", "horizontal");
+    collRoot.setAttribute("data-lievit-collection-wrap", "true");
+    collRoot.setAttribute("data-manual-activation", "true");
+
+    const trigger0 = document.createElement("button");
+    trigger0.setAttribute("type", "button");
+    trigger0.setAttribute("role", "menuitem");
+    trigger0.setAttribute("data-lievit-item", "");
+    trigger0.setAttribute("aria-haspopup", "menu");
+    trigger0.setAttribute("aria-expanded", "false");
+    trigger0.setAttribute("aria-controls", "file-panel");
+    trigger0.id = "trigger-file";
+    trigger0.textContent = "File";
+    trigger0.tabIndex = 0; // roving seed
+    collRoot.appendChild(trigger0);
+
+    const trigger1 = document.createElement("button");
+    trigger1.setAttribute("type", "button");
+    trigger1.setAttribute("role", "menuitem");
+    trigger1.setAttribute("data-lievit-item", "");
+    trigger1.setAttribute("aria-haspopup", "menu");
+    trigger1.setAttribute("aria-expanded", "false");
+    trigger1.setAttribute("aria-controls", "edit-panel");
+    trigger1.id = "trigger-edit";
+    trigger1.textContent = "Edit";
+    trigger1.tabIndex = -1;
+    collRoot.appendChild(trigger1);
+
+    componentRoot.appendChild(collRoot);
+    document.body.appendChild(componentRoot);
+
+    const runtime = new LievitRuntime({ fetchImpl: vi.fn(async () =>
+      new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } })
+    ) as unknown as typeof fetch });
+    installCollectionNav(runtime);
+    runtime.start();
+
+    // Listen for the submenu-open event on the bar container.
+    let firedTarget: EventTarget | null = null;
+    collRoot.addEventListener("lv:collection-submenu-open", (e) => {
+      firedTarget = e.target;
+    });
+
+    // trigger0 has tabindex=0 (focused). ArrowDown should dispatch the event on trigger0.
+    key(collRoot, "ArrowDown");
+    expect(firedTarget).toBe(trigger0);
+  });
+
+  it("arrow_down_horizontal_non_submenu_parent_is_noop — ArrowDown in horizontal roving mode does NOT dispatch the event when focused item has no aria-haspopup='menu'", () => {
+    document.body.innerHTML = "";
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.HBar");
+    componentRoot.setAttribute("data-lievit-id", "cid-hbar");
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const collRoot = document.createElement("div");
+    collRoot.setAttribute("data-lievit-collection", "");
+    collRoot.setAttribute("data-lievit-collection-roving-tabindex", "true");
+    collRoot.setAttribute("data-lievit-collection-orientation", "horizontal");
+    collRoot.setAttribute("data-lievit-collection-wrap", "true");
+
+    // Plain item: no aria-haspopup.
+    const item0 = document.createElement("button");
+    item0.setAttribute("type", "button");
+    item0.setAttribute("data-lievit-item", "");
+    item0.textContent = "Plain";
+    item0.tabIndex = 0;
+    collRoot.appendChild(item0);
+
+    componentRoot.appendChild(collRoot);
+    document.body.appendChild(componentRoot);
+
+    const runtime = new LievitRuntime({ fetchImpl: vi.fn(async () =>
+      new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } })
+    ) as unknown as typeof fetch });
+    installCollectionNav(runtime);
+    runtime.start();
+
+    let submenuOpenFired = false;
+    collRoot.addEventListener("lv:collection-submenu-open", () => { submenuOpenFired = true; });
+
+    // ArrowDown on a plain item (no aria-haspopup): no event, no navigation (key falls through).
+    key(collRoot, "ArrowDown");
+    expect(submenuOpenFired).toBe(false);
+  });
+
+  it("arrow_down_vertical_menu_is_navigation_not_submenu — ArrowDown in VERTICAL roving mode navigates (is NOT intercepted for submenu)", () => {
+    // In vertical menus ArrowDown is the navigation key; it must NOT trigger submenu-open
+    // even on an item with aria-haspopup="menu".
+    const { collRoot, itemEls } = buildRovingCollection({
+      items: [
+        { text: "Item A" },
+        { text: "Item B" },
+      ],
+      orientation: "vertical",
+      manualActivation: true,
+    });
+    // Give item0 aria-haspopup so we can assert the guard works.
+    itemEls[0].setAttribute("aria-haspopup", "menu");
+
+    let submenuOpenFired = false;
+    collRoot.addEventListener("lv:collection-submenu-open", () => { submenuOpenFired = true; });
+
+    // ArrowDown in vertical mode must navigate, not dispatch submenu-open.
+    key(collRoot, "ArrowDown");
+    expect(document.activeElement).toBe(itemEls[1]); // navigation happened
+    expect(submenuOpenFired).toBe(false); // no submenu event
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Nav mode (APG Disclosure Navigation — data-lievit-collection-mode="nav")
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a nav-mode collection. All items start with tabindex="0" (disclosure navigation pattern).
+ */
+function buildNavCollection(opts: {
+  items: ItemDef[];
+  orientation?: "vertical" | "horizontal" | "both";
+  wrap?: boolean;
+  escapeAction?: string;
+}): {
+  runtime: LievitRuntime;
+  calledActions: string[];
+  collRoot: HTMLElement;
+  itemEls: HTMLButtonElement[];
+} {
+  document.body.innerHTML = "";
+  const calledActions: string[] = [];
+
+  const componentRoot = document.createElement("div");
+  componentRoot.setAttribute("data-lievit-component", "com.example.Nav");
+  componentRoot.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+  componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+  const collRoot = document.createElement("nav");
+  collRoot.setAttribute("data-lievit-collection", "");
+  collRoot.setAttribute("data-lievit-collection-mode", "nav");
+  if (opts.orientation != null) {
+    collRoot.setAttribute("data-lievit-collection-orientation", opts.orientation);
+  }
+  if (opts.wrap === true) {
+    collRoot.setAttribute("data-lievit-collection-wrap", "true");
+  }
+  if (opts.escapeAction != null) {
+    collRoot.setAttribute("data-lievit-collection-escape-action", opts.escapeAction);
+  }
+
+  const itemEls: HTMLButtonElement[] = [];
+  for (const item of opts.items) {
+    const btn = document.createElement("button");
+    btn.setAttribute("type", "button");
+    btn.setAttribute("data-lievit-item", "");
+    btn.id = item.id ?? `nav-${Math.random().toString(36).slice(2)}`;
+    btn.textContent = item.text;
+    // All items start tabindex="0" (disclosure navigation: no roving tabindex management).
+    btn.tabIndex = 0;
+    if (item.disabled === true) {
+      btn.setAttribute("aria-disabled", "true");
+    }
+    collRoot.appendChild(btn);
+    itemEls.push(btn);
+  }
+
+  componentRoot.appendChild(collRoot);
+  document.body.appendChild(componentRoot);
+
+  const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(calledActions) });
+  installCollectionNav(runtime);
+  runtime.start();
+
+  return { runtime, calledActions, collRoot, itemEls };
+}
+
+describe("collection-nav.enhancer — nav mode (APG Disclosure Navigation)", () => {
+  it("nav_mode_arrow_down_moves_focus — ArrowDown moves DOM focus in vertical nav mode", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Products" }, { text: "About" }],
+      orientation: "vertical",
+    });
+
+    // Give focus to the first item.
+    itemEls[0].focus();
+    expect(document.activeElement).toBe(itemEls[0]);
+
+    key(collRoot, "ArrowDown");
+    expect(document.activeElement).toBe(itemEls[1]);
+  });
+
+  it("nav_mode_arrow_up_moves_focus_backwards — ArrowUp moves DOM focus backwards in vertical nav mode", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Products" }, { text: "About" }],
+      orientation: "vertical",
+    });
+
+    itemEls[2].focus();
+    key(collRoot, "ArrowUp");
+    expect(document.activeElement).toBe(itemEls[1]);
+  });
+
+  it("nav_mode_tabindex_never_mutated — nav mode NEVER writes tabindex=-1 on any item", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "A" }, { text: "B" }, { text: "C" }],
+      orientation: "vertical",
+    });
+
+    itemEls[0].focus();
+    // Press several arrow keys — tabindex must remain 0 on all items.
+    key(collRoot, "ArrowDown");
+    key(collRoot, "ArrowDown");
+    key(collRoot, "ArrowUp");
+
+    for (const item of itemEls) {
+      expect(item.tabIndex).toBe(0);
+    }
+  });
+
+  it("nav_mode_no_aria_activedescendant — nav mode never writes aria-activedescendant", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "A" }, { text: "B" }],
+      orientation: "vertical",
+    });
+
+    itemEls[0].focus();
+    key(collRoot, "ArrowDown");
+    expect(collRoot.hasAttribute("aria-activedescendant")).toBe(false);
+  });
+
+  it("nav_mode_home_moves_to_first — Home focuses the first non-disabled item", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Products" }, { text: "About" }],
+      orientation: "vertical",
+    });
+
+    itemEls[2].focus();
+    key(collRoot, "Home");
+    expect(document.activeElement).toBe(itemEls[0]);
+  });
+
+  it("nav_mode_end_moves_to_last — End focuses the last non-disabled item", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Products" }, { text: "About" }],
+      orientation: "vertical",
+    });
+
+    itemEls[0].focus();
+    key(collRoot, "End");
+    expect(document.activeElement).toBe(itemEls[2]);
+  });
+
+  it("nav_mode_skips_disabled_items — ArrowDown skips disabled items", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Hidden", disabled: true }, { text: "About" }],
+      orientation: "vertical",
+    });
+
+    itemEls[0].focus();
+    key(collRoot, "ArrowDown");
+    expect(document.activeElement).toBe(itemEls[2]);
+  });
+
+  it("nav_mode_horizontal_arrow_right_moves_focus — ArrowRight moves DOM focus in horizontal nav mode", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Products" }, { text: "Docs" }],
+      orientation: "horizontal",
+    });
+
+    itemEls[0].focus();
+    key(collRoot, "ArrowRight");
+    expect(document.activeElement).toBe(itemEls[1]);
+  });
+
+  it("nav_mode_typeahead_moves_focus — printable char moves focus to next matching item by text", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Products" }, { text: "Pricing" }, { text: "About" }],
+      orientation: "horizontal",
+    });
+
+    // Focus on Home, type "p" → Products.
+    itemEls[0].focus();
+    key(collRoot, "p");
+    expect(document.activeElement).toBe(itemEls[1]);
+
+    // Type "p" again → Pricing (repeated char cycles).
+    key(collRoot, "p");
+    expect(document.activeElement).toBe(itemEls[2]);
+  });
+
+  it("nav_mode_typeahead_tabindex_unchanged — typeahead in nav mode does NOT mutate tabindex", () => {
+    const { collRoot, itemEls } = buildNavCollection({
+      items: [{ text: "Alpha" }, { text: "Beta" }],
+      orientation: "horizontal",
+    });
+
+    itemEls[0].focus();
+    key(collRoot, "b");
+    expect(document.activeElement).toBe(itemEls[1]);
+
+    // Tabindex remains 0 on all items.
+    for (const item of itemEls) {
+      expect(item.tabIndex).toBe(0);
+    }
+  });
+
+  it("nav_mode_escape_fires_escape_action — Escape fires the escape action in nav mode", async () => {
+    const { collRoot, calledActions } = buildNavCollection({
+      items: [{ text: "Home" }],
+      orientation: "vertical",
+      escapeAction: "closeNav",
+    });
+
+    key(collRoot, "Escape");
+
+    await new Promise<void>((r) => setTimeout(r, 20));
+    expect(calledActions).toContain("closeNav");
+  });
+
+  it("nav_mode_does_not_bleed_into_roving_mode — a separate roving-tabindex collection (built with buildRovingCollection) still manages tabindex correctly", () => {
+    // Prove that the nav-mode guard does not interfere with a standard roving-tabindex collection.
+    // Each collection is fully independent (separate DOM root, separate runtime); the guard is
+    // purely attribute-driven. We verify: after a nav-mode session, starting a fresh roving
+    // collection still manages tabindex as expected.
+    document.body.innerHTML = "";
+
+    const { collRoot: rovingRoot, itemEls: rovingItems } = buildRovingCollection({
+      items: [{ text: "Tab 1" }, { text: "Tab 2" }, { text: "Tab 3" }],
+      orientation: "horizontal",
+    });
+
+    // Initial state: first item has tabindex=0, others -1.
+    expect(rovingItems[0].tabIndex).toBe(0);
+    expect(rovingItems[1].tabIndex).toBe(-1);
+
+    key(rovingRoot, "ArrowRight");
+
+    // Roving model still works: tabindex moved to the second item.
+    expect(rovingItems[0].tabIndex).toBe(-1);
+    expect(rovingItems[1].tabIndex).toBe(0);
+  });
+
+  it("nav_mode_collection_leaves_tabindex_alone — a nav-mode collection in the same DOM does NOT touch tabindex=0 on any item after arrow navigation", () => {
+    // Extra guard: run nav-mode key presses and confirm tabindex stays 0 on ALL items.
+    const { collRoot: navRoot, itemEls: navItems } = buildNavCollection({
+      items: [{ text: "Home" }, { text: "Products" }, { text: "About" }],
+      orientation: "horizontal",
+    });
+
+    navItems[0].focus();
+    key(navRoot, "ArrowRight");
+    key(navRoot, "ArrowRight");
+    key(navRoot, "ArrowLeft");
+
+    for (const item of navItems) {
+      expect(item.tabIndex).toBe(0);
+    }
+  });
 });

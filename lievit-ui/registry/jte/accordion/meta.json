@@ -1,7 +1,7 @@
 {
   "name": "accordion",
-  "type": "registry:wire",
-  "description": "A vertically stacked list of panels driven by server-authoritative open state (WIRE tier). Each panel header is a native <button> inside a heading (role=\"heading\" aria-level), with aria-expanded and aria-controls wired to the panel region. Panel bodies use the HTML `hidden` attribute for collapsed state (removes from the a11y tree + Tab order). Open/close state is a @Wire server fact; the server validates the single/multiple mode invariant and re-renders on every toggle action. Variants: default (bordered card), ghost (dividers only), borderless (flat). No enhancer: keyboard is fully platform-supplied (native button + morph). APG Accordion pattern.",
+  "type": "registry:jte",
+  "description": "A vertically stacked list of disclosure panels (PARTIAL tier, controlled/uncontrolled). accordion.jte is a styled container that wraps accordion-item.jte instances. Each item is a native <details>/<summary> pair: zero JS, zero server round-trip just to open. Uncontrolled = browser manages open/close state. Controlled = caller binds open=\"${serverFact}\" on each item (the server reflects which panels are expanded; the item is a pure presentation shell). Single-open grouping: all sibling items share the same name= attribute; the platform <details name=...> group enforces at most one open at a time. Variants: default (bordered card, --lv-shadow-xs), ghost (dividers only, transparent outer), borderless (fully flat). No enhancer: keyboard + aria-expanded + Tab order are all platform-supplied (native <details>/<summary>). APG Accordion pattern. Requires accordion.css for chevron rotation.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -10,8 +10,20 @@
       "type": "registry:jte",
       "target": "lievit/accordion.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/accordion/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/accordion/item.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/accordion.css",
+      "type": "registry:css",
+      "target": "lievit/accordion.css",
+      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "shadow", "motion", "opacity"],
-  "docs": "WIRE accordion: open-state is server-authoritative. The AccordionComponent Java class owns the @Wire fields (panels, expandedIds, mode, collapsible) and the toggle() action. The template receives List<Map<String,String>> panels (each with id, title, optional level/disabled), Set<String> expandedIds, mode, collapsible, variant, panelRole. Wire the toggle action via l:click=\"toggle\" on each header button (already in the template). The panel body region for each panel is an empty <div data-slot=\"accordion-panel\"> in the shipped template; the adopter fills it with server-rendered markup in their copy of the template, keyed off the panel id. variant=\"default\" | \"ghost\" | \"borderless\". The chevron rotation requires one adopter CSS rule: [data-slot=\"accordion-header\"][data-expanded=\"true\"] .lv-accordion-chevron { transform: rotate(180deg); }. No enhancer: platform native <button> + morph handle all keyboard + focus. APG Accordion pattern, WAI-ARIA compliant."
+  "tokens": ["color", "space", "radius", "type", "shadow", "motion", "opacity", "ring"],
+  "docs": "Copy accordion.jte + accordion/item.jte + accordion.css to your lievit/ JTE root. Use @template.lievit.accordion(variant=..., content=@`...`) as the container and @template.lievit.accordion-item(label=..., id=..., content=@`...`) for each panel. Uncontrolled: omit open= on items (browser persists state). Controlled: bind open=\"${serverField.contains(itemId)}\" on each item (the server renders truth; no @Wire on the accordion itself -- the CALLER's WIRE component owns the state). Single-open mode: give all sibling items the same name= attribute -- the browser enforces at most one open. Disabled items: disabled=true on the item (aria-disabled + pointer-events-none on the summary). Suppress the panel landmark role via panelRole=\"\" when content is trivial. Link accordion.css (or paste its rules) for chevron rotation; the chevron transition reads --lv-duration-fast + --lv-ease from your token sheet."
 }

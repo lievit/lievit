@@ -1,29 +1,18 @@
 {
   "name": "wizard",
   "type": "registry:jte",
-  "description": "A multi-step form (the Filament Wizard / Wizard\\Step, the io.lievit.kit.schema.Wizard + io.lievit.kit.WizardAction view-models): a numbered step header where each step carries data-state complete/current/upcoming (a completed-check glyph when done, a number otherwise) with separators between steps, over the current step's content, and a footer of prev / cancel / next / submit actions. The cursor is server-owned; advancing is a real wire-action POST the adopter wires (next/previous/submit), never inline script. Reuses icon + separator. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A multi-step form stepper (CONTROLLED headless PARTIAL). The active step is a server fact owned by the CALLER's @Wire int field; this partial renders the presentational chrome only: an ordered step-indicator strip (linear or skippable), a content panel (the active step's body via a Content slot), and a Prev/Next/Submit action bar. Skippable mode composes collection-nav.enhancer.ts (APG roving-tabindex, Arrow/Home/End/Enter navigation on step buttons). A11y: WAI-ARIA aria-current=step + W3C WAI Multi-page Forms tutorial (ordered-list + aria-current model, NOT role=tablist). Features: linear/skippable modes, horizontal/vertical orientation, bottom/inline label placement, number/icon/dot indicator variants, sm/md/lg sizes, per-step status (process/finish/error/wait), visually-hidden SR status text, aria-live progress announcement. Pure HTML + Tailwind + --lv-* tokens; no Java component, no @Wire, no _component/_instance params; CSP-safe.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon", "separator"],
+  "registryDependencies": ["tokens", "icon"],
+  "enhancers": ["collection-nav"],
   "files": [
     {
       "path": "jte/wizard.jte",
       "type": "registry:jte",
       "target": "lievit/wizard.jte",
       "root": "jte"
-    },
-    {
-      "path": "jte/wizard/step.jte",
-      "type": "registry:jte",
-      "target": "lievit/wizard/step.jte",
-      "root": "jte"
-    },
-    {
-      "path": "jte/wizard/footer.jte",
-      "type": "registry:jte",
-      "target": "lievit/wizard/footer.jte",
-      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the wizard partials to your JTE root at lievit/wizard.jte (+ wizard/step.jte, wizard/footer.jte), reached as @template.lievit.wizard(currentStep=.., steps=@`@for(...) @template.lievit.wizard.step(...) @endfor`, content=@`...`, footer=@`@template.lievit.wizard.footer(...)`). Drive currentStep + the step states from the io.lievit.kit.schema.Wizard / WizardAction driver; wire next / previous / submit to the wizard's POST endpoints (formaction or l:click). The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "opacity", "duration"],
+  "docs": "Copies wizard.jte to your JTE template root at lievit/wizard.jte. Reach as @template.lievit.wizard(activeStep=myForm.activeStep(), stepIds=..., stepTitles=..., content=@`...`). The CALLER's @Wire component owns int activeStep and exposes next()/prev()/goTo(int) actions; the partial wires l:click to them via the prevAction/nextAction/goToAction params (default: 'prev'/'next'/'goTo'). Skippable mode requires collection-nav.enhancer.ts installed (installCollectionNav(runtime)) and allowedSteps set to the reachable step indexes. The content slot renders the active step's owned markup; use @if(myForm.activeStep() == N) blocks inside to swap per-step content. The sub-partials wizard/step.jte and wizard/footer.jte from the previous API are removed; all chrome is self-contained in this single template."
 }

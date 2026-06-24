@@ -133,10 +133,13 @@ describe("navigation-menu.jte shell structure", () => {
     expect(markup(SHELL)).toContain('data-lievit-collection-wrap="true"');
   });
 
-  test("collection-nav wiring: roving-tabindex mode with manual-activation", () => {
+  test("collection-nav wiring: APG Disclosure 'nav' mode (focus moves, tabindix untouched)", () => {
+    // v-next: navigation-menu uses the collection-nav "nav" mode (arrow keys move focus via
+    // element.focus(), all items stay tabindex=0) — NOT roving-tabindex. This is the APG
+    // Disclosure Navigation model; the popover-anchor enhancer syncs aria-expanded on the triggers.
     const src = markup(SHELL);
-    expect(src).toContain('data-lievit-collection-roving-tabindex="true"');
-    expect(src).toContain('data-manual-activation="true"');
+    expect(src).toContain('data-lievit-collection-mode="nav"');
+    expect(src).not.toContain('data-lievit-collection-roving-tabindex="true"');
   });
 
   test("no io.lievit import in shell (JTE-compile-classpath safe)", () => {

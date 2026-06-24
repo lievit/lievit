@@ -106,8 +106,7 @@
   data-lievit-collection
   data-lievit-collection-orientation="${orientation}"
   data-lievit-collection-wrap="true"
-  data-lievit-collection-roving-tabindex="true"
-  data-manual-activation="true"
+  data-lievit-collection-mode="nav"
   class="${cssClass}"
   style="font-family:var(--lv-font-sans);font-size:var(--lv-text-sm);${_sizeVar}"
   $unsafe{attrs}
