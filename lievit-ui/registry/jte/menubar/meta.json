@@ -1,0 +1,20 @@
+{
+  "name": "menubar",
+  "type": "registry:jte",
+  "description": "Horizontal persistent menu bar of top-level triggers (APG Menubar pattern). UNCONTROLLED: the bar carries no server-owned open state; each top-level trigger is a dropdown-menu whose open/closed lifecycle is browser-owned via the native popover API. The bar root uses collection-nav.enhancer.ts in horizontal roving-tabindex mode (Left/Right Arrow, Home/End, typeahead across top-level triggers). Content slot takes multiple dropdown-menu instances or plain button/link items; each trigger must carry role='menuitem' + data-lievit-item for the collection-nav to discover it. Size scale (sm/md/lg) sets bar block-size to --lv-space-8/9/10. No Lit island, CSP-clean, zero inline script. ENHANCER_NEEDED: Down/Up Arrow on horizontal bar to open submenu (lv:collection-submenu-open not fired by collection-nav in horizontal mode); two-axis hop (auto-open next submenu on Right/Left Arrow from within a vertical submenu).",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "dropdown-menu"],
+  "enhancers": [
+    "collection-nav.enhancer.ts"
+  ],
+  "files": [
+    {
+      "path": "jte/menubar.jte",
+      "type": "registry:jte",
+      "target": "lievit/menubar.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type", "ring", "font"],
+  "docs": "Copies the menubar partial to your JTE root at lievit/menubar.jte, reached as @template.lievit.menubar(ariaLabel='...', content=@@`...`). The bar is a horizontal APG Menubar (role='menubar', aria-orientation='horizontal'). Compose the content slot from @template.lievit.dropdown-menu instances (one per top-level menu). Each dropdown-menu trigger must also carry role='menuitem' and data-lievit-item via the triggerClass / attrs params so the collection-nav bar instance can discover and rove through them. The bar uses collection-nav.enhancer.ts in horizontal roving-tabindex mode for Left/Right Arrow navigation, Home/End, and typeahead. Size sm/md/lg sets the bar height to --lv-space-8/9/10. Down Arrow to open submenu and the two-axis hop (auto-open-next) require a collection-nav enhancer update (see ENHANCER_NEEDED in the meta). The source is yours: edit freely."
+}

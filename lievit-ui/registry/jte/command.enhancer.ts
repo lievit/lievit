@@ -4,33 +4,66 @@
  */
 
 /**
- * command-palette enhancer (ADR-0012, server-first + progressive enhancement): the CSP-clean
- * typed-TS that UPGRADES the server-rendered `lievit/command.jte` partial. The WHOLE command catalog
- * is already on the page as real <a>/<button> items; this module reads their labels, filters them by
- * the search query (hiding non-matches, no re-render, no server round-trip) and wires APG keyboard
- * navigation (ArrowUp/Down move an active item, Enter activates it, Escape clears the query). JS-off
- * the partial is a plain navigable list; this is purely additive. No inline script (the strict CSP
- * refuses inline on* handlers; this attaches listeners in code).
+ * command enhancer (v-next re-forge): lifecycle-aware enhancer for the CONTROLLED/UNCONTROLLED
+ * command palette overlay (registry/jte/command.jte).
  *
- * It is deliberately stateless server-side: there is nothing for the server to decide between
- * keystrokes once the small/preloaded catalog is on the page, which is exactly the line between this
- * and the WIRE command (registry/wire/command, which re-queries the server per keystroke for a
- * large/lazy/server-owned catalog).
+ * Responsibilities on activation of a panel ([data-lievit-command]):
+ *   1. Client-side filtering: `input` events on the search box hide non-matching
+ *      [data-lievit-item] items, hide group containers whose items are all hidden, and toggle
+ *      the [data-slot="empty"] live region.
+ *   2. Enter dispatch: keydown Enter on the search input reads aria-activedescendant to find
+ *      the active option, then dispatches executeAction (plain), openPageAction (data-page-id),
+ *      or navigates (data-href). collection-nav.enhancer.ts owns ArrowUp/Down/Home/End key
+ *      movement; this enhancer only handles Enter.
+ *   3. Backspace in nested page: if the search input is empty and the panel carries a non-empty
+ *      data-page, Backspace fires backToRootAction.
+ *   4. Global shortcut: while the panel is open (in the DOM), a keydown listener on document
+ *      fires closeAction when the panel's data-shortcut chord is pressed (e.g. Ctrl+K / Cmd+K).
+ *      NOTE: opening the palette from a closed state (palette not in DOM) is the CALLER's
+ *      responsibility (typically a trigger button with l:click="${openAction}" + the same
+ *      keyboard shortcut registered on the surrounding page).
  *
- * The pure filter logic ({@link commandFilter}) is exported so it can be unit-tested without a DOM.
+ * Shared enhancers (do NOT edit their files):
+ *   focus-trap.enhancer.ts  -- Tab cycling, scroll-lock, Escape fires closeAction.
+ *   collection-nav.enhancer.ts -- ArrowUp/Down/Home/End navigation, updates aria-activedescendant
+ *     on the input (#${inputId}) via data-lievit-collection-activedescendant-target.
  *
- * Idempotent: call {@link enhanceCommand} once (it marks each root) and again after a DOM swap;
- * already-enhanced roots are skipped. {@link enhanceAllCommands} wires every root on the page.
+ * Idempotency: data-lievit-rt-command-active is stamped on the panel while active; re-scanning the
+ * same panel is a no-op.
+ *
+ * Lifecycle integration: installCommandEnhancer(runtime) registers onComponentInit (scans for
+ * panels on every component mount / morph) and afterCall (deactivates panels removed from DOM).
+ *
+ * Backward-compatible export: commandFilter (pure, DOM-free) is kept for unit tests.
+ * enhanceCommand / enhanceAllCommands from the static-palette era are REMOVED (clean break).
+ * Use installCommandEnhancer(runtime) for the new surface.
  */
 
-const ENHANCED = "data-command-enhanced";
+import type { LievitRuntime } from "../../runtime/runtime.js";
+
+const PANEL_ATTR = "data-lievit-command";
+const ACTIVE_ATTR = "data-lievit-rt-command-active";
+
+interface PanelState {
+  readonly panel: HTMLElement;
+  readonly shortcutHandler: EventListener;
+  readonly inputHandler: EventListener;
+  readonly keydownHandler: EventListener;
+}
+
+/** Currently active panels. Map so we can iterate on afterCall to prune stale ones. */
+const activePanels = new Map<HTMLElement, PanelState>();
+
+// ---------------------------------------------------------------------------
+// Pure filter core (exported for unit tests)
+// ---------------------------------------------------------------------------
 
 /**
- * Decide, for each item label, whether it matches a query. Case- and accent-insensitive substring
- * match anywhere in the label, preserving order. An empty/blank query matches every item. The pure
- * core of the searchable behaviour; DOM-free so it is unit-testable.
+ * Decide, for each command label, whether it matches a query. Case- and accent-insensitive
+ * substring match anywhere in the label, preserving order. An empty/blank query matches
+ * every item. DOM-free; unit-testable without a browser.
  *
- * @returns a boolean array index-aligned with `labels`: true == the item is shown.
+ * @returns a boolean array index-aligned with `labels`: true == item is shown.
  */
 export function commandFilter(labels: string[], query: string): boolean[] {
   const q = normalize(query);
@@ -47,109 +80,192 @@ function normalize(s: string): string {
     .trim();
 }
 
+// ---------------------------------------------------------------------------
+// Panel activation / deactivation
+// ---------------------------------------------------------------------------
+
 /**
- * Enhance one command-palette root. No-op if it lacks a search box / list or is already enhanced.
- * Wires live filtering (hide non-matching items + their now-empty group headings, toggle the empty
- * state) and ArrowUp/Down/Enter/Escape keyboard navigation over the VISIBLE items.
+ * Parse a shortcut string like "mod+k" into a predicate that matches KeyboardEvent.
+ * "mod" means Cmd on Mac, Ctrl elsewhere.
  */
-export function enhanceCommand(root: HTMLElement): void {
-  if (root.hasAttribute(ENHANCED)) return;
-  const search = root.querySelector<HTMLInputElement>("[data-command-search]");
-  const list = root.querySelector<HTMLElement>("[data-command-list]");
-  if (!search || !list) return;
-  root.setAttribute(ENHANCED, "");
-
-  const items = Array.from(root.querySelectorAll<HTMLElement>("[data-command-item]"));
-  const headings = Array.from(root.querySelectorAll<HTMLElement>("[data-command-group]"));
-  const empty = root.querySelector<HTMLElement>("[data-command-empty]");
-  const labels = items.map((el) => el.getAttribute("data-command-label") ?? "");
-
-  let activeIndex = -1;
-
-  /** The currently-visible (un-hidden) items, in DOM order. */
-  const visibleItems = (): HTMLElement[] => items.filter((el) => !el.hidden);
-
-  const setActive = (next: number): void => {
-    const vis = visibleItems();
-    if (vis.length === 0) {
-      activeIndex = -1;
-      search.removeAttribute("aria-activedescendant");
-      items.forEach((el) => el.removeAttribute("data-command-active"));
-      return;
-    }
-    activeIndex = ((next % vis.length) + vis.length) % vis.length;
-    const active = vis[activeIndex];
-    items.forEach((el) => el.removeAttribute("data-command-active"));
-    active.setAttribute("data-command-active", "true");
-    if (active.id) search.setAttribute("aria-activedescendant", active.id);
-    active.scrollIntoView({ block: "nearest" });
+function shortcutMatcher(shortcut: string): (e: KeyboardEvent) => boolean {
+  const parts = shortcut.toLowerCase().split("+");
+  const key = parts[parts.length - 1];
+  const needsMod = parts.includes("mod");
+  const needsCtrl = parts.includes("ctrl");
+  const needsAlt = parts.includes("alt");
+  const needsShift = parts.includes("shift");
+  const isMac =
+    typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+  return (e: KeyboardEvent): boolean => {
+    if (e.key.toLowerCase() !== key) return false;
+    if (needsMod && !(isMac ? e.metaKey : e.ctrlKey)) return false;
+    if (needsCtrl && !e.ctrlKey) return false;
+    if (needsAlt && !e.altKey) return false;
+    if (needsShift && !e.shiftKey) return false;
+    return true;
   };
-
-  const applyFilter = (query: string): void => {
-    const shown = commandFilter(labels, query);
-    items.forEach((el, i) => {
-      el.hidden = !shown[i];
-    });
-    // a group heading is shown only if at least one item under it (up to the next heading) is shown.
-    for (const heading of headings) {
-      let visible = false;
-      let node: Element | null = heading.nextElementSibling;
-      while (node && !node.hasAttribute("data-command-group")) {
-        if (node.hasAttribute("data-command-item") && !(node as HTMLElement).hidden) {
-          visible = true;
-          break;
-        }
-        node = node.nextElementSibling;
-      }
-      heading.hidden = !visible;
-    }
-    if (empty) empty.hidden = visibleItems().length > 0;
-    activeIndex = -1;
-    items.forEach((el) => el.removeAttribute("data-command-active"));
-    search.removeAttribute("aria-activedescendant");
-  };
-
-  search.addEventListener("input", () => applyFilter(search.value));
-
-  search.addEventListener("keydown", (e: KeyboardEvent) => {
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        // from no-selection (-1) the first ArrowDown lands on the first visible item.
-        setActive(activeIndex < 0 ? 0 : activeIndex + 1);
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        // from no-selection (-1) the first ArrowUp wraps to the LAST visible item.
-        setActive(activeIndex < 0 ? -1 : activeIndex - 1);
-        break;
-      case "Enter": {
-        const vis = visibleItems();
-        if (activeIndex >= 0 && activeIndex < vis.length) {
-          e.preventDefault();
-          vis[activeIndex].querySelector<HTMLElement>("[data-command-action]")?.click();
-        }
-        break;
-      }
-      case "Escape":
-        if (search.value !== "") {
-          e.preventDefault();
-          search.value = "";
-          applyFilter("");
-        }
-        break;
-      default:
-        break;
-    }
-  });
-
-  // seed: everything visible, no active item.
-  applyFilter("");
 }
 
-/** Enhance every `[data-lievit-command]` root in scope (call on load + after DOM swaps). */
-export function enhanceAllCommands(scope: ParentNode = document): void {
-  scope
-    .querySelectorAll<HTMLElement>("[data-lievit-command]")
-    .forEach((root) => enhanceCommand(root));
+/**
+ * Apply client-side filtering: hide non-matching items, hide empty group containers,
+ * toggle the empty state.
+ */
+function applyFilter(panel: HTMLElement, query: string): void {
+  const items = Array.from(panel.querySelectorAll<HTMLElement>("[data-lievit-item]"));
+  const labels = items.map((el) => {
+    // The label text is inside the span[style*=flex:1] child of option-inner.
+    const labelEl = el.querySelector<HTMLElement>("[data-slot='option-inner'] span:not([aria-hidden])");
+    return labelEl?.textContent?.trim() ?? "";
+  });
+  const shown = commandFilter(labels, query);
+  items.forEach((el, i) => {
+    el.hidden = !shown[i];
+  });
+
+  // Hide group containers whose inner items are all hidden.
+  const groups = Array.from(panel.querySelectorAll<HTMLElement>("[data-slot='group']"));
+  for (const group of groups) {
+    const groupItems = Array.from(group.querySelectorAll<HTMLElement>("[data-lievit-item]"));
+    const anyVisible = groupItems.some((el) => !el.hidden);
+    group.hidden = !anyVisible;
+  }
+
+  // Toggle the empty live region.
+  const emptyEl = panel.querySelector<HTMLElement>("[data-slot='empty']");
+  const anyItemVisible = items.some((el) => !el.hidden);
+  if (emptyEl != null) {
+    emptyEl.hidden = anyItemVisible;
+  }
+}
+
+/**
+ * Activate a single panel. Idempotent (stamped ACTIVE_ATTR guards re-activation).
+ */
+export function activatePanel(panel: HTMLElement, runtime: LievitRuntime): void {
+  if (panel.hasAttribute(ACTIVE_ATTR)) return;
+  panel.setAttribute(ACTIVE_ATTR, "");
+
+  const input = panel.querySelector<HTMLInputElement>("input[role='combobox']");
+  if (input == null) return;
+
+  // Seed: everything visible, no active item.
+  applyFilter(panel, "");
+
+  // Input filtering.
+  const inputHandler: EventListener = () => {
+    applyFilter(panel, input.value);
+  };
+  input.addEventListener("input", inputHandler);
+
+  // Keydown: Enter dispatch + Backspace-in-page.
+  const keydownHandler: EventListener = (rawEvent: Event): void => {
+    const e = rawEvent as KeyboardEvent;
+
+    if (e.key === "Enter") {
+      // Find the active option via aria-activedescendant.
+      const activeId = input.getAttribute("aria-activedescendant");
+      if (!activeId) return;
+      const option = panel.querySelector<HTMLElement>(`#${CSS.escape(activeId)}`);
+      if (option == null) return;
+      if (option.getAttribute("aria-disabled") === "true") return;
+
+      e.preventDefault();
+      const pageId = option.dataset["pageId"];
+      const href = option.dataset["href"];
+      const cmdId = option.dataset["id"] ?? "";
+      const openPageAction = panel.dataset["openPageAction"] ?? "openPage";
+      const executeAction = panel.dataset["executeAction"] ?? "executeCommand";
+
+      if (pageId != null && pageId !== "") {
+        void runtime.callAction(option, openPageAction, { trigger: option, commandId: pageId });
+      } else if (href != null && href !== "") {
+        window.location.href = href;
+      } else {
+        void runtime.callAction(option, executeAction, { trigger: option, commandId: cmdId });
+      }
+      return;
+    }
+
+    if (e.key === "Backspace") {
+      const page = panel.dataset["page"] ?? "";
+      if (page !== "" && input.value === "") {
+        e.preventDefault();
+        const backAction = panel.dataset["backToRootAction"] ?? "backToRoot";
+        void runtime.callAction(panel, backAction, { trigger: panel });
+      }
+    }
+  };
+  input.addEventListener("keydown", keydownHandler);
+
+  // Global shortcut: while panel is in DOM, the shortcut closes it.
+  const shortcutStr = panel.dataset["shortcut"] ?? "";
+  const matches = shortcutStr !== "" ? shortcutMatcher(shortcutStr) : null;
+  const closeAction = panel.dataset["lievitEscapeAction"] ??
+    panel.getAttribute("data-lievit-escape-action") ??
+    "close";
+
+  const shortcutHandler: EventListener = (rawEvent: Event): void => {
+    if (matches == null) return;
+    const e = rawEvent as KeyboardEvent;
+    if (matches(e)) {
+      e.preventDefault();
+      void runtime.callAction(panel, closeAction, { trigger: panel });
+    }
+  };
+  document.addEventListener("keydown", shortcutHandler);
+
+  activePanels.set(panel, { panel, shortcutHandler, inputHandler, keydownHandler });
+}
+
+/**
+ * Deactivate a panel that has left the DOM: remove document listeners and clear the state.
+ */
+function deactivatePanel(panel: HTMLElement): void {
+  const state = activePanels.get(panel);
+  if (state == null) return;
+  document.removeEventListener("keydown", state.shortcutHandler);
+  const input = panel.querySelector<HTMLInputElement>("input[role='combobox']");
+  if (input != null) {
+    input.removeEventListener("input", state.inputHandler);
+    input.removeEventListener("keydown", state.keydownHandler);
+  }
+  panel.removeAttribute(ACTIVE_ATTR);
+  activePanels.delete(panel);
+}
+
+// ---------------------------------------------------------------------------
+// Runtime integration
+// ---------------------------------------------------------------------------
+
+/**
+ * Install the command enhancer on a LievitRuntime. Registers onComponentInit (scans every
+ * component root for [data-lievit-command] panels after mount / morph) and afterCall (deactivates
+ * panels that the morph has removed from the DOM).
+ *
+ * @param runtime - the runtime to extend
+ * @returns an unsubscribe function
+ */
+export function installCommandEnhancer(runtime: LievitRuntime): () => void {
+  return runtime.use({
+    onComponentInit(ctx) {
+      // The root itself could carry the panel attribute.
+      if ((ctx.root as HTMLElement).hasAttribute(PANEL_ATTR)) {
+        activatePanel(ctx.root as HTMLElement, runtime);
+      }
+      for (const el of Array.from(
+        ctx.root.querySelectorAll<HTMLElement>(`[${PANEL_ATTR}]`),
+      )) {
+        activatePanel(el, runtime);
+      }
+    },
+    afterCall() {
+      // Prune panels that the morph removed from the DOM.
+      for (const [panel] of activePanels) {
+        if (!document.body.contains(panel)) {
+          deactivatePanel(panel);
+        }
+      }
+    },
+  });
 }

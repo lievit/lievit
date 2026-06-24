@@ -1,179 +1,367 @@
-@import gg.jte.Content
 @import java.util.List
+@import java.util.HashSet
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui command-palette partial -- the STATIC shadcn Command: a searchable command list
-  (input + a role=listbox of role=option items) rendered ENTIRELY server-side, with a tiny CSP-clean
-  typed-TS enhancer for the interactive filtering + keyboard nav. It is the static sibling of the
-  WIRE command (registry/wire/command/): that one filters SERVER-SIDE per keystroke (the catalog
-  never ships, the query is a @Wire string re-querying the server); THIS partial ships the WHOLE
-  small/preloaded catalog as real HTML and filters it in the browser. Use the wire command when the
-  catalog is large / lazy / server-owned; use this when the commands are a fixed, page-known set (the
-  kit's io.lievit.kit.Command render path).
+  lievit-ui command partial -- a CONTROLLED/UNCONTROLLED modal command palette overlay.
 
-  TIER: STATIC presentational -> JTE partial + a progressive enhancer. JS-OFF the partial is fully
-  usable: every command is a real <a href> (navigate, middle-click works) or a real <button>
-  (formAction POST), so the list is a plain navigable menu without the search box doing anything.
-  The enhancer (command.enhancer.ts) UPGRADES it: it filters the rendered items by the query (hiding
-  non-matches, no re-render, the catalog is already on the page) and wires ArrowUp/Down + Enter +
-  Escape keyboard navigation. There is nothing for the server to decide between keystrokes once the
-  options are on the page, so there is NO wire round-trip -- that is exactly the line between this
-  and the wire command. No inline <script> (the strict CSP refuses inline on* handlers; the enhancer
-  attaches listeners in code).
+  TIER: PARTIAL + ENH (command.enhancer.ts + focus-trap.enhancer.ts + collection-nav.enhancer.ts).
+  No Java component, no @Wire field, no _component/_instance params. The open-state belongs to
+  the CALLER's own Wire component.
 
-  ITEMS via index-aligned lists (the tabs-static convention): the caller passes parallel
-  List<String> columns (labels + the optional values/hrefs/formActions/formIds/icons/shortcuts/
-  groups), one entry per command, so the partial needs no custom record type and stays JTE-pure. A
-  blank cell (or a shorter list) means "absent"; an item with a non-blank href renders a real <a>,
-  otherwise a real <button> (a formAction POST, or a plain type=button the adopter wires).
+  CONTROLLED/UNCONTROLLED doctrine:
+    UNCONTROLLED (default, open=false): the overlay is entirely absent from the DOM. The caller
+    places its own trigger (e.g. a button with l:click="openPalette"). The enhancer also wires a
+    global Cmd+K / Ctrl+K shortcut on the panel (data-shortcut) while the panel is in the DOM, to
+    close it on second press. Opening from keyboard when closed is the caller's responsibility (the
+    trigger button handles it).
+    CONTROLLED (open=true): the full overlay renders -- scrim + centered panel. The panel carries
+    data-lievit-focus-trap (traps Tab cycling, fires closeAction on Escape via focus-trap.enhancer.ts),
+    data-lievit-collection on the listbox (ArrowUp/Down/Home/End navigation via
+    collection-nav.enhancer.ts), and data-lievit-command (client-side filtering + Enter/Backspace/
+    shortcut dispatch via command.enhancer.ts).
 
-  STRUCTURE (scientific decision rule): WAI-ARIA combobox + listbox (the same model the wire command
-  cites): the search <input role="combobox" aria-controls> -> the list; the list is
-  <ul role="listbox">; groups are role="group"-captioned headings; items are <li role="option">
-  carrying a real <a>/<button>. The enhancer sets aria-activedescendant + a per-item active state
-  during keyboard nav; aria-selected stays false (this is an action palette, not a selection widget).
+  STRUCTURE (WAI-ARIA APG Combobox + Listbox, aria-activedescendant model):
+    - Overlay: role="presentation" scrim + panel wrapper, position:fixed, z-index:--lv-z-overlay.
+    - Scrim: aria-hidden="true", l:click="${closeAction}" (click-outside closes).
+    - Panel: role="presentation", position:relative, z-index:--lv-z-modal, focus-trap host.
+    - Breadcrumb nav: shown when page is non-empty (nested command page). Back button fires
+      backToRootAction. A11y: nav[aria-label="Command palette navigation"].
+    - Search row: input[role=combobox][aria-controls][aria-haspopup=listbox][aria-autocomplete=list]
+      [aria-expanded=true][aria-activedescendant] driven by collection-nav.enhancer.ts via
+      data-lievit-collection-activedescendant-target on the listbox.
+    - Listbox: ul[role=listbox][id] with data-lievit-collection + data-lievit-collection-orientation
+      vertical. Each item: li[role=option][id="opt-{id}"][data-lievit-item].
+    - Groups: outer li[role=presentation][data-slot=group] + span[id=grp-N-label] + ul[role=group]
+      [aria-labelledby=grp-N-label] for items in that group.
+    - Empty state: li[role=presentation][data-slot=empty] + nested div[role=status][aria-live=polite].
+    - Items NOT in any group are rendered after the grouped blocks.
 
-  A11y: input[role=combobox][aria-controls][aria-autocomplete=list]; ul[role=listbox]; li[role=option]
-  each holding a real focusable control so activation is the platform's; the search box drives
-  aria-activedescendant during arrow nav.
+  Enhancer wiring (data-attribute contract -- do NOT edit the shared enhancers):
+    data-lievit-focus-trap         on the panel -- activates trap (Tab cycling, scroll-lock).
+    data-lievit-escape-action      on the panel -- fires closeAction on Escape.
+    data-lievit-command            on the panel -- activates the command enhancer.
+    data-shortcut                  on the panel -- global shortcut (e.g. "mod+k") to close.
+    data-page                      on the panel -- current nested page name (empty = root).
+    data-lievit-collection         on the listbox -- activates collection-nav.enhancer.ts.
+    data-lievit-collection-orientation  "vertical" -- ArrowUp/Down navigation.
+    data-lievit-collection-activedescendant-target  "#${inputId}" -- names the input to update.
+    data-lievit-item               on each li[role=option] -- collection item.
 
-  Params (index-aligned columns; labels is the only required one):
-    String       id = "lv-command"     the root id; the listbox id derives from it. Unique per page.
-    List<String> labels                the visible command text per item (also the filter target).
-    List<String> values = {}           a stable key per item (data-command-value); defaults to label.
-    List<String> hrefs = {}            destination per item => a real <a href> when non-blank.
-    List<String> formActions = {}      a formaction URL per item => a real <button type=submit> POST.
-    List<String> formIds = {}          a <form> id per item the button submits (with a formAction).
-    List<String> icons = {}            an optional leading Lucide icon name per item.
-    List<String> shortcuts = {}        an optional right-aligned keyboard hint per item (display only).
-    List<String> groups = {}           an optional group caption per item; consecutive items sharing a
-                                       caption are grouped under one heading.
-    String       placeholder = "Type a command or search..."  the search box placeholder.
-    String       emptyText = "No results found."  shown (by the enhancer) when nothing matches.
-    String       label = "Command palette"  accessible label for the input + listbox.
-    String       cssClass = ""         extra utility classes on the root.
+  MISSING tokens (flagged for token audit):
+    --lv-space-96 (24rem), --lv-space-128 (32rem), --lv-space-192 (48rem): used as listbox
+    max-height and panel widths. Fallbacks inline: 24rem / 32rem / 48rem.
+    --lv-motion-fast: use --lv-duration-fast instead.
 
-  Usage (build the columns in the controller from real commands, then):
+  Params (all @param, no Wire fields):
+    boolean        open                = false
+    List<String>   commands            label per command (the filter target).
+    List<String>   commandIds          stable key per command; defaults to index.
+    List<String>   commandGroups       group name per command; blank = no group.
+    List<String>   commandIcons        Lucide icon name per command; blank = no icon.
+    List<String>   commandShortcuts    keyboard hint per command (display only); blank = none.
+    List<String>   commandIntents      "default" | "destructive"; blank = "default".
+    List<String>   commandHrefs        navigation href per command; blank = action command.
+    List<String>   commandPageIds      nested page id per command; blank = action command.
+    List<Boolean>  commandDisabled     whether the command is disabled; null or false = enabled.
+    List<String>   groups              ordered list of group names to render (determines order).
+    List<String>   recentCommandIds    command ids to mark as recently used (data-recent).
+    String         page                current nested page name; empty = root palette.
+    String         placeholder         search input placeholder text.
+    String         emptyText           text shown when no commands match the query.
+    String         size                "sm" (24rem) | "md" (32rem, default) | "lg" (48rem).
+    String         shortcut            global keyboard shortcut expressed as "mod+k".
+    String         closeAction         wire action name to close the palette.
+    String         executeAction       wire action name fired on a plain command item.
+    String         openPageAction      wire action name fired when a page-command is activated.
+    String         backToRootAction    wire action name fired by the breadcrumb Back button.
+    String         openAction          wire action name fired by the global shortcut to open.
+    String         id                  root id; input and listbox ids derive from it.
+    String         cssClass            extra classes on the overlay root.
+
+  Usage:
     @@template.lievit.command(
-      id = "k-menu",
-      labels = java.util.List.of("Go to dashboard", "New contact"),
-      hrefs = java.util.List.of("/dashboard", ""),
-      formActions = java.util.List.of("", "/contacts/new"),
-      icons = java.util.List.of("layout-dashboard", "plus"),
-      groups = java.util.List.of("Navigation", "Actions")
+      open            = myCmd.open(),
+      commands        = myCmd.commandLabels(),
+      commandIds      = myCmd.commandIds(),
+      commandGroups   = myCmd.commandGroups(),
+      commandIcons    = myCmd.commandIcons(),
+      commandShortcuts = myCmd.commandShortcuts(),
+      commandIntents  = myCmd.commandIntents(),
+      commandHrefs    = myCmd.commandHrefs(),
+      commandDisabled = myCmd.commandDisabled(),
+      groups          = myCmd.groups(),
+      recentCommandIds = myCmd.recentCommandIds(),
+      page            = myCmd.page(),
+      closeAction     = "closeCommand",
+      executeAction   = "executeCommand",
+      openPageAction  = "openPage",
+      backToRootAction = "backToRoot",
+      openAction      = "openCommand"
     )
 --%>
-@param String id = "lv-command"
-@param List<String> labels
-@param List<String> values = java.util.List.of()
-@param List<String> hrefs = java.util.List.of()
-@param List<String> formActions = java.util.List.of()
-@param List<String> formIds = java.util.List.of()
-@param List<String> icons = java.util.List.of()
-@param List<String> shortcuts = java.util.List.of()
+@param boolean open = false
+@param List<String> commands = java.util.List.of()
+@param List<String> commandIds = java.util.List.of()
+@param List<String> commandGroups = java.util.List.of()
+@param List<String> commandIcons = java.util.List.of()
+@param List<String> commandShortcuts = java.util.List.of()
+@param List<String> commandIntents = java.util.List.of()
+@param List<String> commandHrefs = java.util.List.of()
+@param List<String> commandPageIds = java.util.List.of()
+@param List<Boolean> commandDisabled = java.util.List.of()
 @param List<String> groups = java.util.List.of()
-@param String placeholder = "Type a command or search..."
-@param String emptyText = "No results found."
-@param String label = "Command palette"
+@param List<String> recentCommandIds = java.util.List.of()
+@param String page = ""
+@param String placeholder = "Search commands…"
+@param String emptyText = "No commands found."
+@param String size = "md"
+@param String shortcut = "mod+k"
+@param String closeAction = "close"
+@param String executeAction = "executeCommand"
+@param String openPageAction = "openPage"
+@param String backToRootAction = "backToRoot"
+@param String openAction = "openPalette"
+@param String id = "lv-cmd"
 @param String cssClass = ""
-!{var listId = id + "-list";}
-!{var inputId = id + "-input";}
 
+!{var listboxId = id + "-listbox";}
+!{var inputId = id + "-input";}
+!{var recentSet = new HashSet<String>(recentCommandIds);}
+!{var sizeWidth = "lg".equals(size) ? "48rem" : "md".equals(size) ? "32rem" : "24rem";}
+!{var hasGroups = !groups.isEmpty();}
+
+@if(open)
 <div
     id="${id}"
-    data-slot="command"
-    data-lievit-command
-    data-empty-text="${emptyText}"
-    class="flex flex-col overflow-hidden rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] text-[var(--lv-color-fg)] shadow-[var(--lv-shadow-md)] ${cssClass}"
-    style="font-family:var(--lv-font-sans);"
+    data-slot="overlay"
+    role="presentation"
+    class="${cssClass}"
+    style="position:fixed;inset:0;z-index:var(--lv-z-overlay,1200);display:flex;align-items:center;justify-content:center;font-family:var(--lv-font-sans);"
 >
-  <div data-slot="command-input-wrapper" class="flex items-center gap-[var(--lv-space-2)] border-b border-[var(--lv-color-border)] px-[var(--lv-space-3)] py-[var(--lv-space-2)]">
-    <span aria-hidden="true" class="inline-flex shrink-0 text-[var(--lv-color-muted)]">@template.lievit.icon(name = "search", size = "1rem")</span>
-    <input
-        type="text"
-        id="${inputId}"
-        data-slot="command-input"
-        data-command-search
-        role="combobox"
-        aria-label="${label}"
-        aria-controls="${listId}"
-        aria-expanded="true"
-        aria-autocomplete="list"
-        autocomplete="off"
-        placeholder="${placeholder}"
-        class="min-w-0 flex-1 border-0 bg-transparent p-0 text-[length:var(--lv-text-base)] text-[var(--lv-color-fg)] outline-none placeholder:text-[var(--lv-color-muted)]"
-        style="font-family:var(--lv-font-sans);"
-    />
-  </div>
+  <%-- Scrim: full-viewport cover, click fires close. aria-hidden keeps it out of the a11y tree. --%>
+  <div
+      aria-hidden="true"
+      data-slot="scrim"
+      l:click="${closeAction}"
+      style="position:absolute;inset:0;background:var(--lv-color-overlay);"
+  ></div>
 
-  <ul
-      id="${listId}"
-      data-slot="command-list"
-      data-command-list
-      role="listbox"
-      aria-label="${label}"
-      class="m-0 max-h-[20rem] list-none overflow-y-auto p-[var(--lv-space-1)]"
+  <%-- Panel: the modal box centered over the scrim. Focus-trap host. --%>
+  <div
+      role="presentation"
+      data-slot="panel"
+      data-size="${size}"
+      data-shortcut="${shortcut}"
+      data-page="${page}"
+      data-execute-action="${executeAction}"
+      data-open-page-action="${openPageAction}"
+      data-back-to-root-action="${backToRootAction}"
+      data-open-action="${openAction}"
+      data-lievit-focus-trap=""
+      data-lievit-escape-action="${closeAction}"
+      data-lievit-command=""
+      style="position:relative;z-index:var(--lv-z-modal,1300);width:${sizeWidth};max-width:calc(100vw - 2rem);background:var(--lv-color-popover);color:var(--lv-color-popover-fg);border:1px solid var(--lv-color-border);border-radius:var(--lv-radius-lg);box-shadow:var(--lv-shadow-xl);overflow:hidden;display:flex;flex-direction:column;"
   >
-    @for(int i = 0; i < labels.size(); i++)
-      !{var itemLabel = labels.get(i);}
-      !{var value = i < values.size() && !values.get(i).isBlank() ? values.get(i) : itemLabel;}
-      !{var href = i < hrefs.size() ? hrefs.get(i) : "";}
-      !{var formAction = i < formActions.size() ? formActions.get(i) : "";}
-      !{var formId = i < formIds.size() ? formIds.get(i) : "";}
-      !{var icon = i < icons.size() ? icons.get(i) : "";}
-      !{var shortcut = i < shortcuts.size() ? shortcuts.get(i) : "";}
-      !{var group = i < groups.size() ? groups.get(i) : "";}
-      !{var prevGroup = i > 0 && i - 1 < groups.size() ? groups.get(i - 1) : "";}
-      !{var newGroup = !group.isEmpty() && !group.equals(prevGroup);}
-      @if(newGroup)
-        <li role="presentation" data-slot="command-group-heading" data-command-group="${group}" class="px-[var(--lv-space-2)] pb-[var(--lv-space-1)] pt-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-semibold)] text-[var(--lv-color-muted)]">${group}</li>
+    <%-- Breadcrumb: shown only when displaying a nested command page. --%>
+    @if(!page.isEmpty())
+    <nav
+        data-slot="breadcrumb"
+        aria-label="Command palette navigation"
+        style="display:flex;align-items:center;gap:var(--lv-space-2);padding:var(--lv-space-2) var(--lv-space-4);border-bottom:1px solid var(--lv-color-border);font-size:var(--lv-text-xs);color:var(--lv-color-muted);"
+    >
+      <button
+          type="button"
+          data-slot="back"
+          l:click="${backToRootAction}"
+          style="display:inline-flex;align-items:center;gap:var(--lv-space-2);cursor:pointer;border:none;background:transparent;color:var(--lv-color-muted);font:inherit;font-size:var(--lv-text-xs);padding:0;transition:color var(--lv-duration-fast);"
+      >@template.lievit.icon(name = "chevron-left", size = "0.75rem")Back</button>
+      <span aria-hidden="true" style="color:var(--lv-color-border);">/</span>
+      <span>${page}</span>
+    </nav>
+    @endif
+
+    <%-- Search row: combobox input + decorative search icon. --%>
+    <div
+        data-slot="search-input"
+        style="display:flex;align-items:center;gap:var(--lv-space-2);padding:0 var(--lv-space-4);border-bottom:1px solid var(--lv-color-border);height:var(--lv-space-9);"
+    >
+      <span aria-hidden="true" style="display:inline-flex;flex-shrink:0;color:var(--lv-color-muted);">@template.lievit.icon(name = "search", size = "1rem")</span>
+      <input
+          id="${inputId}"
+          type="text"
+          role="combobox"
+          aria-label="Search commands"
+          aria-controls="${listboxId}"
+          aria-haspopup="listbox"
+          aria-autocomplete="list"
+          aria-expanded="true"
+          aria-activedescendant=""
+          autocomplete="off"
+          placeholder="${placeholder}"
+          style="flex:1;min-width:0;border:none;background:transparent;outline:none;color:var(--lv-color-popover-fg);font:inherit;font-size:var(--lv-text-sm);"
+      />
+    </div>
+
+    <%-- Listbox: the scrollable list of command items. --%>
+    <ul
+        id="${listboxId}"
+        role="listbox"
+        aria-label="Commands"
+        data-slot="listbox"
+        data-lievit-collection=""
+        data-lievit-collection-orientation="vertical"
+        data-lievit-collection-activedescendant-target="#${inputId}"
+        style="margin:0;padding:var(--lv-space-2);list-style:none;overflow-y:auto;max-height:var(--lv-space-96,24rem);"
+    >
+      @if(hasGroups)
+        <%-- Grouped rendering: render each group header + its items, then ungrouped items. --%>
+        @for(String groupName : groups)
+          !{var grpLabelId = id + "-grp-" + groups.indexOf(groupName) + "-label";}
+          <li role="presentation" data-slot="group" data-group-name="${groupName}" style="list-style:none;">
+            <span
+                id="${grpLabelId}"
+                data-slot="group-label"
+                style="display:block;padding:var(--lv-space-3) var(--lv-space-2) var(--lv-space-1);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);color:var(--lv-color-muted);text-transform:uppercase;letter-spacing:0.06em;"
+            >${groupName}</span>
+            <ul role="group" aria-labelledby="${grpLabelId}" style="margin:0;padding:0;list-style:none;">
+              @for(int i = 0; i < commands.size(); i++)
+                !{var _cg = i < commandGroups.size() ? commandGroups.get(i) : "";}
+                @if(groupName.equals(_cg))
+                  !{var cmdLabel = commands.get(i);}
+                  !{var cmdId = i < commandIds.size() && !commandIds.get(i).isEmpty() ? commandIds.get(i) : String.valueOf(i);}
+                  !{var cmdIcon = i < commandIcons.size() ? commandIcons.get(i) : "";}
+                  !{var cmdShortcut = i < commandShortcuts.size() ? commandShortcuts.get(i) : "";}
+                  !{var cmdIntent = i < commandIntents.size() && !commandIntents.get(i).isEmpty() ? commandIntents.get(i) : "default";}
+                  !{var cmdHref = i < commandHrefs.size() ? commandHrefs.get(i) : "";}
+                  !{var cmdPageId = i < commandPageIds.size() ? commandPageIds.get(i) : "";}
+                  !{boolean cmdIsDisabled = i < commandDisabled.size() && Boolean.TRUE.equals(commandDisabled.get(i));}
+                  !{boolean cmdIsRecent = recentSet.contains(cmdId);}
+                  !{boolean isDestructive = "destructive".equals(cmdIntent);}
+                  <li
+                      id="opt-${cmdId}"
+                      role="option"
+                      data-slot="option"
+                      data-intent="${cmdIntent}"
+                      data-id="${cmdId}"
+                      data-recent="${cmdIsRecent ? "true" : null}"
+                      data-href="${!cmdHref.isEmpty() ? cmdHref : null}"
+                      data-page-id="${!cmdPageId.isEmpty() ? cmdPageId : null}"
+                      aria-selected="false"
+                      aria-disabled="${cmdIsDisabled ? "true" : null}"
+                      data-lievit-item=""
+                      style="list-style:none;"
+                  >
+                    <div
+                        data-slot="option-inner"
+                        style="display:flex;align-items:center;gap:var(--lv-space-2);padding:0 var(--lv-space-2);height:var(--lv-space-9);border-radius:var(--lv-radius-md);cursor:${cmdIsDisabled ? "not-allowed" : "pointer"};opacity:${cmdIsDisabled ? "var(--lv-opacity-disabled)" : "1"};color:${isDestructive ? "var(--lv-color-destructive)" : "var(--lv-color-popover-fg)"};font-size:var(--lv-text-sm);"
+                    >
+                      @if(!cmdIcon.isEmpty())
+                        <span aria-hidden="true" style="display:inline-flex;flex-shrink:0;">@template.lievit.icon(name = cmdIcon, size = "1rem")</span>
+                      @endif
+                      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cmdLabel}</span>
+                      @if(!cmdShortcut.isEmpty())
+                        <kbd aria-hidden="true" style="display:inline-flex;align-items:center;flex-shrink:0;border-radius:var(--lv-radius-md);background:var(--lv-color-muted-bg);padding:0 var(--lv-space-2);font-size:var(--lv-text-xs);color:var(--lv-color-muted);font-family:var(--lv-font-sans);letter-spacing:0.04em;">${cmdShortcut}</kbd>
+                      @endif
+                    </div>
+                  </li>
+                @endif
+              @endfor
+            </ul>
+          </li>
+        @endfor
+        <%-- Items with no group, rendered after all group blocks. --%>
+        @for(int i = 0; i < commands.size(); i++)
+          !{var _cg2 = i < commandGroups.size() ? commandGroups.get(i) : "";}
+          @if(_cg2.isEmpty())
+            !{var cmdLabel = commands.get(i);}
+            !{var cmdId = i < commandIds.size() && !commandIds.get(i).isEmpty() ? commandIds.get(i) : String.valueOf(i);}
+            !{var cmdIcon = i < commandIcons.size() ? commandIcons.get(i) : "";}
+            !{var cmdShortcut = i < commandShortcuts.size() ? commandShortcuts.get(i) : "";}
+            !{var cmdIntent = i < commandIntents.size() && !commandIntents.get(i).isEmpty() ? commandIntents.get(i) : "default";}
+            !{var cmdHref = i < commandHrefs.size() ? commandHrefs.get(i) : "";}
+            !{var cmdPageId = i < commandPageIds.size() ? commandPageIds.get(i) : "";}
+            !{boolean cmdIsDisabled = i < commandDisabled.size() && Boolean.TRUE.equals(commandDisabled.get(i));}
+            !{boolean cmdIsRecent = recentSet.contains(cmdId);}
+            !{boolean isDestructive = "destructive".equals(cmdIntent);}
+            <li
+                id="opt-${cmdId}"
+                role="option"
+                data-slot="option"
+                data-intent="${cmdIntent}"
+                data-id="${cmdId}"
+                data-recent="${cmdIsRecent ? "true" : null}"
+                data-href="${!cmdHref.isEmpty() ? cmdHref : null}"
+                data-page-id="${!cmdPageId.isEmpty() ? cmdPageId : null}"
+                aria-selected="false"
+                aria-disabled="${cmdIsDisabled ? "true" : null}"
+                data-lievit-item=""
+                style="list-style:none;"
+            >
+              <div
+                  data-slot="option-inner"
+                  style="display:flex;align-items:center;gap:var(--lv-space-2);padding:0 var(--lv-space-2);height:var(--lv-space-9);border-radius:var(--lv-radius-md);cursor:${cmdIsDisabled ? "not-allowed" : "pointer"};opacity:${cmdIsDisabled ? "var(--lv-opacity-disabled)" : "1"};color:${isDestructive ? "var(--lv-color-destructive)" : "var(--lv-color-popover-fg)"};font-size:var(--lv-text-sm);"
+              >
+                @if(!cmdIcon.isEmpty())
+                  <span aria-hidden="true" style="display:inline-flex;flex-shrink:0;">@template.lievit.icon(name = cmdIcon, size = "1rem")</span>
+                @endif
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cmdLabel}</span>
+                @if(!cmdShortcut.isEmpty())
+                  <kbd aria-hidden="true" style="display:inline-flex;align-items:center;flex-shrink:0;border-radius:var(--lv-radius-md);background:var(--lv-color-muted-bg);padding:0 var(--lv-space-2);font-size:var(--lv-text-xs);color:var(--lv-color-muted);font-family:var(--lv-font-sans);letter-spacing:0.04em;">${cmdShortcut}</kbd>
+                @endif
+              </div>
+            </li>
+          @endif
+        @endfor
+      @else
+        <%-- Flat rendering: no groups, render all commands in order. --%>
+        @for(int i = 0; i < commands.size(); i++)
+          !{var cmdLabel = commands.get(i);}
+          !{var cmdId = i < commandIds.size() && !commandIds.get(i).isEmpty() ? commandIds.get(i) : String.valueOf(i);}
+          !{var cmdIcon = i < commandIcons.size() ? commandIcons.get(i) : "";}
+          !{var cmdShortcut = i < commandShortcuts.size() ? commandShortcuts.get(i) : "";}
+          !{var cmdIntent = i < commandIntents.size() && !commandIntents.get(i).isEmpty() ? commandIntents.get(i) : "default";}
+          !{var cmdHref = i < commandHrefs.size() ? commandHrefs.get(i) : "";}
+          !{var cmdPageId = i < commandPageIds.size() ? commandPageIds.get(i) : "";}
+          !{boolean cmdIsDisabled = i < commandDisabled.size() && Boolean.TRUE.equals(commandDisabled.get(i));}
+          !{boolean cmdIsRecent = recentSet.contains(cmdId);}
+          !{boolean isDestructive = "destructive".equals(cmdIntent);}
+          <li
+              id="opt-${cmdId}"
+              role="option"
+              data-slot="option"
+              data-intent="${cmdIntent}"
+              data-id="${cmdId}"
+              data-recent="${cmdIsRecent ? "true" : null}"
+              data-href="${!cmdHref.isEmpty() ? cmdHref : null}"
+              data-page-id="${!cmdPageId.isEmpty() ? cmdPageId : null}"
+              aria-selected="false"
+              aria-disabled="${cmdIsDisabled ? "true" : null}"
+              data-lievit-item=""
+              style="list-style:none;"
+          >
+            <div
+                data-slot="option-inner"
+                style="display:flex;align-items:center;gap:var(--lv-space-2);padding:0 var(--lv-space-2);height:var(--lv-space-9);border-radius:var(--lv-radius-md);cursor:${cmdIsDisabled ? "not-allowed" : "pointer"};opacity:${cmdIsDisabled ? "var(--lv-opacity-disabled)" : "1"};color:${isDestructive ? "var(--lv-color-destructive)" : "var(--lv-color-popover-fg)"};font-size:var(--lv-text-sm);"
+            >
+              @if(!cmdIcon.isEmpty())
+                <span aria-hidden="true" style="display:inline-flex;flex-shrink:0;">@template.lievit.icon(name = cmdIcon, size = "1rem")</span>
+              @endif
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cmdLabel}</span>
+              @if(!cmdShortcut.isEmpty())
+                <kbd aria-hidden="true" style="display:inline-flex;align-items:center;flex-shrink:0;border-radius:var(--lv-radius-md);background:var(--lv-color-muted-bg);padding:0 var(--lv-space-2);font-size:var(--lv-text-xs);color:var(--lv-color-muted);font-family:var(--lv-font-sans);letter-spacing:0.04em;">${cmdShortcut}</kbd>
+              @endif
+            </div>
+          </li>
+        @endfor
       @endif
-      <li
-          role="option"
-          data-slot="command-item"
-          data-command-item
-          data-command-value="${value}"
-          data-command-label="${itemLabel}"
-          aria-selected="false"
-      >
-        @if(!href.isEmpty())
-          <a
-              href="${href}"
-              data-command-action
-              tabindex="-1"
-              class="flex w-full items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-sm)] px-[var(--lv-space-2)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] no-underline"
-          >
-            @if(!icon.isEmpty())
-              <span aria-hidden="true" class="inline-flex shrink-0 text-[var(--lv-color-muted)]">@template.lievit.icon(name = icon, size = "1rem")</span>
-            @endif
-            <span class="min-w-0 flex-1">${itemLabel}</span>
-            @if(!shortcut.isEmpty())
-              <span aria-hidden="true" class="ml-auto shrink-0 text-[length:var(--lv-text-xs)] text-[var(--lv-color-muted)]" style="letter-spacing:0.08em;">${shortcut}</span>
-            @endif
-          </a>
-        @else
-          <button
-              type="${formAction.isEmpty() ? "button" : "submit"}"
-              data-command-action
-              tabindex="-1"
-              form="${formId.isEmpty() ? null : formId}"
-              formaction="${formAction.isEmpty() ? null : formAction}"
-              class="flex w-full cursor-pointer items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-sm)] border-0 bg-transparent px-[var(--lv-space-2)] py-[var(--lv-space-2)] text-left text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)]"
-              style="font:inherit;"
-          >
-            @if(!icon.isEmpty())
-              <span aria-hidden="true" class="inline-flex shrink-0 text-[var(--lv-color-muted)]">@template.lievit.icon(name = icon, size = "1rem")</span>
-            @endif
-            <span class="min-w-0 flex-1">${itemLabel}</span>
-            @if(!shortcut.isEmpty())
-              <span aria-hidden="true" class="ml-auto shrink-0 text-[length:var(--lv-text-xs)] text-[var(--lv-color-muted)]" style="letter-spacing:0.08em;">${shortcut}</span>
-            @endif
-          </button>
-        @endif
+
+      <%-- Empty state: visible when no items match the current query (toggled by the enhancer). --%>
+      <li role="presentation" data-slot="empty" style="list-style:none;padding:var(--lv-space-6) var(--lv-space-4);text-align:center;">
+        <div role="status" aria-live="polite" style="font-size:var(--lv-text-sm);color:var(--lv-color-muted);">${emptyText}</div>
       </li>
-    @endfor
-    <li role="presentation" data-slot="command-empty" data-command-empty hidden class="px-[var(--lv-space-3)] py-[var(--lv-space-4)] text-center text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted)]">${emptyText}</li>
-  </ul>
+    </ul>
+  </div>
 </div>
+@endif

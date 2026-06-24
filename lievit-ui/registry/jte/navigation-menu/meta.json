@@ -1,9 +1,10 @@
 {
   "name": "navigation-menu",
   "type": "registry:jte",
-  "description": "A site navigation landmark (<nav>, not a menu role) with real <a href> links and optional rich dropdown panels revealed on hover/focus-within, CSS-only (Radix NavigationMenu model). Server-first PARTIAL (ADR-0012, Wave 2): active-state comes from the server-rendered route via aria-current, the panel reveal is pure CSS, so there is no client state and no wire component. Replaces the <lv-navigation-menu> Lit island. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A site navigation landmark (<nav>, not role=menu) with real <a href> links and rich disclosure panels (APG Disclosure Navigation pattern). UNCONTROLLED HEADLESS: panels open/close via native [popover=auto] (Esc + light-dismiss built-in), enhanced by popover-anchor.enhancer.ts (focus return) and collection-nav.enhancer.ts (arrow keys + typeahead). Zero server round-trip to open/close. Server-first PARTIAL+ENH (v-next re-forge). Compose top-level items with navigation-menu/link (leaf links) and navigation-menu/menu (disclosure trigger+panel). Panels contain navigation-menu/link(inPanel=true) items grouped via navigation-menu/menu/group.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
+  "enhancers": ["popover-anchor", "collection-nav"],
   "files": [
     {
       "path": "jte/navigation-menu.jte",
@@ -22,8 +23,14 @@
       "type": "registry:jte",
       "target": "lievit/navigation-menu/menu.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/navigation-menu/menu/group.jte",
+      "type": "registry:jte",
+      "target": "lievit/navigation-menu/menu/group.jte",
+      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
-  "docs": "Copies the navigation-menu family to your JTE root (lievit/navigation-menu.jte + lievit/navigation-menu/{link,menu}.jte), reached as @template.lievit.navigation-menu(...). Compose the <li> items in the `content` slot from @template.lievit.navigation-menu.menu (a trigger + rich panel) and @template.lievit.navigation-menu.link (a bare link). Derive each link's `active` from the route you are rendering (the controller knows the current page); the partial sets aria-current=\"page\" on it. The panel reveals on CSS hover/focus-within, no JS. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring", "motion"],
+  "docs": "Copies the navigation-menu family to your JTE root. Compose top-level items in the `content` slot:\n\n  @template.lievit.navigation-menu(label = \"Main\", content = @`\n    @template.lievit.navigation-menu.link(href = \"/\", label = \"Home\", activeHref = currentHref)\n    @template.lievit.navigation-menu.menu(id = \"products\", label = \"Products\", content = @`\n      @template.lievit.navigation-menu.link(href = \"/products\", label = \"All products\",\n          description = \"Browse the catalogue\", icon = \"package\", inPanel = true)\n    `)\n  `)\n\nPanels open via [popover=auto] (native Esc + click-outside close). Requires popover-anchor.enhancer.ts and collection-nav.enhancer.ts registered in your runtime."
 }

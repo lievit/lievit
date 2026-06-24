@@ -1,0 +1,18 @@
+{
+  "name": "sheet",
+  "type": "registry:jte",
+  "description": "A headless CONTROLLED / UNCONTROLLED overlay panel that slides in from a viewport edge (right | left | top | bottom). UNCONTROLLED (default): the trigger is a real <button command=\"show-modal\" commandfor> (browser invoker command API); the browser opens the <dialog> as a native modal (top-layer, ::backdrop, focus-trap, Escape) with zero JS; every close path is a <form method=\"dialog\"> submit. CONTROLLED (open param set by the caller's @Wire field): pass open + closeAction; the dialog renders with the HTML `open` attribute when open=true; a scrim covers the viewport; data-lievit-focus-trap activates the shared focus-trap enhancer (Tab cycling, scroll-lock, Esc fires closeAction); when open=false the dialog is hidden. Closable controls the X button + scrim-click + Esc together. WAI-ARIA APG Dialog (Modal): role=dialog, aria-modal=true, aria-labelledby/aria-describedby, icon-only close button with aria-label. Content slots: content (owned body, never a slot), title + subtitle (labelled panel), footer (actions). Placements right/left/top/bottom; sizes sm/md/lg/xl/full. scrollBody keeps header/footer sticky while body scrolls. No Java component, no @Wire field.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "enhancers": ["focus-trap"],
+  "files": [
+    {
+      "path": "jte/sheet.jte",
+      "type": "registry:jte",
+      "target": "lievit/sheet.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Copies the sheet partial to your JTE root at lievit/sheet.jte, reached as @template.lievit.sheet(...). UNCONTROLLED (default): pass a `trigger` content slot and a unique `id` -- the browser opens and closes the panel natively with zero JS (command=\"show-modal\"). CONTROLLED: pass `open` (your @Wire boolean) and `closeAction` (the wire action name) to let the server own the open-state; the focus-trap.enhancer.ts handles the focus cycle + scroll-lock + Esc. Both modes support: `title` + `subtitle` (labelled panel), `footer` (action buttons), `placement` (right|left|top|bottom), `size` (sm|md|lg|xl|full), `closable` (X + Esc + scrim, default true), `scrollBody` (body scrolls independently, default true). Install the focus-trap enhancer when using controlled mode."
+}

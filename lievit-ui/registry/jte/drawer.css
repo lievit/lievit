@@ -1,0 +1,179 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * drawer.css — component-scoped CSS for the drawer partial.
+ *
+ * CSS handles:
+ *   1. Edge-anchored positioning for controlled <div> + uncontrolled <dialog> panels.
+ *   2. Placement-aware corner radius (inward-facing corners get --lv-radius-lg; edge-flush
+ *      corners are square) -- cannot be expressed as a single utility class.
+ *   3. Panel dimension (width for left/right, height for top/bottom) from the --drawer-dim
+ *      custom property stamped inline by the template (avoids Tailwind utility fan-out for
+ *      the five size values * four placements).
+ *   4. Slide-in / slide-out transition. Duration reads --lv-motion-slide when present,
+ *      falls back to --lv-duration-slow. Respects prefers-reduced-motion.
+ *   5. Push layout-shift via [data-push="true"] sibling selector.
+ *
+ * Selector specificity is intentionally low (attribute selectors, no ID) so adopter
+ * overrides win with a single extra selector.
+ */
+
+/* ------------------------------------------------------------------ */
+/* 1. Controlled panel: positioned <div role="dialog">                 */
+/* ------------------------------------------------------------------ */
+
+[data-slot="drawer-panel"] {
+  /* Default slide-in transition. Uses --lv-motion-slide when the coordinator adds it;
+     falls back to --lv-duration-slow + --lv-ease for now. */
+  transition:
+    transform var(--lv-motion-slide, var(--lv-duration-slow) var(--lv-ease)),
+    visibility 0s;
+}
+
+/* When the panel carries [hidden], the browser removes it from layout. We still emit the
+   hidden attribute in controlled mode (see .jte), so no extra CSS is needed for hiding. */
+
+/* Right placement: slides in from the right edge. */
+[data-slot="drawer-panel"][data-placement="right"] {
+  inset: 0 0 0 auto;
+  height: 100dvh;
+  width: var(--drawer-dim, 480px);
+  border-left: 1px solid var(--lv-color-border);
+  border-radius: var(--lv-radius-lg) 0 0 var(--lv-radius-lg);
+  transform: translateX(0);
+}
+
+/* Left placement: slides in from the left edge. */
+[data-slot="drawer-panel"][data-placement="left"] {
+  inset: 0 auto 0 0;
+  height: 100dvh;
+  width: var(--drawer-dim, 480px);
+  border-right: 1px solid var(--lv-color-border);
+  border-radius: 0 var(--lv-radius-lg) var(--lv-radius-lg) 0;
+  transform: translateX(0);
+}
+
+/* Top placement: slides in from the top edge. */
+[data-slot="drawer-panel"][data-placement="top"] {
+  inset: 0 0 auto 0;
+  width: 100vw;
+  height: var(--drawer-dim, 480px);
+  border-bottom: 1px solid var(--lv-color-border);
+  border-radius: 0 0 var(--lv-radius-lg) var(--lv-radius-lg);
+  transform: translateY(0);
+}
+
+/* Bottom placement: slides in from the bottom edge. */
+[data-slot="drawer-panel"][data-placement="bottom"] {
+  inset: auto 0 0 0;
+  width: 100vw;
+  height: var(--drawer-dim, 480px);
+  border-top: 1px solid var(--lv-color-border);
+  border-radius: var(--lv-radius-lg) var(--lv-radius-lg) 0 0;
+  transform: translateY(0);
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Uncontrolled panel: native <dialog> element                      */
+/* ------------------------------------------------------------------ */
+
+/* The native <dialog> shown via showModal() enters the top-layer. We reset
+   browser UA defaults and apply the same edge-anchoring via ::backdrop-independent
+   positioning. The top-layer does not honour normal document flow positioning, so we
+   use margin/inset reset + explicit inline/block size. */
+
+dialog[data-slot="drawer-panel"] {
+  max-width: none;
+  max-height: none;
+  position: fixed;
+}
+
+dialog[data-slot="drawer-panel"][data-placement="right"] {
+  inset: 0 0 0 auto;
+  height: 100dvh;
+  width: var(--drawer-dim, 480px);
+  border-left: 1px solid var(--lv-color-border);
+  border-radius: var(--lv-radius-lg) 0 0 var(--lv-radius-lg);
+}
+
+dialog[data-slot="drawer-panel"][data-placement="left"] {
+  inset: 0 auto 0 0;
+  height: 100dvh;
+  width: var(--drawer-dim, 480px);
+  border-right: 1px solid var(--lv-color-border);
+  border-radius: 0 var(--lv-radius-lg) var(--lv-radius-lg) 0;
+}
+
+dialog[data-slot="drawer-panel"][data-placement="top"] {
+  inset: 0 0 auto 0;
+  width: 100vw;
+  height: var(--drawer-dim, 480px);
+  border-bottom: 1px solid var(--lv-color-border);
+  border-radius: 0 0 var(--lv-radius-lg) var(--lv-radius-lg);
+}
+
+dialog[data-slot="drawer-panel"][data-placement="bottom"] {
+  inset: auto 0 0 0;
+  width: 100vw;
+  height: var(--drawer-dim, 480px);
+  border-top: 1px solid var(--lv-color-border);
+  border-radius: var(--lv-radius-lg) var(--lv-radius-lg) 0 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Reduced motion                                                    */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="drawer-panel"] {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Push layout-shift (non-modal only, [data-push="true"])           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Push mode shifts the sibling page content container. The adopter wraps the page
+ * content in an element with data-slot="page-content" (or any element that is a
+ * sibling of the drawer wrapper span). The CSS below uses the general sibling combinator
+ * to shift it. The [data-push="true"] attribute is stamped on the panel only when
+ * push=true + modal=false (the template guard prevents push in modal mode).
+ *
+ * Adopters who use a different page-content landmark can override this rule by targeting
+ * their own element: [data-slot="drawer"][data-push="true"] ~ .my-content { ... }
+ */
+
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"]) ~ [data-slot="page-content"],
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"]) ~ main {
+  transition: transform var(--lv-motion-slide, var(--lv-duration-slow) var(--lv-ease));
+}
+
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="right"]) ~ [data-slot="page-content"],
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="right"]) ~ main {
+  transform: translateX(calc(-1 * var(--drawer-dim, 480px)));
+}
+
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="left"]) ~ [data-slot="page-content"],
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="left"]) ~ main {
+  transform: translateX(var(--drawer-dim, 480px));
+}
+
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="bottom"]) ~ [data-slot="page-content"],
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="bottom"]) ~ main {
+  transform: translateY(calc(-1 * var(--drawer-dim, 480px)));
+}
+
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="top"]) ~ [data-slot="page-content"],
+[data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"][data-placement="top"]) ~ main {
+  transform: translateY(var(--drawer-dim, 480px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"]) ~ [data-slot="page-content"],
+  [data-slot="drawer"]:has([data-slot="drawer-panel"][data-push="true"]) ~ main {
+    transition: none;
+  }
+}

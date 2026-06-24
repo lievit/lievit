@@ -2,69 +2,95 @@
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui navigation-menu/link partial -- one real <a href> entry of a navigation-menu, either
-  a top-level bare link or a link inside a rich panel (Wave 2, server-first, no JS).
+  navigation-menu/link partial -- one focusable item in a navigation-menu: either a top-level
+  leaf <a> link or a plain panel link (inside a navigation-menu/menu panel).
 
-  TIER: STATIC presentational -> JTE partial. A plain anchor; navigation is the browser's. The
-  active link carries aria-current="page" + a token-styled highlight, derived server-side from the
-  `active` param (which route is being rendered), never client state.
+  TIER: PARTIAL -- pure server-rendered presentation, no client state.
 
-  STRUCTURE (Radix NavigationMenu link model): a real <a> so middle-click / open-in-new-tab work.
-  `inPanel` switches between the top-level pill style and the richer in-panel row (icon + label +
-  optional description), the same two presentations the dropped island rendered.
+  STRUCTURE (APG Disclosure Navigation leaf link):
+    Top-level leaf link: a real <a href> in natural Tab order. Carries data-lievit-item so
+    collection-nav.enhancer.ts can include it in the arrow-key / typeahead supplemental nav.
+    Panel link: same <a>, rendered as a richer row (icon + label + optional description), placed
+    inside the panel <ul> of navigation-menu/menu. Does NOT carry data-lievit-item (panel links
+    are NOT in the top-level collection; Tab naturally reaches them when the panel is open).
 
-  A11y: a real anchor; aria-current="page" on the active one (the standard "current page" cue the
-  platform + AT understand). The optional icon is decorative (aria-hidden via the icon partial's
-  default).
+  A11y:
+    - Real <a> anchor: browser gives role=link + Tab focus + Enter navigation for free.
+    - aria-current="page" when href matches the active route (server-supplied via activeHref).
+    - Disabled: aria-disabled="true" + href omitted (NOT native `disabled`, which does not apply
+      to <a>). The link remains focusable so Tab still reaches it (APG recommendation for disabled
+      links; they are informational even when blocked).
+    - Icon (when rendered): aria-hidden="true" via the icon partial's default (decorative).
+    - Badge (when rendered): aria-hidden="true" (decorative; the label provides the accessible name).
 
   Params:
-    String href                the destination (a real anchor href).
-    String label               the visible link text.
-    String description = ""    a short line under the label (in-panel rows only).
-    String icon = ""           an optional Lucide icon name (in-panel rows only).
-    boolean active = false     marks the current page (aria-current + highlight).
-    boolean inPanel = false    true => the richer in-panel row; false => a top-level pill.
-    String cssClass = ""       extra utility classes on the anchor.
-
-  Usage:
-    @@template.lievit.navigation-menu.link(href = "/docs", label = "Docs", active = true)
-    @@template.lievit.navigation-menu.link(href = "/analytics", label = "Analytics", description = "Track everything", icon = "eye", inPanel = true)
+    String href                   the destination href; omitted (href not set) when disabled.
+    String label                  the visible link text.
+    String activeHref = ""        the current page href; when href == activeHref the link gets
+                                    aria-current="page" and the active accent style.
+    String description = null     optional sub-description beneath the label (panel rows only).
+    String icon = null            optional Lucide icon name (decorative; aria-hidden via icon partial).
+    String badge = null           optional badge text (e.g. "New"); aria-hidden.
+    boolean disabled = false      aria-disabled="true" + href omitted.
+    boolean inPanel = false       true => richer in-panel row style; false => top-level pill style.
+    String cssClass = ""          extra utility classes on the <a>.
 --%>
 @param String href
 @param String label
-@param String description = ""
-@param String icon = ""
-@param boolean active = false
+@param String activeHref = ""
+@param String description = null
+@param String icon = null
+@param String badge = null
+@param boolean disabled = false
 @param boolean inPanel = false
 @param String cssClass = ""
+
+!{boolean _isActive = href != null && !href.isBlank() && href.equals(activeHref);}
+!{var _href = disabled ? null : href;}
+!{var _ariaCurrent = _isActive ? "page" : null;}
+!{var _ariaDisabled = disabled ? "true" : null;}
+
 @if(inPanel)
-    <li>
-        <a
-            href="${href}"
-            data-slot="navigation-menu-link"
-            aria-current="${active ? "page" : null}"
-            class="flex items-start ${cssClass}"
-            style="gap: var(--lv-space-2); padding: var(--lv-space-2) var(--lv-space-3); border-radius: var(--lv-radius-sm); color: var(--lv-color-fg); text-decoration: none; background: ${active ? "var(--lv-color-surface)" : "transparent"};"
-        >
-            @if(!icon.isEmpty())
-                <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex; margin-top: 2px;">@template.lievit.icon(name = icon, size = "1rem")</span>
-            @endif
-            <span style="display: flex; flex-direction: column; gap: 2px;">
-                <span style="font-weight: 500;">${label}</span>
-                @if(!description.isEmpty())
-                    <span style="color: var(--lv-color-muted); font-size: var(--lv-text-xs); line-height: 1.3;">${description}</span>
-                @endif
-            </span>
-        </a>
-    </li>
+<%-- PANEL LINK: richer row with optional icon + description. Not in the top-level collection. --%>
+<li role="listitem">
+  <a
+    href="${_href}"
+    data-slot="navigation-menu-panel-link"
+    aria-current="${_ariaCurrent}"
+    aria-disabled="${_ariaDisabled}"
+    class="flex items-start rounded-[var(--lv-radius-sm)] outline-none focus-visible:shadow-[var(--lv-ring)] ${disabled ? "cursor-not-allowed opacity-[0.5]" : "hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]"} ${_isActive ? "bg-[var(--lv-color-accent)]" : ""} ${cssClass}"
+    style="gap:var(--lv-space-2);padding:var(--lv-space-2) var(--lv-space-3);color:var(--lv-color-fg);text-decoration:none;transition:background var(--lv-duration-fast) var(--lv-ease),color var(--lv-duration-fast) var(--lv-ease);"
+  >
+    @if(icon != null && !icon.isBlank())
+      <span aria-hidden="true" style="flex-shrink:0;display:inline-flex;margin-top:2px;">@template.lievit.icon(name = icon, size = "1rem")</span>
+    @endif
+    <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+      <span style="font-weight:var(--lv-font-medium);line-height:var(--lv-leading);">${label}@if(badge != null && !badge.isBlank())&nbsp;<span aria-hidden="true" style="display:inline-flex;align-items:center;border-radius:9999px;padding:0 var(--lv-space-2);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);background:var(--lv-color-accent);color:var(--lv-color-accent-fg);">${badge}</span>@endif</span>
+      @if(description != null && !description.isBlank())
+        <span style="color:var(--lv-color-muted-fg);font-size:var(--lv-text-xs);line-height:1.4;">${description}</span>
+      @endif
+    </span>
+  </a>
+</li>
 @else
-    <li>
-        <a
-            href="${href}"
-            data-slot="navigation-menu-link"
-            aria-current="${active ? "page" : null}"
-            class="inline-flex items-center ${cssClass}"
-            style="gap: var(--lv-space-1); padding: var(--lv-space-2) var(--lv-space-3); border-radius: var(--lv-radius-sm); color: var(--lv-color-fg); text-decoration: none; background: ${active ? "var(--lv-color-surface)" : "transparent"};"
-        >${label}</a>
-    </li>
+<%-- TOP-LEVEL LEAF LINK: pill style; in the collection for arrow-key nav. --%>
+<li role="listitem">
+  <a
+    href="${_href}"
+    data-slot="navigation-menu-link"
+    data-lievit-item
+    aria-current="${_ariaCurrent}"
+    aria-disabled="${_ariaDisabled}"
+    class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-sm)] whitespace-nowrap outline-none focus-visible:shadow-[var(--lv-ring)] ${disabled ? "cursor-not-allowed opacity-[0.5]" : "hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]"} ${_isActive ? "border-b-2 border-[var(--lv-color-primary)] font-[var(--lv-font-medium)]" : ""} ${cssClass}"
+    style="min-height:var(--lv-nm-trigger-h,var(--lv-space-9));padding:0 var(--lv-space-3);color:var(--lv-color-fg);text-decoration:none;font-size:var(--lv-text-sm);transition:background var(--lv-duration-fast) var(--lv-ease),color var(--lv-duration-fast) var(--lv-ease);"
+  >
+    @if(icon != null && !icon.isBlank())
+      @template.lievit.icon(name = icon, size = "1rem")
+    @endif
+    ${label}
+    @if(badge != null && !badge.isBlank())
+      <span aria-hidden="true" style="display:inline-flex;align-items:center;border-radius:9999px;padding:0 var(--lv-space-2);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);background:var(--lv-color-accent);color:var(--lv-color-accent-fg);">${badge}</span>
+    @endif
+  </a>
+</li>
 @endif

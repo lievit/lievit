@@ -4,41 +4,60 @@
  */
 
 /**
- * combobox enhancer (ADR-0012, server-first + progressive enhancement): the CSP-clean typed-TS that
- * UPGRADES the server-rendered `lievit/combobox.jte` partial from its JS-off native <select> into a
- * searchable WAI-ARIA combobox. The catalog, the selected value(s) and the form-bound <select> are
- * all server-rendered HTML; this module reads the rendered <option>s, builds a filterable listbox on
- * top, and writes every selection BACK to the native <select> (dispatching native input/change so
- * `l:model` and a plain form both see it). The native <select> stays in the DOM as the source of
- * truth, so the field is form-associated and POSTs the same `name` whether or not JS ran -- the
- * combobox is purely additive. No inline script (the strict CSP refuses inline on* handlers; this
- * attaches listeners in code instead).
+ * combobox.enhancer.ts (v-next) -- progressive-enhancement upgrade for the server-rendered
+ * lievit/combobox.jte partial (ADR-0012, architecture-contract §2.b PARTIAL + colocated enhancer).
  *
- * It is deliberately stateless server-side for the small/preloaded catalog: there is nothing for the
- * server to decide between keystrokes once the options are on the page, so there is no per-keystroke
- * wire round-trip (the lazy/server-search case is the separate WIRE rich-select). The value is bound
- * at POST via the native <select>.
+ * JS-OFF baseline: the server renders a real <input type="text" role="combobox"> (the text field),
+ * a <ul role="listbox"> with <li role="option" data-lievit-item> (always in the DOM, hidden via
+ * native popover for aria-controls resolution), and a <input type="hidden"> (the committed value
+ * carried in a form POST). Fully accessible and form-functional without any JavaScript.
  *
- * The pure filter logic ({@link filterOptions}) is exported so it can be unit-tested without a DOM.
+ * JS-ON this enhancer activates each [data-lievit-combobox] root and wires:
+ *   (a) TEXT FILTER: input events debounce-filter the visible options by toggling [hidden] on each
+ *       <li> (the collection-nav read of [data-lievit-item] skips hidden items automatically so no
+ *       special registration is needed).
+ *   (b) OPEN / CLOSE: the listbox <ul> is a native popover; this enhancer shows/hides it by calling
+ *       showPopover() / hidePopover() and syncs aria-expanded on the input.
+ *   (c) SELECTION WRITE-BACK: on commit, the hidden <input type="hidden"> value is updated so the
+ *       form always POSTs the correct committed value.
+ *   (d) BLUR COMMITS: on blur from the combobox (focus leaving the root entirely), free-type mode
+ *       commits the typed text; select-only mode reverts to the last committed label.
+ *   (e) KEYBOARD DISPATCH: keydown on the <input> is inspected; arrow/home/end/escape/enter events
+ *       that concern the open listbox are re-dispatched to the <ul> so collection-nav.enhancer.ts
+ *       (the shared owner of aria-activedescendant + roving navigation) handles them. This is the
+ *       single-source-a11y pattern: we do NOT re-implement what collection-nav already owns.
  *
- * Idempotent: call {@link enhanceCombobox} once (it marks each root) and again after a DOM swap;
- * already-enhanced roots are skipped. {@link enhanceAllComboboxes} wires every root on the page.
+ * collection-nav.enhancer.ts is the shared owner of:
+ *   - Arrow Up/Down navigation in the listbox (aria-activedescendant + [data-active] attribute).
+ *   - Home/End jump to first/last item.
+ *   - Enter to commit the active item (via data-lievit-collection-select-action on the <ul>).
+ *   - Escape to close (via data-lievit-collection-escape-action on the <ul>).
+ *   - Typeahead (printable chars while an option is active).
+ * This enhancer NEVER re-derives any of the above; it bridges the <input> keydown to the <ul>.
+ *
+ * The pure filter logic ({@link filterOptions}) is exported and DOM-free so it can be unit-tested.
+ *
+ * Idempotent: call {@link enhanceCombobox} once (marks the root with data-combobox-enhanced);
+ * already-enhanced roots are skipped. {@link enhanceAllComboboxes} wires every root in scope.
  */
 
 const ENHANCED = "data-combobox-enhanced";
+const ITEM_ATTR = "data-lievit-item";
 
-/** A flat option read off the native <select>: its value, visible label, group and disabled state. */
+/** A flat option entry for the pure filter function. */
 export interface ComboboxOption {
   value: string;
   label: string;
-  group: string | null;
   disabled: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Pure filter (DOM-free, exportable for unit tests)
+// ---------------------------------------------------------------------------
+
 /**
  * Filter a flat option list by a query, case- and accent-insensitively, matching anywhere in the
- * label (substring), preserving order. The pure core of the searchable behaviour; DOM-free so it is
- * unit-testable. An empty/blank query returns every option unchanged.
+ * label (substring), preserving order. An empty/blank query returns every option unchanged.
  */
 export function filterOptions(options: ComboboxOption[], query: string): ComboboxOption[] {
   const q = normalize(query);
@@ -46,7 +65,7 @@ export function filterOptions(options: ComboboxOption[], query: string): Combobo
   return options.filter((o) => normalize(o.label).includes(q));
 }
 
-/** Lowercase + strip diacritics so "Citta" matches "città" and case never blocks a match. */
+/** Lowercase + strip diacritics so "Citta" matches "città". */
 function normalize(s: string): string {
   return s
     .normalize("NFD")
@@ -55,276 +74,422 @@ function normalize(s: string): string {
     .trim();
 }
 
-/** Read the flat option list off a native <select> (skips the placeholder option, value===""). */
-function readOptions(select: HTMLSelectElement): ComboboxOption[] {
-  const out: ComboboxOption[] = [];
-  for (const opt of Array.from(select.options)) {
-    if (opt.value === "" && opt.disabled) continue; // the placeholder pseudo-option
-    const parent = opt.parentElement;
-    const group =
-      parent instanceof HTMLOptGroupElement ? parent.label : null;
-    out.push({
-      value: opt.value,
-      label: opt.textContent?.trim() ?? "",
-      group,
-      disabled: opt.disabled,
-    });
-  }
-  return out;
-}
-
-/** The current selection of a (possibly multiple) native <select>, as a value set. */
-function selectedValues(select: HTMLSelectElement): Set<string> {
-  return new Set(
-    Array.from(select.selectedOptions)
-      .map((o) => o.value)
-      .filter((v) => v !== ""),
-  );
-}
-
-/** Push a selection back onto the native <select> and fire native input/change (for l:model + forms). */
-function writeSelection(select: HTMLSelectElement, values: Set<string>): void {
-  // Single select: assign `value` (the canonical, environment-robust path that swaps the one
-  // selection). Multiple: set `selected` per option. In both cases mirror the `selected` content
-  // attribute so a re-serialized / morphed DOM keeps the right POST state.
-  if (!select.multiple) {
-    select.value = values.size > 0 ? Array.from(values)[0] : "";
-  }
-  for (const opt of Array.from(select.options)) {
-    const on = values.has(opt.value);
-    if (select.multiple) opt.selected = on;
-    if (on) opt.setAttribute("selected", "");
-    else opt.removeAttribute("selected");
-  }
-  select.dispatchEvent(new Event("input", { bubbles: true }));
-  select.dispatchEvent(new Event("change", { bubbles: true }));
-}
+// ---------------------------------------------------------------------------
+// Main enhance function
+// ---------------------------------------------------------------------------
 
 /**
- * Enhance one combobox root. No-op if it has no native <select> or is already enhanced.
- * Builds the search input + listbox, hides the native <select> from sight + AT (kept for the form),
- * and wires filter + APG keyboard navigation + selection write-back.
+ * Enhance one combobox root. No-op if already enhanced or missing the required DOM structure.
  */
 export function enhanceCombobox(root: HTMLElement): void {
   if (root.hasAttribute(ENHANCED)) return;
-  const select = root.querySelector<HTMLSelectElement>("[data-combobox-native]");
-  if (!select) return;
+
+  const listboxQuery = root.querySelector<HTMLElement>(`[data-slot="combobox-listbox"]`);
+  const inputQuery = root.querySelector<HTMLInputElement>(`[data-slot="combobox-input"]`);
+  const hiddenInput = root.querySelector<HTMLInputElement>(`[data-slot="combobox-hidden"]`);
+  const toggleBtn = root.querySelector<HTMLButtonElement>(`[data-slot="combobox-toggle"]`);
+
+  if (!listboxQuery || !inputQuery) return;
+  // Narrow to non-null locals used throughout the closure.
+  const listbox: HTMLElement = listboxQuery;
+  const input: HTMLInputElement = inputQuery;
   root.setAttribute(ENHANCED, "");
 
-  const multiple = root.getAttribute("data-multiple") === "true";
-  const disabled = root.getAttribute("data-disabled") === "true";
-  const invalid = root.getAttribute("data-invalid") === "true";
-  const listboxId = root.getAttribute("data-listbox-id") ?? `${select.id}-listbox`;
-  const searchId = root.getAttribute("data-search-id") ?? `${select.id}-search`;
-  const searchPlaceholder = root.getAttribute("data-search-placeholder") ?? "Search...";
-  const emptyText = root.getAttribute("data-empty-text") ?? "No results";
-  const placeholder = root.getAttribute("data-placeholder") ?? "";
+  const mode = root.getAttribute("data-combobox-mode") ?? "select-only";
+  const clearableAttr = root.getAttribute("data-combobox-clearable") === "true";
 
-  const options = readOptions(select);
-  const selected = selectedValues(select);
+  // Committed value: the hidden input carries it. Label = the matching option's text.
+  let committedValue = hiddenInput?.value ?? "";
+  let committedLabel = (() => {
+    const match = Array.from(
+      listbox.querySelectorAll<HTMLElement>(`li[role="option"]`),
+    ).find((li) => li.getAttribute("data-combobox-option") === committedValue);
+    return match?.textContent?.trim() ?? committedValue;
+  })();
 
-  // Hide the native control from sight + AT, but keep it in the DOM as the form-bound source.
-  const nativeWrapper = root.querySelector<HTMLElement>("[data-slot='combobox-native-wrapper']");
-  if (nativeWrapper) nativeWrapper.style.display = "none";
-  select.setAttribute("aria-hidden", "true");
-  select.tabIndex = -1;
+  // ---------------------------------------------------------------------------
+  // Popover open / close
+  // ---------------------------------------------------------------------------
 
-  // --- build the combobox surface ---
-  const surface = document.createElement("div");
-  surface.setAttribute("data-slot", "combobox-surface");
+  // The open state is tracked by data-popover-open (our canonical attribute) which the enhancer
+  // always sets/removes. The native :popover-open pseudo-class is authoritative in a real browser
+  // but is not supported in jsdom; we rely on our own attribute which the popover toggle event
+  // also keeps in sync (see toggle listener below).
+  function isOpen(): boolean {
+    return listbox.hasAttribute("data-popover-open");
+  }
 
-  // chips (multiple only)
-  const chips = document.createElement("div");
-  chips.setAttribute("data-slot", "combobox-chips");
-  chips.setAttribute("data-combobox-chips", "");
-  if (multiple) surface.appendChild(chips);
-
-  const search = document.createElement("input");
-  search.type = "text";
-  search.id = searchId;
-  search.setAttribute("data-slot", "combobox-input");
-  search.setAttribute("data-combobox-search", "");
-  search.setAttribute("role", "combobox");
-  search.setAttribute("aria-expanded", "false");
-  search.setAttribute("aria-controls", listboxId);
-  search.setAttribute("aria-autocomplete", "list");
-  search.setAttribute("autocomplete", "off");
-  if (invalid) search.setAttribute("aria-invalid", "true");
-  if (disabled) search.disabled = true;
-  search.placeholder = placeholder !== "" && selected.size === 0 ? placeholder : searchPlaceholder;
-  surface.appendChild(search);
-
-  const listbox = document.createElement("ul");
-  listbox.id = listboxId;
-  listbox.setAttribute("role", "listbox");
-  listbox.setAttribute("data-slot", "combobox-content");
-  listbox.setAttribute("data-combobox-listbox", "");
-  if (multiple) listbox.setAttribute("aria-multiselectable", "true");
-  listbox.hidden = true;
-  surface.appendChild(listbox);
-
-  root.appendChild(surface);
-
-  let activeIndex = -1;
-  let visible: ComboboxOption[] = options.slice();
-
-  const renderChips = (): void => {
-    if (!multiple) return;
-    chips.replaceChildren();
-    for (const value of selected) {
-      const opt = options.find((o) => o.value === value);
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.setAttribute("data-slot", "combobox-chip");
-      chip.setAttribute("data-combobox-chip", value);
-      chip.setAttribute("aria-label", `Remove ${opt?.label ?? value}`);
-      chip.textContent = opt?.label ?? value;
-      chip.addEventListener("click", () => {
-        selected.delete(value);
-        writeSelection(select, selected);
-        renderChips();
-        renderList();
-      });
-      chips.appendChild(chip);
+  function openListbox(): void {
+    if (!isOpen()) {
+      try {
+        (listbox as HTMLElement & { showPopover?: () => void }).showPopover?.();
+      } catch { /* popover API not available; data-popover-open is sufficient */ }
+      listbox.setAttribute("data-popover-open", "");
+      input.setAttribute("aria-expanded", "true");
     }
-  };
+  }
 
-  const renderList = (): void => {
-    listbox.replaceChildren();
-    if (visible.length === 0) {
-      const empty = document.createElement("li");
-      empty.setAttribute("data-slot", "combobox-empty");
-      empty.setAttribute("data-combobox-empty", "");
-      empty.setAttribute("role", "presentation");
-      empty.textContent = emptyText;
-      listbox.appendChild(empty);
+  function closeListbox(): void {
+    try {
+      (listbox as HTMLElement & { hidePopover?: () => void }).hidePopover?.();
+    } catch { /* popover API not available */ }
+    listbox.removeAttribute("data-popover-open");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-activedescendant", "");
+    for (const el of Array.from(listbox.querySelectorAll<HTMLElement>("[data-active]"))) {
+      el.removeAttribute("data-active");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Filter
+  // ---------------------------------------------------------------------------
+
+  function applyFilter(query: string): void {
+    const q = normalize(query);
+    for (const li of Array.from(
+      listbox.querySelectorAll<HTMLElement>(`li[role="option"]`),
+    )) {
+      const label = li.textContent?.trim() ?? "";
+      const matches = q === "" || normalize(label).includes(q);
+      if (matches) {
+        li.removeAttribute("hidden");
+        li.setAttribute(ITEM_ATTR, ""); // ensure collection-nav can navigate it
+      } else {
+        li.setAttribute("hidden", "");
+        li.removeAttribute(ITEM_ATTR); // excluded from collection-nav traversal
+      }
+    }
+    updateEmptyState();
+  }
+
+  function updateEmptyState(): void {
+    const emptyText = root.getAttribute("data-combobox-empty-text") ?? "No results";
+    let emptyEl = listbox.querySelector<HTMLElement>(`[data-slot="combobox-empty"]`);
+    const visibleOptions = Array.from(
+      listbox.querySelectorAll<HTMLElement>(`li[role="option"]:not([hidden])`),
+    ).filter((li) => li.getAttribute("data-slot") !== "combobox-empty");
+
+    if (visibleOptions.length === 0) {
+      if (!emptyEl) {
+        emptyEl = document.createElement("li");
+        emptyEl.setAttribute("role", "option");
+        emptyEl.setAttribute("aria-disabled", "true");
+        emptyEl.setAttribute("data-slot", "combobox-empty");
+        emptyEl.className =
+          "cursor-default select-none py-[var(--lv-space-3)] px-[var(--lv-space-2)] text-center text-sm text-[var(--lv-color-muted)]";
+        listbox.appendChild(emptyEl);
+      }
+      emptyEl.textContent = emptyText;
+      emptyEl.removeAttribute("hidden");
+    } else {
+      if (emptyEl) emptyEl.setAttribute("hidden", "");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Commit
+  // ---------------------------------------------------------------------------
+
+  function commitValue(value: string, label: string): void {
+    committedValue = value;
+    committedLabel = label;
+    input.value = label;
+    if (hiddenInput) hiddenInput.value = value;
+    for (const li of Array.from(listbox.querySelectorAll<HTMLElement>(`li[role="option"]`))) {
+      const isSelected = li.getAttribute("data-combobox-option") === value;
+      li.setAttribute("aria-selected", isSelected ? "true" : "false");
+    }
+    closeListbox();
+  }
+
+  function commitFreeText(): void {
+    const text = input.value.trim();
+    if (mode === "free-type") {
+      const match = Array.from(listbox.querySelectorAll<HTMLElement>(`li[role="option"]`)).find(
+        (li) => normalize(li.textContent?.trim() ?? "") === normalize(text),
+      );
+      if (match) {
+        commitValue(
+          match.getAttribute("data-combobox-option") ?? text,
+          match.textContent?.trim() ?? text,
+        );
+      } else {
+        committedValue = text;
+        committedLabel = text;
+        if (hiddenInput) hiddenInput.value = text;
+        closeListbox();
+      }
+    } else {
+      // select-only: revert to last committed label.
+      input.value = committedLabel;
+      closeListbox();
+    }
+  }
+
+  function clearValue(): void {
+    committedValue = "";
+    committedLabel = "";
+    input.value = "";
+    if (hiddenInput) hiddenInput.value = "";
+    for (const li of Array.from(listbox.querySelectorAll<HTMLElement>(`li[role="option"]`))) {
+      li.setAttribute("aria-selected", "false");
+    }
+    updateClearButton();
+    applyFilter("");
+    openListbox();
+    input.focus();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Clear button (dynamically managed since the server only renders it when text is present)
+  // ---------------------------------------------------------------------------
+
+  function updateClearButton(): void {
+    if (!clearableAttr) return;
+    const hasText = input.value.trim().length > 0;
+    let clearBtn = root.querySelector<HTMLButtonElement>(`[data-slot="combobox-clear"]`);
+    if (hasText && !clearBtn) {
+      clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.setAttribute("data-slot", "combobox-clear");
+      clearBtn.setAttribute("aria-label", "Clear");
+      clearBtn.className =
+        "flex shrink-0 items-center justify-center px-[var(--lv-space-1)] text-[var(--lv-color-muted)] hover:text-[var(--lv-color-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] rounded-[var(--lv-radius-sm)]";
+      clearBtn.innerHTML = `<svg aria-hidden="true" width="0.875rem" height="0.875rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      clearBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        clearValue();
+      });
+      const control = root.querySelector(`[data-slot="combobox-control"]`);
+      if (control && toggleBtn) {
+        control.insertBefore(clearBtn, toggleBtn);
+      }
+    } else if (!hasText && clearBtn) {
+      clearBtn.remove();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Keyboard bridging: <input> keydown → <ul> (collection-nav owns listbox navigation)
+  // ---------------------------------------------------------------------------
+
+  function dispatchToListbox(e: KeyboardEvent): void {
+    if (!isOpen()) return;
+    const synthetic = new KeyboardEvent(e.type, {
+      key: e.key,
+      altKey: e.altKey,
+      ctrlKey: e.ctrlKey,
+      shiftKey: e.shiftKey,
+      metaKey: e.metaKey,
+      bubbles: false,
+      cancelable: true,
+    });
+    listbox.dispatchEvent(synthetic);
+  }
+
+  // ---------------------------------------------------------------------------
+  // collection-nav action attributes — set so collection-nav fires on Enter/Escape.
+  // In a real Wire context collection-nav would call runtime.callAction; in the
+  // PARTIAL/uncontrolled context we intercept Enter on the input BEFORE re-dispatch
+  // (see keydown handler below). The attributes are still set for correctness.
+  // ---------------------------------------------------------------------------
+
+  listbox.setAttribute("data-lievit-collection-select-action", "_lv-combobox-commit");
+  listbox.setAttribute("data-lievit-collection-escape-action", "_lv-combobox-close");
+
+  // ---------------------------------------------------------------------------
+  // Input events
+  // ---------------------------------------------------------------------------
+
+  let filterTimer: ReturnType<typeof setTimeout> | null = null;
+
+  input.addEventListener("input", () => {
+    if (filterTimer != null) clearTimeout(filterTimer);
+    filterTimer = setTimeout(() => {
+      applyFilter(input.value);
+      updateClearButton();
+      openListbox();
+      filterTimer = null;
+    }, 150);
+  });
+
+  input.addEventListener("focus", () => {
+    applyFilter(input.value);
+    openListbox();
+  });
+
+  input.addEventListener("keydown", (e: KeyboardEvent) => {
+    const key = e.key;
+    const open = isOpen();
+
+    if (key === "Enter") {
+      if (open) {
+        const activeId = input.getAttribute("aria-activedescendant");
+        if (activeId && activeId.length > 0) {
+          const activeEl = listbox.querySelector<HTMLElement>(`#${CSS.escape(activeId)}`);
+          if (activeEl && activeEl.getAttribute("aria-disabled") !== "true") {
+            const val =
+              activeEl.getAttribute("data-combobox-option") ?? activeEl.textContent?.trim() ?? "";
+            const lbl = activeEl.textContent?.trim() ?? val;
+            e.preventDefault();
+            commitValue(val, lbl);
+            return;
+          }
+        }
+        if (mode === "free-type") {
+          e.preventDefault();
+          commitFreeText();
+        }
+        // select-only + no active option: no-op (do not prevent Enter).
+      }
       return;
     }
-    visible.forEach((opt, index) => {
-      const li = document.createElement("li");
-      li.setAttribute("role", "option");
-      li.setAttribute("data-slot", "combobox-item");
-      li.setAttribute("data-combobox-option", opt.value);
-      const isSelected = selected.has(opt.value);
-      li.setAttribute("aria-selected", String(isSelected));
-      if (index === activeIndex) li.setAttribute("data-combobox-active", "true");
-      if (opt.disabled) li.setAttribute("aria-disabled", "true");
-      li.textContent = opt.label;
-      li.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus on the input
-      li.addEventListener("click", () => {
-        if (opt.disabled) return;
-        choose(opt.value);
-      });
-      listbox.appendChild(li);
-    });
-  };
 
-  const setActive = (index: number): void => {
-    activeIndex = visible.length === 0 ? -1 : (index + visible.length) % visible.length;
-    Array.from(listbox.querySelectorAll<HTMLElement>("[data-combobox-option]")).forEach((el, i) => {
-      if (i === activeIndex) el.setAttribute("data-combobox-active", "true");
-      else el.removeAttribute("data-combobox-active");
-    });
-  };
-
-  const open = (): void => {
-    if (disabled) return;
-    listbox.hidden = false;
-    search.setAttribute("aria-expanded", "true");
-  };
-  const close = (): void => {
-    listbox.hidden = true;
-    search.setAttribute("aria-expanded", "false");
-    activeIndex = -1;
-  };
-
-  const choose = (value: string): void => {
-    if (multiple) {
-      if (selected.has(value)) selected.delete(value);
-      else selected.add(value);
-      writeSelection(select, selected);
-      renderChips();
-      search.value = "";
-      applyFilter("");
-      renderList();
-      search.focus();
-    } else {
-      selected.clear();
-      selected.add(value);
-      writeSelection(select, selected);
-      const opt = options.find((o) => o.value === value);
-      search.value = opt?.label ?? value;
-      close();
+    if (key === "Escape") {
+      e.preventDefault();
+      if (open) {
+        closeListbox();
+      } else {
+        clearValue();
+      }
+      return;
     }
-  };
 
-  const applyFilter = (query: string): void => {
-    visible = filterOptions(options, query);
-    activeIndex = -1;
-  };
+    if (key === "ArrowDown" && e.altKey) {
+      e.preventDefault();
+      openListbox();
+      return;
+    }
 
-  search.addEventListener("input", () => {
-    applyFilter(search.value);
-    open();
-    renderList();
-  });
-  search.addEventListener("focus", () => {
-    // Focus opens the FULL list (a combobox shows every option on open); the first keystroke filters.
-    // The input keeps displaying the selected label, but it is not used as a filter until typed into.
-    applyFilter("");
-    open();
-    renderList();
-    if (!multiple) search.select(); // select-all so the first keystroke replaces the shown label
-  });
-  search.addEventListener("keydown", (e: KeyboardEvent) => {
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        if (listbox.hidden) open();
-        setActive(activeIndex + 1);
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        if (listbox.hidden) open();
-        setActive(activeIndex - 1);
-        break;
-      case "Enter":
-        if (!listbox.hidden && activeIndex >= 0 && activeIndex < visible.length) {
-          e.preventDefault();
-          const opt = visible[activeIndex];
-          if (!opt.disabled) choose(opt.value);
+    if (key === "ArrowUp" && e.altKey) {
+      e.preventDefault();
+      closeListbox();
+      return;
+    }
+
+    if (key === "ArrowDown" || key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) openListbox();
+      dispatchToListbox(e);
+      return;
+    }
+
+    if ((key === "Home" || key === "End") && open) {
+      // Clear active option (editing context returns to input); platform moves cursor.
+      input.setAttribute("aria-activedescendant", "");
+      for (const el of Array.from(listbox.querySelectorAll<HTMLElement>("[data-active]"))) {
+        el.removeAttribute("data-active");
+      }
+      // Do NOT preventDefault: platform cursor movement is desired.
+      return;
+    }
+
+    if ((key === "ArrowLeft" || key === "ArrowRight") && open) {
+      const activeId = input.getAttribute("aria-activedescendant");
+      if (activeId && activeId.length > 0) {
+        input.setAttribute("aria-activedescendant", "");
+        for (const el of Array.from(listbox.querySelectorAll<HTMLElement>("[data-active]"))) {
+          el.removeAttribute("data-active");
         }
-        break;
-      case "Escape":
-        if (!listbox.hidden) {
-          e.preventDefault();
-          close();
-        }
-        break;
-      default:
-        break;
+      }
+      // Do NOT preventDefault: platform cursor movement is desired.
+      return;
     }
   });
 
-  // outside-click dismiss (no library, no inline handler).
-  document.addEventListener("click", (e) => {
-    if (!root.contains(e.target as Node)) close();
-  });
+  // ---------------------------------------------------------------------------
+  // Toggle button click
+  // ---------------------------------------------------------------------------
 
-  // seed: single-mode shows the current label in the input; multiple shows chips.
-  if (!multiple) {
-    const current = Array.from(selected)[0];
-    if (current) {
-      const opt = options.find((o) => o.value === current);
-      search.value = opt?.label ?? current;
-    }
-  } else {
-    renderChips();
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      if (isOpen()) {
+        closeListbox();
+      } else {
+        applyFilter(input.value);
+        openListbox();
+        input.focus();
+      }
+    });
   }
-  renderList();
+
+  // ---------------------------------------------------------------------------
+  // Clear button (server-rendered, if present at init time)
+  // ---------------------------------------------------------------------------
+
+  const initClearBtn = root.querySelector<HTMLButtonElement>(`[data-slot="combobox-clear"]`);
+  if (initClearBtn) {
+    initClearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearValue();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Option click
+  // ---------------------------------------------------------------------------
+
+  listbox.addEventListener("mousedown", (e) => {
+    e.preventDefault(); // keep focus on the input during click
+  });
+
+  listbox.addEventListener("click", (e) => {
+    const li = (e.target as Element).closest<HTMLElement>(`li[role="option"]`);
+    if (!li || li.getAttribute("aria-disabled") === "true") return;
+    if (li.getAttribute("data-slot") === "combobox-empty") return;
+    const val = li.getAttribute("data-combobox-option") ?? li.textContent?.trim() ?? "";
+    const lbl = li.textContent?.trim() ?? val;
+    commitValue(val, lbl);
+    input.focus();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Blur: commit or revert when focus leaves the whole combobox root
+  // ---------------------------------------------------------------------------
+
+  root.addEventListener("focusout", (e: FocusEvent) => {
+    const next = e.relatedTarget as Node | null;
+    if (next && root.contains(next)) return;
+    commitFreeText();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Popover toggle sync: native popover fires a toggle event on light-dismiss.
+  // Sync aria-expanded when the browser closes the panel (e.g. click-outside).
+  // ---------------------------------------------------------------------------
+
+  listbox.addEventListener("toggle", (rawEvent: Event) => {
+    const event = rawEvent as ToggleEvent;
+    const newState: string | undefined =
+      (event as unknown as { newState?: string }).newState ?? event.newState;
+    if (newState === "closed") {
+      listbox.removeAttribute("data-popover-open");
+      input.setAttribute("aria-expanded", "false");
+      input.setAttribute("aria-activedescendant", "");
+    } else if (newState === "open") {
+      listbox.setAttribute("data-popover-open", "");
+      input.setAttribute("aria-expanded", "true");
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // MutationObserver: re-apply filter after async HTMX swaps of the listbox body.
+  // ---------------------------------------------------------------------------
+
+  const observer = new MutationObserver(() => {
+    applyFilter(input.value);
+    updateEmptyState();
+  });
+  observer.observe(listbox, { childList: true, subtree: false });
+
+  // Seed: ensure the clear button reflects the initial server-rendered value.
+  updateClearButton();
 }
 
-/** Enhance every `[data-lievit-combobox]` root in scope (call on load + after DOM swaps). */
+/**
+ * Enhance every [data-lievit-combobox] root in scope. Call on DOMContentLoaded + after DOM swaps.
+ */
 export function enhanceAllComboboxes(scope: ParentNode = document): void {
   scope
     .querySelectorAll<HTMLElement>("[data-lievit-combobox]")

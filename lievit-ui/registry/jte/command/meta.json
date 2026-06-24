@@ -1,0 +1,22 @@
+{
+  "name": "command",
+  "type": "registry:jte",
+  "description": "A command palette: a modal overlay with a search input and a grouped listbox of actions, filtered client-side by the colocated command.enhancer.ts. CONTROLLED/UNCONTROLLED: uncontrolled by default (the enhancer fires openPalette/close wire actions on the caller's component); controlled via the plain open @param. WAI-ARIA APG Combobox + Listbox (aria-activedescendant model). Composed with focus-trap.enhancer.ts (modal trap) and collection-nav.enhancer.ts (ArrowUp/Down/Home/End/PageUp/PageDown). No Java component (the caller's own Wire component owns the open flag + command registry). Items and groups arrive via @param List<String> columns.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/command.jte",
+      "type": "registry:jte",
+      "target": "lievit/command.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/command.enhancer.ts",
+      "type": "registry:jte",
+      "target": "lievit/command.enhancer.ts"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "motion"],
+  "docs": "Render @template.lievit.command(open = myComponent.open(), commands = myComponent.commandLabels(), ...) in your Wire template. The palette appears when open=true. The colocated command.enhancer.ts mounts on the panel, delegates focus-trapping to focus-trap.enhancer.ts and listbox roving to collection-nav.enhancer.ts, drives client-side filtering, and fires wire actions (openPalette, close, executeCommand, openPage, backToRoot) on user interaction. Pass the action name params to match your Wire component's action names. Install all three enhancers via installFocusTrap + installCollectionNav + installCommandEnhancer on your runtime."
+}

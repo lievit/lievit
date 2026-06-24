@@ -1,57 +1,120 @@
-@import gg.jte.Content
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui navigation-menu partial -- a site navigation landmark with real <a href> links and
-  optional rich dropdown panels, CSS-only (no JS, no client state). Server-first PARTIAL
-  (ADR-0012, Wave 2): the Lit island is gone.
+  navigation-menu partial -- <nav> landmark with top-level items that reveal rich panels via
+  native [popover] + the shared popover-anchor.enhancer.ts (UNCONTROLLED, no server round-trip
+  just to open/close). Keyboard supplement (Esc, arrow keys, typeahead) via collection-nav.enhancer.ts.
 
-  TIER DECISION (why PARTIAL, not WIRE): a navigation menu is, by the ADR's driving rule, "pure
-  display, no client state" once you accept the server-pure overlay. The links are real <a href>
-  (the browser navigates, middle-click + open-in-new-tab work); which entry is current is a fact
-  the SERVER already knows (the route being rendered), passed in as `activeKey` -- not client
-  state. The only interactive bit, "reveal the panel", needs no server round-trip and no durable
-  state, so it is pure CSS :hover / :focus-within (the same server-pure disclosure the hover-card
-  partial uses). There is therefore nothing to hold server-side: no @Wire field, no action, no
-  wire component. A WIRE conversion would round-trip the server just to flip a CSS-revealable
-  panel -- strictly worse. Hence `registry:jte`, the simplest thing that works server-first.
+  TIER: PARTIAL + ENH (ADR-0012, v-next). The disclosure open/close is UNCONTROLLED:
+    - Native `[popover]` closes on Esc + light-dismiss natively (browser built-in).
+    - popover-anchor.enhancer.ts wires opener recording + focus return on close.
+    - collection-nav.enhancer.ts adds supplemental arrow-key navigation + typeahead.
+  No WIRE component; no server round-trip to open/close. This is the `navigation-menu-static`
+  tier described in the spec, promoted to the primary v-next API because the UNCONTROLLED path
+  is the correct default (APG Disclosure Navigation).
 
-  STRUCTURE (scientific decision rule): NOT a menu (no role="menu"); a navigation landmark, Radix
-  NavigationMenu as the model the dropped island cited: <nav aria-label> wrapping a <ul> of items.
-  An item is either a bare <a> link (navigation-menu/link) or a trigger that reveals a panel of
-  real <a> links (navigation-menu/menu). The panel reveal is CSS group-hover / group-focus-within
-  (Tailwind `group` + `group-hover` / `group-focus-within`), the canonical CSS-only disclosure --
-  no @floating-ui/dom, no Anchor Positioning needed (the panel sits in normal flow under its
-  trigger). The intent-delay open / leave-close nuance of the island is dropped deliberately (a
-  delay needs a timer = client state); a small padding bridge keeps the trigger->panel gap
-  crossable.
+  STRUCTURE (scientific decision rule): WAI-ARIA APG Disclosure Navigation pattern
+  (https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/).
+  NOT role=menu / role=menubar -- those describe application-widget menus with mandatory arrow-key
+  roving. This is a <nav> landmark with real <a href> links; AT announces "navigation", not "menu".
+  Disclosure semantics: each item is either a plain <a> leaf link or a <button aria-expanded
+  aria-controls> that reveals a panel. All top-level triggers/links stay in natural Tab order
+  (tabindex not managed by the enhancer -- APG says Tab is primary, arrow keys are supplemental).
 
-  A11y (Radix NavigationMenu model): <nav aria-label> landmark; the panel triggers are <button
-  aria-expanded aria-controls> whose state CSS reflects; the links are ordinary anchors so
-  navigation + focus order are the platform's. The active link carries aria-current="page".
-  Keyboard: Tab moves through the triggers + links; :focus-within reveals a trigger's panel so a
-  keyboard user reaches its links without a custom key handler.
+  A11y (APG Disclosure Navigation):
+    - <nav aria-label> unique landmark name (required when multiple <nav> on page).
+    - <ul role="list"> items in natural Tab order (tabindex="0" all, no roving tabindex regime).
+    - Leaf <a>: aria-current="page" when href matches activeHref; aria-disabled="true" + no href
+      when disabled.
+    - Disclosure <button>: aria-expanded="true"/"false"; aria-controls="panel-<id>".
+    - Panel <div id="panel-<id>">: hidden when closed (removed from Tab order); visible when open.
+    - Badge <span>: aria-hidden="true" (decorative).
+    - Icons: aria-hidden="true" (decorative, including chevron on trigger).
+    - collection-nav.enhancer.ts supplies: Esc close + optional arrow-key supplement + typeahead.
+    - popover-anchor.enhancer.ts supplies: opener recording + focus return on light-dismiss.
+    - No focus-trap: panels are non-modal.
+
+  Panels wired as [popover]:
+    - Each panel div carries popover="auto" + data-lv-opener="<triggerId>" (popover-anchor reads it).
+    - The trigger button carries popovertarget="panel-<id>" (native toggle binding).
+    - Native browser: Esc closes the topmost [popover=auto]; light-dismiss (click outside) closes.
+    - For the static variant, aria-expanded is toggled by a companion script-free CSS trick:
+      :has([popover]:popover-open) is NOT available universally (2026 CSS WG, limited support);
+      so aria-expanded is managed by the popover-anchor enhancer's ENHANCER_NEEDED note below.
+
+  ENHANCER_NEEDED (see report): the popover-anchor.enhancer.ts needs an additive hook that
+  toggles aria-expanded on the opener trigger whenever the popover's toggle event fires
+  (newState "open" -> aria-expanded="true"; newState "closed" -> aria-expanded="false"). The
+  current enhancer only records the opener + returns focus on close; it does NOT set aria-expanded.
+  Until then, aria-expanded on the trigger reflects the SERVER-SET value (false on initial render);
+  the visual open/close works, but aria-expanded lags the native popover state. Flag:
+  ENHANCER_NEEDED: popover-anchor -- toggle aria-expanded on opener trigger on popover toggle event.
+
+  ENHANCER_NEEDED (see report): collection-nav.enhancer.ts "nav" mode: real DOM focus moves on
+  arrow keys, but NO roving tabindex (all items keep tabindex="0"). The current enhancer only has
+  roving-tabindex (Tabs, sets tabindex=-1 on non-focused) and aria-activedescendant (Listbox/Menu,
+  focus stays on root). A third mode is needed where arrow keys call element.focus() but leave
+  tabindex=0 on all items. Until then, the collection-nav data-attrs are wired for the roving-tabindex
+  mode with data-manual-activation="true" as the closest working approximation.
 
   Params:
-    gg.jte.Content content   the <li> items, composed from navigation-menu/link + navigation-menu/menu.
-    String label = "Main"    aria-label for the <nav> landmark.
-    String cssClass = ""     extra utility classes on the <nav>.
+    gg.jte.Content content      the <li> items -- compose from navigation-menu/link (leaf)
+                                  and navigation-menu/menu (disclosure trigger+panel).
+    String label = "Main"       aria-label on the <nav> landmark (required for uniqueness).
+    String orientation = "horizontal"   "horizontal" | "vertical". Controls flex direction of
+                                  the trigger list; vertical stacks items in a column.
+    String size = "md"          "sm" | "md" | "lg" -- controls trigger min-height token.
+    String cssClass = ""        extra utility classes on the <nav> root.
+    String attrs = ""           TRUSTED raw ($unsafe) -- STATIC author-typed strings only.
 
   Usage:
-    @@template.lievit.navigation-menu(label = "Primary", content = @@`
-      @@template.lievit.navigation-menu.menu(key = "products", label = "Products", open = false, content = @@`
-        @@template.lievit.navigation-menu.link(href = "/analytics", label = "Analytics", description = "Track everything", icon = "eye", active = false, inPanel = true)
-        @@template.lievit.navigation-menu.link(href = "/engagement", label = "Engagement", active = false, inPanel = true)
+    @template.lievit.navigation-menu(label = "Primary", content = @`
+      @template.lievit.navigation-menu.menu(id = "products", label = "Products", content = @`
+        @template.lievit.navigation-menu.link(href = "/analytics", label = "Analytics",
+            description = "Track everything", icon = "eye")
+        @template.lievit.navigation-menu.link(href = "/engagement", label = "Engagement")
       `)
-      @@template.lievit.navigation-menu.link(href = "/docs", label = "Docs", active = activeKey.equals("docs"))
+      @template.lievit.navigation-menu.link(href = "/docs", label = "Docs",
+          activeHref = activeHref)
     `)
 --%>
 @param gg.jte.Content content
 @param String label = "Main"
+@param String orientation = "horizontal"
+@param String size = "md"
 @param String cssClass = ""
-<nav aria-label="${label}" data-slot="navigation-menu" class="${cssClass}" style="font-family: var(--lv-font-sans); font-size: var(--lv-text-sm);">
-    <ul data-slot="navigation-menu-list" class="flex items-center" style="gap: var(--lv-space-1); list-style: none; margin: 0; padding: 0;">
-        ${content}
-    </ul>
+@param String attrs = ""
+
+!{var _isHorizontal = !"vertical".equals(orientation);}
+!{var _listDir = _isHorizontal ? "row" : "column";}
+!{var _listAlign = _isHorizontal ? "center" : "stretch";}
+!{var _minH = switch (size) {
+    case "sm" -> "var(--lv-space-8)";
+    case "lg" -> "var(--lv-space-10)";
+    default   -> "var(--lv-space-9)";
+  };}
+<%-- Pass the resolved trigger-height down as a CSS custom property so the sub-partials (link,
+     menu) can consume --lv-nm-trigger-h without duplicating the size switch. --%>
+!{var _sizeVar = "--lv-nm-trigger-h:" + _minH + ";";}
+
+<nav
+  data-slot="navigation-menu"
+  data-variant="${orientation}"
+  data-size="${size}"
+  aria-label="${label}"
+  data-lievit-collection
+  data-lievit-collection-orientation="${orientation}"
+  data-lievit-collection-wrap="true"
+  data-lievit-collection-roving-tabindex="true"
+  data-manual-activation="true"
+  class="${cssClass}"
+  style="font-family:var(--lv-font-sans);font-size:var(--lv-text-sm);${_sizeVar}"
+  $unsafe{attrs}
+>
+  <ul
+    data-slot="navigation-menu-list"
+    role="list"
+    style="display:flex;flex-direction:${_listDir};align-items:${_listAlign};gap:var(--lv-space-1);list-style:none;margin:0;padding:0;"
+  >${content}</ul>
 </nav>
