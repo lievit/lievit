@@ -83,7 +83,8 @@
       @template.lievit.dropdown-menu.separator()
       <div data-slot="kit-page-theme-row" role="presentation" class="flex items-center justify-between gap-[var(--lv-space-2)] px-[var(--lv-space-3)] py-[var(--lv-space-2)]">
         <span class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">Theme</span>
-        @template.lievit.theme-switcher(current = page.themeMode(), label = "Theme")
+        <%-- v-next theme-switcher: current= and label= removed; theme state is localStorage-driven. --%>
+        @template.lievit.theme-switcher(defaultTheme = page.themeMode())
       </div>
     @endif
   `

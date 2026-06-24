@@ -1,4 +1,5 @@
 @import java.util.List
+@import java.util.Collections
 @import io.lievit.kit.schema.infolist.ResolvedNode
 <%--
   Copyright 2026 Francesco Bilotta
@@ -43,27 +44,42 @@
         cssClass = "lv-infolist-section",
         content = @`@template.kit.infolist.children(children = s.children(), columns = s.columns())`)
 @elseif(node instanceof ResolvedNode.TabsNode t)
+    <%--
+      v-next migration: tabs removed the content= Content slot and tabs.panel sub-template.
+      Panels are now authored as sibling markup AFTER the @template.lievit.tabs() call.
+      Panel ids are derived deterministically as "panel-{tabsId}-{tabId}".
+      The tabsId must be unique per page; use the hashCode of the TabsNode as a stable suffix.
+      hrefs= is no longer a param; tab activation is wire-based (selectAction) or server round-trip.
+    --%>
     !{var tabIds = new java.util.ArrayList<String>();}
-    !{var labels = new java.util.ArrayList<String>();}
-    !{var hrefs = new java.util.ArrayList<String>();}
+    !{var tabLabels = new java.util.ArrayList<String>();}
+    !{String tabsId = "lv-infolist-tabs-" + Math.abs(t.hashCode());}
     @for(ResolvedNode.TabNode tab : t.tabs())
         !{tabIds.add(tab.id());}
-        !{labels.add(tab.label());}
-        !{hrefs.add("?tab=" + tab.id());}
+        !{tabLabels.add(tab.label());}
     @endfor
+    <div data-slot="lv-infolist-tabs-wrapper">
     @template.lievit.tabs(
+        tabsId = tabsId,
         tabIds = tabIds,
-        labels = labels,
-        hrefs = hrefs,
-        active = t.activeTabId(),
-        cssClass = "lv-infolist-tabs",
-        content = @`
-            @for(ResolvedNode.TabNode tab : t.tabs())
-                @template.lievit.tabs.panel(id = tab.id(), active = t.activeTabId(), content = @`
-                    @template.kit.infolist.children(children = tab.children(), columns = tab.columns())
-                `)
-            @endfor
-        `)
+        tabLabels = tabLabels,
+        activeTab = t.activeTabId(),
+        cssClass = "lv-infolist-tabs")
+    <%-- Tab panels: rendered outside the tabs() call; ids must match panel-{tabsId}-{tabId}. --%>
+    @for(ResolvedNode.TabNode tab : t.tabs())
+        !{boolean _tabActive = tab.id().equals(t.activeTabId());}
+        <div
+            role="tabpanel"
+            id="panel-${tabsId}-${tab.id()}"
+            aria-labelledby="tab-${tabsId}-${tab.id()}"
+            tabindex="0"
+            hidden="${!_tabActive}"
+            data-slot="tabs-panel"
+        >
+            @template.kit.infolist.children(children = tab.children(), columns = tab.columns())
+        </div>
+    @endfor
+    </div>
 @elseif(node instanceof ResolvedNode.FieldsetNode f)
     <fieldset
         data-slot="infolist-fieldset"

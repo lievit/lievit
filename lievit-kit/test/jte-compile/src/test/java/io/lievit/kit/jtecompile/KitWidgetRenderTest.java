@@ -132,9 +132,11 @@ class KitWidgetRenderTest {
         // whole-card stretched-link: a single always-present <a> (never a tag-split per branch).
         assertTrue(html.contains("data-slot=\"stat-card-link\""), "card link missing:\n" + html);
         assertTrue(html.contains("/admin/revenue"), "link href missing");
-        // the sparkline is a server-pure SVG line chart in the card's chart slot.
-        assertTrue(html.contains("data-slot=\"stat-card-chart\""), "sparkline slot missing");
-        assertTrue(html.contains("data-slot=\"chart-line\""), "sparkline SVG line missing:\n" + html);
+        // the sparkline is a server-pure SVG line chart in the card's footer slot.
+        // v-next stat-card: the sparkline slot is "stat-card-footer" (was "stat-card-chart" in v1).
+        assertTrue(html.contains("data-slot=\"stat-card-footer\""), "sparkline slot missing");
+        // v-next chart: the line geometry data-slot is "lv-chart__line" (was "chart-line" in v1).
+        assertTrue(html.contains("data-slot=\"lv-chart__line\""), "sparkline SVG line missing:\n" + html);
     }
 
     @Test
@@ -150,7 +152,8 @@ class KitWidgetRenderTest {
         assertTrue(html.contains("Listings closed"), "chart heading missing");
         assertTrue(html.contains("last quarter"), "chart description missing");
         // server-pure SVG: bars, no canvas, no script.
-        assertTrue(html.contains("data-slot=\"chart-bar\""), "svg bars missing:\n" + html);
+        // v-next chart: bar geometry data-slot is "lv-chart__bar" (was "chart-bar" in v1).
+        assertTrue(html.contains("data-slot=\"lv-chart__bar\""), "svg bars missing:\n" + html);
         assertFalse(html.contains("<canvas"), "chart must be server-pure SVG (no canvas)");
         assertFalse(html.contains("<script"), "chart must be CSP-clean (no inline script)");
         // the data checksum rides the card (the Filament patch-in-place fact).
@@ -167,7 +170,9 @@ class KitWidgetRenderTest {
 
         String html = renderChart(chart);
 
-        assertTrue(html.contains("data-slot=\"chart-slice\""), "pie slices missing:\n" + html);
+        // v-next chart: pie slice data-slot is "lv-chart__sector" (was "chart-slice" in v1).
+        assertTrue(html.contains("data-slot=\"lv-chart__sector\""), "pie slices missing:\n" + html);
+        // v-next chart: the external legend partial (chart/legend.jte) renders data-slot="chart-legend".
         assertTrue(html.contains("data-slot=\"chart-legend\""), "pie legend missing");
         // the after-header filter dropdown lists the filters, the active one marked.
         assertTrue(html.contains("data-slot=\"dropdown-menu\""), "filter dropdown missing");
@@ -178,8 +183,10 @@ class KitWidgetRenderTest {
     void renders_a_line_chart_widget_through_the_line_geometry() {
         String html = renderChart((ChartWidget) new LeadsLine().heading("Leads"));
 
-        assertTrue(html.contains("data-slot=\"chart-line\""), "svg line missing:\n" + html);
-        assertTrue(html.contains("data-slot=\"chart-point\""), "svg points missing");
+        // v-next chart: line data-slot is "lv-chart__line" (was "chart-line" in v1).
+        assertTrue(html.contains("data-slot=\"lv-chart__line\""), "svg line missing:\n" + html);
+        // v-next chart: point data-slot is "lv-chart__point" (was "chart-point" in v1).
+        assertTrue(html.contains("data-slot=\"lv-chart__point\""), "svg points missing");
     }
 
     @Test

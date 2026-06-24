@@ -88,10 +88,10 @@
 
   <div data-slot="kit-widget-chart-canvas" class="w-full overflow-hidden" style="${wrapperStyle}">
     @if(values.length == 0)
-      @template.lievit.empty(title = "No data", description = "This chart has no data yet.", icon = "bar-chart-2")
+      @template.lievit.empty(title = "No data", description = "This chart has no data yet.", image = @`@template.lievit.icon(name = "bar-chart-2", size = "var(--lv-space-10)")`)
     @else
       @template.lievit.chart(
-        label = chart.heading().orElse("Chart"),
+        title = chart.heading().orElse("Chart"),
         categories = categories,
         values = values,
         type = chartType,

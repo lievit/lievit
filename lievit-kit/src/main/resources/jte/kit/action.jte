@@ -89,8 +89,9 @@
   <%-- 1. URL navigation: a real <a href>. asLink renders the link affordance, else a button-styled
        anchor; a navigation with no resolvable url degrades to an inert span via the partials. --%>
   @if(asLink)
-    @template.lievit.link(label = label, href = navUrl.isBlank() ? null : navUrl,
-      icon = hasIcon ? icon : null, newTab = action.opensUrlInNewTab())
+    @template.lievit.link(href = navUrl.isBlank() ? null : navUrl,
+      external = action.opensUrlInNewTab(),
+      content = @`@if(hasIcon)@template.lievit.icon(name = icon, size = "1rem")@endif${label}`)
   @else
     @template.lievit.button(variant = variant, size = size, iconOnly = iconOnly,
       href = navUrl.isBlank() ? null : navUrl,

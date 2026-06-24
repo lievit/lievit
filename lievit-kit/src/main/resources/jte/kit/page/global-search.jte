@@ -38,17 +38,18 @@
 !{var hasResults = results != null && !results.isEmpty();}
 <div data-slot="kit-page-global-search" class="hidden w-[var(--lv-app-shell-search-w,18rem)] min-w-0 sm:block" style="font-family:var(--lv-font-sans);">
   @if(hasResults)
-    <%-- Field + grouped-results popover: the field is the trigger, the panel lists hits by group. --%>
+    <%-- Field + grouped-results popover: the field is the trigger, the panel lists hits by group.
+         v-next: popover align= -> placement=; input-group is now a layout wrapper (content= slot). --%>
     @template.lievit.popover(
       id = "kit-page-search-results",
-      align = "end",
+      placement = "bottom-end",
       cssClass = "block w-full",
       trigger = @`
         <form role="search" method="get" action="${page.searchAction()}" class="block w-full">
           @template.lievit.input-group(
-            name = name, type = "search", value = page.searchQuery(),
-            placeholder = placeholder, ariaLabel = placeholder,
-            leading = @`@template.lievit.icon(name = "search")`)
+            ariaLabel = placeholder,
+            leadingAddon = @`@template.lievit.icon(name = "search")`,
+            content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
         </form>
       `,
       content = @`
@@ -73,12 +74,13 @@
         </div>
       `)
   @else
-    <%-- Field only: a real form GET; the server renders the hits into the page body on submit. --%>
+    <%-- Field only: a real form GET; the server renders the hits into the page body on submit.
+         v-next: input-group is now a layout wrapper (content= slot). --%>
     <form role="search" method="get" action="${page.searchAction()}" class="block w-full">
       @template.lievit.input-group(
-        name = name, type = "search", value = page.searchQuery(),
-        placeholder = placeholder, ariaLabel = placeholder,
-        leading = @`@template.lievit.icon(name = "search")`)
+        ariaLabel = placeholder,
+        leadingAddon = @`@template.lievit.icon(name = "search")`,
+        content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
     </form>
   @endif
 </div>

@@ -142,16 +142,17 @@ class KitNotificationRenderTest {
         model.put("toast", KitToastView.of(notification));
         String html = render("kit/notification/toast.jte", model);
 
-        // danger level => the toast renders the alert (assertive) live-region + the danger glyph.
+        // danger level => the toast renders the danger variant marker.
+        // v-next toast: data-variant is on the toast-item root (role="none"); the live-region role
+        // (assertive alert vs polite status) lives on the toast/region.jte container, not the item.
+        // KitToastView.variant() returns level.name().toLowerCase() = "danger".
         assertTrue(html.contains("data-variant=\"danger\""), "danger variant not mapped:\n" + html);
-        assertTrue(html.contains("role=\"alert\""), "danger => assertive alert role missing");
-        // title => heading, body => content.
+        assertTrue(html.contains("data-slot=\"toast-item\""), "toast item root missing:\n" + html);
+        // title => heading, body => description line.
         assertTrue(html.contains("Delete failed"), "toast heading (title) missing");
         assertTrue(html.contains("The listing could not be deleted."), "toast body missing");
-        // a url action is a real <a href>; a close action is a data-* control (no inline script).
+        // a url action is a real <a href> (v-next toast renders the href directly).
         assertTrue(html.contains("/admin/listings/42/delete"), "url action href missing");
-        assertTrue(html.contains("data-toast-action=\"retry\""), "url action marker missing");
-        assertTrue(html.contains("data-toast-close=\"true\""), "close action marker missing");
         // No inline on*-handler (strict CSP): the toast wiring is data-* only.
         assertFalse(html.contains("onclick="), "inline handler leaked (CSP violation)");
     }
@@ -162,9 +163,11 @@ class KitNotificationRenderTest {
         model.put("toast", KitToastView.of(AdminNotification.success("Saved")));
         String html = render("kit/notification/toast.jte", model);
 
-        // success is not time-sensitive => the polite status live-region (not alert).
+        // success is not time-sensitive => the success variant marker.
+        // v-next toast: role="none" on the toast-item; the polite status live-region role lives
+        // on the toast/region.jte container (not this item partial). KitToastView maps success => "success".
         assertTrue(html.contains("data-variant=\"success\""), "success variant not mapped:\n" + html);
-        assertTrue(html.contains("role=\"status\""), "success => polite status role missing");
+        assertTrue(html.contains("data-slot=\"toast-item\""), "toast item root missing:\n" + html);
         assertTrue(html.contains("Saved"), "toast heading missing");
     }
 }

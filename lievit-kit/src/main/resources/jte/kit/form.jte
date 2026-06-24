@@ -37,21 +37,15 @@
   <%-- 1. Form heading. --%>
   <h1 data-admin-heading class="mb-[var(--lv-space-4)] text-[length:var(--lv-text-xl)] font-[var(--lv-font-semibold)] text-[var(--lv-color-fg)]">${view.heading()}</h1>
 
-  <%-- 2 + 3 + 4. The native <form>: form-level error, the field stack, the footer action row. The
-       form-level error is the FIRST record error (lievit.form renders one form-level role=alert slot;
-       any further record errors list below it so none is dropped). --%>
+  <%-- 2 + 3 + 4. The native <form>: form-level error, the field stack, the footer action row.
+       v-next form takes errors=List<Map<String,String>> (fieldId + message per entry).
+       Record errors have no fieldId; pass "" so the form summary region shows them as a list. --%>
+  !{var _recErrors = new java.util.ArrayList<java.util.Map<String, String>>();}
+  !{for (String msg : view.recordErrors()) { _recErrors.add(java.util.Map.of("fieldId", "", "message", msg)); }}
   @template.lievit.form(id = "kit-form", action = form.action(),
-    error = view.recordErrors().isEmpty() ? null : view.recordErrors().get(0),
+    errors = _recErrors,
     content = @`
       @if(csrf != null)${csrf}@endif
-
-      @if(view.recordErrors().size() > 1)
-        <ul data-admin-record-errors role="alert" class="ml-[var(--lv-space-4)] flex list-disc flex-col gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-destructive)]">
-          @for(int i = 1; i < view.recordErrors().size(); i++)
-            <li>${view.recordErrors().get(i)}</li>
-          @endfor
-        </ul>
-      @endif
 
       <%-- 3. One field per declared field, in declaration order. --%>
       @for(AdminFormView.FieldView field : view.fields())

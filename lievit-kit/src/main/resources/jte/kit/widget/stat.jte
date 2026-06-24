@@ -1,5 +1,4 @@
 @import io.lievit.kit.StatWidget
-@import io.lievit.kit.IconPosition
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -33,25 +32,49 @@
   Params: stat - the StatWidget to render.
 --%>
 @param StatWidget stat
-!{var iconPosToken = stat.descriptionIconPosition() == IconPosition.AFTER ? "after" : "before";}
+<%--
+  v-next API migration: stat-card removed heading/icon/descriptionIcon/iconPosition/color/url/newTab.
+  New surface: title, trend ("up"|"down"|"neutral"|"none"), trendValue, href, leading (slot), footer (slot).
+  Mapping:
+    heading           -> title
+    color(SUCCESS)    -> variant="success", trend="up"
+    color(DANGER)     -> variant="destructive", trend="down"
+    color(WARNING)    -> variant="warning", trend="neutral"
+    color(INFO/other) -> variant="info", trend="neutral"
+    null color        -> variant="default", trend="none" (unless descriptionIcon implies direction)
+    url               -> href (stat-card has no newTab param; pass attrs for target=_blank when needed)
+    icon()            -> leading slot (rendered via lievit.icon inside @`)
+    chart sparkline   -> footer slot
+    descriptionIcon   -> mapped to trendValue via description; trend derived from color
+--%>
+!{var colorName = stat.color().map(io.lievit.kit.Color::name).orElse("");}
+!{var statVariant = "success".equals(colorName) ? "success"
+    : "danger".equals(colorName) || "destructive".equals(colorName) ? "destructive"
+    : "warning".equals(colorName) ? "warning"
+    : "info".equals(colorName)    ? "info"
+    : "default";}
+!{var statTrend = "success".equals(colorName) ? "up"
+    : "danger".equals(colorName) || "destructive".equals(colorName) ? "down"
+    : "warning".equals(colorName) || "info".equals(colorName)       ? "neutral"
+    : "none";}
+!{var statHref = stat.url().orElse(null);}
 @template.lievit.stat-card(
-  heading = stat.heading(),
+  title = stat.heading(),
   value = stat.value(),
-  description = stat.description().orElse(null),
-  icon = stat.icon().map(io.lievit.kit.Icon::alias).orElse(null),
-  descriptionIcon = stat.descriptionIcon().map(io.lievit.kit.Icon::alias).orElse(null),
-  iconPosition = iconPosToken,
-  color = stat.color().map(io.lievit.kit.Color::name).orElse(null),
-  url = stat.url().orElse(null),
-  newTab = stat.opensInNewTab(),
-  chart = stat.chart().isEmpty() ? null : @`
+  description = stat.description().orElse(""),
+  variant = statVariant,
+  trend = statTrend,
+  trendValue = stat.description().orElse(""),
+  href = statHref,
+  leading = stat.icon().isPresent() ? @`@template.lievit.icon(name = stat.icon().get().alias(), size = "1.5rem")` : null,
+  footer = stat.chart().isEmpty() ? null : @`
     !{var values = stat.chart().get();}
     !{int[] points = new int[values.size()];}
     !{for (int i = 0; i < values.size(); i++) points[i] = values.get(i).intValue();}
     !{String[] cats = new String[points.length];}
     !{for (int i = 0; i < cats.length; i++) cats[i] = "";}
     !{String tint = stat.color().map(c -> "var(--lv-color-" + c.name() + ")").orElse("var(--lv-color-chart-1)");}
-    @template.lievit.chart(label = stat.heading() + " trend", categories = cats, values = points,
-      type = "line", color = tint, showAxis = false, height = 64, width = 240)
+    @template.lievit.chart(title = stat.heading() + " trend", categories = cats, values = points,
+      type = "line", color = tint, showAxis = false, height = 64)
   `
 )

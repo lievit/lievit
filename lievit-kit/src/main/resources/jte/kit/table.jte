@@ -161,8 +161,10 @@
   @template.lievit.data-table.toolbar(
     search = controls.searchable() ? @`
       <form method="get" data-slot="kit-table-search-form" role="search" class="flex items-center gap-[var(--lv-space-2)]">
-        @template.lievit.input(name = "q", type = "search", size = "sm", value = controls.search(),
-          placeholder = labels.search(), model = "search", ariaLabel = labels.searchAria(), cssClass = "max-w-[20rem]")
+        <%-- v-next input: model= and ariaLabel= removed; use a sr-only <label> for a11y. --%>
+        <label for="kit-table-search-q" class="sr-only">${labels.searchAria()}</label>
+        @template.lievit.input(name = "q", id = "kit-table-search-q", type = "search", size = "sm",
+          value = controls.search(), placeholder = labels.search(), cssClass = "max-w-[20rem]")
         @if(!controls.search().isBlank())
           @template.lievit.button(variant = "ghost", size = "sm", wireClick = "clearSearch", content = @`${labels.clear()}`)
         @endif
@@ -215,8 +217,12 @@
       @for(AdminListView.FilterControl filter : controls.filterControls())
         <div data-admin-filter="${filter.name()}" data-filter-kind="${filter.kind().name()}" data-filter-active="${filter.active()}">
           @if(filter.kind() == AdminListView.FilterControl.Kind.TOGGLE)
-            @template.lievit.checkbox(name = filter.name(), checked = filter.active(),
-              label = filter.label(), model = "filters." + filter.name())
+            <%-- v-next checkbox: label= and model= removed; use a sibling <label> for the accessible name. --%>
+            <label class="inline-flex items-center gap-[var(--lv-space-2)] cursor-pointer text-[length:var(--lv-text-sm)]">
+              @template.lievit.checkbox(name = filter.name(), id = "kit-filter-" + filter.name(),
+                checked = filter.active())
+              <span>${filter.label()}</span>
+            </label>
           @else
             !{var opts = new java.util.ArrayList<String>(filter.options().keySet());}
             @template.lievit.native-select(name = filter.name(), label = filter.label(), size = "sm",
@@ -281,7 +287,7 @@
           <tr data-admin-empty>
             <td colspan="${columnCount}" class="p-0">
               @template.lievit.empty(title = controls.emptyStateHeading(),
-                description = controls.emptyStateDescription(), icon = "file")
+                description = controls.emptyStateDescription())
             </td>
           </tr>
         `)
@@ -387,8 +393,12 @@
       @if(table.hasPageHref())
         <%-- inline = true: the footer row already lays this out (count left | per-page + pager
              clustered right via justify-between); the pager must NOT self-center full-width. --%>
-        @template.lievit.pagination(current = pagination.page(), total = pagination.totalPages(),
-          hrefPattern = table.pageHrefPattern(), inline = true)
+        <%-- Derive baseUrl from the old printf pattern: strip the "?page=%d" / "&page=%d" suffix
+             so the new pagination partial appends "?page=N" itself. --%>
+        !{var _rawPattern = table.pageHrefPattern();}
+        !{var _pageBaseUrl = _rawPattern.replace("?page=%d", "").replace("&page=%d", "");}
+        @template.lievit.pagination(currentPage = pagination.page(), totalPages = pagination.totalPages(),
+          baseUrl = _rawPattern.isBlank() ? null : _pageBaseUrl)
       @else
         <nav data-admin-pagination class="flex items-center gap-[var(--lv-space-2)]">
           @if(pagination.hasPrevious())

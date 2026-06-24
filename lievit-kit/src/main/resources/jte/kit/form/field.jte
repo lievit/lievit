@@ -43,23 +43,34 @@
 !{var opts = field.options();}
 !{var control = field.control();}
 !{var fieldId = field.name();}
-!{var describedBy = field.hasErrors() ? fieldId + "-error" : null;}
-!{var errorList = field.errors().isEmpty() ? null : field.errors();}
-<%-- radio-group takes an ordered value->label Map; build it from the option list (empty for non-radio). --%>
-!{var radioOptions = new java.util.LinkedHashMap<String, String>();}
-!{for (SelectOption option : opts.options()) { radioOptions.put(option.value(), option.label()); }}
+!{var fieldStatus = field.hasErrors() ? "error" : null;}
+!{var fieldMessage = field.errors().isEmpty() ? null : field.errors().get(0);}
+<%--
+  v-next control API changes:
+  - combobox: removed multiple=, model=
+  - checkbox: removed label= (label goes in the field wrapper), invalid= -> ariaInvalid=,
+              describedBy= -> ariaDescribedBy=, removed model=
+  - radio-group: removed options=Map (now optionIds=List + optionLabels=List),
+                 ariaLabel= -> groupLabel=, removed invalid=, describedBy=, model=
+  - switch: removed id=, label= (label goes in the field wrapper), removed model=; use ariaLabel=
+  - input: removed describedBy=, removed model=
+--%>
+<%-- radio-group takes separate optionIds + optionLabels lists (v-next). --%>
+!{var radioOptionIds = new java.util.ArrayList<String>();}
+!{var radioOptionLabels = new java.util.ArrayList<String>();}
+!{for (SelectOption option : opts.options()) { radioOptionIds.add(option.value()); radioOptionLabels.add(option.label()); }}
 
 @if(control.equals("hidden"))
   <%-- hidden: bare input, no label / wrapper chrome (Filament's Hidden field). --%>
   <input type="hidden" id="${fieldId}" name="${field.name()}" value="${field.value()}" l:model="${field.name()}">
 @elseif(control.equals("textarea"))
-  @template.lievit.field(forId = fieldId, label = field.label(), errors = errorList,
-    control = @`@template.lievit.textarea(name = field.name(), id = fieldId, value = field.value(),
-      rows = opts.rows() > 0 ? opts.rows() : 3, describedBy = describedBy, invalid = field.hasErrors(),
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.textarea(name = field.name(), id = fieldId, value = field.value(),
+      rows = opts.rows() > 0 ? opts.rows() : 3, describedBy = fieldId + "-msg", invalid = field.hasErrors(),
       model = field.name())`)
 @elseif(control.equals("select"))
-  @template.lievit.field(forId = fieldId, label = field.label(), errors = errorList,
-    control = @`@template.lievit.native-select(name = field.name(), id = fieldId,
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.native-select(name = field.name(), id = fieldId,
       ariaLabel = field.label(), invalid = field.hasErrors(), model = field.name(), content = @`
         @for(SelectOption option : opts.options())
           <option value="${option.value()}" selected="${option.value().equals(field.value())}">${option.label()}</option>
@@ -67,53 +78,57 @@
       `)`)
 @elseif(control.equals("belongsTo"))
   <%-- plain relation: eager native <select> of related rows (value = id, label = display). --%>
-  @template.lievit.field(forId = fieldId, label = field.label(), errors = errorList,
-    control = @`@template.lievit.native-select(name = field.name(), id = fieldId,
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.native-select(name = field.name(), id = fieldId,
       ariaLabel = field.label(), placeholder = "Select...", invalid = field.hasErrors(), model = field.name(), content = @`
         @for(SelectOption option : opts.options())
           <option value="${option.value()}" selected="${option.value().equals(field.value())}">${option.label()}</option>
         @endfor
       `)`)
 @elseif(control.equals("combobox"))
-  <%-- searchable relation: the server-first combobox (native <select> base + JS-on listbox). --%>
-  @template.lievit.field(forId = fieldId, label = field.label(), errors = errorList,
-    control = @`@template.lievit.combobox(name = field.name(), id = fieldId, ariaLabel = field.label(),
-      multiple = opts.multiple(), placeholder = "Select...", invalid = field.hasErrors(), model = field.name(), content = @`
+  <%-- searchable relation: the server-first combobox. v-next: multiple= and model= removed. --%>
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.combobox(name = field.name(), id = fieldId, ariaLabel = field.label(),
+      placeholder = "Select...", invalid = field.hasErrors(), content = @`
         @for(SelectOption option : opts.options())
           <option value="${option.value()}" selected="${option.value().equals(field.value())}">${option.label()}</option>
         @endfor
       `)`)
 @elseif(control.equals("checkbox"))
-  @template.lievit.field(forId = fieldId, errors = errorList,
-    control = @`@template.lievit.checkbox(name = field.name(), id = fieldId, label = field.label(),
+  <%-- v-next checkbox: label= removed (label in field wrapper), invalid->ariaInvalid, describedBy->ariaDescribedBy, model= removed. --%>
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.checkbox(name = field.name(), id = fieldId,
       checked = "true".equals(field.value()) || "on".equals(field.value()),
-      invalid = field.hasErrors(), describedBy = describedBy, model = field.name())`)
+      ariaInvalid = field.hasErrors(), ariaDescribedBy = field.hasErrors() ? fieldId + "-msg" : null)`)
 @elseif(control.equals("radio"))
-  @template.lievit.field(forId = fieldId, label = field.label(), errors = errorList,
-    control = @`@template.lievit.radio-group(name = field.name(), ariaLabel = field.label(),
-      value = field.value(), invalid = field.hasErrors(), describedBy = describedBy, model = field.name(),
-      options = radioOptions)`)
+  <%-- v-next radio-group: optionIds+optionLabels lists, groupLabel=, invalid/describedBy/model removed. --%>
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.radio-group(name = field.name(), groupLabel = field.label(),
+      value = field.value(), optionIds = radioOptionIds, optionLabels = radioOptionLabels)`)
 @elseif(control.equals("toggle"))
-  @template.lievit.field(forId = fieldId, orientation = "horizontal", errors = errorList,
-    control = @`@template.lievit.switch(name = field.name(), id = fieldId, label = field.label(),
-      checked = "true".equals(field.value()) || "on".equals(field.value()), model = field.name())`)
+  <%-- v-next switch: id= / label= / model= removed; use ariaLabel= for the accessible name.
+       asCheckbox=true required for form POST binding (name= only renders on <input>, not <button>). --%>
+  @template.lievit.field(controlId = fieldId, label = field.label(), layout = "horizontal", status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.switch(asCheckbox = true, name = field.name(), ariaLabel = field.label(),
+      checked = "true".equals(field.value()) || "on".equals(field.value()))`)
 @elseif(control.equals("date"))
-  @template.lievit.field(forId = fieldId, label = field.label(), errors = errorList,
-    control = @`@template.lievit.date-picker(name = field.name(), id = fieldId, value = field.value(),
-      invalid = field.hasErrors(), describedBy = describedBy, model = field.name())`)
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.date-picker(name = field.name(), id = fieldId, value = field.value(),
+      invalid = field.hasErrors(), describedBy = fieldId + "-msg", model = field.name())`)
 @elseif(control.equals("placeholder"))
   <%-- heavy island field type: a disabled stand-in + the island-pending backflow note. --%>
-  @template.lievit.field(forId = fieldId, label = field.label(),
-    control = @`
+  @template.lievit.field(controlId = fieldId, label = field.label(),
+    content = @`
       <div data-slot="kit-form-field-placeholder" data-field-type="${field.type()}"
            class="flex min-h-[var(--lv-space-9)] w-full items-center rounded-[var(--lv-radius-md)] border border-dashed border-[var(--lv-color-border)] bg-[var(--lv-color-muted-bg)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
         @if(opts.hasNote())${opts.note()}@else(field type ${field.type()}: island pending)@endif
       </div>
     `)
 @else
-  <%-- text + the input-family (email / number / password / tel / url / search) via FieldOptions.inputType. --%>
-  @template.lievit.field(forId = fieldId, label = field.label(), errors = errorList,
-    control = @`@template.lievit.input(name = field.name(), id = fieldId,
+  <%-- text + the input-family (email / number / password / tel / url / search) via FieldOptions.inputType.
+       v-next input: describedBy= and model= removed. --%>
+  @template.lievit.field(controlId = fieldId, label = field.label(), status = fieldStatus, message = fieldMessage,
+    content = @`@template.lievit.input(name = field.name(), id = fieldId,
       type = opts.inputType().isBlank() ? "text" : opts.inputType(), value = field.value(),
-      describedBy = describedBy, invalid = field.hasErrors(), model = field.name())`)
+      invalid = field.hasErrors())`)
 @endif

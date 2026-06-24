@@ -81,13 +81,24 @@
       @endif
 
       @if(page.hasNotifications())
-        <%-- 5. Notification bell: the unread badge + the dropdown panel (host fills the rows). --%>
+        <%-- 5. Notification bell: the unread badge + the dropdown panel.
+             v-next: notification-bell no longer accepts Content slots (header/notifications).
+             It now takes items=List<Map<String,String>>; the adopter must provide a KitBellView
+             and use kit/notification/bell.jte directly for full row rendering.
+             page.jte receives notifications=Content for backwards compat but cannot thread it
+             into the new flat-list API; render via kit/notification/bell.jte if a KitBellView
+             is available at the call site. Here we render the bell chrome with the unread count
+             and the notifications Content block below it as a fallback region.
+             TODO: migrate page callers to pass KitBellView and use kit.notification.bell instead. --%>
         <div data-slot="kit-page-bell" class="shrink-0">
           @template.lievit.notification-bell(
             id = "kit-page-bell",
-            unreadCount = page.notificationCount(),
-            header = @`@template.lievit.notification-bell.header()`,
-            notifications = notifications)
+            unreadCount = (int) page.notificationCount(),
+            items = java.util.List.of(),
+            bellAriaLabel = "Notifications")
+          @if(notifications != null)
+            <div data-slot="kit-page-bell-content" hidden>${notifications}</div>
+          @endif
         </div>
       @endif
 

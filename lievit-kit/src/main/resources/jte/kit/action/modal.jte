@@ -106,13 +106,11 @@
 @else
   @template.lievit.modal(
     id = modalId,
-    width = width,
-    alignment = alignment,
+    size = width,
     trigger = @`<span data-kit-action-modal-trigger hidden></span>`,
     heading = heading,
     description = hasFormBody ? description : null,
-    closeButton = closeButton,
-    closeByClickingAway = closeAway,
+    closable = closeButton,
     content = @`
       @if(hasFormBody)
         ${body}

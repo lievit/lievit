@@ -37,15 +37,36 @@
   Params:
     field - the resolved leaf field to render.
 --%>
+<%--
+  v-next migration: infolist-entry removed the type= param; the value is now a Content slot.
+  The kind dispatch is preserved for future widening (when ResolvedNode.Field grows per-kind facts);
+  today all kinds fall through to displaying field.display() as inline text because the resolved
+  Field only carries the projected display string (see GAP note above).
+--%>
 @param ResolvedNode.Field field
 @if(field.kind().equals("icon"))
-    @template.lievit.infolist-entry(type = "icon", value = field.display(), label = field.label())
+    <%-- icon: display holds the projected text (icon name not carried by ResolvedNode.Field yet).
+         data-type="icon" added via dataAttrs for test selectors and kit-level type tagging. --%>
+    @template.lievit.infolist-entry(label = field.label(),
+        dataAttrs = java.util.Map.of("type", "icon"),
+        value = @`${field.display()}`)
 @elseif(field.kind().equals("image"))
-    @template.lievit.infolist-entry(type = "image", value = field.display(), alt = field.label())
+    <%-- image: display holds the projected src URL (img alt not in scope until Field widens). --%>
+    @template.lievit.infolist-entry(label = field.label(),
+        dataAttrs = java.util.Map.of("type", "image"),
+        value = @`<img src="${field.display()}" alt="" style="max-height:var(--lv-space-10);max-width:100%;">`)
 @elseif(field.kind().equals("color"))
-    @template.lievit.infolist-entry(type = "color", value = field.display())
+    <%-- color: display holds the projected color value (hex / named). --%>
+    @template.lievit.infolist-entry(label = field.label(),
+        dataAttrs = java.util.Map.of("type", "color"),
+        value = @`<span data-kit-color-swatch style="display:inline-block;width:1em;height:1em;border-radius:var(--lv-radius-sm);background:${field.display()};vertical-align:middle;" aria-hidden="true"></span> ${field.display()}`)
 @elseif(field.kind().equals("code"))
-    @template.lievit.infolist-entry(type = "code", value = field.display())
+    <%-- code: display holds the projected code snippet. --%>
+    @template.lievit.infolist-entry(label = field.label(),
+        dataAttrs = java.util.Map.of("type", "code"),
+        value = @`<pre style="margin:0;white-space:pre-wrap;"><code>${field.display()}</code></pre>`)
 @else
-    @template.lievit.infolist-entry(type = "text", value = field.display())
+    <%-- text (default): plain escaped value. --%>
+    @template.lievit.infolist-entry(label = field.label(),
+        value = @`${field.display()}`)
 @endif

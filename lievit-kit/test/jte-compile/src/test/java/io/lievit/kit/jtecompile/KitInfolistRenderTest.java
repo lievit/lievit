@@ -161,9 +161,12 @@ class KitInfolistRenderTest {
         assertTrue(html.contains("Overview"), "Overview tab label missing");
         assertTrue(html.contains("Details"), "Details tab label missing");
         // Overview is the active tab (server-owned active state).
-        assertTrue(
-                html.contains("id=\"lv-tab-overview\"") && html.contains("aria-selected=\"true\""),
-                "active tab state missing:\n" + html);
+        // v-next tabs: tab id is "tab-{tabsId}-overview" (tabsId derived from hash); the aria-selected
+        // attribute is present on the active tab trigger and aria-selected="false" on inactive ones.
+        // Check: aria-selected="true" must be in the HTML (Overview tab is the active one).
+        assertTrue(html.contains("aria-selected=\"true\""), "active tab state missing:\n" + html);
+        // Check: aria-selected="false" must be in the HTML (Details tab is inactive).
+        assertTrue(html.contains("aria-selected=\"false\""), "inactive tab state missing:\n" + html);
     }
 
     /**

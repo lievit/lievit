@@ -55,11 +55,12 @@
           <h1 id="kit-auth-title" class="text-[length:var(--lv-text-2xl)] font-[var(--lv-font-bold)] tracking-tight text-[var(--lv-color-fg)]">${view.heading()}</h1>
         </div>
 
-        <%-- Form-level message: an error banner (danger) or a success / confirmation banner (success). --%>
+        <%-- Form-level message: an error banner (destructive) or a success / confirmation banner (success). --%>
         @if(view.hasFormMessage())
           @template.lievit.alert(
-            variant = view.messageIsError() ? "danger" : "success",
-            icon = view.messageIsError() ? "circle-alert" : "circle-check",
+            variant = view.messageIsError() ? "destructive" : "success",
+            icon = true,
+            iconName = view.messageIsError() ? "circle-alert" : "circle-check",
             content = @`${view.formMessage()}`)
         @endif
 
@@ -69,11 +70,12 @@
           @for(AuthFormView.FieldView field : view.fields())
             !{var fieldId = "kit-auth-" + field.name();}
             @template.lievit.field(
-              forId = fieldId,
+              controlId = fieldId,
               label = field.label(),
               required = field.required(),
-              error = field.error(),
-              control = @`
+              status = field.hasError() ? "error" : null,
+              message = field.hasError() ? field.error() : null,
+              content = @`
                 @template.lievit.input(
                   name = field.name(), id = fieldId, type = field.inputType(),
                   value = field.value(), required = field.required(), invalid = field.hasError())
@@ -87,7 +89,7 @@
         @if(view.hasLinks())
           <div data-slot="kit-auth-links" class="flex flex-col items-center gap-[var(--lv-space-2)] text-[length:var(--lv-text-sm)]">
             @for(AuthFormView.Link link : view.links())
-              @template.lievit.link(variant = "muted", label = link.label(), href = link.url())
+              @template.lievit.link(variant = "muted", href = link.url(), content = @`${link.label()}`)
             @endfor
           </div>
         @endif

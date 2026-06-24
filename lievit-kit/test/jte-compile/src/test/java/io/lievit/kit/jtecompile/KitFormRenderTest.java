@@ -257,9 +257,10 @@ class KitFormRenderTest {
         // per-field error (role=alert region from lievit.field) + the kept value.
         assertTrue(html.contains("must not be blank"), "per-field error missing:\n" + html);
         assertTrue(html.contains("value=\"Kept Value\""), "submitted value not kept");
-        // form-level error (the first record error) + the listed extra record error.
+        // form-level error summary (v-next: the form primitive renders all record-level errors
+        // in data-slot="form-error"; both "record level A" and "record level B" land there).
         assertTrue(html.contains("record level A"), "form-level record error missing");
-        assertTrue(html.contains("data-admin-record-errors"), "extra record-errors list missing");
+        assertTrue(html.contains("data-slot=\"form-error\""), "form-error summary region missing");
         assertTrue(html.contains("record level B"), "second record error not listed");
         // editing => the submit label is Save, not Create.
         assertTrue(html.contains("Save"), "edit submit label (Save) missing");
