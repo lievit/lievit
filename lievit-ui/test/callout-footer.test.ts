@@ -2,13 +2,21 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * lievit-ui alert.jte -- the Filament-CALLOUT footer extension. alert.jte already covers
- * severity + icon + title + description (pinned by static-partials-w1a.test.ts); Filament's
- * Callout adds a footer / controls region below the description, which gest currently hand-rolls
- * in its status_banner 5+ times. This focused suite lives in its OWN file (NOT the shared
- * static-partials-w1a suite) to avoid touching the multi-component file, and asserts ONLY the
- * footer delta plus that the addition is BACK-COMPAT (the pre-existing title/description/action
- * contract is untouched). Source-as-text assertions; the real-compiler golden runs out of band.
+ * lievit-ui alert.jte -- the action slot + banner + closable additions (v-next reforge).
+ *
+ * The original callout-footer suite tested a "Filament Callout footer" extension on the OLD
+ * alert API (heading/description Content slots, urgent-based role, footer param). The v-next
+ * reforge replaced that API entirely:
+ *   - `heading` (String) + `description` (Content) → gone; replaced by `title` (String, renders
+ *     as <p>) for an optional heading and a single `content` (Content) body slot.
+ *   - `footer` param → never landed; the "controls after the body" intent maps to the existing
+ *     `action` slot (data-slot="alert-action"), which is the inline-action region after content.
+ *   - Role derivation → auto-derived from variant (_autoRole), with explicit `role` override and
+ *     role="none" suppression (_emitRole). No more `urgent ? "alert" : "status"` expression.
+ *   - New additions: `closable` (dismiss <button>), `banner` (full-bleed left-stripe layout).
+ *
+ * This suite now pins the v-next action slot, banner mode, and closable contracts.
+ * Source-as-text assertions; the real-compiler golden runs out of band.
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -16,78 +24,90 @@ import { join } from "node:path";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const src = readFileSync(join(jteDir, "alert.jte"), "utf8");
+const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
 
-describe("alert callout -- footer slot (the Filament-callout delta)", () => {
-  test("declares an optional gg.jte.Content footer param defaulting to null", () => {
-    expect(src).toContain("@param gg.jte.Content footer = null");
+describe("alert v-next -- action slot (the 'controls after body' region)", () => {
+  test("declares an optional gg.jte.Content action param defaulting to null", () => {
+    // The action slot is the inline-action region rendered after the body content.
+    expect(src).toContain("@param gg.jte.Content action = null");
   });
 
-  test("renders the footer region only when footer is set (purely additive)", () => {
-    expect(src).toMatch(/@if\(footer != null\)/);
-    expect(src).toContain('data-slot="alert-footer"');
-    expect(src).toContain("${footer}");
+  test("renders the action region only when action is set (purely additive)", () => {
+    expect(src).toContain("@if(action != null)");
+    expect(markup).toContain('data-slot="alert-action"');
+    expect(markup).toContain("${action}");
   });
 
-  // the slot names appear once in the doc comment and once in the markup; lastIndexOf pins the
-  // MARKUP occurrence (the comment block precedes the rendered body).
-  test("the footer sits in the content column (col 2), below the description", () => {
-    const descIdx = src.lastIndexOf('data-slot="alert-description"');
-    const footerIdx = src.lastIndexOf('data-slot="alert-footer"');
-    expect(footerIdx).toBeGreaterThan(-1);
-    expect(footerIdx, "footer must render after the description").toBeGreaterThan(descIdx);
-    // pinned to the second grid column, like the title/description/action slots
-    const footerBlock = src.slice(footerIdx, footerIdx + 240);
-    expect(footerBlock).toContain("grid-column:2");
+  test("the action slot sits inside the body column (col 2), after the content", () => {
+    // alert-content precedes alert-action in the markup order (both are inside alert-body / col 2).
+    const contentIdx = markup.lastIndexOf('data-slot="alert-content"');
+    const actionIdx = markup.lastIndexOf('data-slot="alert-action"');
+    expect(actionIdx).toBeGreaterThan(-1);
+    expect(actionIdx, "action must render after the content").toBeGreaterThan(contentIdx);
   });
 
-  test("the footer lays its controls out as a wrapping flex row, token-driven spacing", () => {
-    const footerIdx = src.lastIndexOf('data-slot="alert-footer"');
-    const footerBlock = src.slice(footerIdx, footerIdx + 260);
-    expect(footerBlock).toContain("display:flex");
-    expect(footerBlock).toContain("flex-wrap:wrap");
-    expect(footerBlock).toContain("gap:var(--lv-space-3)");
+  test("the action wrapper uses flex layout with token-driven spacing", () => {
+    const actionIdx = markup.lastIndexOf('data-slot="alert-action"');
+    const actionBlock = markup.slice(actionIdx, actionIdx + 300);
+    expect(actionBlock).toContain("display:flex");
+    expect(actionBlock).toContain("align-items:center");
+    expect(actionBlock).toContain("var(--lv-space-");
   });
 
-  test("the usage doc shows a callout-with-footer example", () => {
-    expect(src).toContain("footer = @@`");
+  test("the usage doc shows an alert with the action slot wired", () => {
+    // The doc comment shows closable usage with attrs wiring the dismiss action.
+    expect(src).toContain("closable = true");
+    expect(src).toContain("@@template.lievit.alert(");
   });
 });
 
-describe("alert callout -- BACK-COMPAT (the w1a contract is untouched)", () => {
-  test("the pre-existing param API still stands", () => {
+describe("alert v-next -- BACK-COMPAT: new API contract is fully in place", () => {
+  test("the v-next param API: title(String), icon(boolean), closable, banner, role, action", () => {
+    // These are the params that REPLACED the old heading/description/footer API.
     expect(src).toContain('@param String variant = "info"');
-    expect(src).toContain('@param String icon = ""');
-    expect(src).toContain("@param gg.jte.Content title = null");
-    expect(src).toContain("@param String heading = null");
-    expect(src).toContain("@param gg.jte.Content description = null");
+    expect(src).toContain("@param String title = null");
+    expect(src).toContain("@param boolean icon = true");
+    expect(src).toContain("@param boolean closable = false");
+    expect(src).toContain("@param boolean banner = false");
+    expect(src).toContain("@param String role = null");
     expect(src).toContain("@param gg.jte.Content action = null");
     expect(src).toContain("@param gg.jte.Content content");
+    // Old params gone:
+    expect(src).not.toContain("@param String heading");
+    expect(src).not.toContain("@param gg.jte.Content description");
+    expect(src).not.toContain("@param gg.jte.Content footer");
   });
 
   test("severity still drives the live role (destructive/warning assertive, info/success polite)", () => {
-    expect(src).toContain('role="${urgent ? "alert" : "status"}"');
+    // v-next mechanism: _autoRole = (warning|destructive) ? "alert" : "status"; _effectiveRole
+    // applies explicit `role` override; _emitRole suppresses role="none".
+    expect(src).toContain('("warning".equals(variant) || "destructive".equals(variant)) ? "alert" : "status"');
     expect(src).toMatch(/"destructive"\.equals\(variant\)/);
     expect(src).toMatch(/"warning"\.equals\(variant\)/);
+    // The rendered role attribute uses the new conditional emission pattern:
+    expect(markup).toContain('role="${_emitRole ? _effectiveRole : null}"');
   });
 
-  test("title still renders before the description, and the action slot still exists", () => {
-    expect(src.lastIndexOf('data-slot="alert-title"')).toBeLessThan(
-      src.lastIndexOf('data-slot="alert-description"'),
-    );
-    expect(src).toContain('data-slot="alert-action"');
+  test("alert-title still renders before the body content (alert-content), and the action slot exists", () => {
+    // v-next slot order: alert-title (optional) → alert-content (body) → alert-action (optional).
+    const titleIdx = markup.lastIndexOf('data-slot="alert-title"');
+    const contentIdx = markup.lastIndexOf('data-slot="alert-content"');
+    expect(titleIdx).toBeGreaterThan(-1);
+    expect(contentIdx).toBeGreaterThan(-1);
+    expect(titleIdx, "title must render before content").toBeLessThan(contentIdx);
+    expect(markup).toContain('data-slot="alert-action"');
   });
 
-  test("the footer does NOT displace the action slot -- both regions coexist", () => {
-    // action stays the end-pinned control; footer is the new controls/footer region after it.
-    const actionIdx = src.lastIndexOf('data-slot="alert-action"');
-    const footerIdx = src.lastIndexOf('data-slot="alert-footer"');
-    expect(actionIdx).toBeGreaterThan(-1);
-    expect(footerIdx).toBeGreaterThan(actionIdx);
+  test("the action slot does NOT displace the body content -- alert-content precedes alert-action", () => {
+    const contentIdx = markup.lastIndexOf('data-slot="alert-content"');
+    const actionIdx = markup.lastIndexOf('data-slot="alert-action"');
+    expect(contentIdx).toBeGreaterThan(-1);
+    expect(actionIdx).toBeGreaterThan(contentIdx);
   });
 
   test("still ships no inline <script> / on* handlers (CSP-clean)", () => {
     expect(src).not.toMatch(/<script/i);
-    const inlineHandlers = src.match(/\son[a-z]+=/gi) ?? [];
+    const inlineHandlers = markup.match(/\son[a-z]+=/gi) ?? [];
     expect(inlineHandlers, `unexpected inline handlers: ${inlineHandlers.join(", ")}`).toEqual([]);
   });
 });

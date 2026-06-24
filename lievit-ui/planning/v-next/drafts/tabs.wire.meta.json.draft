@@ -1,0 +1,23 @@
+{
+  "name": "tabs",
+  "type": "registry:jte",
+  "description": "WIRE + HTMX + ENH tabbed interface (v-next): a role=tablist strip of role=tab buttons + role=tabpanel regions whose active tab is a server fact (@Wire String activeTab on TabsComponent). WAI-ARIA APG Tabs (https://www.w3.org/WAI/ARIA/apg/patterns/tabs/): roving tabindex (active tab tabindex=0, others -1), aria-selected, aria-controls/aria-labelledby cross-links, aria-disabled (NOT native disabled) on disabled tabs. Three visual types: line (bottom-border indicator, default), card (raised tabs merging with panel surface), pill (filled active tab). Three toolbar-aligned sizes: sm/md/lg (--lv-space-8/9/10 height tokens, same scale as button). Two panel modes: eager (all panels in DOM, inactive hidden) and lazy (HTMX hx-get swap on tabs-activate event). Addable + closable tabs via addTab/closeTab wire actions. Arrow-key roving (Home/End/Delete/Enter+Space in manual mode) delegated to collection-nav.enhancer.ts via data-lievit-collection / data-lievit-item hooks (data-lievit-collection-roving-tabindex=true for APG roving-tabindex model vs aria-activedescendant). OKLCH tokens, CSP-clean, zero inline script.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/tabs.jte",
+      "type": "registry:jte",
+      "target": "lievit/tabs.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/tabs/panel.jte",
+      "type": "registry:jte",
+      "target": "lievit/tabs/panel.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type", "radius", "shadow", "ring", "transition"],
+  "docs": "Copies the v-next tabs WIRE template to lievit/tabs.jte. Pair with TabsComponent.java (from registry:wire tabs) for the server-side active tab state and activate/closeTab/addTab actions. The tab definitions are List<TabItem> (id/label/icon/closable/disabled); pass _instance.visibleTabs() from the wire component. The panel BODY per tab is OWNED markup inside each data-slot=tabs-content div in the copied-in template (no JTE Content slot -- WIRE has none; edit the body inline). Keyboard navigation (ArrowLeft/Right, Home/End, Delete, Enter/Space in manual mode) is handled by collection-nav.enhancer.ts which must be installed with data-lievit-collection-roving-tabindex=true support for the APG roving-tabindex model. For the static presentational tabs (GET-per-tab, no wire state), use the legacy jte/tabs.jte or compose plain hx-get links."
+}

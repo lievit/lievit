@@ -1,7 +1,7 @@
 {
   "name": "avatar",
   "type": "registry:jte",
-  "description": "A user/entity image with a graceful fallback (initials else a Lucide user icon), sized by token (sm/default/lg) and rounded-full. Radix splits Avatar.Root/Image/Fallback; server-side the src is already known so the partial renders the right branch directly (zero JS, CSP-clean). Ships the AvatarGroupCount (the '+N' overflow tile) and AvatarBadge (status dot) child partials. Optional opt-in client image-fallback via data-lv-avatar-fallback wired from the adopter's own TS.",
+  "description": "A circular (or square) frame displaying a person or entity: image, auto-derived initials, or icon fallback. Diameter-based size scale (xs/sm/md/lg/xl/2xl, architecture-contract §5.b D5 -- NOT toolbar-aligned), circle|square shape, six intent colors with deterministic auto-hash from name, optional status dot (online/away/busy/offline, suppressed at xs), interactive wrappers (<a href> or <button>), ariaHidden decorative mode. Static presentational, zero JS, CSP-clean. Params: src, name, alt, initials, icon, size, shape, color, status, href, hrefLabel, clickable, ariaLabel, ariaHidden, cssClass, attrs, dataAttrs.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -24,6 +24,6 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "radius", "type"],
-  "docs": "Copies the avatar partial (+ its avatar/group-count and avatar/badge children) to your JTE root at lievit/avatar.jte, reached as @template.lievit.avatar(name=..., src=..., initials=...). Pass size (sm/default/lg); a null/blank src renders the initials-or-user-icon fallback. Build an overlapping stack with a flex -space-x row + a ring cssClass, and close it with @template.lievit.avatar.group-count(count=N); drop a status dot with @template.lievit.avatar.badge inside a relative wrapper. The source is yours: edit freely."
+  "tokens": ["color", "radius", "space", "type", "ring"],
+  "docs": "Copies avatar.jte (+ avatar/group-count.jte and avatar/badge.jte) to your JTE root. Reached as @template.lievit.avatar(name=..., src=..., size=\"md\"). Size is diameter-based (xs=24px, sm=32px, md=40px, lg=48px, xl=64px, 2xl=80px -- NOT toolbar-aligned per architecture-contract D5). shape=\"circle\" (default) or \"square\". color sets the intent background for initials/icon (primary/secondary/accent/success/warning/destructive/default); null auto-hashes from name so the same person always gets the same hue. status=\"online|away|busy|offline\" overlays a colored dot (suppressed at xs). Set href for a link wrapper or clickable=true for a button wrapper (provide hrefLabel/ariaLabel for an accessible name). Set ariaHidden=true for a decorative avatar where adjacent text identifies the person. Dynamic per-row data goes through the SAFE dataAttrs=Map.of(\"user-id\", row.id()) channel; static wire directives go through attrs (TRUSTED, $unsafe, author-typed only). Adds two additive tokens: --lv-space-20 (5rem, 2xl diameter) and --lv-text-2xs (0.625rem, xs initials). The source is yours: edit freely."
 }

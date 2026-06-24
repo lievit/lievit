@@ -5,139 +5,170 @@
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui alert partial -- an inline message banner whose severity drives colour + role, laid
-  out as the shadcn icon + GRID composition.
+  lievit-ui alert partial -- a contextual message banner whose variant drives the ARIA live-region
+  role, the icon, and the colour token pair (surface + foreground + border). Static presentational:
+  no enhancer, no client state.
 
-  TIER: STATIC presentational -> JTE partial. The former <lv-alert> island held no client
-  state; severity-to-colour and severity-to-role are both pure functions of the variant, so
-  the server renders the whole thing.
+  TIER: PARTIAL -- pure server-rendered presentation. The dismiss button (closable=true) is a real
+  native <button>; the consuming template wires the action via l:click on it through `attrs`.
 
-  STRUCTURE (scientific decision rule): WAI-ARIA alert / status pattern, shadcn new-york-v4 layout.
-  shadcn's Alert is a CSS GRID with an optional leading SVG: grid-cols-[0_1fr] with no icon, and
-  grid-cols-[1rem_1fr] + a column gap WHEN an icon is present, so the title + description always
-  sit in column 2 (col-start-2) aligned past the icon. The live-region ROLE is the load-bearing
-  decision and is taken from the APG: time-sensitive errors (destructive / warning) are assertive
-  (role="alert"), informational kinds (info / success) are polite (role="status"), so a screen
-  reader interrupts only for the urgent kinds. The tint uses color-mix over the severity token so
-  one token drives border + background coherently. The error variant is named "destructive" to
-  match shadcn's variant contract.
+  STRUCTURE (scientific decision rule):
+    - WAI-ARIA APG Alert pattern (https://www.w3.org/WAI/ARIA/apg/patterns/alert/): the role IS the
+      entire a11y contract for a passive notification. No interactive focus management; no focus trap;
+      the dismiss button is platform-native.
+    - Inventory reference: Ant Design Alert (info/success/warning/error variants, icon, closable,
+      description, banner mode) mapped to the lievit variant vocabulary (destructive = error).
+    - Layout: shadcn new-york-v4 icon + CSS GRID composition (icon column 1, body column 2).
+    - Styling: ORIGINAL generation over --lv-* tokens, look inspired by Tailwind UI (no code copied).
 
-  SLOTS (shadcn parity): the title + description are now REAL sub-slots (data-slot="alert-title" /
-  "alert-description", the alert/title + alert/description partials inlined when passed as `title`
-  / `description` Content) instead of the old ad-hoc heading div + raw content; an optional
-  `action` slot (data-slot="alert-action") pins a control to the banner's end. Back-compat: the
-  `heading` String still renders a plain-text title, and `content` still fills the description
-  region when no rich `description` is given.
-
-  CALLOUT (Filament parity): Filament's Callout is a richer alert that adds a FOOTER / CONTROLS
-  region below the description -- a place for actions (links/buttons), a collapse control, or
-  secondary text -- so the same primitive serves both the bare shadcn alert and gest's repeated
-  hand-rolled status_banner (icon + heading + body + a footer row of controls). The optional
-  `footer` slot (data-slot="alert-footer") renders that region: full-width in column 2, below the
-  description, after any end-pinned `action`. It is purely additive -- an alert with no `footer`
-  renders exactly as before, so every existing call site is untouched.
-
-  A11y (WAI-ARIA alert/status): destructive|warning => role="alert" (assertive); info|success =>
-  role="status" (polite). The leading icon is decorative (aria-hidden) -- severity is announced by
-  the role + the title text, not the glyph.
-
-  EXTRA ATTRIBUTES -- the SAFE escaped dataAttrs channel (mirrors button.jte exactly). An adopter
-  often needs to attach a test or wire hook (data-testid, a data-* the wire runtime reads) to the
-  alert ROOT without wrapping it in an extra <div> (gest had to wrap the PRG flash alert just to
-  hang a hook on it). dataAttrs is a SAFE Map<String,String> of DYNAMIC data-* attributes: each
-  entry renders as data-<key>="<value>" where the VALUE is escaped through JTE's OWN attribute
-  escaper gg.jte.html.escape.Escape.htmlAttribute (the exact routine ContentType.Html applies to a
-  ${} in attribute-value position), so a hostile value renders inert (the [quote][gt][script...]
-  breakout stays attribute text). This is the ONLY safe way to carry user/DB-derived data on the
-  banner. Keys are the data-attribute name WITHOUT the leading "data-" (key "testid" ->
-  data-testid); keep keys to simple identifiers ([A-Za-z][A-Za-z0-9-]*) -- the key sits in
-  attribute-NAME position, which JTE does not escape, so a non-identifier key is dropped. Empty by
-  default; left empty nothing is added. (There is deliberately NO trusted raw `attrs` channel on
-  the alert: a status banner only ever needs escaped data hooks, so the unsafe escape hatch the
-  button exposes for static wire directives would be pure XSS surface here.)
+  A11y (WAI-ARIA alert / status):
+    - role by INTENT: info/success → role="status" (polite, not urgent); warning/destructive →
+      role="alert" (assertive, interrupt). Both carry implicit aria-live + aria-atomic="true" per
+      the ARIA spec; the browser enforces these, so they are NOT emitted explicitly.
+    - Icon (when rendered): aria-hidden="true" -- purely decorative; text conveys the meaning.
+    - Dismiss button (closable=true): real <button type="button"> with aria-label="Dismiss".
+      Icon-only, so the accessible name is mandatory (architecture contract §5.d).
+    - title (when set): <p> element, NOT a heading. Alert banners are not document sections.
+    - role="none" override: suppresses the role attribute entirely (purely decorative display).
+    - The alert root is NOT focusable (tabindex is never added).
 
   Params:
-    String variant         = "info"   "info" | "success" | "warning" | "destructive".
-    String icon            = ""       optional leading Lucide icon name (the shadcn icon column).
-    gg.jte.Content title   = null     rich alert title (data-slot=alert-title); wins over `heading`.
-    String heading         = null     plain-text title (back-compat); rendered as alert-title.
-    gg.jte.Content description = null  rich description (data-slot=alert-description); wins over content.
-    gg.jte.Content action  = null     optional control pinned to the banner end (data-slot=alert-action).
-    gg.jte.Content footer  = null     optional footer / controls region below the description
-                                      (data-slot=alert-footer); the Filament callout footer slot.
-    gg.jte.Content content            the message body (description region) when no `description` slot.
-    String cssClass        = ""       extra utility classes on the banner.
-    Map<String,String> dataAttrs = {}  SAFE dynamic data-* on the banner root (key w/o "data-",
-                                      simple identifier); each value escaped via Escape.htmlAttribute.
+    String  variant   = "info"    "info" | "success" | "warning" | "destructive".
+    String  title     = null      optional bold heading (rendered as a <p>); when set the content
+                                  is the supporting description beneath it.
+    boolean icon      = true      show the variant-default icon; set false to suppress.
+    String  iconName  = null      override the default variant icon with a named Lucide icon slug.
+    boolean closable  = false     render the dismiss <button> (X); the consuming template wires
+                                  l:click="dismiss" on it via `attrs`.
+    boolean banner    = false     full-bleed layout: no border-radius, thick left-border stripe.
+    String  role      = null      override the auto-derived live-region role; pass "none" to
+                                  suppress the role entirely.
+    String  cssClass  = ""        extra utility classes on the root.
+    String  attrs     = ""        TRUSTED raw ($unsafe) -- STATIC author-typed strings only
+                                  (data-testid, wire directives on the root or dismiss button).
+    Map<String,String> dataAttrs = {}  SAFE escaped dynamic data-* on the root (key w/o "data-",
+                                  simple identifier); each value via Escape.htmlAttribute.
+    gg.jte.Content content        the primary message body.
+    gg.jte.Content action = null  optional inline action slot after the body.
 
   Usage:
-    @@template.lievit.alert(variant = "destructive", icon = "circle-alert",
-      title = @@`Could not save`, description = @@`The listing was not persisted.`)
-    @@template.lievit.alert(variant = "success", heading = "Saved", content = @@`Your changes are live.`)
-    @@template.lievit.alert(variant = "warning", icon = "triangle-alert", heading = "Chiave ruotata",
-      content = @@`La vecchia chiave non e' piu' valida.`,
-      footer = @@`@@template.lievit.link(label = "Aggiorna la configurazione", href = "/settings")`)
-    (attach a SAFE test/wire hook to the banner root, no wrapper div -- value HTML-escaped):
-    @@template.lievit.alert(variant = "success", heading = "Saved",
-      dataAttrs = java.util.Map.of("testid", "flash-saved"), content = @@`Your changes are live.`)
+    @@template.lievit.alert(variant = "destructive", title = "Could not save",
+      content = @@`The listing was not persisted.`)
+    @@template.lievit.alert(variant = "success", icon = true, closable = true,
+      attrs = "l:click=\"dismissAlert\"",
+      content = @@`Your changes have been saved.`)
+    @@template.lievit.alert(variant = "warning", banner = true,
+      title = "Maintenance window",
+      content = @@`The system will be unavailable from 02:00 to 04:00.`)
+    @@template.lievit.alert(variant = "info", role = "none",
+      content = @@`This is a decorative note already announced elsewhere.`)
 --%>
 @param String variant = "info"
-@param String icon = ""
-@param gg.jte.Content title = null
-@param String heading = null
-@param gg.jte.Content description = null
-@param gg.jte.Content action = null
-@param gg.jte.Content footer = null
-@param gg.jte.Content content
+@param String title = null
+@param boolean icon = true
+@param String iconName = null
+@param boolean closable = false
+@param boolean banner = false
+@param String role = null
 @param String cssClass = ""
+@param String attrs = ""
 @param java.util.Map<String, String> dataAttrs = java.util.Map.of()
+@param gg.jte.Content content
+@param gg.jte.Content action = null
 
-!{var urgent = "destructive".equals(variant) || "warning".equals(variant);}
-!{var hasIcon = !icon.isEmpty();}
-!{var hasTitle = title != null || (heading != null && !heading.isBlank());}
-!{var tone = switch (variant) {
+<%-- Derived: effectiveRole -- role override wins; "none" suppresses the attribute. --%>
+!{var _autoRole = ("warning".equals(variant) || "destructive".equals(variant)) ? "alert" : "status";}
+!{var _effectiveRole = (role != null && !role.isBlank()) ? role : _autoRole;}
+!{var _emitRole = !"none".equals(_effectiveRole);}
+
+<%-- Derived: defaultIconName per variant; resolvedIconName = iconName override or default. --%>
+!{var _defaultIconName = switch (variant) {
+    case "success"     -> "circle-check";
+    case "warning"     -> "triangle-alert";
+    case "destructive" -> "circle-x";
+    default            -> "info";
+  };}
+!{var _resolvedIconName = (iconName != null && !iconName.isBlank()) ? iconName : _defaultIconName;}
+
+<%-- Derived: token mapping for surface bg + foreground text/icon + border/stripe.
+     The EXISTING tokens have two tiers:
+       --lv-color-{variant}     = the saturated intent colour (e.g. success green #16a34a)
+       --lv-color-{variant}-fg  = intended foreground ON a SOLID fill of the above (= white)
+     The alert uses a 10% tint of the base colour as the surface background; on that pale
+     wash the solid-fill-fg (white) would be invisible. Correct approach: use the BASE
+     token as both border/stripe AND as the icon/text colour against the pale tint. This is
+     exactly what the existing alert.jte does and is the standard alert pattern (Tailwind UI,
+     shadcn). The spec's §5 darker fg values (e.g. oklch(0.35 0.12 240)) were net-new tokens
+     rejected by D4; without them, the base tone IS the fg against the tint. --%>
+!{var _tone = switch (variant) {
     case "success"     -> "var(--lv-color-success)";
     case "warning"     -> "var(--lv-color-warning)";
     case "destructive" -> "var(--lv-color-destructive)";
     default            -> "var(--lv-color-info)";
   };}
 
-<%-- SAFE dynamic data-* attributes (mirrors button.jte): JTE's HTML parser forbids a raw @for in
-     attribute-NAME position, so the fragment is built once here -- each entry becomes
-     data-<key>="<value>" with the VALUE escaped through JTE's OWN attribute escaper
-     (Escape.htmlAttribute, the same routine ContentType.Html applies to a ${} in attribute-value
-     position), then emitted with $unsafe -- safe because every value is already escaped. Keys must
-     be simple identifiers (the key sits in attribute-NAME position, which is NOT escaped); a
-     non-identifier key is dropped so it can never inject markup. --%>
-!{var dataAttrs_ = new StringOutput();}
+<%-- Layout: grid columns depend on icon + closable.
+     col 1: icon (1.25rem when icon, 0 otherwise)
+     col 2: body (flex fill)
+     col 3: dismiss button (var(--lv-space-6) when closable, 0 otherwise) --%>
+!{var _hasIcon = icon;}
+!{var _iconCol  = _hasIcon ? "1.25rem" : "0";}
+!{var _dismissCol = closable ? "var(--lv-space-6)" : "0";}
+!{var _gridCols = _iconCol + " 1fr " + _dismissCol;}
+!{var _colGap   = (_hasIcon || closable) ? "var(--lv-space-2)" : "0";}
+
+<%-- Banner layout: no radius, thick left stripe instead of full border. --%>
+!{var _radiusStyle = banner ? "border-radius:0;" : "border-radius:var(--lv-radius-md);";}
+!{var _borderStyle = banner
+    ? "border:0;border-left:4px solid " + _tone + ";"
+    : "border:1px solid " + _tone + ";";}
+
+<%-- SAFE dynamic data-* attributes (mirrors button.jte exactly).
+     JTE's HTML parser forbids a raw @for in attribute-NAME position, so the fragment is built
+     once here -- each entry becomes data-<key>="<value>" with the VALUE escaped through JTE's
+     OWN attribute escaper (Escape.htmlAttribute), then emitted with $unsafe.
+     Keys must be simple identifiers ([A-Za-z][A-Za-z0-9-]*). --%>
+!{var _dataAttrs_ = new StringOutput();}
 !{for (var e : dataAttrs.entrySet()) {
     if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
-      dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
-      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), dataAttrs_);
-      dataAttrs_.writeContent("\"");
+      _dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
+      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), _dataAttrs_);
+      _dataAttrs_.writeContent("\"");
     }
   }}
-!{var dataAttrsMarkup = dataAttrs_.toString();}
+!{var _dataAttrsMarkup = _dataAttrs_.toString();}
 
 <div
   data-slot="alert"
   data-variant="${variant}"
-  role="${urgent ? "alert" : "status"}"
-  $unsafe{dataAttrsMarkup}
-  class="relative grid w-full items-start text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] text-[var(--lv-color-fg)] rounded-[var(--lv-radius-md)] border px-[var(--lv-space-4)] py-[var(--lv-space-3)] ${cssClass}"
-  style="font-family:var(--lv-font-sans);border-color:${tone};background:color-mix(in srgb, ${tone} 12%, var(--lv-color-bg));grid-template-columns:${hasIcon ? "1rem 1fr" : "0 1fr"};column-gap:${hasIcon ? "var(--lv-space-3)" : "0"};row-gap:var(--lv-space-1);"
+  role="${_emitRole ? _effectiveRole : null}"
+  $unsafe{_dataAttrsMarkup}
+  class="relative grid w-full items-start text-[length:var(--lv-text-sm)] leading-[var(--lv-leading)] ${cssClass}"
+  style="font-family:var(--lv-font-sans);color:${_tone};background:color-mix(in srgb,${_tone} 10%,var(--lv-color-bg));${_borderStyle}${_radiusStyle}padding:var(--lv-space-3) var(--lv-space-4);grid-template-columns:${_gridCols};column-gap:${_colGap};row-gap:var(--lv-space-1);"
+  $unsafe{attrs}
 >
-  @if(hasIcon)
-    <span aria-hidden="true" style="grid-column:1;grid-row:1;display:inline-flex;align-items:center;color:${tone};">@template.lievit.icon(name = icon, size = "1rem")</span>
+  @if(_hasIcon)
+    <span
+      aria-hidden="true"
+      style="grid-column:1;grid-row:1;display:inline-flex;align-items:center;color:${_tone};"
+    >@template.lievit.icon(name = _resolvedIconName, size = "1rem")</span>
   @endif
-  @if(hasTitle)
-    <div data-slot="alert-title" style="grid-column:2;min-height:1rem;font-weight:var(--lv-font-medium);letter-spacing:-0.01em;">@if(title != null)${title}@else${heading}@endif</div>
-  @endif
-  <div data-slot="alert-description" style="grid-column:2;color:var(--lv-color-muted-fg);">@if(description != null)${description}@else${content}@endif</div>
-  @if(action != null)
-    <div data-slot="alert-action" style="grid-column:2;margin-top:var(--lv-space-2);">${action}</div>
-  @endif
-  @if(footer != null)
-    <div data-slot="alert-footer" style="grid-column:2;margin-top:var(--lv-space-3);display:flex;flex-wrap:wrap;align-items:center;gap:var(--lv-space-3);color:var(--lv-color-muted-fg);">${footer}</div>
+  <div data-slot="alert-body" style="grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:var(--lv-space-1);">
+    @if(title != null && !title.isBlank())
+      <p data-slot="alert-title" style="margin:0;font-size:var(--lv-text-sm);font-weight:var(--lv-font-medium);letter-spacing:-0.01em;line-height:var(--lv-leading);">${title}</p>
+    @endif
+    <div data-slot="alert-content" style="font-size:var(--lv-text-sm);line-height:var(--lv-leading);">${content}</div>
+    @if(action != null)
+      <div data-slot="alert-action" style="margin-top:var(--lv-space-1);display:flex;align-items:center;gap:var(--lv-space-2);">${action}</div>
+    @endif
+  </div>
+  @if(closable)
+    <button
+      type="button"
+      aria-label="Dismiss"
+      data-slot="alert-dismiss"
+      style="grid-column:3;grid-row:1;align-self:start;display:inline-flex;align-items:center;justify-content:center;width:var(--lv-space-6);height:var(--lv-space-6);border:0;background:transparent;cursor:pointer;border-radius:var(--lv-radius-sm);color:var(--lv-color-fg);flex-shrink:0;outline:none;transition:box-shadow var(--lv-duration-fast) var(--lv-ease);"
+      class="focus-visible:shadow-[var(--lv-ring)]"
+    >@template.lievit.icon(name = "x", size = "1rem")</button>
   @endif
 </div>

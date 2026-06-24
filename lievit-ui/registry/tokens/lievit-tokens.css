@@ -169,7 +169,9 @@
   --lv-space-4: 1rem;
   --lv-space-5: 1.25rem;
   --lv-space-6: 1.5rem;
+  --lv-space-7: 1.75rem; /* switch lg thumb diameter (28px); fills the gap between space-6 and space-8 */
   --lv-space-8: 2rem;
+  --lv-space-20: 5rem; /* 80px: avatar 2xl diameter */
   --lv-space-9: 2.25rem; /* 36px: the shadcn h-9 control baseline (md form-control height) */
   --lv-space-10: 2.5rem;
   --lv-space-12: 3rem;
@@ -192,6 +194,7 @@
   --lv-font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
 
   /* size scale */
+  --lv-text-2xs: 0.625rem; /* 10px: avatar xs initials / xs icon */
   --lv-text-xs: 0.75rem;
   --lv-text-sm: 0.875rem;
   --lv-text-base: 1rem;
@@ -237,8 +240,14 @@
   --lv-z-sticky: 1100;
   --lv-z-overlay: 1200; /* dialog/drawer backdrop */
   --lv-z-modal: 1300; /* dialog/drawer panel */
-  --lv-z-popover: 1400; /* popover/tooltip/menu floating layer */
+  --lv-z-popover: 1400; /* popover/menu floating layer */
+  --lv-z-tooltip: 1450; /* tooltip: above popover/menu, below toast; theme-invariant structural token (v-next, NET-NEW) */
   --lv-z-toast: 1500; /* always on top */
+
+  /* ----------------------------------------------------------------------- *
+   * OPACITY                                                                  *
+   * ----------------------------------------------------------------------- */
+  --lv-opacity-disabled: 0.5; /* dimming for disabled interactive controls (shadcn disabled:opacity-50) */
 
   /* ----------------------------------------------------------------------- *
    * MOTION (duration + easing for transitions/animations)                   *
@@ -249,6 +258,8 @@
   --lv-ease: cubic-bezier(0.4, 0, 0.2, 1); /* standard */
   --lv-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --lv-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  /* component-specific motion tokens (net-new, additive; set to `none` by prefers-reduced-motion) */
+  --lv-motion-switch-thumb: transform 120ms ease; /* switch thumb slide; separate from --lv-duration-fast so timing is tunable per-component */
 
   /* ----------------------------------------------------------------------- *
    * ICON sizing (consumed by the Lucide icon partial)                       *
@@ -363,4 +374,14 @@
   --lv-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.45);
   --lv-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
   --lv-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55);
+}
+
+/* ========================================================================= *
+ * REDUCED MOTION -- suppresses component-specific motion tokens when the OS  *
+ * requests it. Structural tokens (spacing, radius, etc.) are unaffected.     *
+ * ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --lv-motion-switch-thumb: none; /* instant thumb swap instead of sliding transition */
+  }
 }

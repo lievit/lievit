@@ -40,13 +40,19 @@ describe("alert -- SAFE escaped dataAttrs channel (mirrors button.jte)", () => {
     expect(src).toMatch(/getKey\(\)\.matches\("\[A-Za-z\]\[A-Za-z0-9-\]\*"\)/);
   });
 
-  test("the ONLY $unsafe sink is the pre-escaped dataAttrs fragment (no trusted raw attrs channel)", () => {
+  test("$unsafe sinks: the pre-escaped dataAttrs fragment + the trusted raw attrs channel", () => {
+    // The re-forged alert.jte exposes BOTH channels (mirrors button.jte):
+    //   _dataAttrsMarkup  — SAFE: each value routed through Escape.htmlAttribute
+    //   attrs             — TRUSTED RAW: static author-typed strings (l:click wire directives, data-testid)
+    // The dataAttrs fragment uses the private _dataAttrsMarkup name (leading underscore).
     const unsafeSinks = src.match(/\$unsafe\{[^}]*\}/g) ?? [];
     expect(unsafeSinks, `unexpected $unsafe sinks: ${unsafeSinks.join(", ")}`).toEqual([
-      "$unsafe{dataAttrsMarkup}",
+      "$unsafe{_dataAttrsMarkup}",
+      "$unsafe{attrs}",
     ]);
-    // no trusted raw attrs param on the alert (it would be pure XSS surface on a status banner).
-    expect(src, "alert must not expose a trusted raw attrs channel").not.toContain('@param String attrs');
+    // The trusted raw attrs channel IS present in the re-forged template (consumers wire l:click
+    // on the dismiss button through it — see alert.jte usage doc + spec §6).
+    expect(src, "alert must expose the trusted raw attrs channel").toContain('@param String attrs = ""');
   });
 
   test("usage doc shows a SAFE dynamic example via dataAttrs (no wrapper div)", () => {

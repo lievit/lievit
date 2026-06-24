@@ -382,13 +382,31 @@ describe("radio-group.jte", () => {
 });
 
 describe("switch.jte", () => {
+  // Full coverage lives in test/switch.test.ts. This block covers only the contracts
+  // that belong in the shared house-rules suite (element, role, data-slots).
   const src = read("switch.jte");
-  test("renders a real native <input type=checkbox role=switch> carrying a name + l:model", () => {
-    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
-    expect(markup).toMatch(/<input[\s\S]*?type="checkbox"/);
-    expect(markup).toContain('role="switch"');
-    expect(markup).toContain('name="${name}"');
-    expect(markup).toContain('l:model="${model}"');
+  const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+
+  test("primary variant: <button role=switch aria-checked> (NOT a bare <input> or a div-with-role)", () => {
+    // v-next re-forge: switch is now button-first per WAI-ARIA APG button-based pattern.
+    // The old <input type=checkbox role=switch l:model> is now the asCheckbox=true branch only.
+    expect(markup).toMatch(/<button[\s\S]*?role="switch"/);
+    expect(markup).toContain('aria-checked="${checked ? "true" : "false"}"');
+    // asCheckbox variant still uses <input type=checkbox role=switch> (not primary, opt-in).
+    expect(markup).toMatch(/<input[\s\S]*?type="checkbox"[\s\S]*?role="switch"/);
+  });
+
+  test("data-slots are present for test selectors and consumer overrides", () => {
+    expect(markup).toContain('data-slot="switch-root"');
+    expect(markup).toContain('data-slot="switch"');
+    expect(markup).toContain('data-slot="switch-thumb"');
+  });
+
+  test("disabled uses native `disabled` attribute (not aria-disabled) on both variants", () => {
+    // For <button> and <input>, the native disabled attribute is correct; aria-disabled is
+    // for <a role=button> only.
+    expect(markup).toContain('disabled="${isBlocked}"');
+    expect(markup).not.toMatch(/aria-disabled/);
   });
 });
 

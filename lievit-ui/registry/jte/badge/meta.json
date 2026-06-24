@@ -1,7 +1,7 @@
 {
   "name": "badge",
   "type": "registry:jte",
-  "description": "A small status pill mapping each variant to a token fill + foreground pair: the shadcn taxonomy (default, secondary, destructive, outline, ghost, link) alongside the status family (neutral, success, warning, danger, info). ghost is fill-less foreground text; link is primary text that underlines on hover. Pass href for an asChild <a> link (else an inert <span>). Server-first PARTIAL (ADR-0012, Wave 4): variant-to-colour is pure, so there is no client state and no island. Replaces the <lv-badge> Lit island. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A small status pill (inert <span> or asChild <a> link) mapping each variant to a token fill + foreground pair. Two variant families side by side: the shadcn taxonomy (default, secondary, destructive, outline, ghost, link) and the status family (neutral, success, warning, danger, info). Size scale (sm/md/lg) governs text size + padding (NOT height — badge is inline, not a form control). Optional dot (coloured circle, aria-hidden) and leading slot. Pass href for an asChild <a> link (else inert <span>). Extra attributes via two escaping channels: attrs (TRUSTED raw, $unsafe, STATIC author strings only) and dataAttrs (SAFE Map<String,String>, each value escaped via Escape.htmlAttribute for per-row DB values). Server-first PARTIAL (ADR-0012, Wave 4): variant-to-colour is pure, no client state, no island. Replaces the <lv-badge> Lit island. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -12,6 +12,6 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the badge partial to your JTE root at lievit/badge.jte, reached as @template.lievit.badge(variant=..., label=\"...\"). Variant drives the fill + foreground (+ border for outline) tokens across the shadcn names (default/secondary/destructive/outline/ghost/link) and the status names (neutral/success/warning/danger/info); pass label for plain text or a content slot for rich children (content wins); pass href to render the pill as a real <a> link (asChild). The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "ring", "motion"],
+  "docs": "Copies the badge partial to your JTE root at lievit/badge.jte, reached as @template.lievit.badge(variant=..., label=\"...\"). Variant drives the fill + foreground (+ border for outline) tokens across the shadcn names (default/secondary/destructive/outline/ghost/link) and the status names (neutral/success/warning/danger/info). Size is sm/md/lg (text + padding scale; not height-based -- badges are inline elements, not form controls). Pass label for plain text or a content slot for rich children (content wins over label). Pass dot=true to render a coloured indicator dot before the label (aria-hidden; always pair with a non-empty label -- dot-only is colour-as-sole-signal). Pass a leading Content slot for an icon before the label. Pass href to render the pill as a real <a> link (asChild). Extra attributes via two channels by trust: attrs is a TRUSTED raw string ($unsafe, static author-typed strings ONLY such as target/_blank, rel/noopener, or wire directives -- NEVER per-row DB values); dataAttrs is a SAFE Map<String,String> of dynamic data-* attributes whose values are HTML-escaped via Escape.htmlAttribute (the only safe way to carry user/DB-derived data). The source is yours: edit freely."
 }

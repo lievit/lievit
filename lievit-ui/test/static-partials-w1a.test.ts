@@ -74,7 +74,11 @@ describe("static partials w1a -- shared hygiene", () => {
     });
 
     test(`${name}: styling is token-driven (no bare hex colours, no raw px spacing)`, () => {
-      expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+      // Strip doc comments first: hex colour examples in <%-- --%> blocks are documentation,
+      // not markup (the rendered markup never emits a bare hex). The alert.jte doc comment
+      // legitimately references #16a34a as an example of the token it replaces.
+      const markupOnly = src.replace(/<%--[\s\S]*?--%>/g, "");
+      expect(markupOnly, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
       // Strip arbitrary-value brackets first so their inner --lv-* token names + fractions are
       // not mistaken for bare scale utilities; then assert no Tailwind numeric scale utility
       // (p-4, gap-2, h-10, text-sm...) survives: every dimension reads a --lv-* var.
@@ -95,23 +99,36 @@ describe("static partials w1a -- shared hygiene", () => {
 describe("alert", () => {
   const src = read("alert");
   test("declares the documented param API + a content slot for the message", () => {
+    // v-next API: variant, title (String), boolean icon, closable, banner, role, content slot.
+    // `heading` and the separate `description` Content slot are gone; `title` is now a String
+    // rendered as <p>; the body slot is data-slot="alert-content" (was alert-description).
     expect(src).toContain("@param String variant");
-    expect(src).toContain("@param String heading");
+    expect(src).toContain("@param String title = null");
+    expect(src).toContain("@param boolean icon = true");
+    expect(src).toContain("@param boolean closable = false");
     expect(src).toContain("@param gg.jte.Content content");
     expect(src).toContain("${content}");
   });
   test("severity drives the live role: destructive/warning assertive, info/success polite", () => {
+    // v-next: role auto-derived as _autoRole = (warning|destructive) ? "alert" : "status".
+    // The effectiveRole/emitRole indirection supports a role= override and role="none" suppression.
     expect(src).toMatch(/"destructive"\.equals\(variant\)/);
     expect(src).toMatch(/"warning"\.equals\(variant\)/);
-    expect(src).toContain('role="${urgent ? "alert" : "status"}"');
+    // The auto-role expression:
+    expect(src).toContain('("warning".equals(variant) || "destructive".equals(variant)) ? "alert" : "status"');
+    // The role attribute is conditionally emitted (null when _emitRole is false):
+    expect(src).toContain('role="${_emitRole ? _effectiveRole : null}"');
   });
-  test("the heading renders before the message, only when set", () => {
-    // shadcn grid: the title (back-compat `heading` feeds alert-title) sits in column 2 before
-    // the alert-description region; title renders only when a title/heading is set (hasTitle).
+  test("the title renders before the body content, only when set", () => {
+    // v-next: title is a String param rendered as a <p data-slot="alert-title">; the body
+    // lives in data-slot="alert-content" (replacing alert-description). Title is before content.
     expect(src).toContain('data-slot="alert-title"');
-    expect(src).toContain("${heading}");
+    expect(src).toContain('data-slot="alert-content"');
+    // Title element is a <p> not a heading.
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<p\s[^>]*data-slot="alert-title"/);
     expect(src.indexOf('data-slot="alert-title"')).toBeLessThan(
-      src.indexOf('data-slot="alert-description"'),
+      src.indexOf('data-slot="alert-content"'),
     );
   });
   test("tint is token-driven via color-mix over the severity token", () => {
@@ -237,23 +254,37 @@ describe("hover-card (CSS-only, Radix preview model)", () => {
   });
 });
 
-describe("tooltip (CSS-only, WAI-ARIA tooltip pattern)", () => {
+describe("tooltip (popover+enhancer, WAI-ARIA tooltip pattern)", () => {
+  // v-next reforge: CSS-only group-hover reveal is gone. The bubble is popover="manual"
+  // (UA hides it by default). The enhancer (tooltip.enhancer.ts) calls showPopover()/hidePopover()
+  // on hover/focus events and wires aria-describedby at runtime. The `tipId` param is renamed
+  // to `id`; there is no server-side aria-describedby (the enhancer does it at mount).
   const src = read("tooltip");
-  test("trigger slot + content text + a stable tip id", () => {
+  test("trigger slot + content text + a stable bubble id", () => {
     expect(src).toContain("@param gg.jte.Content trigger");
     expect(src).toContain("@param String content");
-    expect(src).toContain("@param String tipId");
+    // v-next: param is `id`, not `tipId`
+    expect(src).toContain("@param String id");
     expect(src).toContain("${content}");
     expect(src).toContain("${trigger}");
   });
-  test("role=tooltip panel + trigger aria-describedby pointing at the id", () => {
+  test("role=tooltip bubble with stable id; aria-describedby is wired by the enhancer, not server-side", () => {
     expect(src).toContain('role="tooltip"');
-    expect(src).toContain('id="${tipId}"');
-    expect(src).toContain('aria-describedby="${tipId}"');
+    // The bubble id is stamped from the `id` param; the wrapper mirrors it in data-lievit-tooltip-id.
+    expect(src).toContain('id="${id}"');
+    expect(src).toContain('data-lievit-tooltip-id="${id}"');
+    // No server-side aria-describedby: the enhancer wires it at mount on the first focusable
+    // descendant (or the wrapper itself), so it does NOT appear in the static source.
+    expect(src).not.toContain('aria-describedby=');
   });
-  test("revealed by CSS group-hover / group-focus-within (announced on focus too)", () => {
-    expect(src).toContain("group-hover:visible");
-    expect(src).toContain("group-focus-within:visible");
+  test("revealed via native popover='manual' + the enhancer (not CSS group-hover)", () => {
+    // v-next: the bubble is a native popover, hidden by the UA until the enhancer shows it.
+    expect(src).toContain('popover="manual"');
+    // CSS-only group-hover is gone.
+    expect(src).not.toContain("group-hover:visible");
+    expect(src).not.toContain("group-focus-within:visible");
+    // The enhancer is declared in the JTE doc comment (the show/hide mechanism contract).
+    expect(src).toContain("tooltip.enhancer.ts");
   });
 });
 

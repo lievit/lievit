@@ -168,43 +168,59 @@ describe("chip: ghost + link variants (mirrors badge once it has them)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// tooltip: arrow + side / sideOffset / align
+// tooltip: v-next reforge — popover+enhancer, placement, arrow
 // ---------------------------------------------------------------------------
-describe("tooltip: positioning (side/align/sideOffset) + arrow", () => {
+describe("tooltip: positioning (placement via CSS Anchor Positioning) + arrow", () => {
+  // v-next changes: side/align/sideOffset params removed; replaced by a single `placement`
+  // param that maps to CSS Anchor Positioning `position-area` values. CSS-only group-hover
+  // reveal is gone; the bubble is popover="manual" shown by tooltip.enhancer.ts. No server-side
+  // aria-describedby (the enhancer wires it at mount). Arrow is a <span class="lv-tooltip__arrow">
+  // (aria-hidden inline span), not a data-slot element filled with a token background.
   const src = read("tooltip.jte");
-  test("keeps the WAI-ARIA tooltip contract (role + id + aria-describedby + CSS reveal)", () => {
+  test("keeps the WAI-ARIA tooltip contract (role=tooltip + stable id + popover=manual)", () => {
+    // v-next WAI-ARIA contract: role="tooltip" on the bubble, stable id, popover="manual".
+    // aria-describedby is wired by tooltip.enhancer.ts at mount, NOT server-side.
     expect(src).toContain('role="tooltip"');
-    expect(src).toContain('id="${tipId}"');
-    expect(src).toContain('aria-describedby="${tipId}"');
-    expect(src).toContain("group-hover:visible");
-    expect(src).toContain("group-focus-within:visible");
+    expect(src).toContain('id="${id}"');
+    // No server-side aria-describedby: the enhancer sets it on the trigger at mount.
+    expect(src).not.toContain('aria-describedby=');
+    // The bubble is a native popover (hidden by UA until enhancer calls showPopover()).
+    expect(src).toContain('popover="manual"');
+    // CSS group-hover is gone; the enhancer controls show/hide.
+    expect(src).not.toContain("group-hover:visible");
+    expect(src).not.toContain("group-focus-within:visible");
   });
-  test("adds side / align / sideOffset params + mirrors them as data-side / data-align", () => {
-    expect(src).toContain("@param String side");
-    expect(src).toContain("@param String align");
-    expect(src).toContain("@param String sideOffset");
-    expect(src).toContain('data-side="${side}"');
-    expect(src).toContain('data-align="${align}"');
+  test("uses `placement` param (not side/align/sideOffset) mapping to CSS position-area values", () => {
+    // v-next: `placement` replaces the old side/align/sideOffset trio.
+    expect(src).toContain('@param String placement = "top"');
+    expect(src).not.toContain("@param String side");
+    expect(src).not.toContain("@param String align");
+    expect(src).not.toContain("@param String sideOffset");
+    // The wrapper mirrors placement as data-lievit-tooltip-placement for the enhancer.
+    expect(src).toContain('data-lievit-tooltip-placement="${placement}"');
   });
-  test("side drives the anchored edge; align drives the cross-axis", () => {
-    expect(src).toContain('case "right"  -> "left:100%;"');
-    expect(src).toContain('case "bottom" -> "top:100%;"');
-    expect(src).toContain('case "left"   -> "right:100%;"');
-    // top (default) anchors to bottom:100%
-    expect(src).toContain('default       -> "bottom:100%;"');
+  test("placement drives CSS Anchor Positioning position-area (not absolute left/top offsets)", () => {
+    // v-next: placement maps to CSS position-area two-keyword values.
+    expect(src).toContain('"top center"');    // default "top" placement
+    expect(src).toContain('"bottom center"'); // "bottom" placement
+    expect(src).toContain('"left center"');   // "left" placement
+    expect(src).toContain('"right center"');  // "right" placement
+    // The position-area value is set inline on the bubble via the style attribute.
+    expect(src).toContain("position-area:${positionArea}");
+    // No old absolute-position math.
+    expect(src).not.toContain('case "right"  -> "left:100%;"');
+    expect(src).not.toContain('case "bottom" -> "top:100%;"');
   });
-  test("sideOffset is token-driven: default per-side bracketed margin class, caller override inline", () => {
-    // the default token lives ONLY inside [ ] (so the central no-bare-utility gate passes)
-    expect(src).toContain('case "bottom" -> "mt-[var(--lv-space-1)]"');
-    expect(src).toContain('case "right"  -> "ml-[var(--lv-space-1)]"');
-    // a caller-supplied sideOffset overrides inline
-    expect(src).toContain('"margin-bottom:" + sideOffset');
-  });
-  test("ships the arrow (data-slot=tooltip-arrow): a rotated square, aria-hidden, token-filled", () => {
-    expect(src).toContain('data-slot="tooltip-arrow"');
-    expect(src).toContain("rotate(45deg)");
-    expect(src).toMatch(/data-slot="tooltip-arrow"[^>]*aria-hidden="true"/);
-    expect(src).toContain("bg-[var(--lv-color-fg)]");
+  test("ships the CSS arrow (lv-tooltip__arrow span, aria-hidden) — no data-slot, no token fill", () => {
+    // v-next: arrow is a <span class="lv-tooltip__arrow" aria-hidden="true"> rendered inline.
+    // It is NOT a data-slot element and does NOT use bg-[var(--lv-color-fg)] (it inherits bg).
+    expect(src).toContain('class="lv-tooltip__arrow"');
+    expect(src).toContain('aria-hidden="true"');
+    // The arrow param controls whether it is rendered.
+    expect(src).toContain("@param boolean arrow = true");
+    // Old data-slot and token-fill gone:
+    expect(src).not.toContain('data-slot="tooltip-arrow"');
+    expect(src).not.toContain("bg-[var(--lv-color-fg)]");
   });
 });
 

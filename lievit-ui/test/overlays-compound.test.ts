@@ -190,28 +190,42 @@ describe("popover/anchor: shadcn PopoverAnchor (CSS anchor-name carrier)", () =>
   });
 });
 
-describe("alert.jte: shadcn icon + CSS GRID layout + real Title/Description/Action slots", () => {
+describe("alert.jte: v-next reforge — 3-col CSS grid + title(String) + alert-content slot + role derivation", () => {
+  // v-next API changes: `heading`/`description` Content slots removed; `title` is now a String
+  // rendered as <p data-slot="alert-title">; body slot renamed alert-content (was alert-description);
+  // `icon` is now `boolean` (not String); role is auto-derived from variant (warning/destructive →
+  // alert, info/success → status) with an explicit `role` override and role="none" suppression;
+  // `closable` dismiss button + `banner` mode added; 3-column grid (icon/body/dismiss).
   const jte = read("jte/alert.jte");
   const markup = stripComments(jte);
-  test("the root is a CSS grid; title + description + action sit in column 2", () => {
+  test("the root is a 3-col CSS grid; body (col 2) holds title + alert-content + action", () => {
     expect(markup).toContain("grid-template-columns:");
-    // 1rem icon column when an icon is present, 0 otherwise (shadcn has-[>svg] toggle).
-    expect(markup).toContain('hasIcon ? "1rem 1fr" : "0 1fr"');
+    // 3 columns: icon (1.25rem or 0), body (1fr), dismiss (var(--lv-space-6) or 0).
+    expect(jte).toContain('"1.25rem"');
+    expect(markup).toContain("${_gridCols}");
     expect(markup).toContain("grid-column:2");
   });
-  test("the optional leading Lucide icon renders in column 1 (the defining shadcn visual)", () => {
-    expect(jte).toContain("@param String icon");
-    expect(markup).toContain("@template.lievit.icon(name = icon");
+  test("the optional leading icon is a boolean param; icon renders via @template.lievit.icon in col 1", () => {
+    // v-next: `icon` is `boolean icon = true`, not a String.
+    expect(jte).toContain("@param boolean icon = true");
+    expect(markup).toContain("@template.lievit.icon(");
     expect(markup).toContain("grid-column:1");
   });
-  test("Title / Description / Action are real data-slots (not the ad-hoc heading div)", () => {
+  test("alert-title / alert-content / alert-action are the real data-slots (alert-description gone)", () => {
+    // v-next: alert-description renamed to alert-content; alert-title remains; alert-action remains.
     expect(markup).toContain('data-slot="alert-title"');
-    expect(markup).toContain('data-slot="alert-description"');
+    expect(markup).toContain('data-slot="alert-content"');
     expect(markup).toContain('data-slot="alert-action"');
+    // alert-description is gone in the v-next reforge.
+    expect(markup).not.toContain('data-slot="alert-description"');
   });
-  test("the live role stays severity-driven (assertive vs polite) + heading back-compat", () => {
-    expect(markup).toContain('role="${urgent ? "alert" : "status"}"');
-    expect(jte).toContain("@param String heading");
+  test("role is auto-derived from variant (warning/destructive → alert, else → status) with override + none suppression", () => {
+    // v-next: _autoRole derived from variant; _effectiveRole applies explicit role= override;
+    // role="none" suppresses the attribute via _emitRole; the attribute is conditionally null.
+    expect(jte).toContain('("warning".equals(variant) || "destructive".equals(variant)) ? "alert" : "status"');
+    expect(markup).toContain('role="${_emitRole ? _effectiveRole : null}"');
+    // No heading back-compat: `heading` param is gone.
+    expect(jte).not.toContain("@param String heading");
   });
   test("token-driven, CSP-clean, Apache-headed", () => {
     assertTokenDriven(markup, "alert");

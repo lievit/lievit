@@ -96,21 +96,32 @@ describe("field/set.jte -- FieldLegend label variant", () => {
   });
 });
 
-describe("switch.jte -- the sm size variant", () => {
+describe("switch.jte -- size scale (v-next: px-based toolbar-aligned geometry)", () => {
+  // v-next re-forge replaced the old rem-fraction geometry with px-based toolbar-aligned
+  // track sizes and --lv-space-* tokens for thumb diameter. Full coverage in switch.test.ts.
   const src = read("switch.jte");
   const markup = markupOf("switch.jte");
+
   test("declares a size param (md default)", () => {
     expect(src).toMatch(/@param String size = "md"/);
   });
-  test("the track + thumb + checked translate scale with size (sm smaller than md)", () => {
-    // sm track/thumb/translate
-    expect(src).toContain('"sm".equals(size) ? "h-[0.875rem] w-[1.5rem]"');
-    expect(src).toContain('"sm".equals(size) ? "size-[0.6rem] peer-checked:translate-x-[0.55rem]"');
-    // md (default) keeps the original geometry
-    expect(src).toContain('"h-[1.15rem] w-[2rem]"');
-    expect(src).toContain('"size-[0.85rem] peer-checked:translate-x-[0.85rem]"');
+
+  test("sm track is h-[18px] w-[32px], thumb is size-[var(--lv-space-5)]", () => {
+    expect(src).toContain('"h-[18px] w-[32px]"');
+    expect(src).toContain('"size-[var(--lv-space-5)]"');
   });
-  test("data-size is exposed on the root, track + thumb read the computed classes", () => {
+
+  test("md track is h-[22px] w-[40px] (default / shadcn baseline), thumb is size-[var(--lv-space-6)]", () => {
+    expect(src).toContain('"h-[22px] w-[40px]"');
+    expect(src).toContain('"size-[var(--lv-space-6)]"');
+  });
+
+  test("lg track is h-[28px] w-[50px], thumb is size-[var(--lv-space-7)]", () => {
+    expect(src).toContain('"h-[28px] w-[50px]"');
+    expect(src).toContain('"size-[var(--lv-space-7)]"');
+  });
+
+  test("data-size is exposed on the root, computed trackClass + thumbClass interpolated on the elements", () => {
     expect(markup).toContain('data-size="${size}"');
     expect(markup).toContain("${trackClass}");
     expect(markup).toContain("${thumbClass}");

@@ -1,7 +1,8 @@
 {
   "name": "tooltip",
   "type": "registry:jte",
-  "description": "A floating contextual label, CSS-only; WAI-ARIA tooltip pattern (panel role=tooltip + the trigger's aria-describedby). Positionable via side (top/right/bottom/left), align (start/center/end) and sideOffset, with a data-slot=tooltip-arrow square pointing back at the trigger. Revealed by group-hover/group-focus-within. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "tier": "PARTIAL+ENH",
+  "description": "A hover/focus-triggered floating description panel. WAI-ARIA APG Tooltip pattern: bubble carries role=\"tooltip\" + a stable id; tooltip.enhancer.ts wires aria-describedby on the first focusable descendant at mount (or the wrapper span when no focusable descendant exists) and removes it on destroy. Show/hide timing: hover delay (configurable, default 600ms) + immediate focus, Escape-while-visible dismiss (document-level capture listener, registered only while open), hover persistence (pointer entering the bubble cancels the hide timer). Native popover=\"manual\" + CSS Anchor Positioning for positioning -- the shared popover seam. No round-trip: open state is ephemeral, fires no wire actions. Four variants (default/info/warning/destructive) map to the shared intent token pairs. CSS-only arrow (lv-tooltip__arrow pseudo-element). CSP-clean, no inline handlers, no eval.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -10,8 +11,16 @@
       "type": "registry:jte",
       "target": "lievit/tooltip.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/tooltip.css",
+      "type": "registry:css",
+      "target": "lievit/tooltip.css",
+      "root": "jte"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "z"],
-  "docs": "Copies the tooltip partial to your JTE root at lievit/tooltip.jte, reached as @template.lievit.tooltip(content=\"...\", tipId=\"...\", trigger=@`...`). Put aria-describedby=tipId on the interactive trigger so the label is announced on focus. Pass side/align/sideOffset to position the panel; the tooltip-arrow follows the chosen side. The source is yours: edit freely."
+  "netNewTokens": ["--lv-z-tooltip"],
+  "enhancer": "tooltip.enhancer.ts",
+  "docs": "Copies the tooltip partial to your JTE root at lievit/tooltip.jte. Requires tooltip.enhancer.ts registered in your runtime (installTooltip(runtime)). Call as @template.lievit.tooltip(id=\"save-tip\", content=\"Save document\", trigger=@`<button>Save</button>`). id is REQUIRED and must be unique per page (it becomes the bubble's id and the aria-describedby value). The enhancer wires aria-describedby at mount -- do NOT set it in the trigger slot markup. variant selects the intent tone (default/info/warning/destructive). placement (default \"top\") sets the CSS Anchor Positioning preferred side; falls back via position-try-fallbacks. delay (default 600ms) is the hover show-delay; focus always shows immediately. Set delay=0 for icon-only buttons where the tooltip IS the label. hideDelay (default 0) allows the pointer to traverse into the bubble. Set arrow=false to suppress the directional pointer. disabled=true makes the enhancer no-op all events. attrs is TRUSTED raw ($unsafe) for STATIC author-typed attribute strings only -- never interpolate DB-derived values. The --lv-z-tooltip: 950 token is NET-NEW; add it to your lievit-tokens.css :root and .dark blocks."
 }

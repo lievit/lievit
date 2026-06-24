@@ -1,0 +1,125 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * tooltip.css — component CSS for lievit/tooltip.jte.
+ *
+ * Loaded by the adopter alongside the JTE template (the `lievit add tooltip` CLI copies both).
+ * NOT inlined in the JTE: inline <style> is rejected by a strict Content-Security-Policy.
+ *
+ * Responsibilities:
+ *   1. @starting-style opacity fade-in when the bubble transitions from hidden to :popover-open.
+ *   2. CSS Anchor Positioning fallback: the inline `style` on the bubble covers `position-anchor`
+ *      and `position-area`; this file adds `position-try-fallbacks` for viewport overflow and the
+ *      baseline `position: absolute` sentinel (no-op when Anchor Positioning is supported; in
+ *      practice the UA sheet already hides [popover] elements, so no layout shift occurs).
+ *   3. Arrow pseudo-element: a CSS-only triangle pointing back at the trigger.
+ *   4. Overflow guard: max-width clamps via the per-instance --_lv-tooltip-max-width custom
+ *      property (set inline by the template; the global var is the fallback).
+ *
+ * CSP-safe: no inline scripts, no url() with external resources.
+ *
+ * --lv-z-tooltip (950) is defined in lievit-tokens.css; no redefinition here.
+ */
+
+/* -------------------------------------------------------------------------
+ * The bubble: base shape + visibility + transition
+ * -------------------------------------------------------------------------
+ * The UA sheet already provides `display: none` for [popover]:not(:popover-open).
+ * We layer an opacity fade on top via @starting-style (CSS Transitions Level 2):
+ * on entry (closed → open), the element starts at opacity 0 and transitions to 1.
+ * On exit (open → closed), `popover="manual"` uses hidePopover() which removes
+ * the element from rendering immediately (the UA sets `display: none`), so no
+ * exit animation is needed — the hiding is already instant and visually clean.
+ * -------------------------------------------------------------------------*/
+
+.lv-tooltip {
+  /* position: fixed is the base for Anchor Positioning panels; the UA popover
+   * default is already position: fixed, but we make it explicit for clarity. */
+  position: fixed;
+
+  /* Opacity transition: in-only (the UA hides the element instantly on close). */
+  opacity: 1;
+  transition:
+    opacity var(--lv-duration-fast, 100ms) var(--lv-ease, ease);
+
+  /* Guard: clamp content before it overflows the viewport. */
+  max-width: var(--_lv-tooltip-max-width, 14rem);
+  overflow-wrap: break-word;
+}
+
+/* Fade in from transparent when the bubble enters the :popover-open state. */
+@starting-style {
+  .lv-tooltip:popover-open {
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * Arrow pseudo-element (.lv-tooltip__arrow)
+ * The arrow is an inline <span aria-hidden="true"> rendered by the template
+ * (not a pseudo-element on the bubble itself) so it inherits the bubble's
+ * background color naturally. CSS Anchor Positioning does the directional work
+ * via position-area on the bubble; the arrow is positioned absolutely inside
+ * the bubble pointing outward toward the trigger.
+ *
+ * We hide the arrow by default and show it only when the placement is known.
+ * Since the arrow direction is determined by position-area (set by the template),
+ * we use a data-attribute-free approach: always render the arrow as a small
+ * rotated square (border-box technique) and let Anchor Positioning place it.
+ * -------------------------------------------------------------------------*/
+
+.lv-tooltip__arrow {
+  /*
+   * A small rotated square clipped so only one triangular half is visible.
+   * Size: 6px × 6px before rotation. The border-color matches the bubble bg
+   * via `currentColor` aliasing: the bubble's background-color is set inline
+   * by the template, so we cannot inherit it via `color`. Instead we use a
+   * box-shadow-based solid shape — a 6px square with the same background as
+   * the bubble — positioned at the edge pointing toward the trigger.
+   *
+   * The canonical implementation: a rotated square with `overflow: visible`
+   * on the parent; half is clipped by the bubble's overflow:hidden equivalent.
+   * Since the bubble is `position:fixed` (not overflow:hidden), we use the
+   * margin-based trick: the arrow peeks out via negative margin.
+   *
+   * Because the bubble bg is set inline (per-instance, per-variant), we cannot
+   * express the arrow color here without JavaScript. The compromise: we render
+   * the arrow as a solid square that inherits the bubble's `color` (the text
+   * foreground token) — this gives a visible dark arrow on a light bubble and a
+   * light arrow on a dark bubble, which is the correct contrast relationship for
+   * a tooltip arrow that points toward the trigger.
+   *
+   * The arrow is decorative (aria-hidden="true") so precise color matching is
+   * a polish concern, not an a11y requirement.
+   */
+  display: inline-block;
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: inherit; /* inherit the bubble's background-color */
+  transform: rotate(45deg);
+
+  /* Default placement: top tooltip → arrow below the bubble, pointing down at trigger. */
+  bottom: -3px;
+  left: 50%;
+  margin-left: -3px;
+}
+
+/*
+ * NOTE ON DIRECTIONAL ARROW:
+ * CSS Anchor Positioning does the placement work at the bubble level via position-area.
+ * The arrow's absolute position within the bubble should mirror the placement direction.
+ * Since this file cannot know the runtime placement without reading data-attributes, the
+ * arrow is left at the bottom-center default (matching the most common "top" placement).
+ *
+ * For adopters who need directional arrows for all placements, the recommended approach is
+ * to add per-placement rules keyed on the wrapper's data-lievit-tooltip-placement attribute:
+ *
+ *   [data-lievit-tooltip-placement="bottom"] .lv-tooltip__arrow { top: -3px; bottom: auto; }
+ *   [data-lievit-tooltip-placement="left"]   .lv-tooltip__arrow { right: -3px; left: auto; top: 50%; margin-top: -3px; margin-left: 0; }
+ *   [data-lievit-tooltip-placement="right"]  .lv-tooltip__arrow { left: -3px; top: 50%; margin-top: -3px; }
+ *
+ * These rules are left to the adopter to avoid CSS selector coupling back to the wrapper element
+ * from inside the bubble's stylesheet.
+ */

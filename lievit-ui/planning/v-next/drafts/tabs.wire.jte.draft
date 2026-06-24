@@ -1,0 +1,364 @@
+@import io.lievit.component.ComponentMetadata
+@import io.lievit.wire.TabItem
+@import io.lievit.wire.TabsComponent
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
+@import java.util.List
+<%--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  lievit-ui tabs WIRE template -- a tablist strip + its panels, the v-next WIRE + HTMX + ENH
+  re-forge of the static `registry/jte/tabs.jte` surface. The ACTIVE TAB is a server fact
+  (@Wire String activeTab on TabsComponent); switching the active tab is a wire round-trip, NOT a
+  client-side CSS class toggle. Zero inline <script>, zero inline on*= attributes (strict CSP
+  refuses them). The one irreducible client behavior -- roving tabindex keyboard navigation
+  (ArrowLeft/Right/Up/Down, Home, End, Delete, Enter/Space in manual mode) -- is DELEGATED to the
+  shared collection-nav.enhancer.ts via data-lievit-collection / data-lievit-item hooks on the
+  tablist root and each tab button. Do NOT re-implement roving tabindex here.
+
+  TIER: WIRE (active tab = @Wire server state, activate/closeTab/addTab actions) +
+  HTMX-pattern (lazy panel swap when lazyLoad=true) +
+  ENH (collection-nav.enhancer.ts, parameterised for role=tablist + roving-tabindex mode;
+       the enhancer MUST carry data-lievit-collection-roving-tabindex="true" for this
+       component: in roving-tabindex mode the enhancer updates tabindex attributes and moves
+       actual DOM focus on arrow keys, NOT aria-activedescendant which is the listbox/menu model
+       -- APG Tabs uses the roving-tabindex model, APG Listbox uses aria-activedescendant;
+       the two are NOT interchangeable; the enhancer must be parameterised per-pattern).
+
+  STRUCTURE (scientific decision rule -- WAI-ARIA APG Tabs
+  https://www.w3.org/WAI/ARIA/apg/patterns/tabs/ + react-aria useTabList/useTab/useTabPanel
+  interaction model as pattern reference (keyboard map, ARIA wiring, focus order; no source
+  copied) + Ant Design Tabs as inventory reference (sizes, card/line/pill, icons, closable,
+  addable, lazy/eager, extraContent)):
+  root: data-slot="tabs" data-orientation data-type data-size;
+  tablist: role="tablist" aria-label|aria-labelledby aria-orientation data-lievit-collection
+           (activates collection-nav enhancer) with orientation/wrap/select-action/roving attrs;
+  tabs: real <button role="tab"> (native keyboard + click; NOT <a>, NOT <div>; <button> carries
+        keyboard activation + click for free) with aria-selected aria-controls tabindex=0|-1
+        and data-lievit-item (marks item for collection-nav);
+  panels: role="tabpanel" aria-labelledby tabindex="0" (when no focusable children);
+  eager mode: inactive panels carry boolean `hidden`; active panel has no `hidden`;
+  lazy mode: inactive panels carry hx-get + hx-swap="outerHTML" + hx-trigger="tabs-activate"
+             (HTMX-pattern tier; the active panel is fully server-rendered).
+
+  A11y (WAI-ARIA APG Tabs, https://www.w3.org/WAI/ARIA/apg/patterns/tabs/):
+    roles:   [role=tablist aria-label|aria-labelledby aria-orientation] >
+             [role=tab id="tab-{cid}-{tabId}" aria-selected aria-controls tabindex=0|-1
+              aria-disabled (disabled only, NOT native disabled)] +
+             [role=tabpanel id="panel-{cid}-{tabId}" aria-labelledby tabindex=0?]
+    keys:    ArrowRight/Left (horizontal) or ArrowDown/Up (vertical) -- collection-nav (roving);
+             Home/End -- collection-nav; Enter/Space (manual mode) -- collection-nav;
+             Delete (closable tab) -- collection-nav; Tab -- platform (roving exits tablist
+             naturally into the active tabpanel via the next tabindex=0 element).
+    disabled: aria-disabled="true" ONLY. NO native `disabled` attribute -- a disabled tab
+              MUST remain focusable in the roving order per APG Tabs; native `disabled`
+              removes the element from the tab order, which breaks the APG model. The Java
+              action and the enhancer both enforce no-activation for disabled tabs.
+    panel tabindex: tabindex="0" on the panel when the panel body has NO focusable children
+              (keeps it in the page tab sequence; the APG requires this so a screen-reader
+              user can reach the panel content after Tab exits the tablist). Omit when the
+              panel body contains interactive children (the first focusable child is the stop).
+              The template emits tabindex="0" by default; the adopter drops it in the
+              owned panel body region when adding interactive content.
+    Close button: icon-only -> aria-label="Close {tab.label}" is REQUIRED (WAI-ARIA button:
+              an icon-only button with no accessible name is unusable to assistive tech).
+    Add button: icon-only -> aria-label="Add tab" is REQUIRED.
+
+  WIRE actions:
+    l:click="activate" data-id="{escaped tabId}" on each tab button (fires activate(id))
+    l:click="closeTab" data-id="{escaped tabId}" on each close button (fires closeTab(id))
+    l:click="addTab" on the add button (fires addTab())
+    Per-tab ids are server-supplied (user-influenced); they go through the Escape.htmlAttribute
+    channel (SAFE escaped data-*, the wireArgs channel) -- NEVER through the trusted `attrs`
+    channel which is $unsafe and cannot carry user-derived values.
+
+  collection-nav composition:
+    The tablist root carries:
+      data-lievit-collection          -- activates the enhancer
+      data-lievit-collection-orientation="horizontal"|"vertical"
+      data-lievit-collection-wrap="true"
+      data-lievit-collection-select-action="activate"   -- fires activate on Enter (auto mode) or
+                                                           Enter/Space (manual mode)
+      data-lievit-collection-roving-tabindex="true"     -- switches enhancer to APG roving-tabindex
+                                                           model (DOM focus moves; tabindex updated
+                                                           on navigation) vs aria-activedescendant
+      data-manual-activation="true"|null                -- switches enhancer between automatic
+                                                           (arrow = focus + activate) and manual
+                                                           (arrow = focus only; Enter/Space = activate)
+    Each tab button carries:
+      data-lievit-item                -- marks it as a collection item for the enhancer
+
+  Params:
+    List<TabItem> tabs              ordered list of tab definitions. TabItem record fields:
+                                     id() label() icon()? closable() disabled().
+    String activeTab                the active tab id (@Wire, server-owned).
+    String orientation = "horizontal"  "horizontal" | "vertical" (tablist + arrow-key axis).
+    String size = "md"              "sm" | "md" | "lg" (tab height, toolbar-aligned per button.jte).
+    String type = "line"            "line" | "card" | "pill".
+    boolean lazyLoad = false        eager (all panels in DOM, hidden) or HTMX lazy swap.
+    boolean addable = false         show "add tab" + button trailing the tablist.
+    boolean manualActivation = false  APG activation mode: false=automatic, true=manual.
+    String tabsLabel = null         aria-label for the tablist (REQUIRED unless tabsLabelledBy is set;
+                                    disambiguates multiple tabsets on the same page).
+    String tabsLabelledBy = null    aria-labelledby pointing to a visible heading id (alternative
+                                    to tabsLabel; one of the two MUST be provided per APG).
+    ComponentMetadata _component    lievit wire metadata (className anchor, cid derivation).
+    TabsComponent _instance         live component instance.
+    String cssClass = ""            extra utility classes on the root.
+    String attrs = ""               TRUSTED raw attribute string ($unsafe) -- STATIC strings only;
+                                    NEVER interpolate user/DB-derived values here.
+
+  Usage (wire template; adopter owns the panel body regions):
+    @@template.lievit.tabs(
+      tabs       = _instance.visibleTabs(),
+      activeTab  = activeTab,
+      tabsLabel  = "Settings",
+      _component = _component,
+      _instance  = _instance
+    )
+    Then edit each data-slot="tabs-content" div body in this copied-in template (OWNED markup;
+    no Content slot -- WIRE has none, server-first refactor blueprint §1.b).
+--%>
+@param List<TabItem> tabs
+@param String activeTab
+@param String orientation = "horizontal"
+@param String size = "md"
+@param String type = "line"
+@param boolean lazyLoad = false
+@param boolean addable = false
+@param boolean manualActivation = false
+@param String tabsLabel = null
+@param String tabsLabelledBy = null
+@param ComponentMetadata _component
+@param TabsComponent _instance
+@param String cssClass = ""
+@param String attrs = ""
+
+!{var cid = _component.className();}
+
+<%-- Height token per size: same toolbar-alignment rule as button.jte.
+     sm -> --lv-space-8 (32px) | md -> --lv-space-9 (36px, default) | lg -> --lv-space-10 (40px). --%>
+!{var heightClass = switch (size) {
+    case "sm" -> "h-[var(--lv-space-8)]";
+    case "lg" -> "h-[var(--lv-space-10)]";
+    default   -> "h-[var(--lv-space-9)]";
+  };}
+
+<%-- Horizontal padding proportional to height (same rule as button). --%>
+!{var hPadClass = switch (size) {
+    case "sm" -> "px-[var(--lv-space-4)]";
+    default   -> "px-[var(--lv-space-6)]";
+  };}
+
+<%-- Text size per size. --%>
+!{var textClass = switch (size) {
+    case "sm" -> "text-[length:var(--lv-text-sm)]";
+    default   -> "text-[length:var(--lv-text-base)]";
+  };}
+
+<%-- Per-type tablist strip style.
+     line: bottom divider below the strip (border-b on the tablist; active tab spans it with -mb-px).
+     card: no strip divider; tabs are raised cards that merge with the panel surface.
+     pill: no strip divider; active tab gets a filled background pill. --%>
+!{var stripClass = switch (type) {
+    case "pill" -> "flex items-center gap-[var(--lv-space-1)] overflow-x-auto";
+    case "card" -> "flex items-end gap-[var(--lv-space-1)] overflow-x-auto";
+    default     -> "flex items-stretch gap-[var(--lv-space-1)] overflow-x-auto border-b border-[var(--lv-color-border)]";
+  };}
+
+<%-- Shared tab button base (all types): inline-flex, items-center, gap for icon+label,
+     no-wrap, cursor pointer, no border by default (border added per type+state below),
+     rounded-md clip (overridden to rounded-none for line type), outline-none (ring via
+     focus-visible:shadow), transition for color+bg+border+shadow, font family.
+     NOTE: no `disabled` attribute utility here -- disabled tabs use aria-disabled only (APG). --%>
+!{var tabBase = "inline-flex shrink-0 items-center gap-[var(--lv-space-3)] whitespace-nowrap cursor-pointer border outline-none transition-[color,background-color,border-color,box-shadow] duration-[var(--lv-transition-fast)] focus-visible:shadow-[var(--lv-ring)] aria-disabled:opacity-50 font-[family-name:var(--lv-font-sans)]";}
+
+<%-- Per-type ACTIVE tab visual.
+     line: bold label in fg colour, primary border-bottom spanning the strip divider (-mb-px),
+           transparent horizontal + top borders, no rounding (line indicator look).
+     card: bg-bg (merges with panel surface, no bottom border), fg label, card border,
+           shadow-xs on the card, top rounding only (card tabs look).
+     pill: primary background, primary-fg label, full rounding (pill look). --%>
+!{var activeTabLine = heightClass + " " + hPadClass + " text-[var(--lv-color-fg)] font-[var(--lv-font-medium)] border-transparent border-b-2 border-b-[var(--lv-color-primary)] -mb-px rounded-none";}
+!{var activeTabCard = heightClass + " " + hPadClass + " bg-[var(--lv-color-bg)] text-[var(--lv-color-fg)] font-[var(--lv-font-medium)] border border-[var(--lv-color-border)] border-b-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] rounded-t-[var(--lv-radius-md)] rounded-b-none";}
+!{var activeTabPill = heightClass + " " + hPadClass + " bg-[var(--lv-color-primary)] text-[var(--lv-color-primary-fg)] font-[var(--lv-font-medium)] border-transparent rounded-[var(--lv-radius-full)]";}
+
+<%-- Per-type INACTIVE tab visual.
+     line: muted label, transparent border, no rounding; hover: accent bg + accent-fg label.
+     card: card bg, muted label, card border, shadow-xs, top rounding; hover: accent tint.
+     pill: transparent bg + border, muted label; hover: accent bg + label. --%>
+!{var inactiveTabLine = heightClass + " " + hPadClass + " text-[var(--lv-color-muted-fg)] border-transparent rounded-none hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";}
+!{var inactiveTabCard = heightClass + " " + hPadClass + " bg-[var(--lv-color-card)] text-[var(--lv-color-muted-fg)] border border-[var(--lv-color-border)] shadow-[var(--lv-shadow-xs)] rounded-t-[var(--lv-radius-md)] rounded-b-none hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";}
+!{var inactiveTabPill = heightClass + " " + hPadClass + " bg-transparent text-[var(--lv-color-muted-fg)] border-transparent rounded-[var(--lv-radius-full)] hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";}
+
+<%-- collection-nav orientation value: maps orientation param to the enhancer's vocabulary. --%>
+!{var collNavOrientation = "vertical".equals(orientation) ? "vertical" : "horizontal";}
+
+<%-- Root direction: horizontal tablist -> column flex (strip above panels);
+     vertical tablist -> row flex (strip beside panels). --%>
+!{var rootDirClass = "vertical".equals(orientation) ? "flex-row" : "flex-col";}
+
+<div
+  data-slot="tabs"
+  data-orientation="${orientation}"
+  data-type="${type}"
+  data-size="${size}"
+  class="flex ${rootDirClass} font-[family-name:var(--lv-font-sans)] ${cssClass}"
+  $unsafe{attrs}
+>
+  <%-- ═══════════════════════════════════════════════════════════════════ tablist strip ═══ --%>
+  <div
+    role="tablist"
+    aria-label="${tabsLabel}"
+    aria-labelledby="${tabsLabelledBy}"
+    aria-orientation="${orientation}"
+    data-slot="tabs-list"
+    data-lievit-collection
+    data-lievit-collection-orientation="${collNavOrientation}"
+    data-lievit-collection-wrap="true"
+    data-lievit-collection-select-action="activate"
+    data-lievit-collection-roving-tabindex="true"
+    data-manual-activation="${manualActivation ? "true" : null}"
+    class="${stripClass}"
+  >
+    @for(TabItem tab : tabs)
+      <%-- Build the escaped data-id fragment for this tab.
+           tab.id() is user-influenced (server-supplied DB slug); it MUST go through
+           Escape.htmlAttribute -- NEVER through the trusted $unsafe `attrs` channel. --%>
+      !{var tabIdOut = new StringOutput();}
+      !{Escape.htmlAttribute(tab.id(), tabIdOut);}
+      !{var safeTabId = tabIdOut.toString();}
+
+      !{var isActive = tab.id().equals(activeTab);}
+      !{var isDisabled = tab.disabled();}
+
+      <%-- Per-type active/inactive class selection for this tab. --%>
+      !{var tabStateClass = isActive
+          ? switch (type) {
+              case "card" -> activeTabCard;
+              case "pill" -> activeTabPill;
+              default     -> activeTabLine;
+            }
+          : switch (type) {
+              case "card" -> inactiveTabCard;
+              case "pill" -> inactiveTabPill;
+              default     -> inactiveTabLine;
+            };}
+
+      <%-- WAI-ARIA APG Tabs: tab is a real <button role="tab">.
+           tabindex="0" on active, "-1" on inactive (roving tabindex; collection-nav updates on arrow).
+           aria-disabled="true" on disabled -- NOT native disabled (disabled tabs must remain
+           focusable in the roving order per APG; native disabled breaks that).
+           l:click="activate" + data-id carries the tab id through the SAFE escaped channel. --%>
+      <button
+        type="button"
+        role="tab"
+        id="tab-${cid}-$unsafe{safeTabId}"
+        aria-selected="${isActive ? "true" : "false"}"
+        aria-controls="panel-${cid}-$unsafe{safeTabId}"
+        aria-disabled="${isDisabled ? "true" : null}"
+        tabindex="${isActive ? "0" : "-1"}"
+        data-slot="tabs-trigger"
+        data-lievit-item
+        data-id="$unsafe{safeTabId}"
+        l:click="activate"
+        class="${tabBase} ${tabStateClass} ${textClass}"
+      >
+        @if(tab.icon() != null && !tab.icon().isBlank())
+          @template.lievit.icon(name = tab.icon(), size = "1em")
+        @endif
+        ${tab.label()}
+        @if(tab.closable())
+          <%-- Icon-only close button: aria-label REQUIRED (no visible text, WAI-ARIA button rule).
+               data-id carries the tab id through the SAFE escaped channel (same Escape.htmlAttribute
+               guard as the parent tab button). The close button is INSIDE the tab button because the
+               APG shows the close control as part of the tab element. Stop propagation is not needed:
+               the wire runtime dispatches the l:click action on the element that carries the directive,
+               and both buttons have their own l:click pointing to different actions. --%>
+          !{var closeIdOut = new StringOutput();}
+          !{Escape.htmlAttribute(tab.id(), closeIdOut);}
+          !{var safeCloseId = closeIdOut.toString();}
+          !{var closeLabelOut = new StringOutput();}
+          !{Escape.htmlAttribute(tab.label(), closeLabelOut);}
+          <button
+            type="button"
+            aria-label="Close $unsafe{closeLabelOut.toString()}"
+            data-id="$unsafe{safeCloseId}"
+            data-slot="tabs-close"
+            l:click="closeTab"
+            class="inline-flex items-center justify-center shrink-0 w-[var(--lv-space-4)] h-[var(--lv-space-4)] ml-[var(--lv-space-2)] p-0 rounded-[var(--lv-radius-md)] border-transparent bg-transparent cursor-pointer text-inherit hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] outline-none focus-visible:shadow-[var(--lv-ring)] transition-[color,background-color,box-shadow] duration-[var(--lv-transition-fast)]"
+          >@template.lievit.icon(name = "x", size = "0.75em")</button>
+        @endif
+      </button>
+    @endfor
+
+    @if(addable)
+      <%-- Icon-only add-tab button: aria-label REQUIRED (no visible text, WAI-ARIA button rule).
+           Does NOT carry data-lievit-item: it is not a tab in the tablist; it is a trailing action
+           outside the roving order of tabs. The platform's natural Tab order reaches it after the
+           tablist's active tab without any special wiring. --%>
+      <button
+        type="button"
+        aria-label="Add tab"
+        data-slot="tabs-add"
+        l:click="addTab"
+        class="inline-flex shrink-0 items-center justify-center ${heightClass} ${switch (size) { case "sm" -> "w-[var(--lv-space-8)]"; case "lg" -> "w-[var(--lv-space-10)]"; default -> "w-[var(--lv-space-9)]"; }} p-0 ml-[var(--lv-space-1)] border border-transparent rounded-[var(--lv-radius-md)] bg-transparent text-[var(--lv-color-muted-fg)] cursor-pointer hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] outline-none focus-visible:shadow-[var(--lv-ring)] transition-[color,background-color,box-shadow] duration-[var(--lv-transition-fast)]"
+      >@template.lievit.icon(name = "plus", size = "1em")</button>
+    @endif
+  </div>
+
+  <%-- ═══════════════════════════════════════════════════════════════════════════ panels ═══ --%>
+  @for(TabItem tab : tabs)
+    !{var ptIdOut = new StringOutput();}
+    !{Escape.htmlAttribute(tab.id(), ptIdOut);}
+    !{var safePtId = ptIdOut.toString();}
+    !{var ptIsActive = tab.id().equals(activeTab);}
+
+    @if(lazyLoad && !ptIsActive)
+      <%-- Lazy panel placeholder (inactive tabs only, lazy mode).
+           The server renders no body here; HTMX swaps in the real fragment when
+           the "tabs-activate" custom event fires (dispatched by the runtime afterCall
+           hook on re-render after activate(id)). The minimal tabpanel container keeps
+           the ARIA relationship (aria-labelledby) in the DOM even before the swap,
+           so a screen reader can traverse the tab structure without triggering a load.
+           hx-swap="outerHTML" replaces this placeholder with the real panel element.
+           After first load the panel stays in the DOM (hidden) so back-navigation is instant. --%>
+      <div
+        role="tabpanel"
+        id="panel-${cid}-$unsafe{safePtId}"
+        aria-labelledby="tab-${cid}-$unsafe{safePtId}"
+        data-slot="tabs-content"
+        hidden
+        hx-get="/tabs/${cid}/panel/$unsafe{safePtId}"
+        hx-swap="outerHTML"
+        hx-trigger="tabs-activate from:closest [data-slot='tabs']"
+      ></div>
+    @else
+      <%-- Eager panel (lazyLoad=false) or the active panel in lazy mode.
+           hidden="${!ptIsActive}" removes inactive panels from view + the a11y tree (boolean attr).
+           tabindex="0" is the DEFAULT for panels with no focusable children (APG: the tabpanel must
+           be keyboard-reachable after Tab exits the tablist; if the panel body has interactive
+           children the adopter REMOVES tabindex from this element -- replace `tabindex="0"` with
+           nothing -- so focus lands naturally on the first child instead).
+           outline-none on the panel suppresses the default :focus ring (the panel is a focus
+           stop for screen readers, not a visually-interactive element). --%>
+      <div
+        role="tabpanel"
+        id="panel-${cid}-$unsafe{safePtId}"
+        aria-labelledby="tab-${cid}-$unsafe{safePtId}"
+        tabindex="0"
+        data-slot="tabs-content"
+        hidden="${!ptIsActive}"
+        class="p-[var(--lv-space-4)] outline-none"
+      >
+        <%-- Owned body region for this panel: replace with your server-rendered panel markup.
+             This is the "owned content" model (server-first refactor blueprint §1.b): no JTE
+             Content slot (WIRE has none), no <slot> (light-DOM slot bug), just plain
+             server-rendered HTML that the template owns.
+             The adopter copies in this template and writes their content here per tab. --%>
+        <p data-tabs-body="${tab.id()}">Panel content for ${tab.label()}.</p>
+      </div>
+    @endif
+  @endfor
+</div>

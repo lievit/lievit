@@ -82,9 +82,14 @@ class TypedFacadeTest {
                         .lievitBadge(
                                 "success", // variant
                                 "Attivo", // label
+                                false, // dot
+                                null, // leading
                                 null, // content
                                 null, // href
-                                "" // cssClass
+                                "md", // size
+                                "", // cssClass
+                                "", // attrs
+                                java.util.Map.of() // dataAttrs
                                 )
                         .render();
 
@@ -104,10 +109,14 @@ class TypedFacadeTest {
                         .lievitChip(
                                 "neutral", // variant
                                 "Roma", // label
+                                null, // leading
                                 null, // content
                                 "/filters/clear", // removeHref
                                 "Remove Roma", // removeLabel
-                                "" // cssClass
+                                "md", // size
+                                "", // cssClass
+                                "", // attrs
+                                java.util.Map.of() // dataAttrs
                                 )
                         .render();
 

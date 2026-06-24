@@ -62,9 +62,13 @@ describe("static partials b1 -- shared hygiene", () => {
       expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
       // Strip arbitrary-value brackets first (text-[length:var(--lv-text-sm)], h-[var(--lv-space-10)],
       // h-1/2, w-1/2) so their inner --lv-* token names + fractions are not mistaken for bare scale
-      // utilities. What remains must contain NO Tailwind numeric scale utility (p-4, gap-2, h-10,
-      // text-sm...): every dimension reads a --lv-* var. Allow the documented geometry exceptions.
+      // utilities. Also strip JTE !{var ...} Java code blocks: they contain Java string literals such
+      // as "var(--lv-space-6)" used to build CSS values at runtime -- those are NOT Tailwind classes.
+      // What remains must contain NO Tailwind numeric scale utility (p-4, gap-2, h-10, text-sm...):
+      // every dimension reads a --lv-* var. Allow the documented geometry exceptions.
       const stripped = src
+        .replace(/!\{[^}]*\}/g, "")    // JTE inline Java code blocks (Java string literals, not classes)
+        .replace(/<%--[\s\S]*?--%>/g, "") // JTE doc/inline comments
         .replace(/\[[^\]]*\]/g, "[]")
         .replace(/-\d+\/\d+/g, "")
         .replace(/\bmin-w-0\b/g, ""); // min-w-0 == min-width:0, a dimensionless layout primitive
@@ -76,26 +80,70 @@ describe("static partials b1 -- shared hygiene", () => {
   }
 });
 
+// avatar (#431) -- re-forged v-next: diameter-based size vocab, circle/square shape, server-side
+// fallback chain, status dot, interactive wrappers, no onerror anti-pattern.
+// Full spec coverage lives in test/avatar.test.ts; this block is the shared-hygiene smoke only.
 describe("avatar (#431)", () => {
   const src = read("avatar");
-  test("declares the documented param API", () => {
-    for (const p of ["String name", "String src", "String initials", "String size", "String cssClass"]) {
-      expect(src).toContain(`@param ${p}`);
+  test("declares the full v-next param API (size, shape, color, status, href, clickable, ariaHidden, dataAttrs)", () => {
+    for (const p of [
+      "String name", "String src", "String initials", "String size", "String shape",
+      "String color", "String status", "String href", "String hrefLabel",
+      "boolean clickable", "String ariaLabel", "boolean ariaHidden",
+      "String cssClass", "String attrs",
+      "java.util.Map<String, String> dataAttrs",
+    ]) {
+      expect(src, `missing @param ${p}`).toContain(`@param ${p}`);
     }
   });
-  test("a11y: the wrapper is a labelled image (role=img + aria-label=name)", () => {
-    expect(src).toContain('role="img"');
-    expect(src).toContain('aria-label="${name}"');
+  test("diameter-based size vocab: six tiers xs..2xl each mapped to a --lv-space-* token", () => {
+    expect(src).toContain("var(--lv-space-6)");  // xs
+    expect(src).toContain("var(--lv-space-8)");  // sm
+    expect(src).toContain("var(--lv-space-10)"); // md default
+    expect(src).toContain("var(--lv-space-12)"); // lg
+    expect(src).toContain("var(--lv-space-16)"); // xl
+    expect(src).toContain("var(--lv-space-20)"); // 2xl
   });
-  test("fallback chain: initials else a Lucide user icon; the photo is decorative", () => {
-    expect(src).toContain('@template.lievit.icon(name = "user"');
-    expect(src).toContain("${initials}");
-    expect(src).toMatch(/alt=""/);
-  });
-  test("rounded-full + sized via tokens, neutral muted surface", () => {
+  test("shape: circle -> --lv-radius-full; square -> --lv-radius-md", () => {
     expect(src).toContain("rounded-[var(--lv-radius-full)]");
-    expect(src).toContain("bg-[var(--lv-color-muted-bg)]");
-    expect(src).toMatch(/var\(--lv-text-sm\)/);
+    expect(src).toContain("rounded-[var(--lv-radius-md)]");
+  });
+  test("server-side fallback chain: image -> initials -> Lucide icon -> bare", () => {
+    expect(src).toContain("hasImage");
+    expect(src).toContain("hasInitials");
+    expect(src).toContain('@template.lievit.icon(name = icon');
+    // initials rendered via resolvedInitials, not bare ${initials}
+    expect(src).toContain("${resolvedInitials}");
+  });
+  test("initials use --lv-font-medium weight token (not bold)", () => {
+    expect(src).toContain("font-[var(--lv-font-medium)]");
+  });
+  test("status dot is aria-hidden and suppressed at xs size", () => {
+    expect(src).toContain('data-slot="avatar-status"');
+    // The dot span is always aria-hidden="true" (literal in every branch)
+    expect(src).toMatch(/data-slot="avatar-status"[^>]*aria-hidden="true"/s);
+    expect(src).toContain('!size.equals("xs")');
+  });
+  test("interactive link: root becomes <a href> with focus-visible ring", () => {
+    expect(src).toContain("@if(href != null)");
+    expect(src).toContain('href="${href}"');
+    expect(src).toContain("focus-visible:shadow-[var(--lv-ring)]");
+    // inner frame is aria-hidden inside the wrapper
+    expect(src).toMatch(/class="\$\{frameBase\}[^"]*"\s+aria-hidden="true"/s);
+  });
+  test("interactive button: root becomes <button type=button> with aria-label", () => {
+    expect(src).toContain("@elseif(clickable)");
+    expect(src).toContain('type="button"');
+    expect(src).toContain('aria-label="${wrapperAriaLabel}"');
+  });
+  test("no onerror anti-pattern: NO inline on* handler anywhere in the template", () => {
+    const handlers = src.match(/\son[a-z]+=/gi) ?? [];
+    expect(handlers, `onerror/on* handlers found: ${handlers.join(", ")}`).toEqual([]);
+  });
+  test("dataAttrs values are escaped via Escape.htmlAttribute (same XSS contract as button.jte)", () => {
+    expect(src).toContain("@import gg.jte.html.escape.Escape");
+    expect(src).toMatch(/Escape\.htmlAttribute\(/);
+    expect(src, "dataAttrs value must not be emitted raw").not.toMatch(/\$unsafe\{[^}]*getValue/);
   });
 });
 

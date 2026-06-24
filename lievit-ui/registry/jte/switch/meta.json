@@ -1,9 +1,9 @@
 {
   "name": "switch",
   "type": "registry:jte",
-  "description": "A native <input type=checkbox role=switch> styled as a sliding switch. POSTs `value` only when on, binds via l:model on the native change event, no JS. `size` (md default / sm) scales the track + thumb. Server-first replacement for the Lit island.",
+  "description": "A binary toggle control following the WAI-ARIA APG Switch pattern. Primary variant: <button role=\"switch\" aria-checked> — the native button gives role + Enter/Space + focus for free, no JS. Form variant (asCheckbox=true): <input type=\"checkbox\" role=\"switch\"> for submitting with a form. The thumb slide is driven by CSS attribute selectors (zero JS, CSP-clean). Height-based sm/md/lg sizes (18/22/28px track, --lv-space-5/6/7 thumb) align flush with form controls in a toolbar row. Supports loading state (spinner in thumb, aria-busy), inner on/off labels (aria-hidden, Ant Design style), leading/trailing Content slots for label composition, and the full SAFE wire escaping channel (wireClick + wireArgs + dataAttrs) matching button.jte. The toggle action is wired by the consuming WIRE template; the partial renders the styled snapshot. Net-new tokens: --lv-space-7, --lv-opacity-disabled, --lv-motion-switch-thumb (with prefers-reduced-motion suppression).",
   "dependencies": [],
-  "registryDependencies": ["tokens"],
+  "registryDependencies": ["tokens", "spinner"],
   "files": [
     {
       "path": "jte/switch.jte",
@@ -12,6 +12,6 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the switch partial to your JTE root at lievit/switch.jte, reached as @template.lievit.switch(name=...). The native checkbox skinned as a switch POSTs `value` under `name` only when on (zero JS); bind to a wire field with `model`. Pass size=\"sm\" for a smaller track + thumb (md is the default). The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "opacity", "motion"],
+  "docs": "Copies the switch partial to your JTE root at lievit/switch.jte, reached as @template.lievit.switch(checked=..., ariaLabel=...). The partial renders a <button role=\"switch\" aria-checked> (primary) or <input type=\"checkbox\" role=\"switch\"> (asCheckbox=true) with a sliding thumb. Size is height-based: sm (18px track), md (22px, default), lg (28px). Wire a toggle SAFELY with wireClick=\"toggle\" plus wireArgs=Map.of(\"id\", row.id()) — same escaping channel as button.jte, no hand-rolled $unsafe needed. Pass leading/trailing (gg.jte.Content) to compose a visible label. Pass ariaLabel or ariaLabelledBy — a switch without an accessible name is an a11y violation. Inner on/off labels (onLabel/offLabel) are aria-hidden; they are decorative, not the accessible name. The source is yours: edit freely."
 }
