@@ -565,4 +565,294 @@ describe("collection-nav.enhancer — WAI-ARIA APG Tabs (roving-tabindex mode)",
     key(collRoot, "ArrowRight");
     expect(document.activeElement).toBe(itemEls[0]); // unchanged
   });
+
+  // ---------------------------------------------------------------------------
+  // ADDITIVE: roving-tabindex typeahead
+  // ---------------------------------------------------------------------------
+
+  it("roving_typeahead_focuses_matching_item — printable char focuses next item whose text starts with it", () => {
+    const { collRoot, itemEls } = buildRovingCollection({
+      items: [
+        { text: "Apple" },
+        { text: "Banana" },
+        { text: "Cherry" },
+      ],
+      orientation: "horizontal",
+    });
+
+    // Initial focused = Apple (tabindex=0). Type "b" → Banana.
+    key(collRoot, "b");
+    expect(document.activeElement).toBe(itemEls[1]);
+    expect(itemEls[1].tabIndex).toBe(0);
+    expect(itemEls[0].tabIndex).toBe(-1);
+  });
+
+  it("roving_typeahead_repeated_char_cycles — repeated same char cycles among matching items", () => {
+    const { collRoot, itemEls } = buildRovingCollection({
+      items: [
+        { text: "Apple" },
+        { text: "Apricot" },
+        { text: "Avocado" },
+        { text: "Banana" },
+      ],
+      orientation: "horizontal",
+    });
+
+    // "a" → Apricot (next after Apple which is initial focused)
+    key(collRoot, "a");
+    expect(document.activeElement).toBe(itemEls[1]);
+
+    // "a" again → Avocado (next after Apricot starting with a)
+    key(collRoot, "a");
+    expect(document.activeElement).toBe(itemEls[2]);
+
+    // "a" again → wraps back to Apple
+    key(collRoot, "a");
+    expect(document.activeElement).toBe(itemEls[0]);
+  });
+
+  it("roving_typeahead_skips_disabled — disabled items are excluded from typeahead matching", () => {
+    const { collRoot, itemEls } = buildRovingCollection({
+      items: [
+        { text: "Alpha" },
+        { text: "Beta", disabled: true },
+        { text: "Bravo" },
+      ],
+      orientation: "horizontal",
+    });
+
+    // "b" should skip disabled Beta and land on Bravo.
+    key(collRoot, "b");
+    expect(document.activeElement).toBe(itemEls[2]);
+  });
+
+  it("roving_typeahead_no_match_leaves_focus_unchanged — no match: focus stays where it was", () => {
+    const { collRoot, itemEls } = buildRovingCollection({
+      items: [{ text: "Apple" }, { text: "Banana" }],
+      orientation: "horizontal",
+    });
+
+    // Explicitly move focus to Apple (tabindex=0) before testing.
+    itemEls[0].focus();
+    expect(document.activeElement).toBe(itemEls[0]);
+
+    // "z" has no match; focus should stay on Apple.
+    key(collRoot, "z");
+    expect(document.activeElement).toBe(itemEls[0]);
+    // tabindex=0 also remains on Apple (no change).
+    expect(itemEls[0].tabIndex).toBe(0);
+  });
+
+  it("roving_typeahead_does_not_set_aria_activedescendant — typeahead in roving mode must NOT touch aria-activedescendant", () => {
+    const { collRoot } = buildRovingCollection({
+      items: [{ text: "Apple" }, { text: "Banana" }],
+      orientation: "horizontal",
+    });
+
+    key(collRoot, "b");
+    expect(collRoot.hasAttribute("aria-activedescendant")).toBe(false);
+  });
+
+  it("activedescendant_typeahead_unaffected — typeahead still works in aria-activedescendant mode after roving addition", () => {
+    // Guard: existing typeahead in activedescendant mode is untouched.
+    const { collRoot, itemEls } = buildCollection({
+      items: [
+        { text: "Foo" },
+        { text: "Bar" },
+        { text: "Baz" },
+      ],
+    });
+
+    key(collRoot, "b");
+    expect(activeId(collRoot)).toBe(itemEls[1].id);
+
+    key(collRoot, "b"); // repeated → Baz
+    expect(activeId(collRoot)).toBe(itemEls[2].id);
+  });
+
+  // ---------------------------------------------------------------------------
+  // ADDITIVE: submenu ArrowRight/Left (roving-tabindex, vertical orientation)
+  // ---------------------------------------------------------------------------
+
+  it("arrow_right_dispatches_submenu_open_event — ArrowRight on submenu parent fires lv:collection-submenu-open", () => {
+    // Build a vertical menu (roving, manual-activation) with one item that has aria-haspopup="menu".
+    document.body.innerHTML = "";
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.Menu");
+    componentRoot.setAttribute("data-lievit-id", "cid-submenu");
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const collRoot = document.createElement("div");
+    collRoot.setAttribute("role", "menu");
+    collRoot.setAttribute("data-lievit-collection", "");
+    collRoot.setAttribute("data-lievit-collection-roving-tabindex", "true");
+    collRoot.setAttribute("data-lievit-collection-orientation", "vertical");
+    collRoot.setAttribute("data-lievit-collection-wrap", "true");
+    collRoot.setAttribute("data-manual-activation", "true");
+
+    // Plain item (no submenu).
+    const item0 = document.createElement("button");
+    item0.setAttribute("type", "button");
+    item0.setAttribute("data-lievit-item", "");
+    item0.id = "item-plain";
+    item0.textContent = "Plain";
+    item0.tabIndex = 0; // initially focused
+    collRoot.appendChild(item0);
+
+    // Submenu parent item.
+    const item1 = document.createElement("button");
+    item1.setAttribute("type", "button");
+    item1.setAttribute("data-lievit-item", "");
+    item1.setAttribute("aria-haspopup", "menu");
+    item1.setAttribute("aria-expanded", "false");
+    item1.setAttribute("aria-controls", "child-panel");
+    item1.id = "item-submenu";
+    item1.textContent = "Has submenu";
+    item1.tabIndex = -1;
+    collRoot.appendChild(item1);
+
+    componentRoot.appendChild(collRoot);
+    document.body.appendChild(componentRoot);
+
+    const runtime = new LievitRuntime({ fetchImpl: vi.fn(async () =>
+      new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } })
+    ) as unknown as typeof fetch });
+    installCollectionNav(runtime);
+    runtime.start();
+
+    // Move focus to the submenu parent item.
+    key(collRoot, "ArrowDown"); // focus moves to item1
+    expect(document.activeElement).toBe(item1);
+
+    // Listen for the custom event.
+    let submenuOpenFired = false;
+    let submenuOpenTarget: EventTarget | null = null;
+    collRoot.addEventListener("lv:collection-submenu-open", (e) => {
+      submenuOpenFired = true;
+      submenuOpenTarget = e.target;
+    });
+
+    // ArrowRight should dispatch the event on item1 (the submenu parent).
+    key(collRoot, "ArrowRight");
+    expect(submenuOpenFired).toBe(true);
+    expect(submenuOpenTarget).toBe(item1);
+  });
+
+  it("arrow_right_on_non_submenu_item_is_noop — ArrowRight on a plain item does NOT dispatch the event", () => {
+    document.body.innerHTML = "";
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.Menu");
+    componentRoot.setAttribute("data-lievit-id", "cid-noop");
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const collRoot = document.createElement("div");
+    collRoot.setAttribute("data-lievit-collection", "");
+    collRoot.setAttribute("data-lievit-collection-roving-tabindex", "true");
+    collRoot.setAttribute("data-lievit-collection-orientation", "vertical");
+    collRoot.setAttribute("data-lievit-collection-wrap", "true");
+    collRoot.setAttribute("data-manual-activation", "true");
+
+    const item0 = document.createElement("button");
+    item0.setAttribute("type", "button");
+    item0.setAttribute("data-lievit-item", "");
+    item0.textContent = "No submenu";
+    item0.tabIndex = 0;
+    collRoot.appendChild(item0);
+
+    componentRoot.appendChild(collRoot);
+    document.body.appendChild(componentRoot);
+
+    const runtime = new LievitRuntime({ fetchImpl: vi.fn(async () =>
+      new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } })
+    ) as unknown as typeof fetch });
+    installCollectionNav(runtime);
+    runtime.start();
+
+    let submenuOpenFired = false;
+    collRoot.addEventListener("lv:collection-submenu-open", () => { submenuOpenFired = true; });
+
+    // item0 has no aria-haspopup="menu"; ArrowRight should be a no-op.
+    key(collRoot, "ArrowRight");
+    expect(submenuOpenFired).toBe(false);
+  });
+
+  it("arrow_left_fires_escape_action_in_vertical_menu — ArrowLeft in a vertical roving menu fires the escape action", async () => {
+    const { collRoot, calledActions } = buildRovingCollection({
+      items: [{ text: "Item A" }, { text: "Item B" }],
+      orientation: "vertical",
+      escapeAction: "close",
+      manualActivation: true,
+    });
+
+    key(collRoot, "ArrowLeft");
+
+    await new Promise<void>((r) => setTimeout(r, 20));
+    expect(calledActions).toContain("close");
+  });
+
+  it("arrow_left_in_horizontal_menu_is_navigation_not_submenu_close — ArrowLeft moves focus in horizontal menus, does NOT fire escape", async () => {
+    const { collRoot, calledActions, itemEls } = buildRovingCollection({
+      items: [{ text: "Tab 1" }, { text: "Tab 2" }, { text: "Tab 3" }],
+      orientation: "horizontal",
+      escapeAction: "close",
+    });
+
+    // Move to Tab 2, then ArrowLeft → Tab 1 (navigation, not submenu close).
+    key(collRoot, "ArrowRight"); // → Tab 2
+    expect(document.activeElement).toBe(itemEls[1]);
+
+    key(collRoot, "ArrowLeft"); // → Tab 1 (navigation)
+    expect(document.activeElement).toBe(itemEls[0]);
+
+    await new Promise<void>((r) => setTimeout(r, 20));
+    // escapeAction must NOT have fired; ArrowLeft was navigation.
+    expect(calledActions.filter((a) => a === "close")).toHaveLength(0);
+  });
+
+  it("arrow_right_in_horizontal_menu_is_navigation_not_submenu_open — ArrowRight navigates in horizontal menus without firing submenu event", () => {
+    document.body.innerHTML = "";
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.HMenu");
+    componentRoot.setAttribute("data-lievit-id", "cid-hmenu");
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const collRoot = document.createElement("div");
+    collRoot.setAttribute("data-lievit-collection", "");
+    collRoot.setAttribute("data-lievit-collection-roving-tabindex", "true");
+    collRoot.setAttribute("data-lievit-collection-orientation", "horizontal");
+    collRoot.setAttribute("data-lievit-collection-wrap", "true");
+    collRoot.setAttribute("data-manual-activation", "true");
+
+    const items: HTMLButtonElement[] = [];
+    for (let i = 0; i < 2; i++) {
+      const btn = document.createElement("button");
+      btn.setAttribute("type", "button");
+      btn.setAttribute("data-lievit-item", "");
+      btn.setAttribute("aria-haspopup", "menu"); // has submenu attr, but orientation is horizontal
+      btn.textContent = `Item ${i}`;
+      btn.tabIndex = i === 0 ? 0 : -1;
+      collRoot.appendChild(btn);
+      items.push(btn);
+    }
+
+    componentRoot.appendChild(collRoot);
+    document.body.appendChild(componentRoot);
+
+    const runtime = new LievitRuntime({ fetchImpl: vi.fn(async () =>
+      new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } })
+    ) as unknown as typeof fetch });
+    installCollectionNav(runtime);
+    runtime.start();
+
+    let submenuOpenFired = false;
+    collRoot.addEventListener("lv:collection-submenu-open", () => { submenuOpenFired = true; });
+
+    // ArrowRight on a horizontal menu navigates, does NOT dispatch submenu-open.
+    key(collRoot, "ArrowRight");
+    expect(document.activeElement).toBe(items[1]); // navigation happened
+    expect(submenuOpenFired).toBe(false); // no submenu event
+  });
 });

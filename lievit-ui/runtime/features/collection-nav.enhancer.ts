@@ -33,6 +33,26 @@
  * - `data-manual-activation` — `"true"` (roving-tabindex mode only): Arrow keys move focus but
  *   do NOT call the select action; Enter / Space call it on the focused item
  *
+ * ADDITIVE features (guarded; existing behavior unchanged when absent):
+ *
+ * Roving-tabindex typeahead (additive):
+ *   Printable-character keystrokes in roving-tabindex mode now perform type-to-focus: the buffer
+ *   is matched against item text (same logic as activedescendant mode). No new attribute needed;
+ *   the existing 500 ms reset and repeated-char cycling apply identically.
+ *
+ * Submenu open / close (additive, roving-tabindex mode):
+ *   ArrowRight on an item that carries `aria-haspopup="menu"` dispatches a DOM CustomEvent
+ *   `lv:collection-submenu-open` on that item (bubbles=true, cancelable=true). The submenu-owning
+ *   component can listen to this event and open its panel. ArrowLeft (or Escape) inside a nested
+ *   submenu collection fires the root's `data-lievit-collection-escape-action`, which the consuming
+ *   component interprets as "close submenu and return focus to parent item". In the parent
+ *   collection, ArrowLeft on an item with `aria-haspopup="menu"` and `aria-expanded="true"` is a
+ *   no-op (the submenu close + focus return is owned by the submenu's own Escape/ArrowLeft).
+ *   Detection: `aria-haspopup="menu"` + `aria-controls="<id>"` on the item (standard ARIA; already
+ *   emitted by context-menu/item.jte for type="submenu"). No custom attribute is invented.
+ *   Event name: `lv:collection-submenu-open` (CustomEvent, bubbles+cancelable). The coordinator /
+ *   adopting component listens for this event on the menu container to open the child panel.
+ *
  * Attribute protocol on each ITEM element inside the collection:
  * - `data-lievit-item` — marks an element as a collection item
  * - `id` — required for `aria-activedescendant` to name the item (activedescendant mode only)
@@ -65,6 +85,12 @@ const MANUAL_ACTIVATION_ATTR = "data-manual-activation";
 
 /** Typeahead reset delay in ms. */
 const TYPEAHEAD_DELAY_MS = 500;
+
+/**
+ * CustomEvent name dispatched on a submenu-parent item when ArrowRight is pressed on it.
+ * Additive; only fired when item carries aria-haspopup="menu".
+ */
+const SUBMENU_OPEN_EVENT = "lv:collection-submenu-open";
 
 function getItems(root: Element): Element[] {
   return Array.from(root.querySelectorAll<Element>(`[${ITEM_ATTR}]`));
@@ -208,7 +234,14 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
     typeaheadTimer: null,
   };
 
-  function handleTypeahead(char: string): void {
+  /**
+   * Shared typeahead handler. `currentItem` is the currently active/focused item (the search
+   * starts from the item AFTER it). In activedescendant mode this is the aria-activedescendant
+   * element; in roving-tabindex mode this is the DOM-focused item.
+   * `onMatch` is called with the matched item so each mode can apply its own selection logic
+   * (setActive for activedescendant; rovingMoveFocus for roving).
+   */
+  function handleTypeahead(char: string, currentItem: Element | null, onMatch: (item: Element) => void): void {
     if (state.typeaheadTimer != null) {
       clearTimeout(state.typeaheadTimer);
     }
@@ -227,15 +260,14 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
     const buffer = state.typeaheadBuffer;
 
     const items = getItems(root).filter((i) => !isDisabled(i));
-    const active = getActive(root);
-    const startIdx = active != null ? items.indexOf(active) : -1;
+    const startIdx = currentItem != null ? items.indexOf(currentItem) : -1;
     // Search from the item AFTER the current active (wrap around the list).
     const reordered = [...items.slice(startIdx + 1), ...items.slice(0, startIdx + 1)];
     const match = reordered.find((i) =>
       (i.textContent ?? "").trim().toLowerCase().startsWith(buffer),
     );
     if (match != null) {
-      setActive(root, match);
+      onMatch(match);
     }
     state.typeaheadTimer = setTimeout(() => {
       state.typeaheadBuffer = "";
@@ -313,6 +345,34 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
           void runtime.callAction(root, escapeAction, { trigger: root });
         }
         handled = true;
+      } else if (e.key === "ArrowRight" && !isHorizontal) {
+        // Additive: submenu open. ArrowRight on a vertical menu item that is a submenu parent
+        // (aria-haspopup="menu") dispatches lv:collection-submenu-open on that item. The adopting
+        // component listens for this event to open the child panel. Guard: only when orientation
+        // is NOT horizontal (in horizontal menus ArrowRight is already the navigation key, handled
+        // in the isNextKey block above; this branch is therefore never reached for horizontal menus).
+        // When the focused item is NOT a submenu parent, this is a no-op (key not consumed).
+        if (focused != null && focused.getAttribute("aria-haspopup") === "menu") {
+          focused.dispatchEvent(new CustomEvent(SUBMENU_OPEN_EVENT, { bubbles: true, cancelable: true }));
+          handled = true;
+        }
+      } else if (e.key === "ArrowLeft" && !isHorizontal) {
+        // Additive: submenu close via ArrowLeft in a vertical menu. Fires the escape action so the
+        // consuming component can close the submenu and return focus to the parent item. In menus
+        // without a submenu context, the escape action closes the whole menu, which matches the
+        // APG recommendation that ArrowLeft in a submenu closes it and returns to the parent menu.
+        // Guard: only when orientation is NOT horizontal (horizontal menus use ArrowLeft as the
+        // prev-navigation key, already consumed by the isPrevKey block above).
+        if (escapeAction != null && escapeAction.length > 0) {
+          void runtime.callAction(root, escapeAction, { trigger: root });
+          handled = true;
+        }
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Additive: typeahead in roving-tabindex mode. Mirrors the activedescendant branch.
+        // The current focused item is the one with tabindex=0; onMatch moves DOM focus to it.
+        const focusedForTypeahead = rovingGetFocused(items);
+        handleTypeahead(e.key, focusedForTypeahead, (match) => rovingMoveFocus(items, match));
+        handled = true;
       }
     } else {
       // -----------------------------------------------------------------------
@@ -349,7 +409,7 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
         }
         handled = true;
       } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        handleTypeahead(e.key);
+        handleTypeahead(e.key, getActive(root), (match) => setActive(root, match));
         handled = true;
       }
     }

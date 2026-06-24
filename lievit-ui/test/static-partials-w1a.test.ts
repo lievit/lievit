@@ -82,7 +82,10 @@ describe("static partials w1a -- shared hygiene", () => {
       // Strip arbitrary-value brackets first so their inner --lv-* token names + fractions are
       // not mistaken for bare scale utilities; then assert no Tailwind numeric scale utility
       // (p-4, gap-2, h-10, text-sm...) survives: every dimension reads a --lv-* var.
-      const stripped = src
+      // Use markupOnly (comments stripped) so token-family names mentioned in doc
+      // comments (e.g. "--lv-space-3" in the TOKENS consumed list) do not trigger
+      // false positives. The intent is to check rendered markup, not doc prose.
+      const stripped = markupOnly
         .replace(/\[[^\]]*\]/g, "[]")
         // a var(--lv-*) reference is token-driven by definition (incl. inside inline styles,
         // e.g. a dynamic grid's column-gap:var(--lv-space-3)): never a bare scale utility.
@@ -269,27 +272,54 @@ describe("spinner", () => {
   });
 });
 
-describe("hover-card (CSS-only, Radix preview model)", () => {
-  const src = read("hover-card");
+// hover-card was re-forged from a CSS-only single partial (group-hover, aria-hidden, Radix
+// preview model) to TWO partials: hover-card-trigger.jte (trigger wrapper) + hover-card.jte
+// (panel). The panel now uses role="tooltip", popover="manual", CSS Anchor Positioning, and
+// is NOT aria-hidden (APG Tooltip: aria-describedby link must stay in the a11y tree).
+// The trigger wraps the focusable element and sets anchor-name for the panel's position-anchor.
+describe("hover-card (two-partial, WAI-ARIA APG Tooltip + popover=manual)", () => {
+  const panel = read("hover-card");           // the card panel partial
+  const trigger = read("hover-card-trigger"); // the trigger wrapper partial
+
   test("trigger + content slots", () => {
-    expect(src).toContain("@param gg.jte.Content trigger");
-    expect(src).toContain("@param gg.jte.Content content");
-    expect(src).toContain("${trigger}");
-    expect(src).toContain("${content}");
+    // hover-card.jte: header/content/footer slots (no trigger slot — trigger lives in hover-card-trigger.jte).
+    // hover-card-trigger.jte: content slot (the focusable trigger element).
+    expect(panel).toContain("@param Content content");
+    expect(panel).toContain("${content}");
+    expect(trigger).toContain("@param gg.jte.Content content");
+    expect(trigger).toContain("${content}");
   });
-  test("preview model: content panel has NO role and is aria-hidden", () => {
-    expect(src).toContain('aria-hidden="true"');
-    expect(src).toContain('data-slot="hover-card-content"');
-    expect(src).not.toMatch(/data-slot="hover-card-content"[^>]*role=/);
+
+  test("preview model: panel has role=tooltip and is NOT aria-hidden (APG Tooltip a11y tree)", () => {
+    // Old: aria-hidden="true" + CSS-only group-hover. New: role="tooltip" on the panel (APG
+    // Tooltip pattern) + popover="manual"; the aria-describedby link on the trigger wrapper
+    // (hover-card-trigger.jte) REQUIRES the panel to stay in the a11y tree — not aria-hidden.
+    expect(panel).toContain('role="tooltip"');
+    expect(panel).toContain('data-slot="hover-card"');
+    expect(panel).not.toContain('aria-hidden="true"');
   });
-  test("revealed purely by CSS group-hover / group-focus-within (no JS, no Floating UI)", () => {
-    expect(src).toContain("group-hover:visible");
-    expect(src).toContain("group-focus-within:visible");
-    expect(src.toLowerCase()).not.toContain("floating-ui");
+
+  test("revealed via popover=manual + hover-card.enhancer.ts (no CSS group-hover, no Floating UI)", () => {
+    // Old: group-hover:visible + group-focus-within:visible CSS reveal, no JS.
+    // New: popover="manual" hidden by UA; hover-card.enhancer.ts calls showPopover/hidePopover.
+    expect(panel).toContain('popover="manual"');
+    expect(panel).toContain("hover-card.enhancer.ts");
+    expect(panel).not.toContain("group-hover:visible");
+    expect(panel.toLowerCase()).not.toContain("floating-ui");
   });
+
   test("popover surface reads tokens", () => {
-    expect(src).toContain("bg-[var(--lv-color-popover)]");
-    expect(src).toContain("z-[var(--lv-z-popover)]");
+    // Panel uses bg via Tailwind arbitrary value + inline style for z-index (both token-driven).
+    expect(panel).toContain("bg-[var(--lv-color-popover)]");
+    expect(panel).toContain("var(--lv-z-popover)");
+  });
+
+  test("trigger wrapper sets anchor-name + data-lv-hover-card-trigger (CSS Anchor Positioning seam)", () => {
+    // CSS Anchor Positioning: trigger wrapper sets anchor-name (style), panel binds position-anchor.
+    expect(trigger).toContain("data-lv-hover-card-trigger");
+    expect(trigger).toContain("anchor-name:");
+    expect(trigger).toContain("@param String cardId");
+    expect(trigger).toContain('aria-describedby="${cardId}"');
   });
 });
 

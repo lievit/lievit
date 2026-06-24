@@ -122,16 +122,24 @@ describe("built registry.json", () => {
     expect(markup).not.toContain("<lv-data-table");
   });
 
-  test("the alert-dialog wire composes the dialog wire structure (no <lv-dialog> island)", () => {
+  test("the alert-dialog is a headless PARTIAL (role=alertdialog, l:click wire params, no <lv-dialog> island)", () => {
+    // Old: "alert-dialog" was a WIRE (registry:wire) composing the dialog wire structure, with
+    //      hardcoded l:click="confirm" / l:click="cancel" action names.
+    // New: "alert-dialog" is a headless PARTIAL (registry:jte): role=alertdialog, confirm/cancel
+    //      are parameterised wire action names (confirmWireClick / cancelWireClick), not hardcoded
+    //      "confirm"/"cancel". The focus-trap enhancer seam (data-lievit-focus-trap) replaces the
+    //      dialog wire structure; no <lv-dialog> island is used.
     const item = built.items.find((i) => i.name === "alert-dialog");
     expect(item, "alert-dialog must be a registry item").toBeDefined();
+    expect(item!.type, "alert-dialog is now a registry:jte PARTIAL").toBe("registry:jte");
     const jte = item!.files.find((f) => f.path.endsWith(".jte"))?.content ?? "";
-    // role=alertdialog (the interruptive-prompt specialization), real confirm/cancel l:click buttons
+    // role=alertdialog + parameterised wire l:click (not hardcoded action names)
     expect(jte).toContain('role="alertdialog"');
-    expect(jte).toContain('l:click="confirm"');
-    expect(jte).toContain('l:click="cancel"');
-    // the old island is not RENDERED (the doc comment may name it as the dropped tier; the markup
-    // must not). Strip the JTE doc comment and assert no <lv-dialog> usage remains.
+    expect(jte).toContain('l:click="${confirmWireClick}"');
+    expect(jte).toContain('l:click="${cancelWireClick}"');
+    // focus-trap enhancer seam (replaces dialog wire; no dialog wire structure needed)
+    expect(jte).toContain("data-lievit-focus-trap");
+    // the old <lv-dialog> island is not rendered in the markup
     const markup = jte.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).not.toContain("<lv-dialog");
   });

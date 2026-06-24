@@ -1,23 +1,18 @@
 {
   "name": "popover",
   "type": "registry:jte",
-  "description": "A click-triggered floating panel anchored to a trigger, with ZERO JS. The load-bearing overlay seam (ADR-0012 blueprint R4): show/hide via the native HTML `popover` attribute + `popovertarget` (top-layer, light-dismiss, ARIA wired by the browser); position via CSS Anchor Positioning (anchor-name / position-anchor / position-area + flip-block fallback), no @floating-ui/dom. Panel content is OWNED, server-rendered markup (a Content slot), never a <slot>. Optional `title` + `description` render a PopoverHeader and make it a labelled dialog (role=dialog + aria-labelledby); an `align` axis (start/center/end via data-align + position-area inline span) and a decoupled PopoverAnchor (the popover/anchor sub-partial + `anchorId`) match shadcn. Replaces the <lv-popover> Lit island. Plain HTML + Tailwind + --lv-* tokens, CSP-clean. For server-data-driven content + server-held open-state, see the popover-wire component.",
+  "description": "The shared positioning + light-dismiss + focus-return SEAM for every non-modal overlay (dropdown-menu, select, combobox, tooltip, hover-card, date-picker, context-menu, command, mentions). CONTROLLED / UNCONTROLLED headless overlay (NOT a bespoke WIRE component). UNCONTROLLED by default (controlled=false): the panel is always in the DOM; the browser's native popover API (popovertarget) shows/hides it client-side — zero JS, zero wire round-trip. CONTROLLED (controlled=true): pass `open` from the caller's own @Wire field; the server gates panel presence. Show/hide via the native HTML `popover` attribute; position via CSS Anchor Positioning (anchor-name / position-anchor / position-area + flip-block fallback) — all twelve placement positions supported. The `popover-anchor.enhancer.ts` handles the one irreducible client bit: focus-return on light-dismiss (click-outside) via data-lv-opener, autofocus delegation via data-lv-autofocus, and wire sync of close() in controlled mode. Panel content is OWNED server-rendered markup (the `content` Content slot). Optional `title` + `description` render a PopoverHeader and make the panel a labelled dialog (role=dialog + aria-labelledby). Three variant surfaces: default | muted | destructive. Optional decorative arrow/caret (withArrow). Replaces the <lv-popover> Lit island and the old PARTIAL. CSP-clean, no inline handlers, no @floating-ui/dom.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
+  "enhancer": "runtime/features/popover-anchor.enhancer.ts",
   "files": [
     {
       "path": "jte/popover.jte",
       "type": "registry:jte",
       "target": "lievit/popover.jte",
       "root": "jte"
-    },
-    {
-      "path": "jte/popover/anchor.jte",
-      "type": "registry:jte",
-      "target": "lievit/popover/anchor.jte",
-      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
-  "docs": "Copies the popover family to your JTE root (lievit/popover.jte + lievit/popover/anchor.jte), reached as @template.lievit.popover(...). Pass a unique `id` (the popovertarget link target), the `trigger` content (label/icon) and the `content` panel body (server-rendered, never a <slot>); set `placement` (\"bottom\" | \"top\", flips when cramped), `align` (\"start\" | \"center\" | \"end\"), an optional `title` + `description` (a labelled dialog: role=dialog + aria-labelledby), or `disabled`. To anchor the panel to an element OTHER than the trigger, wrap it in @template.lievit.popover.anchor(anchorId=...) and pass the same `anchorId` to the popover. The browser owns show/hide + Escape/outside-click dismiss + aria-expanded; CSS anchor positioning places the panel. The source is yours: edit freely. For a popover whose content depends on server state (the calendar-filter feed), use the popover-wire component instead."
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring", "motion"],
+  "docs": "Copies popover.jte to your JTE root at lievit/popover.jte, reached as @template.lievit.popover(...). Required params: `id` (unique panel id; derives the trigger id as <id>-trigger), `trigger` content (label/icon inside the button), `content` panel body (server-rendered, never a <slot>). By default (controlled=false) the panel is always in the DOM and the browser's native popover API handles open/close — zero JS, zero server round-trip. To gate panel presence from the server, set controlled=true and pass `open` from your caller's @Wire boolean field. Set `placement` (12 positions: bottom-start | bottom | bottom-end | top-start | top | top-end | left-start | left | left-end | right-start | right | right-end; default: bottom-start), `type` (auto|manual|hint; default: auto), `offset` (gap px; default: 4), `withArrow` (decorative caret; default: false), `variant` (default|muted|destructive; default: default), `disabled` (default: false). Optional `title` + `description` add a PopoverHeader and make the panel a labelled dialog (role=dialog + aria-labelledby). The popover-anchor.enhancer.ts must be registered in the runtime (installPopoverAnchor) for focus-return on light-dismiss and autofocus delegation."
 }

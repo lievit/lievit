@@ -1,0 +1,27 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * hover-card scoped tokens (net-new, additive per spec §5).
+ * Structural tokens only: no colour variants, no dark-mode block needed.
+ * Merged into the adopter's token file by `lievit add hover-card`.
+ */
+
+:root {
+  /* max-width scale for the hover-card panel (structural, not a colour) */
+  --lv-hover-card-max-width-xs: 200px;
+  --lv-hover-card-max-width-sm: 280px;
+  --lv-hover-card-max-width-md: 360px;
+  --lv-hover-card-max-width-lg: 480px;
+
+  /* open/close animation durations (structural; set to 0 under prefers-reduced-motion) */
+  --lv-hover-card-open-duration: 120ms;
+  --lv-hover-card-close-duration: 80ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --lv-hover-card-open-duration: 0ms;
+    --lv-hover-card-close-duration: 0ms;
+  }
+}

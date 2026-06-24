@@ -2,18 +2,27 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * modal = the STATIC shadcn Dialog (ADR-0012 overlay family). A centred, trigger-driven modal
- * dialog built on the native HTML <dialog> element: the trigger opens it declaratively
- * (command="show-modal" commandfor, like popovertarget), the browser owns the modal show/hide,
- * focus-trap, ::backdrop and Escape, and every close path is a native <form method="dialog">
- * submit. ZERO JS, no enhancer -> CSP-clean by construction. It is the presentation shell the
- * kit's modal stack renders through (io.lievit.kit.component.ModalView + io.lievit.kit.ModalConfig).
+ * modal v-next: headless CONTROLLED / UNCONTROLLED overlay dialog (architecture contract,
+ * "Overlay & stateful primitives" doctrine). No Java component, no @Wire field. The
+ * open-state belongs to the CALLER.
  *
- * These tests pin the registry item shape + the server-purity + the render-asserting source
- * contract: the body CONTENT is present in the rendered DOM (an owned ${content}, never a <slot> --
- * the bug ADR-0012 exists to kill), the data-slot contract is shadcn-faithful, the dialog a11y is
- * explicit, and the partial is token-driven + CSP-clean + Apache-licensed. The native <dialog>
- * show/hide is the browser's, not unit-testable in happy-dom; its real-compile is the JTE smoke.
+ * UNCONTROLLED (default): trigger button + command="show-modal" + native <dialog> showModal.
+ * Close paths are <form method="dialog"> submits. The browser owns focus-trap + Esc + ::backdrop.
+ * Zero JS by construction.
+ *
+ * CONTROLLED: `open` param (from the caller's @Wire boolean) + `closeAction` (wire action name).
+ * When open=true: dialog visible + scrim rendered + data-lievit-focus-trap activates the shared
+ * focus-trap enhancer (Tab cycle, scroll-lock, Esc fires closeAction). When open=false: hidden.
+ *
+ * These tests pin:
+ *   1. The registry item shape (single registry:jte item, correct file target).
+ *   2. The uncontrolled API: trigger, command="show-modal", commandfor, <form method="dialog">.
+ *   3. The controlled API: hidden attr contract, scrim, focus-trap data-attrs, l:click closeAction.
+ *   4. The a11y contract: role=dialog, aria-modal, aria-labelledby/aria-label/aria-describedby,
+ *      close button aria-label, must-act pattern (closable=false omits escape-action).
+ *   5. The projection contract: content is an owned Content slot (${content}), never a <slot>.
+ *   6. Server-purity + CSP-clean + token-driven + Apache-licensed.
+ *   7. Focus-trap enhancer data-attribute contract (the seam alert-dialog + drawer/sheet reuse).
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -30,90 +39,207 @@ const stripComments = (jte: string) => jte.replace(/<%--[\s\S]*?--%>/g, "");
 const jte = read("jte/modal.jte");
 const markup = stripComments(jte);
 
-describe("modal registry:jte item shape (the native <dialog> seam)", () => {
-  test("modal is a single registry:jte item", () => {
+// ---------------------------------------------------------------------------
+// 1. Registry item shape
+// ---------------------------------------------------------------------------
+
+describe("modal registry:jte item shape", () => {
+  test("modal is a single registry:jte item (not a wire component)", () => {
     const matches = registry.items.filter((i) => i.name === "modal");
     expect(matches, "exactly one modal item").toHaveLength(1);
     expect(matches[0].type).toBe("registry:jte");
   });
 
-  test("it ships one .jte file landing under the adopter's JTE root", () => {
+  test("it ships one .jte file landing under the adopter's JTE root at lievit/modal.jte", () => {
     const item = registry.items.find((i) => i.name === "modal")!;
     const file = item.files.find((f) => f.target.endsWith(".jte"))!;
     expect(file.root).toBe("jte");
     expect(file.target).toBe("lievit/modal.jte");
   });
 
-  test("resolving it pulls tokens + icon, never Lit/floating-ui", () => {
+  test("it pulls tokens but never Lit or floating-ui (zero runtime deps)", () => {
     const item = registry.items.find((i) => i.name === "modal")!;
     expect(item.dependencies ?? []).not.toContain("lit");
     expect(item.dependencies ?? []).not.toContain("@floating-ui/dom");
     const closure = resolve(registry, ["modal"]).map((i) => i.name);
     expect(closure).toContain("tokens");
-    expect(closure).toContain("icon");
-    expect(closure.indexOf("icon")).toBeLessThan(closure.indexOf("modal"));
+  });
+
+  test("it declares no Java class (@Wire field belongs to the CALLER, not modal)", () => {
+    const item = registry.items.find((i) => i.name === "modal")!;
+    const hasJava = item.files.some((f) => f.target.endsWith(".java"));
+    expect(hasJava, "modal must NOT ship a Java class (PARTIAL, not WIRE)").toBe(false);
   });
 });
 
-describe("modal.jte: native <dialog> show/hide, zero JS", () => {
-  test("show is the native invoker command API (no script)", () => {
-    // the trigger is a real <button command="show-modal" commandfor> targeting the dialog id.
-    expect(markup).toContain('command="show-modal"');
-    expect(markup).toContain('commandfor="${id}"');
+// ---------------------------------------------------------------------------
+// 2. Uncontrolled API
+// ---------------------------------------------------------------------------
+
+describe("modal.jte: uncontrolled API (zero-JS native <dialog> path)", () => {
+  test("declares a trigger Content param (the open button content)", () => {
+    expect(jte).toContain("@param gg.jte.Content trigger");
   });
 
-  test("the panel is a native <dialog> whose id matches the commandfor target", () => {
+  test("the trigger is a real <button command='show-modal' commandfor> (invoker command API)", () => {
+    expect(markup).toContain('command="show-modal"');
+    expect(markup).toContain('commandfor="${id}"');
+    expect(markup).toContain('data-slot="dialog-trigger"');
+  });
+
+  test("the uncontrolled close button is a <form method='dialog'> submit (native close, no JS)", () => {
+    expect(markup).toContain('method="dialog"');
+    expect(markup).toContain('data-slot="dialog-close"');
+  });
+
+  test("the panel is a native <dialog> element with matching id", () => {
     expect(markup).toMatch(/<dialog[\s\n]/);
     expect(markup).toContain('id="${id}"');
   });
+});
 
-  test("every close path is a native <form method=\"dialog\"> submit (close button + backdrop)", () => {
-    expect(markup).toContain('method="dialog"');
-    expect(markup).toContain('data-slot="dialog-close"');
+// ---------------------------------------------------------------------------
+// 3. Controlled API
+// ---------------------------------------------------------------------------
+
+describe("modal.jte: controlled API (server-owned open state)", () => {
+  test("declares open (boolean, default false) and closeAction (String, default null) params", () => {
+    expect(jte).toContain("@param boolean open = false");
+    expect(jte).toContain("@param String closeAction = null");
+  });
+
+  test("hidden smart-attr is present only in controlled-closed state (omitted when uncontrolled or open)", () => {
+    // Old form: hidden="${isControlled && !open ? "" : null}"
+    // (explicit empty-string / null ternary for the boolean attribute).
+    // New form: hidden="${isControlled && !open}" (JTE boolean smart-attribute: emits bare
+    // `hidden` when the expression is true, omits the attr entirely when false or null).
+    // Both forms hide the <dialog> element from the a11y tree + tab order when controlled+closed.
+    expect(markup).toContain('hidden="${isControlled && !open}"');
+  });
+
+  test("the scrim is rendered only in controlled + open state (gated by @if(isControlled && open))", () => {
+    expect(markup).toContain("isControlled && open");
     expect(markup).toContain('data-slot="dialog-backdrop"');
+  });
+
+  test("scrim fires closeAction on click only when closable (must-act protection)", () => {
+    // l:click on scrim uses closeAction conditionally on closable.
+    expect(markup).toContain("closable ? closeAction : null");
+  });
+
+  test("data-lievit-focus-trap is set only in controlled mode (enhancer activation)", () => {
+    // isControlled ? "" : null -> present only when controlled (and enhancer activates on the container).
+    expect(markup).toContain('data-lievit-focus-trap="${isControlled ? "" : null}"');
+  });
+
+  test("data-lievit-escape-action is set only in controlled + closable mode (must-act pattern)", () => {
+    // omitted when !closable: Esc is a no-op (the must-act pattern).
+    expect(markup).toContain('data-lievit-escape-action="${(isControlled && closable) ? closeAction : null}"');
+  });
+
+  test("controlled close button fires l:click closeAction (the wire round-trip)", () => {
+    // The controlled path uses type=button + l:click (not a form submit).
+    expect(markup).toContain('l:click="${closeAction}"');
+  });
+
+  test("controlled + !closable: X button + scrim + Esc-action are all absent (must-act enforced)", () => {
+    // The template gates X on closable, scrim-click on closable, escape-action on closable.
+    // Verify all three are guarded.
+    const closableGates = (markup.match(new RegExp("closable", "g")) ?? []).length;
+    expect(closableGates, "closable must gate at least 3 paths (X, scrim-click, Esc)").toBeGreaterThanOrEqual(3);
   });
 });
 
-describe("modal.jte: shadcn data-slot contract", () => {
-  test("it stamps the shadcn dialog data-slot names", () => {
+// ---------------------------------------------------------------------------
+// 4. A11y contract (WAI-ARIA APG Dialog, Modal)
+// ---------------------------------------------------------------------------
+
+describe("modal.jte: WAI-ARIA APG Dialog a11y contract", () => {
+  test("panel carries role=dialog + aria-modal=true (APG modal role)", () => {
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('aria-modal="true"');
+  });
+
+  test("aria-labelledby is set when heading is present (smart attr wires titleId)", () => {
+    // aria-labelledby is smart-attr: set when hasHeading, null otherwise.
+    expect(markup).toContain("aria-labelledby=");
+    expect(markup).toContain("titleId");
+    // The title element carries the matching id.
+    expect(markup).toContain('id="${titleId}"');
+    expect(markup).toContain('data-slot="dialog-title"');
+  });
+
+  test("a heading-less dialog has aria-label='Dialog' (no nameless dialog rule)", () => {
+    // Falls back to aria-label when heading is absent.
+    expect(markup).toContain('aria-label="${hasHeading ? null : "Dialog"}"');
+  });
+
+  test("aria-describedby is wired to descId when description is present", () => {
+    expect(markup).toContain("aria-describedby=");
+    expect(markup).toContain("descId");
+    expect(markup).toContain('data-slot="dialog-description"');
+  });
+
+  test("close button has aria-label='Close' (icon-only: accessible name mandatory per APG)", () => {
+    // The close button is icon-only so aria-label is required.
+    expect(markup).toContain('aria-label="Close"');
+    expect(markup).toContain('data-slot="dialog-close"');
+  });
+
+  test("the scrim has aria-hidden=true (decorative: never announced to AT)", () => {
+    expect(markup).toContain('aria-hidden="true"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. Data-slot contract
+// ---------------------------------------------------------------------------
+
+describe("modal.jte: data-slot landmark contract", () => {
+  test("it stamps the expected data-slot names", () => {
     for (const slot of [
+      "modal",
       "dialog-trigger",
       "dialog",
       "dialog-content",
       "dialog-header",
       "dialog-title",
       "dialog-description",
+      "dialog-body",
       "dialog-footer",
       "dialog-close",
+      "dialog-backdrop",
     ]) {
       expect(markup, `missing data-slot="${slot}"`).toContain(`data-slot="${slot}"`);
     }
   });
 
-  test("the width token rides data-width (kit Width / ModalWidth parity)", () => {
-    expect(markup).toContain('data-width="${width}"');
-    expect(jte).toContain('@param String width = "md"');
+  test("data-size mirrors the size param (CSS hook + test target)", () => {
+    expect(markup).toContain('data-size="${size}"');
+    expect(jte).toContain('@param String size = "md"');
   });
 });
 
-describe("modal.jte: WAI-ARIA APG Dialog a11y", () => {
-  test("the dialog carries role=dialog + aria-modal + aria-labelledby/aria-describedby", () => {
-    expect(markup).toContain('role="dialog"');
-    expect(markup).toContain('aria-modal="true"');
-    expect(markup).toContain("aria-labelledby=");
-    expect(markup).toContain("aria-describedby=");
-  });
+// ---------------------------------------------------------------------------
+// 6. Projection contract + server-purity + CSP-clean + token-driven + licensed
+// ---------------------------------------------------------------------------
 
-  test("a heading-less dialog falls back to an explicit aria-label (no nameless dialog)", () => {
-    expect(markup).toContain('aria-label="${hasHeading ? null : "Dialog"}"');
-  });
-});
-
-describe("modal.jte: server-pure + CSP-clean + token-driven + licensed", () => {
-  test("the body is an owned server-rendered slot, never a native <slot>", () => {
+describe("modal.jte: projection + server-purity + CSP-clean + token-driven + licensed", () => {
+  test("the body is an owned Content slot (${content}), never a native <slot>", () => {
     expect(jte).toContain("@param gg.jte.Content content");
     expect(markup).toContain("${content}");
     expect(markup).not.toMatch(/<slot[\s>]/);
+  });
+
+  test("footer is an optional Content slot (null = absent, not an empty region)", () => {
+    expect(jte).toContain("@param gg.jte.Content footer = null");
+    expect(markup).toContain("${footer}");
+    expect(markup).toContain("footer != null");
+  });
+
+  test("trigger is an optional Content slot (null = pure controlled, no trigger rendered)", () => {
+    expect(jte).toContain("@param gg.jte.Content trigger = null");
+    expect(markup).toContain("trigger != null");
   });
 
   test("it is CSP-clean: no inline <script>, no inline on* handler", () => {
@@ -121,13 +247,53 @@ describe("modal.jte: server-pure + CSP-clean + token-driven + licensed", () => {
     expect(markup).not.toMatch(/\son[a-z]+=/i);
   });
 
-  test("it is token-driven: --lv-* tokens only, no raw hex colours", () => {
-    expect(markup).toContain("var(--lv-color-bg)");
+  test("it is token-driven: only --lv-* custom properties, no raw hex colors", () => {
+    expect(markup).toContain("var(--lv-color-popover)");
     expect(markup).toContain("var(--lv-z-modal)");
+    expect(markup).toContain("var(--lv-shadow-xl)");
     expect(markup).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  test("it does not import io.lievit.* (PARTIAL: no Java class deps)", () => {
+    expect(jte).not.toContain("@import io.lievit");
   });
 
   test("it carries the Apache licence header", () => {
     expect(jte).toContain("Licensed under the Apache License, Version 2.0");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. Focus-trap enhancer seam (the contract alert-dialog + drawer/sheet compose)
+// ---------------------------------------------------------------------------
+
+describe("modal.jte: focus-trap enhancer data-attribute contract (composable seam)", () => {
+  test("activates trap on the <dialog> element (data-lievit-focus-trap)", () => {
+    // Presence of the attr name proves the seam is wired; value is gated on controlled mode.
+    expect(markup).toContain("data-lievit-focus-trap");
+  });
+
+  test("escape-action is bound on the same element as the trap (atomically paired)", () => {
+    // Both attributes on the same element so the enhancer reads them together.
+    const dialogChunk = markup.split("<dialog")[1] ?? "";
+    const dialogAttrs = dialogChunk.slice(0, dialogChunk.indexOf(">") + 1);
+    expect(dialogAttrs).toContain("data-lievit-focus-trap");
+    expect(dialogAttrs).toContain("data-lievit-escape-action");
+  });
+
+  test("no hand-rolled Tab/focus/scroll logic (no JS event listeners in template markup)", () => {
+    // The enhancer owns ALL keyboard behavior. Check only the active markup, not the doc-comment,
+    // since the doc-comment may describe what the enhancer does (e.g. scroll-lock = overflow:hidden).
+    expect(markup).not.toMatch(/addEventListener/);
+    expect(markup).not.toMatch(/KeyboardEvent/);
+    expect(markup).not.toMatch(/document\.activeElement/);
+    // No inline JS style on overflow: the enhancer sets it, not the template.
+    expect(markup).not.toMatch(/style=[^>]*overflow\s*:/);
+  });
+
+  test("seam note documents alert-dialog + drawer/sheet as composing the SAME two attributes", () => {
+    // The doc-comment must carry the seam note so the coordinator and future agents know.
+    expect(jte).toContain("alert-dialog");
+    expect(jte).toContain("drawer");
   });
 });

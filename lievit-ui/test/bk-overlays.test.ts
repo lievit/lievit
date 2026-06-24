@@ -53,38 +53,57 @@ describe("1. dropdown-menu/item SAFE wire channel", () => {
   });
 });
 
-describe("2. alert-dialog-static partial", () => {
-  test("registers as a registry:jte item named alert-dialog-static (no collision with the wire alert-dialog)", () => {
+// alert-dialog was re-forged: the old "alert-dialog-static" registry item (native <dialog>,
+// command="show-modal", <form method="dialog"> close paths, icon partial composed internally)
+// is GONE. The new "alert-dialog" is a headless controlled/uncontrolled PARTIAL (role=alertdialog,
+// l:click wire actions for confirm/cancel, data-lievit-focus-trap, registryDependencies=["tokens"]).
+// There is no separate "alert-dialog-static" item any more.
+describe("2. alert-dialog partial (headless controlled/uncontrolled, re-forged from alert-dialog-static)", () => {
+  test("registers as a registry:jte item named alert-dialog (headless PARTIAL, not native-dialog static)", () => {
+    // Old: two items — "alert-dialog-static" (native dialog) + "alert-dialog" (wire).
+    // New: single "alert-dialog" item which IS the headless partial (no separate -static variant).
     const names = registry.items.map((i) => i.name);
-    expect(names).toContain("alert-dialog-static");
-    expect(names).toContain("alert-dialog"); // the wire variant is untouched
-    const item = registry.items.find((i) => i.name === "alert-dialog-static")!;
+    expect(names).toContain("alert-dialog");
+    expect(names).not.toContain("alert-dialog-static"); // the -static variant no longer exists
+    const item = registry.items.find((i) => i.name === "alert-dialog")!;
     expect(item.type).toBe("registry:jte");
   });
 
-  test("is a native <dialog> alert prompt: role=alertdialog, NO backdrop, Cancel + Action footer", () => {
+  test("is a headless role=alertdialog panel: l:click confirm/cancel, focus-trap seam, NO native <dialog>", () => {
+    // Old: native <dialog>, command="show-modal", <form method="dialog"> closes,
+    //      data-slot="alert-dialog-action", backdrop=absent, icon partial composed.
+    // New: headless <div role="alertdialog">, l:click wire buttons (confirmWireClick/cancelWireClick),
+    //      data-lievit-focus-trap + data-lievit-escape-action, data-initial-focus on cancel,
+    //      iconSlot Content param (no composed icon partial), no native <dialog>.
     const jte = read("jte/alert-dialog.jte");
     const markup = stripDoc(jte);
-    expect(markup).toContain("<dialog");
     expect(markup).toContain('role="alertdialog"');
     expect(markup).toContain('aria-modal="true"');
-    // declarative open via the invoker command API (like the modal partial), no JS.
-    expect(markup).toContain('command="show-modal"');
-    // the only exits are explicit Cancel + Action; close paths are native <form method="dialog">.
+    // wire l:click actions (not native <form method="dialog"> closes)
+    expect(markup).toContain('l:click="${confirmWireClick}"');
+    expect(markup).toContain('l:click="${cancelWireClick}"');
+    // focus-trap enhancer seam (not native dialog trap)
+    expect(markup).toContain("data-lievit-focus-trap");
+    expect(markup).toContain("data-lievit-escape-action");
+    // cancel button receives initial focus (APG: least-destructive action on open)
+    expect(markup).toContain("data-initial-focus");
+    // data-slots renamed: cancel stays, action → confirm
     expect(markup).toContain('data-slot="alert-dialog-cancel"');
-    expect(markup).toContain('data-slot="alert-dialog-action"');
-    expect(markup).toContain('method="dialog"');
-    // an interruptive prompt: NO backdrop-dismiss button, NO header close (x) -- unlike modal.jte.
-    expect(markup).not.toContain('data-slot="dialog-backdrop"');
-    expect(markup).not.toContain('data-slot="alert-dialog-close"');
-    // CSP-clean: no inline script.
+    expect(markup).toContain('data-slot="alert-dialog-confirm"');
+    // no native <dialog> element (headless: rendered inside the caller's dialog shell)
+    expect(markup).not.toContain("<dialog");
+    expect(markup).not.toContain('command="show-modal"');
+    expect(markup).not.toContain('method="dialog"');
+    // CSP-clean
     expect(markup).not.toMatch(/<script/i);
   });
 
-  test("resolving it pulls tokens + the icon partial (triangle-alert for destructive)", () => {
-    const closure = resolve(registry, ["alert-dialog-static"]).map((i) => i.name);
+  test("resolving it pulls tokens (registryDependencies=[\"tokens\"]; icon is an iconSlot param, not a dep)", () => {
+    // Old: registryDependencies included "icon" (the partial was composed internally).
+    // New: registryDependencies=["tokens"]; icon is passed via the iconSlot Content param by the caller.
+    const closure = resolve(registry, ["alert-dialog"]).map((i) => i.name);
     expect(closure).toContain("tokens");
-    expect(closure).toContain("icon");
+    // icon is no longer a registry dep (caller passes via iconSlot Content param)
   });
 });
 

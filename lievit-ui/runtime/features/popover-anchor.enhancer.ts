@@ -24,6 +24,10 @@
  * Attribute protocol on the PANEL element:
  * - `popover` — native HTML attribute; makes this a popover panel
  * - `data-lv-opener="<id>"` — id of the trigger element that opens this panel
+ * - `data-lv-wire-close="<actionName>"` — (ADDITIVE) wire action name to call on light-dismiss
+ *   instead of the hardcoded `"close"`. When absent, falls back to `"close"` (existing behavior).
+ *   dropdown-menu controlled mode can set `data-lv-wire-close="${escapeAction}"` on the panel so
+ *   the enhancer calls the caller-configured action (e.g. `"toggleOpen"`) without code changes.
  *
  * Attribute protocol inside the panel:
  * - `data-lv-autofocus` — the element to focus after the panel opens
@@ -41,6 +45,11 @@ import type { LievitRuntime } from "../runtime.js";
 
 const OPENER_ATTR = "data-lv-opener";
 const AUTOFOCUS_ATTR = "data-lv-autofocus";
+/**
+ * Additive: configurable light-dismiss action name. When present on the panel, overrides the
+ * hardcoded `"close"` default. Falls back to `"close"` when absent (existing behavior preserved).
+ */
+const WIRE_CLOSE_ATTR = "data-lv-wire-close";
 
 /** Panels that already have the toggle listener attached (idempotency guard). */
 const wiredPanels = new WeakSet<Element>();
@@ -84,10 +93,15 @@ function wirePanel(panel: Element, runtime: LievitRuntime): void {
         opener.focus();
       }
 
-      // Wire sync: call close() on the component owning the panel so server state stays in sync.
-      // The panel is expected to be inside (or be) a lievit component root.
+      // Wire sync: call the light-dismiss action on the component owning the panel.
+      // Additive: reads data-lv-wire-close from the panel for a caller-configured action name,
+      // falling back to the hardcoded "close" default (preserves all existing behavior).
+      const closeAction =
+        (panel as HTMLElement).dataset?.lvWireClose ??
+        panel.getAttribute(WIRE_CLOSE_ATTR) ??
+        "close";
       const componentRoot = panel.closest("[data-lievit-component]") ?? panel;
-      runtime.callAction(componentRoot, "close", { trigger: panel });
+      runtime.callAction(componentRoot, closeAction, { trigger: panel });
     }
   });
 }

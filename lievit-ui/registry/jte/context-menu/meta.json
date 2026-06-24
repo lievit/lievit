@@ -1,0 +1,44 @@
+{
+  "name": "context-menu",
+  "type": "registry:jte",
+  "description": "A right-click context menu (WAI-ARIA APG Menu pattern, context-menu variant). UNCONTROLLED PARTIAL: the open state is managed client-side by context-menu-trigger.enhancer.ts (intercepts the contextmenu DOM event, positions the panel via data-menu-x/data-menu-y CSS attr(), manages outside-click dismiss and Escape). Keyboard roving (arrow keys, Home/End, typeahead, Enter/Space commit) is delegated to the shared collection-nav.enhancer.ts via data-lievit-collection on the panel. CONTROLLED opt-in: bind open to the caller's own @Wire field. Items composed from context-menu/item, context-menu/separator, context-menu/group sub-partials. No Java component, no server round-trip just to open.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/context-menu.jte",
+      "type": "registry:jte",
+      "target": "lievit/context-menu.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/context-menu/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/context-menu/item.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/context-menu/separator.jte",
+      "type": "registry:jte",
+      "target": "lievit/context-menu/separator.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/context-menu/group.jte",
+      "type": "registry:jte",
+      "target": "lievit/context-menu/group.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/context-menu.css",
+      "type": "registry:jte",
+      "target": "lievit/context-menu.css"
+    }
+  ],
+  "enhancers": [
+    "context-menu-trigger.enhancer.ts",
+    "collection-nav.enhancer.ts"
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Copies the context-menu family to your JTE root (lievit/context-menu.jte + lievit/context-menu/{item,separator,group}.jte) and the component CSS (lievit/context-menu.css). Call @template.lievit.context-menu(id, trigger, content) -- compose items from @template.lievit.context-menu.item (role menuitem/checkbox/radio; variant default/destructive; wireClick+wireArgs for per-row safe actions), @template.lievit.context-menu.separator, and @template.lievit.context-menu.group (role group, aria-labelledby). Install the enhancers once: installContextMenuTrigger() from context-menu-trigger.enhancer.ts (handles right-click interception, coordinate positioning, outside-click/Escape dismiss, focus restore); installCollectionNav() from collection-nav.enhancer.ts (arrow key roving, Home/End, typeahead, Enter/Space commit). Import context-menu.css. For controlled open (panel survives a wire round-trip), bind open to your own @Wire boolean field."
+}

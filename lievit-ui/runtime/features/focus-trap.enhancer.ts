@@ -12,6 +12,9 @@
  * Attribute protocol:
  * - `data-lievit-focus-trap` — activates the trap on the element (no value needed)
  * - `data-lievit-escape-action` — wire action to call on Escape (e.g. `"close"`)
+ * - `data-initial-focus` — (ADDITIVE) marks the element inside the trap that should receive initial
+ *   focus. Priority: `[data-initial-focus]` > `[autofocus]` > first focusable > container itself.
+ *   alert-dialog.jte places this on the cancel button (least-destructive default per APG).
  *
  * Idempotency: `data-lievit-rt-focus-trap-active` is stamped on the container while the trap is
  * live; a second activation on the same element is a no-op.
@@ -30,6 +33,8 @@ import type { LievitRuntime } from "../runtime.js";
 const TRAP_ATTR = "data-lievit-focus-trap";
 const ESCAPE_ACTION_ATTR = "data-lievit-escape-action";
 const ACTIVE_ATTR = "data-lievit-rt-focus-trap-active";
+/** Additive: highest-priority initial-focus target (alert-dialog cancel button etc.). */
+const INITIAL_FOCUS_ATTR = "data-initial-focus";
 
 /**
  * Elements that can receive keyboard focus (DOM spec + ARIA supplement).
@@ -70,19 +75,25 @@ function activateTrap(container: Element, runtime: LievitRuntime): void {
 
   const returnTarget = document.activeElement instanceof Element ? document.activeElement : null;
 
-  // Initial focus: [autofocus] > first focusable > container itself
-  const autofocused = container.querySelector<HTMLElement>("[autofocus]");
-  if (autofocused != null) {
-    autofocused.focus();
+  // Initial focus priority (additive, guards ensure no change when data-initial-focus is absent):
+  //   [data-initial-focus] > [autofocus] > first focusable > container itself
+  const initialFocusTarget = container.querySelector<HTMLElement>(`[${INITIAL_FOCUS_ATTR}]`);
+  if (initialFocusTarget != null) {
+    initialFocusTarget.focus();
   } else {
-    const first = getFocusable(container)[0] as HTMLElement | undefined;
-    if (first != null) {
-      first.focus();
+    const autofocused = container.querySelector<HTMLElement>("[autofocus]");
+    if (autofocused != null) {
+      autofocused.focus();
     } else {
-      if (!container.hasAttribute("tabindex")) {
-        (container as HTMLElement).setAttribute("tabindex", "-1");
+      const first = getFocusable(container)[0] as HTMLElement | undefined;
+      if (first != null) {
+        first.focus();
+      } else {
+        if (!container.hasAttribute("tabindex")) {
+          (container as HTMLElement).setAttribute("tabindex", "-1");
+        }
+        (container as HTMLElement).focus();
       }
-      (container as HTMLElement).focus();
     }
   }
 

@@ -206,4 +206,73 @@ describe("popover-anchor.enhancer — native popover API seam", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(calledActions).toContain("close");
   });
+
+  // ---------------------------------------------------------------------------
+  // ADDITIVE: configurable light-dismiss action name via data-lv-wire-close
+  // ---------------------------------------------------------------------------
+
+  it("custom_close_action_via_data_lv_wire_close — data-lv-wire-close overrides the hardcoded close action", async () => {
+    // Build a setup where the panel carries data-lv-wire-close="toggleOpen".
+    const { runtime, calledActions } = makeRuntime();
+    installPopoverAnchor(runtime);
+
+    const openerId = "custom-opener";
+    const opener = document.createElement("button");
+    opener.id = openerId;
+    opener.textContent = "Open";
+    document.body.appendChild(opener);
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.C");
+    componentRoot.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const panel = document.createElement("div");
+    panel.setAttribute("popover", "");
+    panel.setAttribute("data-lv-opener", openerId);
+    panel.setAttribute("data-lv-wire-close", "toggleOpen"); // custom action name
+    panel.id = "custom-panel";
+
+    const content = document.createElement("p");
+    content.textContent = "Custom panel";
+    panel.appendChild(content);
+    componentRoot.appendChild(panel);
+    document.body.appendChild(componentRoot);
+
+    runtime.start();
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    // Light-dismiss.
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    fireToggle(panel, "closed");
+
+    await new Promise((r) => setTimeout(r, 10));
+    // Should fire "toggleOpen", NOT "close".
+    expect(calledActions).toContain("toggleOpen");
+    expect(calledActions).not.toContain("close");
+  });
+
+  it("fallback_to_close_when_no_data_lv_wire_close — without data-lv-wire-close the default close action fires", async () => {
+    // Existing behavior: panel with NO data-lv-wire-close fires "close".
+    const { panel, opener, calledActions } = mountPopover({});
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    fireToggle(panel, "closed");
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions).toContain("close");
+    // Must NOT contain any other action name (pure fallback).
+    expect(calledActions.filter((a) => a !== "close")).toHaveLength(0);
+  });
 });

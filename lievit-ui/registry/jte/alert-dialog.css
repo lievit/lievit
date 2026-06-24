@@ -1,0 +1,27 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * alert-dialog.css -- component-scoped styles for the alert-dialog partial.
+ *
+ * Scope: [data-slot="alert-dialog-confirm"] hover tint per data-variant.
+ * The confirm button background is set inline via style= (token var reference, server-driven),
+ * so hover must be driven via a CSS rule rather than Tailwind utility hover: variants
+ * (which would conflict with the inline style specificity). These rules use color-mix to
+ * produce a 90% tint of the intent token, matching the button.jte hover pattern.
+ *
+ * No inline on*= handlers, no inline <script>: CSP-clean by construction.
+ */
+
+[data-slot="alert-dialog-confirm"][data-variant="destructive"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--lv-color-destructive) 90%, transparent) !important;
+}
+
+[data-slot="alert-dialog-confirm"][data-variant="warning"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--lv-color-warning) 90%, transparent) !important;
+}
+
+[data-slot="alert-dialog-confirm"][data-variant="default"]:hover:not(:disabled),
+[data-slot="alert-dialog-confirm"]:not([data-variant="destructive"]):not([data-variant="warning"]):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--lv-color-primary) 90%, transparent) !important;
+}

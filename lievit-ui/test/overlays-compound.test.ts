@@ -95,8 +95,8 @@ describe("dropdown-menu/item: the checked-state indicator glyph (shadcn ItemIndi
   test("the glyph is a Lucide check (checkbox) or a filled dot (radio), shown when checked", () => {
     expect(markup).toMatch(/@if\(checked\)/);
     expect(jte).toContain('@template.lievit.icon(name = "check"');
-    // radio renders a filled dot via currentColor, not a check icon.
-    expect(markup).toContain("background: currentColor");
+    // radio renders a filled dot via currentColor (no space after colon: inline style concat form).
+    expect(markup).toContain("background:currentColor");
   });
   test("the inline shortcut now carries the shortcut data-slot (back-compat retained)", () => {
     expect(markup).toContain('data-slot="dropdown-menu-shortcut"');
@@ -135,16 +135,29 @@ describe("dropdown-menu/sub: a server-first nested submenu (Sub/SubTrigger/SubCo
   });
 });
 
-describe("popover.jte: align axis + labelled-dialog header + anchor decoupling", () => {
+// popover was re-forged: the `align` param (start|center|end → data-align + CSS offset span) and
+// `anchorId` param (decoupling the positioning anchor from the trigger) were REMOVED.
+// `align` was absorbed into the 12 `placement` positions (bottom-start, bottom-end, top-start, etc.).
+// `anchorId` decoupling moved to the separate popover/anchor.jte sub-partial (unchanged).
+describe("popover.jte: placement vocab (12 positions), labelled-dialog header", () => {
   const jte = read("jte/popover.jte");
   const markup = stripComments(jte);
-  test("the align axis maps start|center|end to data-align + a position-area inline span", () => {
-    expect(jte).toContain('@param String align');
-    expect(markup).toContain('data-align="${align}"');
-    // start spans the inline-end side, end the inline-start side (CSS anchor positioning).
-    expect(jte).toContain('case "start" -> "span-right"');
-    expect(jte).toContain('case "end"   -> "span-left"');
+
+  test("placement param (not align) drives CSS position-area via 12 two-keyword values", () => {
+    // Old: @param String align (start|center|end) + data-align + case "start"->"span-right" etc.
+    // New: @param String placement = "bottom-start" covering all 12 CSS Anchor Positioning positions.
+    // align and data-align are removed; start/end semantics live in placement (e.g. bottom-start).
+    expect(jte).toContain('@param String placement = "bottom-start"');
+    expect(jte).not.toContain("@param String align");
+    expect(markup).not.toContain('data-align="${align}"');
+    // The 12 placements map to CSS position-area values (bottom span-right is the bottom-start default).
+    expect(jte).toContain('"bottom-start" -> "bottom span-right"');
+    expect(jte).toContain('"bottom-end"   -> "bottom span-left"');
+    expect(jte).toContain('"top-start"    -> "top span-right"');
+    expect(jte).toContain('"top-end"      -> "top span-left"');
+    expect(markup).toContain("position-area:${positionArea}");
   });
+
   test("a title turns the panel into a LABELLED dialog (role=dialog + aria-labelledby the title id)", () => {
     expect(markup).toContain('role="${labelled ? "dialog" : null}"');
     expect(markup).toContain('aria-labelledby="${labelled ? titleId : null}"');
@@ -160,11 +173,14 @@ describe("popover.jte: align axis + labelled-dialog header + anchor decoupling",
     expect(markup).not.toContain('role="dialog" ');
     expect(markup).not.toContain('aria-modal');
   });
-  test("anchorId decouples the positioning anchor from the trigger", () => {
-    expect(jte).toContain("@param String anchorId");
-    // when anchorId is set the trigger drops its own anchor-name; the panel binds to --<anchorId>-anchor.
-    expect(markup).toContain("anchorId.isEmpty()");
-    expect(markup).toContain("position-anchor:${anchorName}");
+  test("anchorId decoupling moved to popover/anchor.jte sub-partial (trigger-side only in popover.jte)", () => {
+    // Old: @param String anchorId on popover.jte; trigger dropped anchor-name when anchorId set.
+    // New: anchorId is removed from popover.jte; the decoupling lives entirely in popover/anchor.jte
+    // (the shadcn PopoverAnchor sub-partial), which sets anchor-name:--<anchorId>-anchor on the
+    // anchor element. The popover.jte trigger always sets its own anchor-name from ${triggerId}.
+    expect(jte).not.toContain("@param String anchorId");
+    // The panel still uses position-anchor (bound to the trigger's anchor via anchorIdent).
+    expect(markup).toContain("position-anchor:${anchorIdent}");
   });
   test("still CSP-clean, no <slot>, token-driven, Apache-headed", () => {
     assertCspClean(jte, "popover");

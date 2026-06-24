@@ -1,0 +1,69 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * context-menu: pointer-coordinate positioning (CSP-clean, no inline style).
+ *
+ * The context-menu-trigger.enhancer.ts sets data-menu-x / data-menu-y (integer pixel values)
+ * on the panel element after the contextmenu event fires. This CSS rule reads those attributes
+ * via CSS attr() and translates the panel to the pointer position.
+ *
+ * The panel is position:fixed + top:0 + left:0 (inlined in the JTE template to keep it out of
+ * the a11y tree when absent). The translate here applies ONLY when the panel is present in the
+ * DOM AND the enhancer has set the coordinate attributes. Before the enhancer fires (first paint
+ * of a controlled-mode open) the panel renders at 0,0 momentarily -- the enhancer corrects it
+ * synchronously in the same event loop tick.
+ *
+ * CSS attr() with type(<number>) is the modern form (CSS Values Level 5), broadly supported in
+ * 2026 browsers. The fallback 0 keeps the panel at the origin until coordinates arrive.
+ *
+ * Token: --lv-context-menu-min-width (structural, 12rem / 192px). Not a colour token; no dark
+ * variant needed. Declared here so the JTE template can reference it via var() without a
+ * TOKENS_NEEDED flag (structural token, not a colour).
+ */
+
+:root {
+  --lv-context-menu-min-width: 12rem;
+}
+
+[data-slot="context-menu-panel"] {
+  min-width: var(--lv-context-menu-min-width);
+  --_menu-x: 0;
+  --_menu-y: 0;
+  transform: translate(calc(var(--_menu-x) * 1px), calc(var(--_menu-y) * 1px));
+}
+
+/* When the enhancer stamps the coordinate attributes, read them via attr(). */
+[data-slot="context-menu-panel"][data-menu-x] {
+  --_menu-x: attr(data-menu-x type(<number>), 0);
+  --_menu-y: attr(data-menu-y type(<number>), 0);
+}
+
+/*
+ * Size variants: --lv-item-height drives the min-height in item.jte via the CSS custom property
+ * (no Tailwind token for the exact space values by name at runtime; the property is set here on
+ * the panel and cascades to the items inside).
+ */
+[data-slot="context-menu-panel"][data-size="sm"] {
+  --lv-item-height: var(--lv-space-8);
+}
+
+[data-slot="context-menu-panel"][data-size="md"],
+[data-slot="context-menu-panel"]:not([data-size]) {
+  --lv-item-height: var(--lv-space-9);
+}
+
+[data-slot="context-menu-panel"][data-size="lg"] {
+  --lv-item-height: var(--lv-space-10);
+}
+
+/* Danger item: destructive token colour override via data-danger attribute. */
+[data-slot="context-menu-item"][data-danger="true"] {
+  color: var(--lv-color-destructive);
+}
+
+[data-slot="context-menu-item"][data-danger="true"]:hover,
+[data-slot="context-menu-item"][data-danger="true"]:focus {
+  background: color-mix(in srgb, var(--lv-color-destructive) 10%, transparent);
+  color: var(--lv-color-destructive);
+}

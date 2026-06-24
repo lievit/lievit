@@ -20,6 +20,8 @@ import { installCheckbox } from "./checkbox.enhancer.js";
 import { installTextareaAutosize } from "./textarea-autosize.enhancer.js";
 import { installSlider } from "./slider.enhancer.js";
 import { installScrollArea } from "./scroll-area.enhancer.js";
+import { installHoverCard } from "./hover-card.enhancer.js";
+import { installContextMenuTrigger } from "./context-menu-trigger.enhancer.js";
 import { installConfirm } from "./confirm.js";
 import { installCurrent } from "./current.js";
 import { installDirty } from "./dirty.js";
@@ -108,6 +110,8 @@ export { installCheckbox } from "./checkbox.enhancer.js";
 export { installTextareaAutosize } from "./textarea-autosize.enhancer.js";
 export { installSlider } from "./slider.enhancer.js";
 export { installScrollArea } from "./scroll-area.enhancer.js";
+export { installHoverCard } from "./hover-card.enhancer.js";
+export { installContextMenuTrigger } from "./context-menu-trigger.enhancer.js";
 
 /**
  * Installs every batch-2 client feature on a runtime (the convenience an app's `main.ts` calls after
@@ -151,4 +155,6 @@ export function installAllFeatures(
   installTextareaAutosize(runtime);
   installSlider(runtime);
   installScrollArea(runtime);
+  installHoverCard(runtime);
+  installContextMenuTrigger();
 }

@@ -227,29 +227,58 @@ describe("tooltip: positioning (placement via CSS Anchor Positioning) + arrow", 
 // ---------------------------------------------------------------------------
 // hover-card: align + sideOffset
 // ---------------------------------------------------------------------------
-describe("hover-card: positioning (align + sideOffset), preview model intact", () => {
-  const src = read("hover-card.jte");
-  test("keeps the Radix preview model: content panel has NO role + is aria-hidden", () => {
-    expect(src).toContain('data-slot="hover-card-content"');
-    expect(src).toContain('aria-hidden="true"');
-    // no role= on the content panel (the preview-model invariant the central suite also pins)
-    expect(src).not.toMatch(/data-slot="hover-card-content"[^>]*\srole=/);
+// hover-card was re-forged: the old CSS-only single partial (Radix preview model, align/sideOffset,
+// group-hover, aria-hidden) is replaced by TWO partials with WAI-ARIA APG Tooltip semantics.
+// OLD: single hover-card.jte with trigger+content slots, align/sideOffset, group-hover:visible,
+//      aria-hidden="true", data-slot="hover-card-content".
+// NEW: hover-card-trigger.jte (trigger wrapper) + hover-card.jte (panel): role="tooltip",
+//      popover="manual", placement param (CSS Anchor Positioning, not align/sideOffset),
+//      maxWidth param, header/content/footer slots. Panel NOT aria-hidden (APG Tooltip).
+describe("hover-card: new two-partial surface (WAI-ARIA APG Tooltip, CSS Anchor Positioning)", () => {
+  const panel = read("hover-card.jte");
+  const trigger = read("hover-card-trigger.jte");
+
+  test("panel has role=tooltip and is NOT aria-hidden (APG Tooltip: aria-describedby link in a11y tree)", () => {
+    // Old: data-slot="hover-card-content" + aria-hidden="true" (Radix preview model).
+    // New: data-slot="hover-card" + role="tooltip" (APG Tooltip); panel must NOT be aria-hidden
+    // because the trigger's aria-describedby link requires the panel in the a11y tree.
+    expect(panel).toContain('role="tooltip"');
+    expect(panel).toContain('data-slot="hover-card"');
+    expect(panel).not.toContain('aria-hidden="true"');
+    expect(panel).not.toContain('data-slot="hover-card-content"');
   });
-  test("adds align + sideOffset params + mirrors align as data-align", () => {
-    expect(src).toContain("@param String align");
-    expect(src).toContain("@param String sideOffset");
-    expect(src).toContain('data-align="${align}"');
+
+  test("placement param (not align/sideOffset) drives CSS Anchor Positioning position-area", () => {
+    // Old: align + sideOffset params, CSS left/right offset.
+    // New: placement param mapping to CSS Anchor Positioning position-area values; no align/sideOffset.
+    expect(panel).toContain('@param String placement = "bottom"');
+    expect(panel).not.toContain("@param String align");
+    expect(panel).not.toContain("@param String sideOffset");
+    // placement maps to position-area two-keyword values
+    expect(panel).toContain('"bottom center"');
+    expect(panel).toContain('"top center"');
+    expect(panel).toContain("position-area:${positionArea}");
   });
-  test("align maps to the horizontal anchoring; sideOffset is the token gap below the trigger", () => {
-    expect(src).toContain('case "center" -> "left:50%; transform:translateX(-50%);"');
-    expect(src).toContain('case "end"    -> "right:0;"');
-    // default gap is a bracketed token margin class; caller override is inline
-    expect(src).toContain('"mt-[var(--lv-space-1)]"');
-    expect(src).toContain('"margin-top:" + sideOffset');
+
+  test("trigger wrapper sets data-card-id, delay params, and CSS anchor-name (positioning seam)", () => {
+    // Old: trigger was a slot inside a single partial. New: separate hover-card-trigger.jte.
+    // The trigger wrapper: data-lv-hover-card-trigger, cardId, delay, closeDelay, openOnFocus,
+    // anchor-name (CSS AP seam), aria-describedby linking to the card panel.
+    expect(trigger).toContain("@param String cardId");
+    expect(trigger).toContain("@param int delay");
+    expect(trigger).toContain("@param int closeDelay");
+    expect(trigger).toContain("data-lv-hover-card-trigger");
+    expect(trigger).toContain("anchor-name:");
+    expect(trigger).toContain('aria-describedby="${cardId}"');
   });
-  test("still revealed purely by CSS (no Floating UI, no JS)", () => {
-    expect(src).toContain("group-hover:visible");
-    expect(src.toLowerCase()).not.toContain("floating-ui");
+
+  test("revealed via popover=manual + hover-card.enhancer.ts (not CSS group-hover)", () => {
+    // Old: group-hover:visible + group-focus-within:visible (CSS-only, no JS).
+    // New: popover="manual" (UA hides panel); hover-card.enhancer.ts controls show/hide.
+    expect(panel).toContain('popover="manual"');
+    expect(panel).toContain("hover-card.enhancer.ts");
+    expect(panel).not.toContain("group-hover:visible");
+    expect(panel.toLowerCase()).not.toContain("floating-ui");
   });
 });
 

@@ -8,6 +8,22 @@ You are re-forging ONE lievit-ui presentational primitive to its v-next spec. Qu
 **React-Aria-grade accessibility, Ant-Design-grade feature completeness, Tailwind-UI-grade
 styling** — all by ORIGINAL generation, never a literal copy of any source's code.
 
+## CLEAN BREAK — no back-compat aliases (DECIDED, load-bearing)
+
+This is a PRE-RELEASE branch that REPLACES the old primitives wholesale. There is no released
+v-next API to preserve, no external consumer that breaks silently (copy-in adopters own their
+copies; the import path does not exist yet; gest is re-aligned by its cutover; lievitKIT does not
+exist yet). So:
+- Re-forge each primitive to its **single cleanest v-next API**. Do NOT add back-compat aliases,
+  legacy param names, or dual old/new paths "to keep callers working". One name per concept.
+- The ONLY consumers of the current API are lievit-ui's OWN blocks in `registry/jte/blocks/`
+  (app-shell, login, dashboard, signup) + `registry/jte/data-table*`. "Keep them working" means
+  **MIGRATE them to the clean new API** in your report (list the exact call sites + the new call),
+  NEVER contort the primitive to stay backward-compatible. They are the dogfood surface, not a
+  frozen contract. The coordinator migrates the block call sites after the wave.
+- If you find an existing back-compat alias layer on the primitive you're re-forging (e.g. dual
+  param names), DELETE it and report the consumers to migrate.
+
 Work in `/home/atelier/workspaces/iambilotta/lievit-vnext-build/lievit-ui`. `cd` there first.
 
 ## What you produce (your component ONLY)
@@ -25,6 +41,39 @@ Work in `/home/atelier/workspaces/iambilotta/lievit-vnext-build/lievit-ui`. `cd`
 4. `registry/jte/<name>.jte` + its `meta.json` — the CURRENT primitive you are re-forging (preserve what is already correct; improve the rest).
 5. `registry/tokens/lievit-tokens.css` — the token source of truth (OKLCH + hex fallback, `--lv-*`).
 6. An already-re-forged exemplar to match house style: `registry/jte/badge.jte`, `registry/jte/switch.jte`, `registry/jte/alert.jte` (+ their meta.json + test).
+
+## Overlay & stateful primitives: CONTROLLED / UNCONTROLLED (the tier doctrine — DECIDED)
+
+An overlay (popover, dialog/modal, drawer/sheet, dropdown-menu, context-menu, menubar,
+navigation-menu, hover-card, command, combobox) and any open/expand/active-state primitive
+(tabs, accordion, wizard) is a **headless controlled/uncontrolled** component, NEVER a bespoke
+WIRE component. The open/expand/active state is NOT owned by the overlay.
+
+- **Uncontrolled = the default.** The trigger toggles a native `[popover]` (or the shared
+  `popover-anchor.enhancer.ts`) CLIENT-side; zero-JS degrades; NO Java component; NO server
+  round-trip just to open. This is how tooltip/hover-card/popover/dropdown-menu/context-menu/
+  menubar/navigation-menu/alert-dialog(simple)/command(preloaded) work.
+- **Controlled = opt-in via a plain `@param`.** Expose `open` (boolean, default false) as a
+  `@param` the CALLER can bind to ITS OWN parent `@Wire` field — e.g. `open="${form.dialogOpen()}"`.
+  The overlay stays a presentational shell: it does NOT declare a `@Wire` field, does NOT have its
+  own Java component, does NOT take `_component`/`_instance`/`_componentSnapshot` params. The
+  BUSINESS component that needs the overlay owns the open flag. This covers the only cases that
+  justify server-owned open: (1) content fetched on open, (2) open must survive a round-trip
+  (a form re-rendering with validation errors must STAY open = read-your-writes on `open`),
+  (3) open is a genuine business fact.
+- **Actions inside are already wire.** Menu items / buttons inside carry their own `l:click`/`href`
+  — those are the server round-trips, and they work whether or not the overlay is controlled. Do
+  NOT conflate "the items do server work" with "the open state must be server state".
+- **Lazy content (optional):** an `hx-get` / `l:lazy` on the panel loads the body on first open;
+  the overlay stays uncontrolled, only the content fetches.
+
+DO NOT: shift an overlay/stateful primitive to a bespoke WIRE component; add `_component`/`_instance`/
+`_componentSnapshot` params; remove the zero-JS native-popover/`<details>` baseline. The clean overlay
+API is `trigger`/`content` Content slots + the `open` controlled boolean param; if a `registry/jte/blocks/`
+consumer's call doesn't match the clean API, MIGRATE the consumer (report the call site + the new call),
+do NOT add a back-compat alias (see "CLEAN BREAK" above). The parked WIRE drafts in
+`planning/v-next/drafts/` are a reference for the CONTROLLED-mode markup ONLY (the `open`/`l:click`
+wiring), not a template to ship as-is.
 
 ## HARD rules (lessons already paid for — violating these breaks the gate)
 

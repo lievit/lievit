@@ -42,6 +42,8 @@ function buildTrap(opts: {
   buttonCount?: number;
   escapeAction?: string;
   autofocusFirst?: boolean;
+  /** Index of the button that should carry data-initial-focus (highest priority). */
+  initialFocusIdx?: number;
 } = {}): {
   runtime: LievitRuntime;
   actions: string[];
@@ -70,6 +72,9 @@ function buildTrap(opts: {
     btn.textContent = `Btn${i}`;
     if (i === 0 && opts.autofocusFirst === true) {
       btn.setAttribute("autofocus", "");
+    }
+    if (opts.initialFocusIdx === i) {
+      btn.setAttribute("data-initial-focus", "");
     }
     container.appendChild(btn);
     buttons.push(btn);
@@ -157,6 +162,61 @@ describe("focus-trap.enhancer — WAI-ARIA APG Dialog Modal", () => {
         (a) => a.name === "data-lievit-rt-focus-trap-active",
       ).length,
     ).toBe(1);
+  });
+
+  it("data_initial_focus_wins_over_autofocus — [data-initial-focus] gets focus before [autofocus] and first-focusable", () => {
+    // Build a trap where btn0 has [autofocus], btn2 has [data-initial-focus].
+    // Expected: btn2 receives focus (highest priority), not btn0.
+    document.body.innerHTML = "";
+    const actions: string[] = [];
+
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.C");
+    componentRoot.setAttribute("data-lievit-id", `cid-initial-focus`);
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+
+    const container = document.createElement("div");
+    container.setAttribute("data-lievit-focus-trap", "");
+
+    const btn0 = document.createElement("button");
+    btn0.textContent = "Btn0";
+    btn0.setAttribute("autofocus", ""); // autofocus — lower priority than data-initial-focus
+    container.appendChild(btn0);
+
+    const btn1 = document.createElement("button");
+    btn1.textContent = "Btn1";
+    container.appendChild(btn1);
+
+    const btn2 = document.createElement("button");
+    btn2.textContent = "Btn2";
+    btn2.setAttribute("data-initial-focus", ""); // highest priority
+    container.appendChild(btn2);
+
+    componentRoot.appendChild(container);
+    document.body.appendChild(componentRoot);
+
+    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
+    installFocusTrap(runtime);
+    runtime.start();
+
+    // btn2 (data-initial-focus) must win over btn0 (autofocus).
+    expect(document.activeElement).toBe(btn2);
+  });
+
+  it("data_initial_focus_wins_over_first_focusable — [data-initial-focus] on a non-first item beats first-focusable fallback", () => {
+    // No [autofocus], btn1 carries [data-initial-focus]. Expect btn1, not btn0 (first focusable).
+    const { buttons } = buildTrap({ buttonCount: 3, initialFocusIdx: 1 });
+    expect(document.activeElement).toBe(buttons[1]);
+  });
+
+  it("no_initial_focus_attr_falls_back_to_autofocus — without [data-initial-focus], [autofocus] still works", () => {
+    const { buttons } = buildTrap({ autofocusFirst: true });
+    expect(document.activeElement).toBe(buttons[0]);
+  });
+
+  it("no_initial_focus_attr_falls_back_to_first_focusable — without [data-initial-focus] or [autofocus], first focusable gets focus", () => {
+    const { buttons } = buildTrap({ buttonCount: 3 });
+    expect(document.activeElement).toBe(buttons[0]);
   });
 
   it("focus_returns_to_trigger_on_cleanup — focus is restored to the pre-trap element after removal", async () => {
