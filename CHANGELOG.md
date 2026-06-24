@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- feat(runtime): focus-trap.enhancer.ts — WAI-ARIA APG Dialog Modal focus trap (activate/trap/restore/scroll-lock/Escape), registered in installAllFeatures
+- feat(runtime): collection-nav.enhancer.ts — WAI-ARIA APG Listbox+Menu roving-tabindex/aria-activedescendant collection keyboard nav (ArrowDown/Up, Home/End, typeahead, disabled-skip, Enter-to-select), registered in installAllFeatures
+- feat(runtime): popover-anchor.enhancer.ts — native popover API seam (opener bookkeeping, focus-return on light-dismiss, close() wire sync, autofocus delegation), registered in installAllFeatures
+
 - **SSE reconnection hardening on the live/delivery channels** (ADR-0086). lievit's two real-time
   channels — the per-user broadcast push (`openBroadcastSource`, #304/#45) and the AI text-token stream
   (`openStream`, #153) — now self-heal across dropped connections instead of relying on the browser's

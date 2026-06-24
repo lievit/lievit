@@ -12,6 +12,9 @@
 
 import type { LievitRuntime } from "../runtime.js";
 import { installAssets } from "./assets.js";
+import { installCollectionNav } from "./collection-nav.enhancer.js";
+import { installFocusTrap } from "./focus-trap.enhancer.js";
+import { installPopoverAnchor } from "./popover-anchor.enhancer.js";
 import { installConfirm } from "./confirm.js";
 import { installCurrent } from "./current.js";
 import { installDirty } from "./dirty.js";
@@ -92,6 +95,9 @@ export {
   type UploadTransport,
   type UploadOptions,
 } from "./uploads.js";
+export { installFocusTrap } from "./focus-trap.enhancer.js";
+export { installCollectionNav } from "./collection-nav.enhancer.js";
+export { installPopoverAnchor } from "./popover-anchor.enhancer.js";
 
 /**
  * Installs every batch-2 client feature on a runtime (the convenience an app's `main.ts` calls after
@@ -127,4 +133,7 @@ export function installAllFeatures(
   installTeleport(runtime);
   installPageExpired(runtime);
   installUploads(runtime, options.uploads);
+  installFocusTrap(runtime);
+  installCollectionNav(runtime);
+  installPopoverAnchor(runtime);
 }
