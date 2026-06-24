@@ -3,76 +3,87 @@
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui :: native-select (static JTE partial)
+  lievit-ui native-select partial -- token-styled wrapper around the native <select> element.
 
-  A token-styled wrapper around the REAL native <select> element, with a Lucide
-  chevron-down indicator. This is the lightweight, form-native select: it submits with a
-  plain form, needs zero JavaScript, and is fully accessible for free. It is NOT the Lit
-  combobox (that ships separately as `select` / `rich-select` for the searchable,
-  custom-listbox case). Mirrors shadcn's native-select wrapper, not its Radix Select.
+  TIER: PARTIAL -- pure presentation, zero client state. The native <select> carries role=listbox,
+  full keyboard interaction, accessible-name binding, and form submission for free from the
+  platform. No enhancer is created or needed: this is the canonical exemplar of "prefer a real
+  native element" (architecture contract §2.a).
 
-  Tier rationale: pure presentation around a native control, no client state. JTE partial.
+  STRUCTURE (scientific decision rule):
+    - WAI-ARIA APG Listbox native-select baseline: the native <select> IS a conformant listbox;
+      no custom role is emitted; the platform supplies all keyboard interaction identically to
+      the APG scrollable-listbox keyboard map (https://www.w3.org/WAI/ARIA/apg/patterns/listbox/).
+    - Inventory reference: Ant Design Select (native variant) -- sizes, placeholder, groups,
+      disabled options, required, invalid; shadcn native-select structural idiom: style the native
+      element, do not replace it (appearance-none to suppress the OS arrow, decorative chevron
+      overlay with aria-hidden).
+    - Option authoring: three paths with explicit precedence (content > optionGroups > options).
+      Simple value==label list -> options. Typed grouped list -> optionGroups (native <optgroup>).
+      Hand-authored <option>/<optgroup> markup (value!=label, per-option disabled, metadata) ->
+      content slot.
+    - Styling: ORIGINAL generation over --lv-* (OKLCH) tokens; look inspired by Tailwind UI
+      (NO code copied).
 
-  SHAPE DECISION (scientific rule). shadcn/MUI/Radix/Web Awesome were compared for the
-  native-select case. A custom listbox (Radix Select / Web Awesome wa-select) reimplements
-  keyboard + focus + screen-reader semantics in JS and breaks no-JS form submit; the native
-  <select> gets all of that from the platform and submits natively. On criteria (1) a11y and
-  (3) bundle size the native element wins outright for this lightweight variant, so we style
-  the native control instead of replacing it (shadcn's exact native-select approach): the
-  visible chevron is an aria-hidden overlay (the native arrow is hidden via appearance-none),
-  the <select> keeps its own focus ring through the wrapper's focus-within.
+  A11y (WAI-ARIA APG Listbox -- native platform select):
+    - role: implicit role=listbox on <select>, role=option on <option>, role=group on <optgroup>;
+      no custom role emitted -- the platform supplies all.
+    - aria-label: on <select> when no visible <label> is present; not emitted when null.
+    - aria-invalid: on <select> when invalid=true; absent otherwise.
+    - required / disabled: native boolean attributes on <select>; platform supplies AT semantics.
+    - chevron <span>: aria-hidden="true" (decorative visual indicator).
+    - accessible-name: <label for="{selectId}"> is the preferred path (platform binds the name);
+      aria-label is the fallback for label-free contexts.
+    - focus ring: wrapper uses CSS focus-within so keyboard users see the active control border +
+      ring without a custom focus handler; the <select> keeps its native focus for AT.
+    - keyboard: entirely platform-supplied (Tab, arrows, Home, End, type-ahead, Space/Enter/Esc);
+      no enhancer is created or needed.
 
-  OPTIONS: pass either a List<String> via `options` (each becomes an <option> whose value ==
-  label), a Map<String, List<String>> via `optionGroups` (group label -> options, each rendered
-  inside a native <optgroup>), OR a `content` slot of hand-authored <option>/<optgroup> markup for
-  value!=label or per-option disabled. Precedence: `content` > `optionGroups` > `options`. This
-  keeps the simple case a one-liner, the common grouped case typed (data down from the model), and
-  the fully custom case expressive.
-
-  SIZE (toolbar parity with @@template.lievit.button + @@template.lievit.input). `size` is
-  HEIGHT-based so the select sits flush next to a button / input of the matching size in a toolbar
-  row. Each size pins the SAME --lv-space height token the other form controls use:
-    sm -> h-[var(--lv-space-8)]  (2rem)   ; compact toolbar
-    md -> h-[var(--lv-space-9)]  (2.25rem); THE default, the row baseline (== button md, input md; the shadcn baseline)
-    lg -> h-[var(--lv-space-10)] (2.5rem) ; tall
-  The chevron + padding track the height so every size reads as the same control. "default" is kept
-  as a back-compat alias of "md" (both render the h-[var(--lv-space-9)] baseline height).
-
-  Accessibility: a real <select> with its own id/name, so a <label for> binds directly. The
-  optional `label` renders a real <label for> above the control; when no visible label is
-  given, pass `ariaLabel` for an accessible name. `placeholder` becomes a disabled, selected,
-  hidden first <option> (the native "choose..." idiom) when no value is set. The chevron is
-  decorative; the wrapper raises focus-within so keyboard users see the active field.
+  SIZE (toolbar-aligned per architecture contract §5.b -- form controls use height-based scale):
+    sm     -> h-[var(--lv-space-8)]  (32px)  compact toolbar, filter row
+    md     -> h-[var(--lv-space-9)]  (36px)  standard form; THE default; shadcn baseline
+    lg     -> h-[var(--lv-space-10)] (40px)  prominent / standalone field
+    default -> h-[var(--lv-space-9)] (36px)  back-compat alias of md
+  A button, input, and native-select of the same size sit flush-aligned in a toolbar row.
 
   Params:
-    String name                  the select's name attribute.
-    String id          = name    the select's id (for a <label for>); defaults to name.
-    java.util.List<String> options = null  simple value==label option list.
-    java.util.Map<String, java.util.List<String>> optionGroups = null  group label -> options (<optgroup>).
-    gg.jte.Content content = null  hand-authored <option>/<optgroup> markup (wins over the maps).
-    String value       = null    the selected value (matched against option values).
-    String label       = null    visible <label> text rendered above the control.
-    String ariaLabel   = null    aria-label when there is no visible label.
-    String placeholder = null    a disabled/hidden first option shown when value is empty.
-    String size        = "md"    "sm" | "md" | "lg" control height ("default" = back-compat alias of "md").
-    boolean disabled   = false   disables the control + dims the wrapper.
-    boolean required   = false   marks the control required.
-    boolean invalid    = false   destructive border + ring + aria-invalid="true".
-    String model       = null    l:model expression to bind the <select> to a wire field.
-    String cssClass    = ""      extra utility classes on the wrapper.
+    String name                                      the <select name>; doubles as default id.
+    String id                       = name           <select id> for <label for>; defaults to name.
+    java.util.List<String> options  = null           simple flat list: value == label.
+    java.util.Map<String, java.util.List<String>> optionGroups = null
+                                                     group label to option labels; renders <optgroup>.
+                                                     Overrides options; ignored when content is set.
+    gg.jte.Content content          = null           hand-authored <option>/<optgroup> slot;
+                                                     wins over options and optionGroups.
+    String value                    = null           currently selected option value; server-matched.
+    String label                    = null           renders a real <label for=selectId> above the
+                                                     control; the preferred accessible-name path.
+    String ariaLabel                = null           aria-label on <select>; required when label is null.
+    String placeholder              = null           disabled hidden first option shown when no value set.
+    String size                     = "md"           "sm" | "md" | "lg" height scale; "default" = "md".
+    boolean disabled                = false          native disabled + dims wrapper.
+    boolean required                = false          native required; HTML5 constraint validation.
+    boolean invalid                 = false          aria-invalid + destructive border + ring.
+    String model                    = null           l:model expression (change -> wire field setter).
+    String cssClass                 = ""             extra utility classes on the outer wrapper.
 
-  This is the ONE select component in lievit-ui (ADR-0012, the redundant Lit `select` island was
-  removed): the value!=label case the island covered via an options array is covered here by the
-  `content` slot, and `l:model` on the native <select> binds the native change event with no JS.
+  Escaping channels:
+    label, ariaLabel, placeholder, size, cssClass, name, id, value, model -> JTE ${} (attr-escaped).
+    options / optionGroups -> option + group labels through JTE ${} (attr-escaped).
+    content -> gg.jte.Content slot; caller-authored markup; no raw-injection path via JTE's type system.
+    No attrs trusted-raw channel: this partial has no per-row dynamic wire action.
 
   Usage:
     @@template.lievit.native-select(
-      name = "stato", label = "Stato", placeholder = "Seleziona...", size = "sm",
+      name = "stato", label = "Stato", placeholder = "Seleziona...", size = "md",
       options = java.util.List.of("Attivo", "Sospeso", "Chiuso"), value = contatto.stato()
     )
 
-    @@template.lievit.native-select(name = "citta", label = "Citta", optionGroups =
-      java.util.Map.of("Emilia", java.util.List.of("Parma", "Reggio"), "Lombardia", java.util.List.of("Milano")))
+    @@template.lievit.native-select(
+      name = "citta", label = "Citta",
+      optionGroups = java.util.Map.of("Emilia", java.util.List.of("Parma", "Reggio"),
+                                      "Lombardia", java.util.List.of("Milano"))
+    )
 
     @@template.lievit.native-select(name = "agente", ariaLabel = "Agente", content = @@`
       <option value="">Tutti</option>
@@ -80,6 +91,11 @@
         <option value="42">Cecchetto</option>
       </optgroup>
     `)
+
+    @@template.lievit.native-select(
+      name = "regione", label = "Regione", size = "sm",
+      options = java.util.List.of("Emilia-Romagna", "Lombardia"), model = "regione"
+    )
 --%>
 @param String name = null
 @param String id = null
@@ -99,16 +115,22 @@
 
 !{var selectId = (id != null && !id.isBlank()) ? id : name;}
 !{var hasValue = value != null && !value.isBlank();}
+!{var hasAriaLabel = ariaLabel != null && !ariaLabel.isBlank();}
 
 @if(label != null && !label.isBlank())
-  <label for="${selectId}" data-slot="native-select-label" class="mb-[var(--lv-space-2)] block text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]" style="font-family:var(--lv-font-sans);">${label}</label>
+<label
+  for="${selectId}"
+  data-slot="native-select-label"
+  class="mb-[var(--lv-space-2)] block text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]"
+  style="font-family:var(--lv-font-sans);"
+>${label}</label>
 @endif
 <div
   data-slot="native-select-wrapper"
   data-disabled="${disabled}"
   data-invalid="${invalid}"
   data-size="${size}"
-  class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-[color,box-shadow] outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[invalid=true]:border-[var(--lv-color-destructive)] data-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=md]:h-[var(--lv-space-9)] data-[size=default]:h-[var(--lv-space-9)] data-[size=lg]:h-[var(--lv-space-10)] ${cssClass}"
+  class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-[color,box-shadow] outline-none focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[disabled=true]:opacity-50 data-[disabled=true]:cursor-not-allowed data-[disabled=true]:pointer-events-none data-[invalid=true]:border-[var(--lv-color-destructive)] data-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_oklch,var(--lv-color-destructive)_20%,transparent)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=md]:h-[var(--lv-space-9)] data-[size=default]:h-[var(--lv-space-9)] data-[size=lg]:h-[var(--lv-space-10)] ${cssClass}"
 >
   <select
     data-slot="native-select"
@@ -116,7 +138,7 @@
     name="${name}"
     disabled="${disabled}"
     required="${required}"
-    aria-label="${ariaLabel}"
+    aria-label="${hasAriaLabel ? ariaLabel : null}"
     aria-invalid="${invalid ? "true" : null}"
     l:model="${model}"
     class="h-full w-full min-w-0 cursor-pointer appearance-none border-0 bg-transparent pl-[var(--lv-space-3)] pr-[var(--lv-space-8)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] outline-none focus:outline-none focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed"
@@ -141,7 +163,9 @@
       @endfor
     @endif
   </select>
-  <span aria-hidden="true" data-slot="native-select-icon" class="pointer-events-none absolute right-[var(--lv-space-3)] flex items-center text-[var(--lv-color-muted-fg)]">
-    @template.lievit.icon(name = "chevron-down", size = "1rem")
-  </span>
+  <span
+    aria-hidden="true"
+    data-slot="native-select-icon"
+    class="pointer-events-none absolute right-[var(--lv-space-3)] flex items-center text-[var(--lv-color-muted-fg)]"
+  >@template.lievit.icon(name = "chevron-down", size = "1rem")</span>
 </div>

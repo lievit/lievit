@@ -1,7 +1,7 @@
 {
   "name": "native-select",
   "type": "registry:jte",
-  "description": "The one true select: a token-styled wrapper around the real native <select> with a chevron indicator. Submits with a plain form, zero JS, fully accessible for free; value!=label via the content slot, binds via l:model, height-based `size` (sm/md/lg) that aligns to the button + input in a toolbar row. The redundant Lit `select` island was removed (ADR-0012); this covers it.",
+  "description": "Token-styled wrapper around the native <select> element: PARTIAL tier, zero JS, zero enhancer, full platform a11y for free. WAI-ARIA APG Listbox (native) -- the platform supplies role=listbox, all keyboard interaction (Tab, arrows, Home/End, type-ahead), and accessible-name binding. Three option-authoring paths with explicit precedence: content slot (hand-authored <option>/<optgroup>, value!=label) > optionGroups (Map of String to String-list, rendered as native <optgroup>) > options (flat List<String>, value==label). Height-based size scale (sm/md/lg; 'default' is back-compat alias of 'md') aligns flush with button and input of the same size in a toolbar row. Invalid state: aria-invalid + destructive border + ring (color-mix in oklch). Wire binding via l:model on the native <select> (change event -> WIRE field setter); null = plain form POST, zero JS. No attrs trusted-raw channel (no per-row dynamic wire action on this partial). CSP-clean: no inline script, no on* handler.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon"],
   "files": [
@@ -13,5 +13,7 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring", "icon"],
-  "docs": "Copies the native-select partial to your JTE root at lievit/native-select.jte, reached as @template.lievit.native-select(name=...). Pass `options` (value==label) or a `content` slot of <option>/<optgroup> markup (value!=label); the native <select> POSTs under `name` JS-off; bind to a wire field with `model`. `size` (sm=h-8, md=h-9 default, lg=h-10; \"default\" is a back-compat alias of \"md\") is height-based so the select lines up flush with a button / input of the matching size in a toolbar. Requires the icon partial for the chevron. The source is yours: edit freely."
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the native-select partial to your JTE root at lievit/native-select.jte, reached as @template.lievit.native-select(name=...). Pass options (flat List<String>, value==label), optionGroups (Map of String to List<String>, renders native <optgroup>), or a content slot of hand-authored <option>/<optgroup> markup (value!=label, per-option disabled); content wins over optionGroups wins over options. Pass label for a real <label for> above the control (preferred accessible-name path) or ariaLabel for a label-free context. Pass placeholder for a disabled hidden first option (the native 'choose...' idiom). size (sm=32px, md=36px default, lg=40px; 'default' is back-compat alias of 'md') is height-based so the select lines up flush with a button and input of the same size in a toolbar. invalid=true adds aria-invalid + destructive border + ring. model binds the native change event to a WIRE field via l:model; null means plain form POST. Requires the icon partial for the decorative chevron-down indicator. The source is yours: edit freely."
 }

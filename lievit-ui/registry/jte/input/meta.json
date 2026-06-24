@@ -1,17 +1,24 @@
 {
   "name": "input",
   "type": "registry:jte",
-  "description": "A token-styled single-line native <input>. Carries a real name (POSTs JS-off), binds via l:model on the native input/change events, aria-invalid from the invalid flag, height-based `size` (sm/md/lg) that aligns to the button + native-select in a toolbar row. Server-first replacement for the never-form-associated Lit island.",
+  "description": "Foundational single-line text input partial. A native <input> inside a styled flex-row container that supports leading/trailing adornment slots, optional clearable button, optional live character-count badge, four semantic states (default/focused/invalid/disabled), three toolbar-aligned sizes (sm/md/lg), and a borderless layout variant for inline-edit surfaces. The native element supplies role=textbox, keyboard, and focus for free; no JS is needed unless showCount or clearable are enabled (input-count.enhancer.ts). Binds via l:model or a plain form name; server-renders the current value into value='' with no client round-trip.",
   "dependencies": [],
-  "registryDependencies": ["tokens"],
+  "registryDependencies": ["tokens", "icon"],
+  "enhancer": "jte/input-count.enhancer.ts",
   "files": [
     {
       "path": "jte/input.jte",
       "type": "registry:jte",
       "target": "lievit/input.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/input-count.enhancer.ts",
+      "type": "registry:jte",
+      "target": "lievit/input-count.enhancer.ts",
+      "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the input partial to your JTE root at lievit/input.jte, reached as @template.lievit.input(name=...). The native <input> POSTs under `name` with zero JS; bind to a wire field with `model`. `size` (sm=h-8, md=h-9 default, lg=h-10) is height-based so the input lines up flush with a button / native-select of the matching size in a toolbar. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "opacity"],
+  "docs": "Copies input.jte + input-count.enhancer.ts to your JTE root at lievit/. Reached as @template.lievit.input(...). The native <input> POSTs under name= with zero JS; bind to a wire field with attrs='l:model=\"field\"'. size= (sm/md/lg) is height-based so the input lines up flush with a button or native-select of the same size in a toolbar row. The enhancer (input-count.enhancer.ts) is optional: fields without showCount or clearable need no JS. Call enhanceAllInputs() on DOMContentLoaded and after WIRE morphs."
 }

@@ -1,9 +1,10 @@
 {
   "name": "checkbox",
   "type": "registry:jte",
-  "description": "A token-styled native <input type=checkbox> with a token check glyph (icon partial). Carries the checkbox role for free, POSTs `value` only when checked, binds via l:model on the native change event. Server-first replacement for the Lit island.",
+  "description": "A styled native input[type=checkbox] (two-state and tri-state / indeterminate). The native element carries role=checkbox, Space/Tab activation, checked/disabled, and form-submission for free. The `sr-only peer` pattern hides the input visually while keeping it in the accessibility tree; a peer-driven aria-hidden sibling renders the custom box with an inline SVG check and dash glyph. Three sizes (sm/md/lg) use --lv-space-4/5/6 (16/20/24 px) as the box dimension; checked, focus-visible, disabled, and aria-invalid states are expressed via Tailwind peer-* utilities over --lv-* tokens. Two attribute channels: `attrs` (TRUSTED raw $unsafe -- STATIC author-typed strings such as l:model) and `dataAttrs` (SAFE escaped Map for dynamic per-row data-* values). The indeterminate DOM property is set client-side by checkbox.enhancer.ts (component-specific enhancer; coordinator registers installCheckbox in index.ts).",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon"],
+  "registryDependencies": ["tokens"],
+  "enhancer": "runtime/features/checkbox.enhancer.ts",
   "files": [
     {
       "path": "jte/checkbox.jte",
@@ -12,6 +13,6 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the checkbox partial to your JTE root at lievit/checkbox.jte, reached as @template.lievit.checkbox(name=...). The native checkbox POSTs `value` under `name` only when checked (zero JS); bind to a wire field with `model`. Carry a SAFE dynamic data-* (a filter key, a row id) on the native control via `dataAttrs` (Map<String,String>, each value HTML-escaped via Escape.htmlAttribute) -- the escaped channel a reactive-list filter checkbox needs instead of a hand-rolled $unsafe attrs. Requires the icon partial for the check glyph. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "opacity", "ring", "motion"],
+  "docs": "Copies the checkbox partial to your JTE root at lievit/checkbox.jte, reached as @template.lievit.checkbox(...). Renders a native input[type=checkbox] (role=checkbox, Space/Tab, form-submit for free) styled with the sr-only-peer + custom-box pattern. Pass `checked=true` for the initial checked state; pass `indeterminate=true` to render data-indeterminate=\"true\" (the enhancer sets el.indeterminate after hydration so the browser reflects aria-checked=\"mixed\"). Wire to a WIRE field with `attrs=\"l:model=\\\"field\\\"\"` (TRUSTED raw channel, static string). Carry a SAFE dynamic data-* (filter key, row id) via `dataAttrs=java.util.Map.of(\"rowid\", row.id())` -- each value HTML-escaped, never through attrs. Pass `ariaLabel` when no sibling label element is associated (a11y guard). The `id` param lets a sibling `<label for>` wire to this control; omitting it auto-generates a stable id. The source is yours: edit freely."
 }

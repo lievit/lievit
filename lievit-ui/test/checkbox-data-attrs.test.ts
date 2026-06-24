@@ -39,13 +39,18 @@ describe("checkbox -- SAFE escaped dataAttrs channel (mirrors button.jte)", () =
     expect(src).toMatch(/getKey\(\)\.matches\("\[A-Za-z\]\[A-Za-z0-9-\]\*"\)/);
   });
 
-  test("the escaped fragment lands on the native <input> control (the only $unsafe sink)", () => {
+  test("the escaped fragment lands on the native <input> control (exactly two $unsafe sinks: dataAttrsMarkup + attrs)", () => {
+    // The new checkbox has TWO trusted/$unsafe sinks: `dataAttrsMarkup` (the SAFE escaped channel)
+    // and `attrs` (the TRUSTED raw channel for l:model and other static author strings).
+    // The model param was REMOVED: l:model now travels via the `attrs` channel, not a dedicated param.
     const unsafeSinks = src.match(/\$unsafe\{[^}]*\}/g) ?? [];
-    expect(unsafeSinks, `unexpected $unsafe sinks: ${unsafeSinks.join(", ")}`).toEqual([
+    expect(unsafeSinks, `expected [$unsafe{dataAttrsMarkup}, $unsafe{attrs}], got: ${unsafeSinks.join(", ")}`).toEqual([
       "$unsafe{dataAttrsMarkup}",
+      "$unsafe{attrs}",
     ]);
-    // the fragment sits inside the <input ...> open tag, after l:model and before the class attr.
-    expect(src).toMatch(/l:model="\$\{model\}"\s*\$unsafe\{dataAttrsMarkup\}\s*class="peer/);
+    // Both sinks sit inside the <input ...> open tag.
+    expect(src).toMatch(/\$unsafe\{dataAttrsMarkup\}/);
+    expect(src).toMatch(/\$unsafe\{attrs\}/);
   });
 
   test("usage doc shows a reactive-list filter checkbox carrying a SAFE escaped key", () => {

@@ -2,13 +2,14 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Filament-grade button sizing + icon-only mode.
+ * Filament-grade button sizing + icon-only mode + v-next loading state.
  *
  * The button is a presentational .jte partial compiled in the Java world, so -- as with the
  * other static-partials suites -- this harness asserts on the partial SOURCE as text: it pins
- * the height-based size scale that ALIGNS the button to the form controls in a toolbar (the
+ * the height-based size scale that ALIGNS the button to the form controls in a toolbar row (the
  * whole point: an [input][native-select][button] row lines up with no per-call height hacks),
- * that every variant composes with every size, the square accessible icon-only mode, and the
+ * that every variant composes with every size, the square accessible icon-only mode, the
+ * net-new loading state (aria-busy + spinner + activation blocked), and the
  * a11y / CSP contract (real <button>/<a>, focus ring, no inline script / on* handlers).
  * A render/golden in the Java runtime is out of scope for the JS suite; the real-compiler smoke
  * lives in test/jte-compile. This is the equivalent structural golden.
@@ -57,7 +58,11 @@ describe("button -- params & docs API (Filament parity)", () => {
     expect(src).toContain("@param gg.jte.Content content");
   });
 
-  test("usage doc shows a sized call + an iconOnly call, with <%-- --%> syntax (not @* *@)", () => {
+  test("declares the net-new loading param with default false", () => {
+    expect(src, "loading param missing").toContain("@param boolean loading = false");
+  });
+
+  test("usage doc shows a sized call + an iconOnly call + a loading call, with <%-- --%> syntax (not @* *@)", () => {
     expect(src).toContain("<%--");
     expect(src).toContain("--%>");
     expect(src, "must NOT use @* *@ comment syntax").not.toMatch(/@\*/);
@@ -65,6 +70,7 @@ describe("button -- params & docs API (Filament parity)", () => {
     expect(src).toContain("@@template.lievit.button(");
     expect(src).toContain("size = ");
     expect(src).toContain("iconOnly = true");
+    expect(src).toContain("loading = true");
   });
 });
 
@@ -213,16 +219,68 @@ describe("button -- icon-only is a square, accessible, real control", () => {
   });
 });
 
+describe("button -- loading state (net-new v-next)", () => {
+  test("sets aria-busy=true when loading in both branches", () => {
+    // WAI-ARIA: aria-busy signals the element is updating; the APG button pattern supports it.
+    const ariaBusyMatches = src.match(/aria-busy="\$\{loading \? "true" : null\}"/g) ?? [];
+    expect(ariaBusyMatches.length, "aria-busy must appear in both <a> and <button> branches").toBe(2);
+  });
+
+  test("renders an inline self-contained spinner in both branches when loading", () => {
+    // The spinner is an inline CSS-spin ring (border-current), NOT the shared spinner partial:
+    // keeps the button self-contained with no cross-partial dependency. Decorative (aria-hidden)
+    // because the button already carries aria-busy.
+    const spinnerMatches = src.match(/data-slot="button-spinner"/g) ?? [];
+    expect(spinnerMatches.length, "inline spinner must be in both <a> and <button> branches").toBe(2);
+    expect(src).toContain("animate-spin");
+    expect(src).toContain('aria-hidden="true"');
+    expect(src, "spinner must not pull the shared partial").not.toContain("@template.lievit.spinner(");
+  });
+
+  test("blocks activation: <button> uses isBlocked (disabled || loading), <a> drops href", () => {
+    // isBlocked combines disabled + loading so the button is inert while loading.
+    expect(src).toContain("boolean isBlocked = disabled || loading");
+    expect(src).toContain("disabled=\"${isBlocked}\"");
+    expect(src).toContain("href=\"${isBlocked ? null : href}\"");
+  });
+
+  test("loading is independent of disabled: aria-disabled covers both blocked states on <a>", () => {
+    // <a> cannot be natively disabled; aria-disabled fires for isBlocked (either disabled or loading).
+    expect(src).toContain('aria-disabled="${isBlocked ? "true" : null}"');
+  });
+
+  test("data-loading attribute is emitted on both branches for test-targeting and CSS hooks", () => {
+    const dataLoadingMatches = src.match(/data-loading="\$\{loading\}"/g) ?? [];
+    expect(dataLoadingMatches.length, "data-loading must be in both <a> and <button> branches").toBe(2);
+  });
+
+  test("loading param is documented in the params block with its activation-blocking semantics", () => {
+    expect(src.toLowerCase()).toMatch(/loading.*spinner|spinner.*loading/i);
+    expect(src.toLowerCase()).toMatch(/aria-busy/i);
+    expect(src).toContain("@param boolean loading = false");
+  });
+
+  test("loading state does NOT introduce a new $unsafe sink (existing 4-sink count preserved)", () => {
+    const unsafeSinks = src.match(/\$unsafe\{[^}]*\}/g) ?? [];
+    expect(unsafeSinks, `unexpected $unsafe sinks: ${unsafeSinks.join(", ")}`).toEqual([
+      "$unsafe{dataAttrsMarkup}",
+      "$unsafe{attrs}",
+      "$unsafe{dataAttrsMarkup}",
+      "$unsafe{attrs}",
+    ]);
+  });
+});
+
 describe("button -- a11y, links, and CSP hygiene preserved", () => {
-  test("href renders a real <a> link; disabled link drops href + gets aria-disabled", () => {
+  test("href renders a real <a> link; blocked link (disabled or loading) drops href + gets aria-disabled", () => {
     expect(src).toContain("@if(href != null)");
-    expect(src).toContain('href="${disabled ? null : href}"');
-    expect(src).toContain('aria-disabled="${disabled ? "true" : null}"');
+    expect(src).toContain("href=\"${isBlocked ? null : href}\"");
+    expect(src).toContain('aria-disabled="${isBlocked ? "true" : null}"');
   });
 
   test("native <button> keeps type + disabled; focus-visible ring via the --lv-ring token", () => {
     expect(src).toContain('type="${type}"');
-    expect(src).toContain('disabled="${disabled}"');
+    expect(src).toContain('disabled="${isBlocked}"');
     expect(src).toContain("focus-visible:shadow-[var(--lv-ring)]");
   });
 

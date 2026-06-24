@@ -54,6 +54,7 @@ class TypedFacadeTest {
                         null, // href
                         false, // disabled
                         null, // ariaLabel
+                        false, // loading
                         "", // cssClass
                         "", // attrs (trusted static)
                         java.util.Map.of(), // dataAttrs (safe dynamic)

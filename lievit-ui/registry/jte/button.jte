@@ -26,7 +26,7 @@
     md  -> height token [var(--lv-space-9)]  (2.25rem,36px) == input + native-select default ; THE default, the shadcn 36px row baseline
     lg  -> height token [var(--lv-space-10)] (2.5rem, 40px) == native-select size="lg"      ; prominent CTA
   Horizontal padding + text size scale with the height; the gap-[var(--lv-space-2)] spaces an
-  icon from its label. md matches `@template.lievit.input` and `@template.lievit.native-select` (default) so a
+  icon from its label. md matches @template.lievit.input and @template.lievit.native-select (default) so a
   toolbar of [input][native-select][button] aligns with no per-call height hacks (the bug this
   fixes: adopters hand-rolling fixed-height buttons with ad-hoc padding that never lined up with
   the inputs).
@@ -35,13 +35,23 @@
   icon-only control: width == height for the chosen size (h/w = the same --lv-space token), zero
   horizontal padding, the content is a single @template.lievit.icon(...). It is the SAME real
   <button>/<a> element, so role/keyboard/disabled/focus-ring are unchanged. Because there is no
-  visible text label, ariaLabel is REQUIRED for the accessible name (WAI-ARIA): an icon-only
-  control with no name is unusable to assistive tech, so it is a first-class param here.
+  visible text label, ariaLabel is REQUIRED when iconOnly is true for the accessible name (WAI-ARIA):
+  an icon-only control with no name is unusable to assistive tech, so it is a first-class param here.
 
-  A11y (WAI-ARIA button): native <button> => role + keyboard + disabled for free; <a href> =>
+  LOADING (net-new, v-next). Set loading=true to show an inline spinner, set aria-busy="true" and
+  block activation (the button dims + becomes inert, exactly like disabled but without the permanent
+  semantic of "not available"). The spinner is an inline CSS-spin ring (border-current, scales with
+  the button font via 1em); it stays self-contained so the button has no cross-partial dependency, and
+  no new token is needed. While loading the label is still visible so the user sees
+  what is in progress (Ant Design convention: show spinner left of label). Activation is blocked:
+  <button> gets disabled="${loading || disabled}", <a> drops href and gets aria-disabled. The caller
+  sets loading=true in the template rerender triggered by the wire beforeCall; the runtime's afterCall
+  rerender sets it back to false. The WIRE manages the state; this partial is stateless.
+
+  A11y (WAI-ARIA APG button): native <button> => role + keyboard + disabled for free; <a href> =>
   a real link. focus-visible ring via the --lv-ring token. A disabled link drops href and gets
   aria-disabled (an <a> cannot be natively disabled). ariaLabel sets aria-label (mandatory for
-  iconOnly, optional otherwise).
+  iconOnly, optional otherwise). aria-busy="true" when loading (WAI-ARIA busy state, APG button).
 
   WIRE ACTION -- the SAFE per-row channel (the reactive-list decision rule). A button in a
   reactive list (admin/users, profile-security: a row per device/session/user) must fire a wire
@@ -100,6 +110,9 @@
     String  href     = null        when set, render an <a href> styled as a button.
     boolean disabled = false        dims + blocks activation.
     String  ariaLabel = null       aria-label; REQUIRED when iconOnly is true.
+    boolean loading  = false       NET-NEW: shows a spinner left of content, sets aria-busy="true",
+                                   blocks activation (disabled on <button>, drop href + aria-disabled
+                                   on <a>). Dims via the shared disabled:opacity-50 class.
     String  cssClass = ""          extra utility classes (e.g. an l:click is added by the caller).
     String  attrs    = ""          TRUSTED raw attribute string ($unsafe) -- STATIC strings only.
     Map<String,String> dataAttrs = {}  SAFE dynamic data-* (key w/o "data-", simple identifier);
@@ -118,6 +131,8 @@
     @@template.lievit.button(variant = "destructive-ghost", content = @@`Remove`)
     @@template.lievit.button(iconOnly = true, size = "sm", variant = "ghost", ariaLabel = "Open calendar",
         content = @@`@@template.lievit.icon(name = "calendar", size = "1rem")`)
+    (loading state -- blocks activation + shows spinner + aria-busy):
+    @@template.lievit.button(variant = "primary", loading = true, content = @@`Saving`)
     (trusted STATIC directive via attrs -- $unsafe, author-typed only):
     @@template.lievit.button(variant = "destructive", attrs = "l:click=\"$set('confirmOpen','')\"", content = @@`Delete`)
     (DYNAMIC user-derived value carried SAFELY -- HTML-escaped -- via dataAttrs):
@@ -134,6 +149,7 @@
 @param String href = null
 @param boolean disabled = false
 @param String ariaLabel = null
+@param boolean loading = false
 @param String cssClass = ""
 @param String attrs = ""
 @param java.util.Map<String, String> dataAttrs = java.util.Map.of()
@@ -177,6 +193,10 @@
      the border to the destructive token (the per-variant ring is added in variantClass). --%>
 !{var base = "inline-flex shrink-0 items-center justify-center gap-[var(--lv-space-2)] whitespace-nowrap rounded-[var(--lv-radius-md)] border border-transparent leading-[var(--lv-leading)] cursor-pointer outline-none transition-[color,box-shadow] focus-visible:shadow-[var(--lv-ring)] aria-invalid:border-[var(--lv-color-destructive)] disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";}
 
+<%-- isBlocked: activation is blocked when disabled OR loading. Used to conditionally drop
+     href on <a> and set disabled on <button>. Loading always dims via disabled:opacity-50. --%>
+!{boolean isBlocked = disabled || loading;}
+
 <%-- SAFE dynamic data-* attributes. JTE's HTML parser forbids a raw @for in attribute-NAME
      position, so we build the fragment once here: each entry becomes data-<key>="<value>"
      with the VALUE escaped through JTE's OWN attribute escaper (Escape.htmlAttribute, the same
@@ -205,28 +225,32 @@
     data-variant="${variant}"
     data-size="${size}"
     data-icon-only="${iconOnly}"
-    href="${disabled ? null : href}"
-    aria-disabled="${disabled ? "true" : null}"
+    data-loading="${loading}"
+    href="${isBlocked ? null : href}"
+    aria-disabled="${isBlocked ? "true" : null}"
+    aria-busy="${loading ? "true" : null}"
     aria-label="${ariaLabel}"
     l:click="${wireClick != null && !wireClick.isBlank() ? wireClick : null}"
     $unsafe{dataAttrsMarkup}
     class="${base} ${sizeClass} ${shapeClass} ${variantClass} ${cssClass}"
     style="font-family:var(--lv-font-sans);"
     $unsafe{attrs}
-  >${content}</a>
+  >@if(loading)<span data-slot="button-spinner" aria-hidden="true" class="inline-block size-[1em] animate-spin rounded-[var(--lv-radius-full)] border-2 border-current border-t-transparent motion-reduce:animate-none"></span>@endif${content}</a>
 @else
   <button
     data-slot="button"
     data-variant="${variant}"
     data-size="${size}"
     data-icon-only="${iconOnly}"
+    data-loading="${loading}"
     type="${type}"
-    disabled="${disabled}"
+    disabled="${isBlocked}"
+    aria-busy="${loading ? "true" : null}"
     aria-label="${ariaLabel}"
     l:click="${wireClick != null && !wireClick.isBlank() ? wireClick : null}"
     $unsafe{dataAttrsMarkup}
     class="${base} ${sizeClass} ${shapeClass} ${variantClass} ${cssClass}"
     style="font-family:var(--lv-font-sans);"
     $unsafe{attrs}
-  >${content}</button>
+  >@if(loading)<span data-slot="button-spinner" aria-hidden="true" class="inline-block size-[1em] animate-spin rounded-[var(--lv-radius-full)] border-2 border-current border-t-transparent motion-reduce:animate-none"></span>@endif${content}</button>
 @endif

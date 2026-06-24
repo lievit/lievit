@@ -1,7 +1,7 @@
 {
   "name": "textarea",
   "type": "registry:jte",
-  "description": "A token-styled multi-line native <textarea>. Carries a real name (POSTs JS-off), binds via l:model on the native input/change events, aria-invalid from the invalid flag. Server-first replacement for the never-form-associated Lit island.",
+  "description": "A token-styled multi-line native textarea (PARTIAL+ENH). Carries a real name/id pair (POSTs JS-off), binds via l:model. Supports sm|md|lg size scale, autosize grow-to-content, live character count (showCount), built-in hint, destructive invalid state (aria-invalid). The textarea-autosize enhancer is the only client bit; without it the bare partial is fully accessible.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -12,6 +12,7 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the textarea partial to your JTE root at lievit/textarea.jte, reached as @template.lievit.textarea(name=...). The native <textarea> POSTs under `name` with zero JS; bind to a wire field with `model`. The source is yours: edit freely."
+  "enhancer": "textarea-autosize.enhancer.ts",
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "opacity"],
+  "docs": "Copies the textarea partial to your JTE root at lievit/textarea.jte, reached as @template.lievit.textarea(name=...). The native textarea POSTs under `name` with zero JS; bind to a wire field with `model`. The textarea-autosize enhancer (runtime/features/textarea-autosize.enhancer.ts) adds grow-to-content and live character count when autosize=true or showCount=true; call installTextareaAutosize(runtime) in your app main.ts. The source is yours: edit freely."
 }

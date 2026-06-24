@@ -1,7 +1,7 @@
 {
   "name": "radio-group",
   "type": "registry:jte",
-  "description": "A token-styled group of native <input type=radio> in a fieldset/legend. The shared name gives single-selection, roving arrow-key focus and the radiogroup role for free; binds via l:model on each radio. Server-first replacement for the Lit island. Ships the radio-group/option child partial.",
+  "description": "APG Radio Group -- mutually-exclusive option group (default pill, button-bar, native fieldset variants). Custom variants driven by radio-group.enhancer.ts (roving-tabindex + aria-checked); native variant is platform-supplied. Options arrive via @param, never hardcoded. Composes with the field partial via aria-labelledby / aria-describedby.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -12,12 +12,13 @@
       "root": "jte"
     },
     {
-      "path": "jte/radio-group/option.jte",
-      "type": "registry:jte",
-      "target": "lievit/radio-group/option.jte",
+      "path": "jte/radio-group.enhancer.ts",
+      "type": "registry:ts",
+      "target": "lievit/radio-group.enhancer.ts",
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the radio-group partial (+ its radio-group/option child) to your JTE root at lievit/radio-group.jte, reached as @template.lievit.radio-group(name=..., options=...). Native radios sharing `name` POST the selected value JS-off; bind to a wire field with `model`. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "ring", "opacity", "duration"],
+  "enhancer": "radio-group.enhancer.ts",
+  "docs": "Copies the radio-group partial + its enhancer to your project. The partial renders role=radiogroup + role=radio divs (custom) or a fieldset+legend+inputs (native). Install the enhancer in your main.ts: import { installRadioGroup } from './lievit/radio-group.enhancer'; installRadioGroup(runtime). The native variant (nativeInputs=true) needs no enhancer. Options come from a typed List<RadioOption> passed by the controller -- RadioOption must satisfy id(), label(), description(), disabled()."
 }

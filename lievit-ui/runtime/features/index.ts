@@ -16,6 +16,8 @@ import { installCollectionNav } from "./collection-nav.enhancer.js";
 import { installFocusTrap } from "./focus-trap.enhancer.js";
 import { installPopoverAnchor } from "./popover-anchor.enhancer.js";
 import { installTooltip } from "./tooltip.enhancer.js";
+import { installCheckbox } from "./checkbox.enhancer.js";
+import { installTextareaAutosize } from "./textarea-autosize.enhancer.js";
 import { installConfirm } from "./confirm.js";
 import { installCurrent } from "./current.js";
 import { installDirty } from "./dirty.js";
@@ -100,6 +102,8 @@ export { installFocusTrap } from "./focus-trap.enhancer.js";
 export { installCollectionNav } from "./collection-nav.enhancer.js";
 export { installPopoverAnchor } from "./popover-anchor.enhancer.js";
 export { installTooltip } from "./tooltip.enhancer.js";
+export { installCheckbox } from "./checkbox.enhancer.js";
+export { installTextareaAutosize } from "./textarea-autosize.enhancer.js";
 
 /**
  * Installs every batch-2 client feature on a runtime (the convenience an app's `main.ts` calls after
@@ -139,4 +143,6 @@ export function installAllFeatures(
   installCollectionNav(runtime);
   installPopoverAnchor(runtime);
   installTooltip(runtime);
+  installCheckbox(runtime);
+  installTextareaAutosize(runtime);
 }

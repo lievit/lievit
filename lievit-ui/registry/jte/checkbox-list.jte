@@ -136,8 +136,9 @@
       ${content}
     @elseif(options != null)
       @for(java.util.Map.Entry<String, String> opt : options.entrySet())
-        <div data-slot="checkbox-list-option" data-checkbox-list-option data-label="${opt.getValue()}">
-          @template.lievit.checkbox(name = name, id = name + "-" + opt.getKey(), value = opt.getKey(), label = opt.getValue(), checked = checkedSet.contains(opt.getKey()), disabled = disabled, invalid = invalid)
+        <div data-slot="checkbox-list-option" data-checkbox-list-option data-label="${opt.getValue()}" class="flex items-center gap-[var(--lv-space-2)]">
+          @template.lievit.checkbox(name = name, id = name + "-" + opt.getKey(), value = opt.getKey(), checked = checkedSet.contains(opt.getKey()), disabled = disabled, ariaInvalid = invalid)
+          <label for="${name + "-" + opt.getKey()}" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] ${disabled ? "opacity-[var(--lv-opacity-disabled)]" : ""}" style="font-family:var(--lv-font-sans);">${opt.getValue()}</label>
         </div>
       @endfor
     @endif

@@ -67,6 +67,10 @@
   --lv-color-input: #d1d5db;
   --lv-color-input: oklch(0.8717 0.0094 258.38);
 
+  /* control border on hover (one emphasis step up from --lv-color-border) */
+  --lv-color-border-hover: #9ca3af;
+  --lv-color-border-hover: oklch(0.7137 0.0192 261.32);
+
   /* low-emphasis text: captions, placeholders, disabled labels */
   --lv-color-muted: #6b7280;
   --lv-color-muted: oklch(0.5510 0.0234 264.37);
@@ -231,6 +235,8 @@
   --lv-color-ring: #2563eb; /* the ring colour token (shadcn --ring) */
   --lv-color-ring: oklch(0.5461 0.2153 262.89);
   --lv-ring: 0 0 0 3px color-mix(in srgb, var(--lv-color-ring) 35%, transparent);
+  /* invalid/destructive focus ring: same geometry as --lv-ring, destructive hue */
+  --lv-ring-destructive: 0 0 0 3px color-mix(in srgb, var(--lv-color-destructive) 35%, transparent);
 
   /* ----------------------------------------------------------------------- *
    * Z-INDEX layers (stacking contract for overlays)                         *
@@ -289,6 +295,8 @@
   --lv-color-border: oklch(0.3012 0 0);
   --lv-color-input: #3a3a3a;
   --lv-color-input: oklch(0.3485 0 0);
+  --lv-color-border-hover: #4a4a4a;
+  --lv-color-border-hover: oklch(0.4310 0 0);
 
   --lv-color-muted: #a1a1aa;
   --lv-color-muted: oklch(0.7118 0.0130 285.96);

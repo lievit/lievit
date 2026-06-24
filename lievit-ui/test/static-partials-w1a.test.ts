@@ -309,8 +309,12 @@ describe("button (the click is wired by the consumer via l:click)", () => {
     expect(src).not.toMatch(/role="button"/);
   });
   test("disabled is a real boolean attr on the button, aria-disabled on the link", () => {
-    expect(src).toContain('disabled="${disabled}"');
-    expect(src).toContain('aria-disabled="${disabled ? "true" : null}"');
+    // Wave 1 re-forge: `isBlocked = disabled || loading` -- both disabled AND loading block
+    // activation. The <button> uses `disabled="${isBlocked}"` (JTE smart attr: emits the bare
+    // `disabled` attr when true, omits when false). The <a> uses the ternary form since <a>
+    // cannot be natively disabled.
+    expect(src).toContain('disabled="${isBlocked}"');
+    expect(src).toContain('aria-disabled="${isBlocked ? "true" : null}"');
   });
   test("focus ring + variant colours read tokens", () => {
     expect(src).toContain("focus-visible:shadow-[var(--lv-ring)]");

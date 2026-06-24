@@ -100,9 +100,14 @@ describe("data-table/selection-cell.jte -- the checkbox column (row selection)",
   });
 
   test("forwards the l:model wire hook to the checkbox (server-first toggle seam)", () => {
+    // The selection-cell builds `modelAttr = "l:model=\"...\""` and passes it via the checkbox's
+    // `attrs` channel (the TRUSTED raw channel). The old `model = model` param is removed from
+    // the checkbox partial; l:model now travels through `attrs`.
+    expect(markup).toContain("modelAttr");
+    // Both @template.lievit.checkbox calls pass attrs = modelAttr.
     const checkboxCalls = markup.match(/@template\.lievit\.checkbox\([^)]*\)/g) ?? [];
     expect(checkboxCalls.length).toBeGreaterThan(0);
-    for (const call of checkboxCalls) expect(call, `missing model in: ${call}`).toContain("model = model");
+    for (const call of checkboxCalls) expect(call, `missing attrs in: ${call}`).toContain("attrs = modelAttr");
   });
 
   test("gives the checkbox an accessible name (Select all / Select row), no visible label fits", () => {

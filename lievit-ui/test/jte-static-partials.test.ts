@@ -191,11 +191,18 @@ describe("form-control partials: never Font Awesome (icons via the Lucide icon p
 
 describe("input.jte", () => {
   const src = read("input.jte");
-  test("renders a real native <input> carrying a name (POSTs) + binds via l:model", () => {
+  test("renders a real native <input> inside a container div, carrying a name (POSTs) + l:model via attrs", () => {
+    // Wave 1 re-forge: the bare <input> is now wrapped in a <div data-slot="input"> container;
+    // the native input carries data-slot="input-field". l:model travels via the `attrs` channel
+    // ($unsafe), not a dedicated `model` param (which was removed).
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(markup).toMatch(/<div[\s\S]*?data-slot="input"/);
     expect(markup).toMatch(/<input[\s\n]/);
     expect(markup).toContain('name="${name}"');
-    expect(markup).toContain('l:model="${model}"');
+    // l:model is passed by the caller via the attrs channel; the partial exposes $unsafe{attrs}.
+    expect(markup).toContain("$unsafe{attrs}");
+    // No model param -- that was the old surface.
+    expect(src).not.toMatch(/@param String model/);
   });
   test("token-styled with the --lv-ring focus + aria-invalid, no hardcoded colour", () => {
     expect(src).toContain("var(--lv-ring)");
@@ -203,37 +210,49 @@ describe("input.jte", () => {
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
-  test("built-in helper text: a hint renders below + auto-wires aria-describedby", () => {
-    expect(src).toMatch(/@param String hint/);
-    expect(src).toContain('id="${inputId}-hint"');
-    expect(src).toContain("hasHint ? inputId");
-    expect(src).toContain('aria-describedby="${describedByValue}"');
+  test("hint sub-element removed (field partial's concern): no hint param, no inputId-hint id", () => {
+    // Wave 1 re-forge: the built-in hint sub-element was removed from input.jte; hints are now
+    // the field partial's responsibility, not the input primitive's. The `accept`/`multiple`
+    // file-input affordance was also removed (dedicated file-upload component).
+    expect(src).not.toMatch(/@param String hint/);
+    expect(src).not.toContain("inputId-hint");
+    // The input still has a clean attrs channel for describedby wired externally.
+    expect(src).toContain('@param String attrs = ""');
   });
-  test("file inputs get the shadcn file affordance (accept/multiple + the file: chip)", () => {
-    expect(src).toMatch(/@param String accept/);
-    expect(src).toMatch(/@param boolean multiple/);
-    expect(src).toContain('"file".equals(type)');
-    expect(src).toContain("file:text-[var(--lv-color-fg)]");
+  test("file inputs: accept/multiple params removed (file affordance now in dedicated file-upload component)", () => {
+    // Wave 1 re-forge: the file affordance (accept, multiple, the file: chip) was removed from
+    // input.jte and moved to a dedicated file-upload component. The input partial is now
+    // a pure single-line text-input primitive.
+    expect(src).not.toMatch(/@param String accept/);
+    expect(src).not.toMatch(/@param boolean multiple/);
+    expect(src).not.toContain('"file".equals(type)');
   });
 });
 
 describe("textarea.jte", () => {
   const src = read("textarea.jte");
-  test("renders a real native <textarea> carrying a name + binds via l:model", () => {
+  test("renders a real native <textarea> carrying a name + binds via l:model (via $unsafe{modelDirective})", () => {
+    // Wave 1 re-forge: l:model is no longer a static attribute literal; instead, the template
+    // builds `modelDirective = "l:model=\"" + model + "\""` and emits it with $unsafe{modelDirective}.
+    // This lets JTE skip the attribute entirely when model is null (blank modelDirective = empty string).
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<textarea[\s\n]/);
     expect(markup).toContain("</textarea>");
     expect(markup).toContain('name="${name}"');
-    expect(markup).toContain('l:model="${model}"');
+    expect(markup).toContain("$unsafe{modelDirective}");
+    // The model param still exists as the shorthand trigger.
+    expect(src).toMatch(/@param String model/);
   });
   test("the value renders as the element's text content, not a value attribute", () => {
     expect(src).toContain(">${value}</textarea>");
   });
-  test("built-in helper text: a hint renders below + auto-wires aria-describedby", () => {
+  test("built-in helper text: a hint renders below + auto-wires aria-describedby (joinedDescribedBy)", () => {
+    // Wave 1 re-forge: the hint id variable is `hintId` (not `inputId-hint`); aria-describedby
+    // is a space-joined list built as `joinedDescribedBy` from describedBy + hintId + countId.
     expect(src).toMatch(/@param String hint/);
     expect(src).toContain('id="${areaId}-hint"');
-    expect(src).toContain("hasHint ? areaId");
-    expect(src).toContain('aria-describedby="${describedByValue}"');
+    expect(src).toContain("hintId");
+    expect(src).toContain('aria-describedby="${joinedDescribedBy}"');
   });
 });
 
@@ -325,29 +344,52 @@ describe("form.jte (server-first Form + form-level FormMessage)", () => {
 
 describe("checkbox.jte", () => {
   const src = read("checkbox.jte");
-  test("renders a real native <input type=checkbox> carrying a name + binds via l:model", () => {
+  test("renders a real native <input type=checkbox> carrying a name; l:model travels via attrs channel", () => {
+    // Wave 1 re-forge: the `model` param was REMOVED. l:model is now passed by the caller
+    // via the `attrs` TRUSTED channel ($unsafe). The `label` param was also removed (label is
+    // a sibling <label for> at the call site, not inside the checkbox partial).
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<input[\s\S]*?type="checkbox"/);
     expect(markup).toContain('name="${name}"');
-    expect(markup).toContain('l:model="${model}"');
+    // l:model travels via attrs ($unsafe) -- the partial exposes $unsafe{attrs}.
+    expect(markup).toContain("$unsafe{attrs}");
+    // model and label params are gone from this partial's surface.
+    expect(src).not.toMatch(/@param String model/);
+    expect(src).not.toMatch(/@param String label\b/);
   });
-  test("the check glyph comes from the icon partial (Lucide), token-styled", () => {
-    expect(src).toContain('@template.lievit.icon(name = "check"');
+  test("the check glyph is now an inline SVG (not the icon partial): aria-hidden, decorative", () => {
+    // Wave 1 re-forge: the check glyph changed from `@template.lievit.icon(name = "check")`
+    // to an inline <svg data-slot="checkbox-check"> for zero cross-template dependency.
+    // The SVG is aria-hidden (decorative; AT reads the real <input>).
+    expect(src).toContain('data-slot="checkbox-check"');
+    expect(src).toContain('aria-hidden="true"');
     expect(src).toContain("var(--lv-color-primary)");
+    // No icon partial call for the check glyph.
+    expect(src).not.toContain('@template.lievit.icon(name = "check"');
   });
-  test("supports the invalid state: aria-invalid + a danger box border, with describedBy", () => {
-    expect(src).toMatch(/@param boolean invalid/);
-    expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
-    expect(src).toContain("aria-[invalid=true]:border-[var(--lv-color-danger)]");
-    expect(src).toMatch(/@param String describedBy/);
-    expect(src).toContain('aria-describedby="${describedBy}"');
+  test("supports the invalid state: ariaInvalid param + aria-invalid, ariaDescribedBy for hints", () => {
+    // Wave 1 re-forge: `invalid` renamed to `ariaInvalid`; `describedBy` renamed to `ariaDescribedBy`.
+    // The destructive border token is `--lv-color-destructive` (not `danger`).
+    expect(src).toMatch(/@param boolean ariaInvalid/);
+    expect(src).toContain('aria-invalid="${ariaInvalid ? "true" : null}"');
+    expect(src).toContain("peer-aria-[invalid=true]:border-[var(--lv-color-destructive)]");
+    expect(src).toMatch(/@param String ariaDescribedBy/);
+    expect(src).toContain('aria-describedby="${ariaDescribedBy}"');
   });
-  test("supports the indeterminate (mixed) tri-state: aria-checked=mixed + a dash glyph", () => {
+  test("supports the indeterminate (mixed) tri-state via data-indeterminate + inline dash SVG + enhancer", () => {
+    // Wave 1 re-forge: aria-checked is NOT a static attribute (browser owns it from the native
+    // `checked` + `indeterminate` DOM properties; the enhancer sets el.indeterminate=true).
+    // The dash glyph is now an inline <svg data-slot="checkbox-dash"> (not the icon partial).
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(src).toMatch(/@param boolean indeterminate/);
-    expect(src).toContain('aria-checked="${indeterminate ? "mixed" : null}"');
+    // aria-checked must NOT be emitted as a static attribute in the markup (browser derives it
+    // from DOM props). The doc comment may mention it for explanation purposes -- check markup only.
+    expect(markup).not.toContain('aria-checked=');
     expect(src).toContain('data-indeterminate="${indeterminate ? "true" : null}"');
-    expect(src).toContain('@template.lievit.icon(name = "minus"');
-    // the check glyph hides while indeterminate, the dash shows
+    // Inline dash SVG instead of icon partial.
+    expect(src).toContain('data-slot="checkbox-dash"');
+    expect(src).not.toContain('@template.lievit.icon(name = "minus"');
+    // CSS hooks for indeterminate visibility.
     expect(src).toContain("peer-data-[indeterminate=true]:hidden");
     expect(src).toContain("peer-data-[indeterminate=true]:flex");
   });
@@ -355,29 +397,38 @@ describe("checkbox.jte", () => {
 
 describe("radio-group.jte", () => {
   const src = read("radio-group.jte");
-  const opt = read("radio-group/option.jte");
-  test("the group is a native <fieldset> + <legend>, options share one name", () => {
+  test("has THREE render paths: default (role=radiogroup), button/button-vertical, and native fieldset+legend", () => {
+    // Wave 1 re-forge: the options API changed from Map<String,String> + Content to parallel lists
+    // (optionIds / optionLabels / optionDescriptions / optionDisabled). THREE render paths:
+    // PATH A: custom div[role=radiogroup] + div[role=radio] (default + button + button-vertical).
+    // PATH B: native fieldset + legend + input[type=radio] (nativeInputs=true).
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    // PATH A: custom radiogroup
+    expect(markup).toMatch(/role="radiogroup"/);
+    expect(markup).toMatch(/role="radio"/);
+    // PATH B: native fieldset+legend (nativeInputs=true branch)
     expect(markup).toMatch(/<fieldset[\s\n]/);
     expect(markup).toMatch(/<legend[\s\n]/);
-    expect(markup).toContain("@template.lievit.radio-group.option(");
+    // Parallel list params
+    expect(src).toMatch(/@param java\.util\.List<String> optionIds/);
+    expect(src).toMatch(/@param java\.util\.List<String> optionLabels/);
   });
-  test("each option is a real native <input type=radio> carrying the shared name + l:model", () => {
-    const markup = opt.replace(/<%--[\s\S]*?--%>/g, "");
+  test("native path (nativeInputs=true): real input[type=radio] sharing one name per option", () => {
+    // The native fieldset branch uses real input[type=radio] elements sharing the group name.
+    // No per-partial option sub-template; options are rendered inline via @for in the template.
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<input[\s\S]*?type="radio"/);
     expect(markup).toContain('name="${name}"');
-    expect(markup).toContain('l:model="${model}"');
   });
-  test("supports the invalid/error state: aria-invalid on the group + danger option rings", () => {
-    expect(src).toMatch(/@param boolean invalid/);
-    expect(src).toContain('aria-invalid="${invalid ? "true" : null}"');
-    expect(src).toMatch(/@param String describedBy/);
-    expect(src).toContain('aria-describedby="${describedBy}"');
-    // the invalid flag propagates to each option
-    expect(src).toContain("invalid = invalid");
-    const optMarkup = opt.replace(/<%--[\s\S]*?--%>/g, "");
-    expect(optMarkup).toContain('aria-invalid="${invalid ? "true" : null}"');
-    expect(optMarkup).toContain("aria-[invalid=true]:border-[var(--lv-color-danger)]");
+  test("supports the invalid/error state: aria-disabled on the group (invalid via aria on group)", () => {
+    // Wave 1 re-forge: invalid is surfaced via the group's aria attributes; the `describedby`
+    // param carries the external hint/error id for aria-describedby on the group root.
+    expect(src).toMatch(/@param boolean disabled/);
+    expect(src).toContain('aria-disabled="${disabled ? "true" : null}"');
+    expect(src).toMatch(/@param String describedby/);
+    expect(src).toContain('aria-describedby="${describedby}"');
+    // The group supports required via aria-required.
+    expect(src).toContain('aria-required="${required ? "true" : null}"');
   });
 });
 

@@ -51,6 +51,7 @@
 @param String model = null
 @param String klass = ""
 !{var label = (ariaLabel != null && !ariaLabel.isBlank()) ? ariaLabel : (header ? "Select all" : "Select row");}
+!{var modelAttr = (model != null && !model.isBlank()) ? "l:model=\"" + model + "\"" : "";}
 @if(header)
   <th
     scope="col"
@@ -58,7 +59,7 @@
     class="lv-table-head h-[var(--lv-space-9)] w-[var(--lv-space-9)] px-[var(--lv-space-2)] pr-0 text-left align-middle [&:has([role=checkbox])]:pr-0 ${klass}"
     style="color:var(--lv-color-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg));"
   >
-    @template.lievit.checkbox(name = name, value = value, checked = checked, indeterminate = indeterminate, ariaLabel = label, model = model)
+    @template.lievit.checkbox(name = name, value = value, checked = checked, indeterminate = indeterminate, ariaLabel = label, attrs = modelAttr)
   </th>
 @else
   <td
@@ -66,6 +67,6 @@
     class="lv-table-cell w-[var(--lv-space-9)] px-[var(--lv-space-2)] pr-0 py-[var(--lv-space-3)] align-middle [&:has([role=checkbox])]:pr-0 ${klass}"
     style="border-bottom:1px solid var(--lv-color-border);"
   >
-    @template.lievit.checkbox(name = name, value = value, checked = checked, ariaLabel = label, model = model)
+    @template.lievit.checkbox(name = name, value = value, checked = checked, ariaLabel = label, attrs = modelAttr)
   </td>
 @endif
