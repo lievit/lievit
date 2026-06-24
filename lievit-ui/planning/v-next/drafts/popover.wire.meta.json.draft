@@ -1,0 +1,18 @@
+{
+  "name": "popover",
+  "type": "registry:wire",
+  "description": "The shared positioning + light-dismiss + focus-return SEAM that every non-modal overlay in lievit composes (dropdown-menu, select, combobox, tooltip, hover-card, date-picker, command, mentions). WIRE tier: open-state is a @Wire server fact; panel body is OWNED markup in the composing component's copy (no Content slot -- server-first refactor blueprint §1.b). Native HTML `popover` attribute supplies top-layer stacking + Escape close signal + auto light-dismiss. CSS Anchor Positioning (anchor-name / position-anchor / position-area, all twelve positions) supplies placement -- no JS positioning loop. The popover-anchor.enhancer.ts owns the one irreducible client bit: CSS Anchor Positioning polyfill wiring + focus-return bookkeeping on light-dismiss + close() wire sync when browser closes without a wire action. APG Disclosure (Show/Hide) pattern for the trigger/panel pair. CSP-clean. Original generation over --lv-* tokens.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "enhancer": "popover-anchor",
+  "files": [
+    {
+      "path": "jte/popover.jte",
+      "type": "registry:jte",
+      "target": "lievit/popover.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring", "motion"],
+  "docs": "The popover is the shared overlay SEAM, not a standalone component. Composing components (dropdown-menu, select, combobox, tooltip, hover-card, date-picker, command) own a copy of popover.jte (copy-in pattern, opt-out per RFC 0036) and extend it by filling the panel body region and adding the appropriate ARIA role on the panel. They do NOT call @template.lievit.popover(...) from their own template. The Java PopoverComponent holds open (boolean @Wire), placement (12 positions), type (auto|manual|hint), offset (px gap), withArrow, triggerId, panelId as @Wire fields; toggleOpen() and close() are @LievitAction. The popover-anchor.enhancer.ts must be installed for focus-return on light-dismiss and close() wire sync. The panel is absent from the DOM when closed (server @if(open)). CSS Anchor Positioning places the panel; position-try-fallbacks:flip-block flips when the preferred side is cramped. No @floating-ui/dom."
+}

@@ -1,0 +1,57 @@
+{
+  "name": "dropdown-menu",
+  "type": "registry:jte",
+  "description": "A WIRE menu-button dropdown: a trigger button whose activation opens a floating role=menu panel of server-owned action items (plain / checkbox / radio, grouped by section, with one submenu level and danger items). Open-state and item set are @Wire server facts. Roving keyboard navigation (ArrowUp/Down/Home/End, typeahead, Esc-to-close, Tab-to-exit) is the shared collection-nav.enhancer.ts in roving-tabindex mode. Panel positioning and light-dismiss are the popover-anchor.enhancer.ts seam (native popover + CSS Anchor Positioning). Follows WAI-ARIA APG Menu + Menu Button patterns + react-aria useMenu focus model (roving tabindex over aria-activedescendant). CSP-clean: no inline script, no on* handlers. Template receives a flat List(Map(String,String)) of items -- keys: id, label, type(PLAIN|CHECKBOX|RADIO), group, icon, href, shortcutLabel, disabled, danger, hasSubmenu, submenuOf.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "enhancers": [
+    "runtime/features/collection-nav.enhancer.ts",
+    "runtime/features/popover-anchor.enhancer.ts"
+  ],
+  "files": [
+    {
+      "path": "jte/dropdown-menu.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/item.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/separator.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/separator.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/label.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/label.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/group.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/group.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/shortcut.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/shortcut.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/dropdown-menu/sub.jte",
+      "type": "registry:jte",
+      "target": "lievit/dropdown-menu/sub.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "docs": "Wire template for DropdownMenuComponent. Install collection-nav.enhancer.ts (installCollectionNav) and popover-anchor.enhancer.ts (installPopoverAnchor) in your runtime setup. The template receives @Wire params: triggerId, menuId (unique element ids), open (boolean), items (List<Map<String,String>> with keys id/label/type/group/icon/href/shortcutLabel/disabled/danger/hasSubmenu/submenuOf), checkedIds (Set<String>), triggerLabel (String), placement (bottom-start|bottom-end|top-start|top-end), activeSubmenuId (String|null). Wire actions: toggleOpen (open/close panel), activate(id) (plain item action + close), toggleCheck(id) (checkbox/radio toggle, menu stays open), openSubmenu(parentId) (render submenu panel), closeSubmenu() (clear active submenu). The flat items list encodes the tree: root items have no submenuOf key; submenu items carry submenuOf=parentId; submenu parents carry hasSubmenu=true."
+}

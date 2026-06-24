@@ -2,19 +2,36 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Render-asserting checks for the server-first notification-bell partial family: the topbar bell
- * (the Filament Livewire/DatabaseNotifications component, the io.lievit.kit.NotificationBell
- * view-model). notification-bell.jte (badge-count trigger + native-popover panel) +
- * notification-bell/header.jte (mark-all-read / clear-all) + notification-bell/item.jte (one
- * read/unread row). It composes the existing badge + icon + separator partials and rides the same
- * native-popover overlay seam the dropdown-menu uses, so the panel reveals with ZERO shipped JS.
+ * Re-forged v-next render-asserting checks for the notification-bell partial.
  *
- * Like the other static-partial suites, this Node harness has no JTE compiler, so the load-bearing
- * contract is pinned on the partial SOURCE as text: the data-slot taxonomy, the count badge (only
- * when unread, decorative), the popover trigger + role=menu panel, the read/unread row state +
- * unread dot, the mark-all-read / clear-all / mark-read wire-action affordances, the aria contract,
- * token-only styling, the Apache header + JTE comment syntax, and NO inline <script> / on* handler /
- * Lit island. The real-compiler golden runs out of band via `npm run test:jte-compile`.
+ * What this suite pins (source-text assertions on the JTE source -- no JTE compiler here;
+ * real-compiler golden runs out-of-band via `npm run test:jte-compile`):
+ *
+ *   - The v-next API surface: params, data-slot taxonomy, inline count badge, panel structure.
+ *   - A11y contract: bell button is icon-only with aria-label embedding the count;
+ *     count badge is aria-hidden; panel is role="region" (non-modal browsable list, spec §4);
+ *     items are <ul><li> in natural tab order; unread dot carries aria-label="unread".
+ *   - Native popover seam: popovertarget, popover="auto", CSS anchor positioning.
+ *   - Escaping: both token channels (attrs trusted-raw via $unsafe; dataAttrs safe-escaped via
+ *     Escape.htmlAttribute -- same as button.jte).
+ *   - No io.lievit import statement (hard rule: template classpath is JDK + jte + icons only).
+ *   - No inline <script> or on* handlers (strict CSP).
+ *   - No bare hex colours (token-only).
+ *   - Apache header + JTE doc-comment with Usage section.
+ *
+ * SPEC DELTA vs old surface (v-next changes):
+ *   - items: was gg.jte.Content slot; now java.util.List<java.util.Map<String,String>> (inline
+ *     rendered list; domain-agnostic Maps, no io.lievit record import required).
+ *   - Count badge: inlined (was @template.lievit.badge composition; now self-contained <span>).
+ *   - Panel role: was role="menu"; now role="region" (spec §4: non-modal browsable list).
+ *   - bellAriaLabel: new param (was `label`); REQUIRED for icon-only button a11y.
+ *   - clearAllWireClick: new; renders a <button l:click> in the panel header when set.
+ *   - size: new; sm|md|lg toolbar-height scale for the bell button (spec §3 Sizes).
+ *   - effectiveBellLabel: computed local var embedding unread count in the aria-label.
+ *   - id: new; uniquifies the popover panel id per page.
+ *   - registryDependencies: removed badge (inlined); removed separator (header inline).
+ *   - Sub-partials header.jte / item.jte remain in the registry but are NOT part of the
+ *     main notification-bell component; the main partial is now self-contained.
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -23,180 +40,270 @@ import { join } from "node:path";
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const read = (rel: string) => readFileSync(join(jteDir, rel), "utf8");
 
-const FAMILY = [
-  "notification-bell.jte",
-  "notification-bell/header.jte",
-  "notification-bell/item.jte",
-] as const;
+// ---------------------------------------------------------------------------
+// The single file this suite covers.
+// ---------------------------------------------------------------------------
+const src = read("notification-bell.jte");
 
-describe("notification-bell family -- shared hygiene", () => {
-  test.each(FAMILY)("%s carries the Apache header + a usage-doc comment (<%-- --%>), no @* *@", (f) => {
-    const src = read(f);
-    expect(src, "missing Apache copyright header").toContain("Copyright 2026 Francesco Bilotta");
+// ---------------------------------------------------------------------------
+// Shared hygiene (canonical checks every partial must pass).
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- shared hygiene", () => {
+  test("carries the Apache header and a JTE doc-comment block with a Usage section", () => {
+    expect(src, "missing Apache copyright").toContain("Copyright 2026 Francesco Bilotta");
     expect(src, "missing Apache license line").toContain("Apache License, Version 2.0");
-    expect(src, "missing <%-- --%> jte comment block").toContain("<%--");
-    expect(src, "comment block must close").toContain("--%>");
-    expect(src, "must NOT use the @* *@ comment syntax").not.toMatch(/@\*/);
-    expect(src, "missing Usage section").toMatch(/Usage:/);
-    expect(src, "missing param declaration").toMatch(/@param /);
+    expect(src, "missing <%-- --%> comment block").toContain("<%--");
+    expect(src, "doc-comment must close").toContain("--%>");
+    expect(src, "must NOT use @* *@ comment syntax").not.toMatch(/@\*/);
+    expect(src, "missing Usage section in doc-comment").toMatch(/Usage:/);
+    expect(src, "must declare at least one @param").toMatch(/@param /);
   });
 
-  test.each(FAMILY)("%s has no inline <script> and ZERO inline on* handlers (strict CSP)", (f) => {
-    const src = read(f);
+  test("has no inline <script> and ZERO inline on* handlers (strict CSP)", () => {
     expect(src).not.toMatch(/<script/i);
     const inlineHandlers = src.match(/\son[a-z]+=/gi) ?? [];
     expect(inlineHandlers, `unexpected inline handlers: ${inlineHandlers.join(", ")}`).toEqual([]);
   });
 
-  test.each(FAMILY)("%s is server-first: no Lit island residue", (f) => {
-    const src = read(f);
-    expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles|import .*\blit\b/);
+  test("is server-first: no Lit island residue", () => {
+    expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles/);
   });
 
-  test.each(FAMILY)("%s never reaches for Font Awesome / wa-icon", (f) => {
-    const src = read(f);
+  test("does NOT have an @import io.lievit statement (hard rule: template classpath is JDK + jte + icons)", () => {
+    // The hard rule is no `@import io.lievit.*` LINE. The doc-comment may mention "io.lievit"
+    // in prose (e.g. "no io.lievit import is needed") -- so we match the import statement form.
+    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  });
+
+  test("never reaches for Font Awesome / wa-icon", () => {
     expect(src.toLowerCase()).not.toMatch(/font-?awesome|wa-icon|fa-/);
   });
 
-  test.each(FAMILY)("%s is token-driven: no bare hex colours", (f) => {
-    const src = read(f);
+  test("is token-driven: no bare hex colours", () => {
     expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(src, "must read --lv-* tokens").toMatch(/var\(--lv-/);
   });
 });
 
-describe("notification-bell.jte -- the badge-count trigger + popover panel", () => {
-  const src = read("notification-bell.jte");
-
-  test("declares its public API: id, unreadCount, header, notifications, empty, placement, disabled", () => {
-    for (const p of ["id", "unreadCount", "label", "header", "notifications", "empty", "placement", "disabled"]) {
+// ---------------------------------------------------------------------------
+// v-next API surface.
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- v-next API surface", () => {
+  test("declares the full v-next param set", () => {
+    for (const p of [
+      "unreadCount",
+      "maxCount",
+      "items",
+      "emptyLabel",
+      "clearAllLabel",
+      "clearAllWireClick",
+      "bellAriaLabel",
+      "size",
+      "id",
+      "cssClass",
+      "attrs",
+      "dataAttrs",
+    ]) {
       expect(src, `missing @param ${p}`).toMatch(new RegExp(`@param[^\\n]*\\b${p}\\b`));
     }
   });
 
-  test("carries the slot taxonomy: bell / trigger / count / panel / list / empty", () => {
+  test("items param uses java.util.List and java.util.Map (domain-agnostic, no io.lievit record)", () => {
+    expect(src, "items must be a java.util.List").toMatch(/java\.util\.List/);
+    expect(src, "items must be a java.util.Map list").toMatch(/java\.util\.Map/);
+    expect(src, "no io.lievit import statement").not.toMatch(/@import\s+io\.lievit/);
+  });
+
+  test("size param governs the bell button height-based toolbar-aligned scale", () => {
+    // sm → lv-space-8, md → lv-space-9, lg → lv-space-10.
+    expect(src, "sm size uses --lv-space-8").toMatch(/lv-space-8/);
+    expect(src, "md size uses --lv-space-9").toMatch(/lv-space-9/);
+    expect(src, "lg size uses --lv-space-10").toMatch(/lv-space-10/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// data-slot taxonomy.
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- data-slot taxonomy", () => {
+  test("carries all v-next data-slot values", () => {
     for (const slot of [
       "notification-bell",
       "notification-bell-trigger",
       "notification-bell-count",
       "notification-bell-panel",
+      "notification-bell-header",
+      "notification-bell-title",
       "notification-bell-list",
+      "notification-bell-item",
+      "notification-bell-item-body",
+      "notification-bell-item-message",
+      "notification-bell-item-dot",
       "notification-bell-empty",
     ]) {
       expect(src, `missing data-slot="${slot}"`).toContain(`data-slot="${slot}"`);
     }
   });
+});
 
-  test("the trigger opens the panel via the native popover seam (no JS, no z-index war)", () => {
-    expect(src, "trigger must be a popovertarget button").toMatch(/popovertarget="\$\{id\}"/);
-    expect(src, "trigger must be a menu button").toContain('aria-haspopup="menu"');
-    expect(src, "panel must be a native auto popover").toContain('popover="auto"');
-    expect(src, "panel must use CSS anchor positioning").toMatch(/position-anchor/);
-    expect(src, "panel must light-dismiss + flip").toMatch(/position-try-fallbacks:flip-block/);
+// ---------------------------------------------------------------------------
+// Bell trigger button a11y.
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- bell button a11y", () => {
+  test("trigger is a real <button> with popovertarget (native popover, no JS)", () => {
+    expect(src, "trigger must carry data-slot").toContain('data-slot="notification-bell-trigger"');
+    // The button must open the panel via popovertarget (native popover API).
+    expect(src, "trigger must have popovertarget").toMatch(/popovertarget="\$\{id\}"/);
   });
 
-  test("shows the bell icon and the count badge ONLY when there are unread (decorative count)", () => {
+  test("trigger carries aria-haspopup=listbox (non-modal browsable list, spec §4)", () => {
+    expect(src, "must be aria-haspopup=listbox").toContain('aria-haspopup="listbox"');
+  });
+
+  test("bell button aria-label embeds the unread count (sole accessible name for icon-only)", () => {
+    // effectiveBellLabel is the computed label that includes the count when unreadCount > 0.
+    expect(src, "must compute effectiveBellLabel with count").toMatch(/effectiveBellLabel/);
+    expect(src, "must embed badgeLabel + 'unread' in the computed label").toMatch(/badgeLabel.*unread|unread.*badgeLabel/);
+    expect(src, "trigger aria-label must use the computed effective label").toMatch(/aria-label="\$\{effectiveBellLabel\}"/);
+  });
+
+  test("renders the bell icon via the icon partial (valid params only: name, size, cssClass, label)", () => {
     expect(src, "must render the bell icon").toMatch(/icon\(name = "bell"/);
-    expect(src, "count must be gated on hasUnread").toMatch(/@if\(hasUnread\)/);
-    expect(src, "count must reuse the badge partial").toMatch(/@template\.lievit\.badge\(/);
-    expect(src, "count badge must be destructive variant").toMatch(/variant = "destructive"/);
-    expect(src, "count pill is decorative (count is in the aria-label)").toMatch(/notification-bell-count[\s\S]*?aria-hidden="true"/);
-    expect(src, "must clamp the count to 99+").toContain("99+");
+    // Hard rule: icon partial does NOT accept ariaHidden param.
+    const iconCalls = src.match(/@template\.lievit\.icon\([^)]+\)/g) ?? [];
+    for (const call of iconCalls) {
+      expect(call, `invalid icon param in: ${call}`).not.toMatch(/ariaHidden|aria_hidden/);
+    }
   });
 
-  test("the trigger's accessible name states the unread count", () => {
-    expect(src, "must build an aria-label with the count").toMatch(/ariaLabel[\s\S]*?unreadCount[\s\S]*?unread/);
-    expect(src, "trigger must carry the aria-label").toMatch(/aria-label="\$\{ariaLabel\}"/);
+  test("count badge is inlined (not composing @template.lievit.badge) and aria-hidden", () => {
+    // The brief: prefer inlining a trivial visual bit over composing a sub-partial.
+    expect(src, "count badge must NOT compose @template.lievit.badge").not.toMatch(/@template\.lievit\.badge\(/);
+    // The inline badge span carries aria-hidden (count is in aria-label already).
+    expect(src, "count badge must be aria-hidden").toMatch(/notification-bell-count[\s\S]{0,200}aria-hidden="true"/);
   });
 
-  test("the panel is a labelled role=menu with the header, a separator, then the rows", () => {
-    expect(src, "panel must be role=menu").toMatch(/notification-bell-panel"[\s\S]*?role="menu"/);
-    expect(src, "panel must be labelled").toMatch(/notification-bell-panel"[\s\S]*?aria-label/);
-    expect(src, "must render the header slot").toMatch(/\$\{header\}/);
-    expect(src, "must separate header from list").toMatch(/@template\.lievit\.separator\(\)/);
-    expect(src, "must render the notifications slot").toMatch(/\$\{notifications\}/);
+  test("count badge is gated on hasUnread and clamps count to 99+", () => {
+    expect(src, "must gate the badge on hasUnread").toMatch(/@if\(hasUnread\)/);
+    expect(src, "must clamp the count via badgeLabel > maxCount logic").toMatch(/maxCount.*\+|badgeLabel/);
+    expect(src, "must output '99+' for the clamped case").toContain("99+");
   });
 
-  test("falls back to the empty slot when there are no notifications", () => {
-    expect(src, "must branch on a null notifications slot").toMatch(/@if\(notifications != null\)/);
-    expect(src, "must render the empty slot in the else").toMatch(/\$\{empty\}/);
+  test("trigger stores data-unread-count for enhancer increments after page load", () => {
+    expect(src, "must carry data-unread-count on the trigger").toMatch(/data-unread-count="\$\{unreadCount\}"/);
   });
 });
 
-describe("notification-bell/header.jte -- mark-all-read + clear-all actions", () => {
-  const src = read("notification-bell/header.jte");
-
-  test("declares the action API: markAllReadAction + clearAllAction + a title", () => {
-    for (const p of ["title", "markAllReadAction", "clearAllAction", "formId", "disabled"]) {
-      expect(src, `missing @param ${p}`).toMatch(new RegExp(`@param[^\\n]*\\b${p}\\b`));
-    }
+// ---------------------------------------------------------------------------
+// Panel structure a11y.
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- panel structure a11y", () => {
+  test("panel is a native auto popover with CSS Anchor Positioning (no JS, no z-index war)", () => {
+    expect(src, "panel must be popover=auto").toContain('popover="auto"');
+    expect(src, "panel must use CSS Anchor Positioning anchor name").toMatch(/position-anchor/);
+    expect(src, "panel must flip on overflow").toMatch(/position-try-fallbacks/);
   });
 
-  test("renders a header strip with a title and the two action buttons (slots)", () => {
-    for (const slot of [
-      "notification-bell-header",
-      "notification-bell-title",
-      "notification-bell-mark-all-read",
-      "notification-bell-clear-all",
-    ]) {
-      expect(src, `missing data-slot="${slot}"`).toContain(`data-slot="${slot}"`);
-    }
+  test("panel is role=region (non-modal browsable list, not a menu -- spec §4)", () => {
+    expect(src, "panel must be role=region").toMatch(/notification-bell-panel[\s\S]{0,400}role="region"/);
   });
 
-  test("mark-all-read / clear-all are real server-first form actions (formaction), never inline JS", () => {
-    expect(src, "mark-all-read must post via formaction when an action is set").toMatch(/formaction="\$\{markAllReadAction.isEmpty\(\)/);
-    expect(src, "clear-all must post via formaction when an action is set").toMatch(/formaction="\$\{clearAllAction.isEmpty\(\)/);
-    expect(src, "buttons submit when an action is present").toMatch(/markAllReadAction.isEmpty\(\) \? "button" : "submit"/);
+  test("panel has an accessible name via aria-label", () => {
+    expect(src, "panel must carry aria-label").toMatch(/notification-bell-panel[\s\S]{0,400}aria-label/);
   });
 
-  test("actions are labelled (icon + text), never icon-only", () => {
-    expect(src, "mark-all-read carries a text label").toMatch(/\$\{markAllReadLabel\}/);
-    expect(src, "clear-all carries a text label").toMatch(/\$\{clearAllLabel\}/);
-    expect(src, "the mark-all-read icon is decoration").toMatch(/icon\(name = "check"/);
-    expect(src, "clear uses the trash icon").toMatch(/icon\(name = "trash-2"/);
+  test("panel uses --lv-z-popover for stacking (never a hardcoded z-index number)", () => {
+    expect(src, "must use --lv-z-popover token").toMatch(/lv-z-popover/);
+    // Hardcoded z-index numbers are forbidden (token-only rule).
+    expect(src, "must NOT have a hardcoded z-index integer alone").not.toMatch(/z-index\s*:\s*\d{3,}/);
+  });
+
+  test("panel background uses --lv-color-popover tokens", () => {
+    expect(src, "must use --lv-color-popover").toMatch(/lv-color-popover/);
+  });
+
+  test("panel has a header with title and optional clear-all button", () => {
+    expect(src, "must have notification-bell-header").toContain('data-slot="notification-bell-header"');
+    expect(src, "must have notification-bell-title").toContain('data-slot="notification-bell-title"');
+    expect(src, "must have notification-bell-clear-all when clearAllWireClick set").toContain('data-slot="notification-bell-clear-all"');
+  });
+
+  test("clear-all button is gated on clearAllWireClick being non-null and non-blank", () => {
+    expect(src, "clear-all must be conditional on non-null").toMatch(/clearAllWireClick != null/);
+    expect(src, "clear-all must guard against blank").toMatch(/!clearAllWireClick.isBlank\(\)/);
+  });
+
+  test("clear-all button uses l:click (safe wire action, not inline JS)", () => {
+    expect(src, "must wire clear-all via l:click").toMatch(/l:click="\$\{clearAllWireClick\}"/);
   });
 });
 
-describe("notification-bell/item.jte -- one read/unread notification row", () => {
-  const src = read("notification-bell/item.jte");
-
-  test("declares the row API: title, body, time, unread, href, markReadAction", () => {
-    for (const p of ["title", "body", "time", "icon", "unread", "href", "markReadAction"]) {
-      expect(src, `missing @param ${p}`).toMatch(new RegExp(`@param[^\\n]*\\b${p}\\b`));
-    }
+// ---------------------------------------------------------------------------
+// Item list rendering.
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- item list", () => {
+  test("item list is a <ul> with <li> rows (natural list semantics)", () => {
+    expect(src, "must use <ul> for the item list").toMatch(/<ul\b[^>]*>/);
+    expect(src, "must use <li> for items").toMatch(/<li\b/);
   });
 
-  test("the row state is data-state=unread|read keyed on the server unread flag", () => {
-    expect(src, "must compute the state word from unread").toMatch(/var state = unread \? "unread" : "read"/);
-    expect(src, "row must carry data-state").toMatch(/data-state="\$\{state\}"/);
-    expect(src, "row must be a role=menuitem").toMatch(/role="menuitem"/);
+  test("item list is gated on items.isEmpty() -- renders emptyLabel when no items", () => {
+    expect(src, "must branch on items.isEmpty()").toMatch(/items\.isEmpty\(\)/);
+    expect(src, "must render emptyLabel in the empty branch").toMatch(/\$\{emptyLabel\}/);
+    expect(src, "empty state uses notification-bell-empty slot").toContain('data-slot="notification-bell-empty"');
   });
 
-  test("an unread row shows a colour-independent dot announced to assistive tech", () => {
-    expect(src, "unread branch must render the dot").toMatch(/@if\(unread\)[\s\S]*?notification-bell-item-dot/);
-    expect(src, "the dot states 'unread' for screen readers").toMatch(/notification-bell-item-dot"[\s\S]*?aria-label="unread"/);
+  test("item loop iterates items and reads Map keys (domain-agnostic)", () => {
+    // The loop must declare the item type explicitly (java.util.Map<String, String>).
+    expect(src, "must iterate items with @for and typed Map variable").toMatch(/@for\(java\.util\.Map.*item : items\)/);
+    expect(src, "must read item message from map").toMatch(/getOrDefault\("message"/);
+    expect(src, "must read item variant from map").toMatch(/getOrDefault\("variant"/);
   });
 
-  test("carries the content slots: title / body / time", () => {
-    for (const slot of [
-      "notification-bell-item",
-      "notification-bell-item-content",
-      "notification-bell-item-title",
-      "notification-bell-item-body",
-      "notification-bell-item-time",
-    ]) {
-      expect(src, `missing data-slot="${slot}"`).toContain(`data-slot="${slot}"`);
-    }
+  test("item renders a variant icon using the icon partial (valid params only)", () => {
+    expect(src, "must render an intent icon for the item").toMatch(/icon\(name = itemIconName/);
   });
 
-  test("the mark-read action shows only on unread rows and posts a wire action (formaction)", () => {
-    expect(src, "mark-read gated on unread + an action url").toMatch(/@if\(unread && !markReadAction.isEmpty\(\)\)/);
-    expect(src, "mark-read posts via formaction").toMatch(/formaction="\$\{markReadAction\}"/);
-    expect(src, "mark-read is a real labelled button").toMatch(/notification-bell-item-mark-read"[\s\S]*?aria-label="\$\{markReadLabel\}"/);
+  test("variant icon colour comes from a token-based switch (not hardcoded hex)", () => {
+    expect(src, "icon colour switch must reference --lv-color-success").toMatch(/lv-color-success/);
+    expect(src, "icon colour switch must reference --lv-color-warning").toMatch(/lv-color-warning/);
+    expect(src, "icon colour switch must reference --lv-color-destructive").toMatch(/lv-color-destructive/);
+    expect(src, "icon colour switch must reference --lv-color-info").toMatch(/lv-color-info/);
   });
 
-  test("the row is a real <a> when href is set, an inert div otherwise", () => {
-    expect(src, "must branch on a link row").toMatch(/var isLink = !href.isEmpty\(\)/);
-    expect(src, "link row is a real anchor").toMatch(/<a href="\$\{href\}"/);
+  test("unread dot is gated on !isRead and carries role=img aria-label=unread (AT announcement)", () => {
+    // The implementation derives isRead from item.get("read") and gates the dot on !isRead.
+    expect(src, "dot must be gated on !isRead").toMatch(/!\s*isRead/);
+    expect(src, "dot must carry aria-label=unread for AT").toMatch(/notification-bell-item-dot[\s\S]{0,200}aria-label="unread"/);
+    expect(src, "dot must carry role=img").toMatch(/notification-bell-item-dot[\s\S]{0,200}role="img"/);
+  });
+
+  test("item description and timestamp are conditionally rendered", () => {
+    expect(src, "description is conditional").toMatch(/notification-bell-item-description/);
+    expect(src, "timestamp is conditional").toMatch(/notification-bell-item-timestamp/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Escaping channels (XSS contract).
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- escaping channels", () => {
+  test("imports gg.jte.output.StringOutput and gg.jte.html.escape.Escape (safe-escaped channel)", () => {
+    expect(src, "must import StringOutput").toContain("import gg.jte.output.StringOutput");
+    expect(src, "must import Escape").toContain("import gg.jte.html.escape.Escape");
+  });
+
+  test("dataAttrs values are escaped via Escape.htmlAttribute (safe channel)", () => {
+    expect(src, "must call Escape.htmlAttribute on dataAttrs values").toMatch(/Escape\.htmlAttribute/);
+    expect(src, "must build the escaped fragment into dataAttrsMarkup").toMatch(/dataAttrsMarkup/);
+  });
+
+  test("attrs channel is emitted with $unsafe (trusted-raw, static strings only)", () => {
+    expect(src, "attrs must be emitted with $unsafe{}").toMatch(/\$unsafe\{attrs\}/);
+  });
+
+  test("item message and description are rendered via JTE default escaping (not $unsafe)", () => {
+    expect(src, "item message must use ${} not $unsafe{}").toMatch(/\$\{itemMsg\}/);
+    expect(src, "item message must NOT be routed through $unsafe").not.toMatch(/\$unsafe\{itemMsg\}/);
   });
 });

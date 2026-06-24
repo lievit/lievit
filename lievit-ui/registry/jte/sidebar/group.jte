@@ -48,7 +48,7 @@
     @endif
     <ul
         data-slot="sidebar-menu"
-        aria-labelledby="${labelId}"
+        aria-labelledby="${hasLabel ? labelId : null}"
         style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;"
     >
         ${content}

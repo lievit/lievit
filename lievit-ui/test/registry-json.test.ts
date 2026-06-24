@@ -139,11 +139,19 @@ describe("built registry.json", () => {
   test("the toast partial renders the live-region role + ships a CSP-clean enhancer (no <script>)", () => {
     const item = built.items.find((i) => i.name === "toast");
     expect(item, "toast must be a registry item").toBeDefined();
-    const jte = item!.files.find((f) => f.path.endsWith(".jte"))?.content ?? "";
-    // variant -> role mapping rendered server-side; dismissible button; no inline script.
-    expect(jte).toContain('role="${urgent ? "alert" : "status"}"');
-    expect(jte).toContain("data-toast-dismiss");
-    expect(jte).not.toMatch(/<script/i);
+    // Wave 5 re-forge: the live-region roles (role=status / role=alert) now live on the
+    // sub-containers in toast/region.jte, NOT on toast.jte (the item card). The item
+    // card has role="none" (content inside the live region). Check region.jte for the roles.
+    const regionJte = item!.files.find((f) => f.path.endsWith("toast/region.jte"))?.content ?? "";
+    expect(regionJte, "region.jte must be in the toast registry files").not.toBe("");
+    expect(regionJte).toContain('role="status"');
+    expect(regionJte).toContain('role="alert"');
+    expect(regionJte).not.toMatch(/<script/i);
+    // The item card carries the dismiss button (data-slot="toast-dismiss") and no inline script.
+    // Note: the dismiss slot attr is data-slot="toast-dismiss", not data-toast-dismiss.
+    const itemJte = item!.files.find((f) => f.path.endsWith("toast.jte"))?.content ?? "";
+    expect(itemJte).toContain('data-slot="toast-dismiss"');
+    expect(itemJte).not.toMatch(/<script/i);
     // it ships the auto-dismiss enhancer alongside the partial.
     expect(item!.files.some((f) => f.path.endsWith("toast.enhancer.ts"))).toBe(true);
   });

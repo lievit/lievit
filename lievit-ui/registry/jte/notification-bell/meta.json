@@ -1,29 +1,18 @@
 {
   "name": "notification-bell",
   "type": "registry:jte",
-  "description": "The topbar notification bell (the Filament Livewire/DatabaseNotifications component, the io.lievit.kit.NotificationBell view-model): a badge-count trigger that opens a top-layer dropdown panel listing the recipient's notifications (read/unread rows with an unread dot + relative time) under a mark-all-read / clear-all header. Built on the native popover overlay seam (no z-index war, light-dismiss + Escape) the dropdown-menu partial uses; reuses badge for the count pill, icon, separator. Mutations (mark-read / mark-all-read / clear-all) are real wire-action POSTs the adopter wires, never inline script. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "An icon-button with an inline unread-count badge that opens a native-popover notification history panel. Icon-only bell button (aria-label embeds the count); unread count badge is inlined (self-contained, no badge partial dependency); items are List-of-Map (keys: id, variant, message, description, timestamp, read) so no io.lievit import is needed. Panel is role=region with a <ul><li> item list in natural tab order (no roving tabindex). Positions via CSS Anchor Positioning (light-dismiss + Esc built-in). Bell button follows the sm/md/lg height-based toolbar-alignment scale. Token-driven, CSP-clean, zero JS shipped.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon", "badge", "separator"],
+  "registryDependencies": ["tokens", "icon", "separator"],
   "files": [
     {
       "path": "jte/notification-bell.jte",
       "type": "registry:jte",
       "target": "lievit/notification-bell.jte",
       "root": "jte"
-    },
-    {
-      "path": "jte/notification-bell/header.jte",
-      "type": "registry:jte",
-      "target": "lievit/notification-bell/header.jte",
-      "root": "jte"
-    },
-    {
-      "path": "jte/notification-bell/item.jte",
-      "type": "registry:jte",
-      "target": "lievit/notification-bell/item.jte",
-      "root": "jte"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring", "z"],
-  "docs": "Copies the notification-bell partials to your JTE root at lievit/notification-bell.jte (+ notification-bell/header.jte, notification-bell/item.jte), reached as @template.lievit.notification-bell(unreadCount=.., header=@`@template.lievit.notification-bell.header(...)`, notifications=@`...rows...`). Drive the count + rows from the io.lievit.kit.NotificationBell view-model; wire mark-read / mark-all-read / clear-all to the bell's POST endpoints (formaction or l:click). The source is yours: edit freely."
+  "enhancer": null,
+  "docs": "Copies notification-bell.jte to your JTE root at lievit/notification-bell.jte, reached as @template.lievit.notification-bell(unreadCount=N, items=itemList, bellAriaLabel=\"Notifications\"). Items are java.util.List<java.util.Map<String,String>> with keys id/variant/message/description/timestamp/read. The panel opens/closes via the native browser popover API; no JS is required. The bell button's aria-label embeds the unread count for AT. Wire clear-all via clearAllWireClick; the button is absent when null. The source is yours: edit freely."
 }

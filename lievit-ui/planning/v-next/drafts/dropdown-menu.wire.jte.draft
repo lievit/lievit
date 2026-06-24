@@ -1,0 +1,417 @@
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
+@import java.util.List
+@import java.util.Map
+@import java.util.Set
+<%--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  lievit-ui dropdown-menu wire template -- a menu-button dropdown: trigger button whose
+  activation opens a floating role="menu" panel of server-owned action items.
+
+  TIER: WIRE -- the open-state and the item set are server facts. The one irreducible
+  client behavior (roving keyboard navigation, typeahead, Esc-to-close) is the shared
+  collection-nav.enhancer.ts in roving-tabindex mode. The popover seam (native popover +
+  CSS Anchor Positioning) handles panel positioning and light-dismiss.
+
+  STRUCTURE (scientific decision rule):
+    - WAI-ARIA APG Menu Button pattern (https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/)
+      + APG Menu pattern (https://www.w3.org/WAI/ARIA/apg/patterns/menu/): trigger button with
+      aria-haspopup="menu" and aria-expanded; panel role="menu" present in DOM only when open.
+    - react-aria useMenu / useMenuTrigger interaction model as the keyboard and focus reference
+      (roving tabindex over aria-activedescendant to avoid screenreader announce-lag); all
+      keyboard behaviour delegated to collection-nav.enhancer.ts (roving-tabindex mode).
+    - Ant Design Dropdown as inventory reference: sections/groups, separator, icon items,
+      keyboard shortcut labels, danger items, disabled items, one submenu level.
+    - Popover panel: native HTML popover attribute + CSS Anchor Positioning via popover-anchor
+      enhancer (data-lv-opener, light-dismiss fires toggleOpen wire action).
+    - OPEN STATE: boolean @Wire field. Panel is absent from the DOM (not just hidden) when
+      open=false -- removes items from a11y tree and tab order without display:none JS toggle.
+
+  WIRE integration:
+    - l:click="toggleOpen" on the trigger flips open.
+    - l:click="activate" with data-id on each plain/checkable/link item.
+    - l:click="toggleCheck" with data-id on checkbox/radio items.
+    - l:click="openSubmenu" with data-id on submenu-parent items.
+    - The popover light-dismiss fires the wire action "toggleOpen" (ENHANCER_NEEDED -- see report;
+      the popover-anchor enhancer currently fires "close", not "toggleOpen"; wired as-is with
+      data-lv-wire-close="toggleOpen" hook for the coordinator to implement).
+
+  COLLECTION-NAV enhancer wiring (roving-tabindex mode):
+    - data-lievit-collection on the role="menu" panel activates the enhancer.
+    - data-lievit-collection-roving-tabindex="true" selects the roving model.
+    - data-lievit-collection-orientation="vertical" (the default, stated explicitly).
+    - data-lievit-collection-wrap="true" (ArrowDown on last wraps to first; ArrowUp wraps).
+    - data-lievit-collection-select-action="activate" fires on Enter/Space for PLAIN items.
+    - data-lievit-collection-escape-action="toggleOpen" fires on Esc (close menu + return focus).
+    - data-manual-activation="true" separates Arrow-key focus movement from action firing so
+      checkbox/radio items do NOT activate on arrow navigation (APG menu requirement).
+    - Each item carries data-lievit-item for the enhancer's item selector.
+    - Disabled items carry aria-disabled="true"; the enhancer skips them in navigation.
+    - The submenu openSubmenu / closeSubmenu actions are ENHANCER_NEEDED (coordinator extends
+      the shared enhancer with data-lievit-collection-submenu-action and ArrowRight/Left support;
+      see ENHANCER_NEEDED in the final report).
+
+  POPOVER seam:
+    - The menu panel carries popover="auto" + data-lv-opener="${triggerId}" so
+      popover-anchor.enhancer.ts records the opener and restores focus on light-dismiss.
+    - CSS Anchor Positioning: trigger sets anchor-name; panel sets position-anchor + position-area.
+    - Placement variants (bottom-start / bottom-end / top-start / top-end) via data-placement
+      mapped to position-area in the !{var} block below.
+
+  A11y (WAI-ARIA APG Menu + Menu Button):
+    - Trigger: native <button> with aria-haspopup="menu" aria-expanded="${open}" aria-controls.
+    - Panel: role="menu" aria-labelledby="${triggerId}" aria-orientation="vertical" (explicit).
+    - Groups: role="group" aria-labelledby="${groupLabelId}". Group label: role="presentation".
+    - Separator: <hr role="separator" aria-orientation="horizontal">.
+    - Plain item: role="menuitem" tabindex="-1" or "0" (roving); aria-disabled when disabled.
+    - Checkbox item: role="menuitemcheckbox" aria-checked="${checked}".
+    - Radio item: role="menuitemradio" aria-checked="${checked}".
+    - Submenu parent: role="menuitem" aria-haspopup="menu" aria-expanded when submenu open.
+    - Icons + shortcut labels: aria-hidden="true" (decoration only).
+    - Focus model: ROVING TABINDEX (react-aria useMenu; first non-disabled item gets tabindex=0).
+    - NO focus trap (menu is non-modal; Tab exits and closes -- WCAG SC 2.1.2).
+
+  WIRE params (one per @Wire field + _component + _instance):
+    String              triggerId         unique id for the trigger button element (aria link).
+    String              menuId            unique id for the menu panel element (aria controls).
+    boolean             open              overlay open-state (@Wire); panel in DOM iff open=true.
+    List(MenuItem)      items             the flat item list, server-owned, locked.
+    Set(String)         checkedIds        ids of currently-checked CHECKBOX/RADIO items (@Wire).
+    String              triggerLabel      accessible label for the trigger (icon-only triggers).
+    String              placement         "bottom-start" | "bottom-end" | "top-start" | "top-end".
+    String              activeSubmenuId   which submenu parent is currently open (null if none).
+    Object              _component        standard WIRE metadata (id, snapshot, etc.) -- unused here.
+    Object              _instance         for calling groupedItems() and activeSubmenu() derived views.
+
+  Usage:
+    Wire template rendered by the lievit runtime for DropdownMenuComponent; the trigger label
+    and items arrive via the @Wire fields. To add a dropdown menu, extend DropdownMenuComponent,
+    override onItemActivated, supply items and triggerLabel from the domain model.
+--%>
+@param String triggerId = "lv-dm-trigger"
+@param String menuId = "lv-dm-menu"
+@param boolean open = false
+@param List<Map<String, String>> items = java.util.List.of()
+@param Set<String> checkedIds = java.util.Set.of()
+@param String triggerLabel = "Open menu"
+@param String placement = "bottom-start"
+@param String activeSubmenuId = null
+@param Object _component = null
+@param Object _instance = null
+
+<%-- Anchor name is derived from the triggerId so the panel can position-anchor to the button. --%>
+!{var anchorName = "--" + triggerId + "-anchor";}
+
+<%-- Resolve placement to a CSS Anchor Positioning position-area value.
+     APG: default is bottom-start (opens below + left-aligned to the trigger).
+     "span-right" covers the right of the anchor; "span-left" covers the left. --%>
+!{var positionArea = switch (placement) {
+    case "bottom-end"  -> "bottom span-left";
+    case "top-start"   -> "top span-right";
+    case "top-end"     -> "top span-left";
+    default            -> "bottom span-right";
+  };}
+
+<%-- WIRE item data-* fragment builder.
+     Each item carries a data-id built from the item's "id" map entry, escaped through
+     Escape.htmlAttribute (the safe per-row DB-value channel; mirrors button.jte exactly).
+     JTE's HTML parser forbids a raw @for in attribute-NAME position, so we build the
+     data-id fragment once here and emit it with $unsafe -- the value is already escaped. --%>
+
+<%-- Root component element: data-slot + data-lievit-component stamped by the runtime
+     on mount; the template renders the structural HTML only. --%>
+<div
+  data-slot="dropdown-menu"
+  data-open="${open ? "true" : "false"}"
+  class="relative inline-block"
+  style="font-family:var(--lv-font-sans);"
+>
+  <%-- TRIGGER button: real <button> (platform gives Enter/Space + focus for free).
+       aria-expanded reflects the @Wire open state -- never client-toggled.
+       aria-controls links the button to the menu panel (APG requirement).
+       anchor-name sets the CSS anchor for the panel positioning. --%>
+  <button
+    id="${triggerId}"
+    type="button"
+    data-slot="dropdown-menu-trigger"
+    aria-haspopup="menu"
+    aria-expanded="${open ? "true" : "false"}"
+    aria-controls="${menuId}"
+    aria-label="${triggerLabel}"
+    l:click="toggleOpen"
+    class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] outline-none transition-colors hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+    style="height:var(--lv-space-9);anchor-name:${anchorName};"
+  >
+    <span>${triggerLabel}</span>
+    <span aria-hidden="true" style="display:inline-flex;align-items:center;margin-left:var(--lv-space-1);">@template.lievit.icon(name = "chevron-down", size = "1rem")</span>
+  </button>
+
+  <%-- MENU PANEL: present in DOM only when open=true.
+       Removed entirely when closed so items leave the a11y tree and tab order.
+       popover="auto" enables native light-dismiss + top-layer render (no z-index wars).
+       data-lv-opener="${triggerId}" wires the popover-anchor enhancer to record the opener
+       and restore focus to the trigger on light-dismiss.
+       data-lievit-collection activates the collection-nav enhancer in roving-tabindex mode.
+       data-manual-activation="true" separates Arrow-key focus movement from action firing. --%>
+  @if(open)
+    <div
+      id="${menuId}"
+      popover="auto"
+      data-slot="dropdown-menu-content"
+      role="menu"
+      aria-labelledby="${triggerId}"
+      aria-orientation="vertical"
+      data-placement="${placement}"
+      data-lv-opener="${triggerId}"
+      data-lievit-collection
+      data-lievit-collection-roving-tabindex="true"
+      data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true"
+      data-lievit-collection-select-action="activate"
+      data-lievit-collection-escape-action="toggleOpen"
+      data-manual-activation="true"
+      class="m-0 box-border min-w-[10rem] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-md)] outline-none"
+      style="position-anchor:${anchorName};position-area:${positionArea};position-try-fallbacks:flip-block;margin-block:var(--lv-space-1);z-index:var(--lv-z-popover);font-family:var(--lv-font-sans);"
+    >
+      <%-- Render items in groups. Groups are derived by _instance.groupedItems() on the
+           server; here we receive the flat items list and group them inline.
+           To avoid invoking _instance (which requires io.lievit imports forbidden in JTE),
+           we iterate the flat items list and emit group headers + separators when the group
+           changes. The groupedItems() call is the coordinator's Java layer responsibility;
+           the template receives flat items and renders them in declaration order. --%>
+      !{var _prevGroup = "__NONE__";}
+      !{var _firstGroup = true;}
+      @for(Map<String, String> item : items)
+        !{var _itemId = item.getOrDefault("id", "");}
+        !{var _itemLabel = item.getOrDefault("label", "");}
+        !{var _itemType = item.getOrDefault("type", "PLAIN");}
+        !{var _itemGroup = item.getOrDefault("group", null);}
+        !{var _itemIcon = item.getOrDefault("icon", null);}
+        !{var _itemHref = item.getOrDefault("href", null);}
+        !{var _itemShortcutLabel = item.getOrDefault("shortcutLabel", null);}
+        !{var _itemDisabled = "true".equals(item.getOrDefault("disabled", "false"));}
+        !{var _itemDanger = "true".equals(item.getOrDefault("danger", "false"));}
+        !{var _itemIsSubmenuParent = item.containsKey("hasSubmenu") && "true".equals(item.get("hasSubmenu"));}
+        !{var _itemChecked = checkedIds.contains(_itemId);}
+        !{var _itemRole = "CHECKBOX".equals(_itemType) ? "menuitemcheckbox" : ("RADIO".equals(_itemType) ? "menuitemradio" : "menuitem");}
+        !{var _groupChanged = !_prevGroup.equals(_itemGroup == null ? "__NULL__" : _itemGroup);}
+
+        <%-- Emit separator + group header when the group changes. --%>
+        @if(_groupChanged)
+          @if(!_firstGroup)
+            <%-- Separator between groups --%>
+            <hr
+              role="separator"
+              aria-orientation="horizontal"
+              data-slot="dropdown-menu-separator"
+              style="margin:var(--lv-space-1) 0;border:0;border-top:1px solid var(--lv-color-border);"
+            >
+          @endif
+          @if(_itemGroup != null)
+            <%-- Group label (role="presentation" -- named via aria-labelledby on the group
+                 wrapper; the text carries the name, not an interactive role). --%>
+            !{var _groupLabelId = menuId + "-grp-" + _itemGroup.replace(" ", "-");}
+            <div
+              id="${_groupLabelId}"
+              role="presentation"
+              data-slot="dropdown-menu-group-label"
+              style="padding:var(--lv-space-1) var(--lv-space-3);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);color:var(--lv-color-muted);letter-spacing:0.05em;text-transform:uppercase;"
+            >${_itemGroup}</div>
+          @endif
+          !{_prevGroup = _itemGroup == null ? "__NULL__" : _itemGroup;}
+          !{_firstGroup = false;}
+        @endif
+
+        <%-- Build the safe data-id fragment for per-item wire actions. --%>
+        !{var _wireArgOut = new StringOutput();}
+        !{_wireArgOut.writeContent(" data-id=\"");}
+        !{Escape.htmlAttribute(_itemId, _wireArgOut);}
+        !{_wireArgOut.writeContent("\"");}
+        !{var _wireArgMarkup = _wireArgOut.toString();}
+
+        <%-- Render the item as <a href> (navigation) or <button> (action). --%>
+        @if(_itemHref != null && !_itemHref.isBlank())
+          <%-- LINK item: role="menuitem", rendered as real <a> so navigation works JS-off. --%>
+          <a
+            id="${menuId}-item-${_itemId}"
+            href="${_itemHref}"
+            role="menuitem"
+            data-slot="dropdown-menu-item"
+            data-variant="${_itemDanger ? "destructive" : null}"
+            data-danger="${_itemDanger ? "true" : null}"
+            data-lievit-item
+            tabindex="-1"
+            aria-disabled="${_itemDisabled ? "true" : null}"
+            l:click="activate"
+            $unsafe{_wireArgMarkup}
+            class="flex w-full items-center outline-none focus-visible:shadow-[var(--lv-ring)]"
+            style="gap:var(--lv-space-2);padding:0 var(--lv-space-3);height:var(--lv-space-9);text-decoration:none;cursor:${_itemDisabled ? "not-allowed" : "pointer"};opacity:${_itemDisabled ? "0.5" : "1"};color:${_itemDanger ? "var(--lv-color-destructive)" : "var(--lv-color-popover-fg)"};background:transparent;border:0;box-sizing:border-box;font:inherit;"
+          >
+            @if(_itemIcon != null)
+              <span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;">@template.lievit.icon(name = _itemIcon, size = "1rem")</span>
+            @endif
+            <span style="flex:1 1 auto;">${_itemLabel}</span>
+            @if(_itemShortcutLabel != null)
+              <span aria-hidden="true" data-slot="dropdown-menu-shortcut" style="flex-shrink:0;margin-left:auto;padding-left:var(--lv-space-3);color:var(--lv-color-muted);font-size:var(--lv-text-xs);letter-spacing:0.1em;">${_itemShortcutLabel}</span>
+            @endif
+          </a>
+        @else
+          @if(_itemIsSubmenuParent)
+            <%-- SUBMENU PARENT item: role="menuitem" + aria-haspopup="menu" + aria-expanded.
+                 Fires openSubmenu(id) on Enter/Space (enhancer delegates to the wire action). --%>
+            !{var _submenuOpen = _itemId.equals(activeSubmenuId);}
+            <button
+              id="${menuId}-item-${_itemId}"
+              type="button"
+              role="menuitem"
+              data-slot="dropdown-menu-item"
+              data-slot-submenu-trigger="true"
+              data-lievit-item
+              tabindex="-1"
+              aria-haspopup="menu"
+              aria-expanded="${_submenuOpen ? "true" : "false"}"
+              aria-controls="${menuId}-sub-${_itemId}"
+              aria-disabled="${_itemDisabled ? "true" : null}"
+              l:click="openSubmenu"
+              $unsafe{_wireArgMarkup}
+              class="flex w-full items-center outline-none focus-visible:shadow-[var(--lv-ring)]"
+              style="gap:var(--lv-space-2);padding:0 var(--lv-space-3);height:var(--lv-space-9);cursor:${_itemDisabled ? "not-allowed" : "pointer"};opacity:${_itemDisabled ? "0.5" : "1"};color:var(--lv-color-popover-fg);background:transparent;border:0;box-sizing:border-box;font:inherit;text-align:left;"
+            >
+              @if(_itemIcon != null)
+                <span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;">@template.lievit.icon(name = _itemIcon, size = "1rem")</span>
+              @endif
+              <span style="flex:1 1 auto;">${_itemLabel}</span>
+              <span aria-hidden="true" style="flex-shrink:0;margin-left:auto;display:inline-flex;align-items:center;">@template.lievit.icon(name = "chevron-right", size = "1rem")</span>
+            </button>
+            <%-- SUBMENU PANEL: rendered adjacent to the parent item when activeSubmenuId matches. --%>
+            @if(_submenuOpen)
+              <div
+                id="${menuId}-sub-${_itemId}"
+                role="menu"
+                data-slot="dropdown-menu-submenu"
+                aria-label="${_itemLabel}"
+                data-lievit-collection
+                data-lievit-collection-roving-tabindex="true"
+                data-lievit-collection-orientation="vertical"
+                data-lievit-collection-wrap="true"
+                data-lievit-collection-select-action="activate"
+                data-lievit-collection-escape-action="closeSubmenu"
+                data-manual-activation="true"
+                class="absolute left-full top-0 min-w-[10rem] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-md)] outline-none"
+                style="z-index:var(--lv-z-popover);font-family:var(--lv-font-sans);"
+              >
+                <%-- Submenu items are rendered from items with their parentId matching.
+                     The spec defines submenuItems as a nested List on MenuItem; in the flat
+                     template param model the coordinator passes submenu items as map entries
+                     with key "submenuOf" = parentId. Items without that key are root-level. --%>
+                @for(Map<String, String> subItem : items)
+                  @if(_itemId.equals(subItem.getOrDefault("submenuOf", "")))
+                    !{var _subId = subItem.getOrDefault("id", "");}
+                    !{var _subLabel = subItem.getOrDefault("label", "");}
+                    !{var _subIcon = subItem.getOrDefault("icon", null);}
+                    !{var _subHref = subItem.getOrDefault("href", null);}
+                    !{var _subShortcut = subItem.getOrDefault("shortcutLabel", null);}
+                    !{var _subDisabled = "true".equals(subItem.getOrDefault("disabled", "false"));}
+                    !{var _subDanger = "true".equals(subItem.getOrDefault("danger", "false"));}
+                    !{var _subWireOut = new StringOutput();}
+                    !{_subWireOut.writeContent(" data-id=\"");}
+                    !{Escape.htmlAttribute(_subId, _subWireOut);}
+                    !{_subWireOut.writeContent("\"");}
+                    !{var _subWireMarkup = _subWireOut.toString();}
+                    @if(_subHref != null && !_subHref.isBlank())
+                      <a
+                        id="${menuId}-subitem-${_subId}"
+                        href="${_subHref}"
+                        role="menuitem"
+                        data-slot="dropdown-menu-item"
+                        data-danger="${_subDanger ? "true" : null}"
+                        data-lievit-item
+                        tabindex="-1"
+                        aria-disabled="${_subDisabled ? "true" : null}"
+                        l:click="activate"
+                        $unsafe{_subWireMarkup}
+                        class="flex w-full items-center outline-none focus-visible:shadow-[var(--lv-ring)]"
+                        style="gap:var(--lv-space-2);padding:0 var(--lv-space-3);height:var(--lv-space-9);text-decoration:none;cursor:${_subDisabled ? "not-allowed" : "pointer"};opacity:${_subDisabled ? "0.5" : "1"};color:${_subDanger ? "var(--lv-color-destructive)" : "var(--lv-color-popover-fg)"};background:transparent;border:0;box-sizing:border-box;font:inherit;"
+                      >
+                        @if(_subIcon != null)
+                          <span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;">@template.lievit.icon(name = _subIcon, size = "1rem")</span>
+                        @endif
+                        <span style="flex:1 1 auto;">${_subLabel}</span>
+                        @if(_subShortcut != null)
+                          <span aria-hidden="true" data-slot="dropdown-menu-shortcut" style="flex-shrink:0;margin-left:auto;padding-left:var(--lv-space-3);color:var(--lv-color-muted);font-size:var(--lv-text-xs);letter-spacing:0.1em;">${_subShortcut}</span>
+                        @endif
+                      </a>
+                    @else
+                      <button
+                        id="${menuId}-subitem-${_subId}"
+                        type="button"
+                        role="menuitem"
+                        data-slot="dropdown-menu-item"
+                        data-danger="${_subDanger ? "true" : null}"
+                        data-lievit-item
+                        tabindex="-1"
+                        aria-disabled="${_subDisabled ? "true" : null}"
+                        disabled="${_subDisabled}"
+                        l:click="activate"
+                        $unsafe{_subWireMarkup}
+                        class="flex w-full items-center outline-none focus-visible:shadow-[var(--lv-ring)]"
+                        style="gap:var(--lv-space-2);padding:0 var(--lv-space-3);height:var(--lv-space-9);cursor:${_subDisabled ? "not-allowed" : "pointer"};opacity:${_subDisabled ? "0.5" : "1"};color:${_subDanger ? "var(--lv-color-destructive)" : "var(--lv-color-popover-fg)"};background:transparent;border:0;box-sizing:border-box;font:inherit;text-align:left;"
+                      >
+                        @if(_subIcon != null)
+                          <span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;">@template.lievit.icon(name = _subIcon, size = "1rem")</span>
+                        @endif
+                        <span style="flex:1 1 auto;">${_subLabel}</span>
+                        @if(_subShortcut != null)
+                          <span aria-hidden="true" data-slot="dropdown-menu-shortcut" style="flex-shrink:0;margin-left:auto;padding-left:var(--lv-space-3);color:var(--lv-color-muted);font-size:var(--lv-text-xs);letter-spacing:0.1em;">${_subShortcut}</span>
+                        @endif
+                      </button>
+                    @endif
+                  @endif
+                @endfor
+              </div>
+            @endif
+          @else
+            <%-- PLAIN / CHECKBOX / RADIO item: <button> (platform gives focus + Enter/Space). --%>
+            !{var _wireAction = ("CHECKBOX".equals(_itemType) || "RADIO".equals(_itemType)) ? "toggleCheck" : "activate";}
+            <button
+              id="${menuId}-item-${_itemId}"
+              type="button"
+              role="${_itemRole}"
+              data-slot="dropdown-menu-item"
+              data-variant="${_itemDanger ? "destructive" : null}"
+              data-danger="${_itemDanger ? "true" : null}"
+              data-lievit-item
+              tabindex="-1"
+              aria-checked="${("CHECKBOX".equals(_itemType) || "RADIO".equals(_itemType)) ? (_itemChecked ? "true" : "false") : null}"
+              aria-disabled="${_itemDisabled ? "true" : null}"
+              disabled="${_itemDisabled}"
+              l:click="${_wireAction}"
+              $unsafe{_wireArgMarkup}
+              class="flex w-full items-center outline-none focus-visible:shadow-[var(--lv-ring)]"
+              style="gap:var(--lv-space-2);padding:0 var(--lv-space-3);height:var(--lv-space-9);cursor:${_itemDisabled ? "not-allowed" : "pointer"};opacity:${_itemDisabled ? "0.5" : "1"};color:${_itemDanger ? "var(--lv-color-destructive)" : "var(--lv-color-popover-fg)"};background:transparent;border:0;box-sizing:border-box;font:inherit;text-align:left;"
+            >
+              <%-- Indicator column for checkbox/radio items (shadcn ItemIndicator pattern).
+                   The column is always reserved (0.875rem wide) so icon items align with plain items. --%>
+              @if("CHECKBOX".equals(_itemType) || "RADIO".equals(_itemType))
+                <span
+                  aria-hidden="true"
+                  data-slot="dropdown-menu-item-indicator"
+                  style="flex-shrink:0;width:0.875rem;height:0.875rem;display:inline-flex;align-items:center;justify-content:center;"
+                >@if(_itemChecked)@if("RADIO".equals(_itemType))<span style="width:0.5rem;height:0.5rem;border-radius:9999px;background:currentColor;display:inline-block;"></span>@else@template.lievit.icon(name = "check", size = "0.875rem")@endif@endif</span>
+              @endif
+              @if(_itemIcon != null)
+                <span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;">@template.lievit.icon(name = _itemIcon, size = "1rem")</span>
+              @endif
+              <span style="flex:1 1 auto;">${_itemLabel}</span>
+              @if(_itemShortcutLabel != null)
+                <span aria-hidden="true" data-slot="dropdown-menu-shortcut" style="flex-shrink:0;margin-left:auto;padding-left:var(--lv-space-3);color:var(--lv-color-muted);font-size:var(--lv-text-xs);letter-spacing:0.1em;">${_itemShortcutLabel}</span>
+              @endif
+            </button>
+          @endif
+        @endif
+      @endfor
+    </div>
+  @endif
+</div>

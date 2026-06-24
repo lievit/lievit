@@ -1,0 +1,18 @@
+{
+  "name": "modal",
+  "type": "registry:jte",
+  "description": "A centred modal dialog overlay (WIRE tier). The open-state is a server fact (@Wire boolean open): when open=true the scrim + panel subtree is rendered; when open=false the subtree is hidden (absent from the a11y tree and tab order). The one irreducible client behaviour -- focus trap, Tab/Shift+Tab cycle within the panel, Esc-to-close, body-scroll-lock, and focus-restore-to-opener -- is delegated entirely to the shared focus-trap.enhancer.ts via data-lievit-focus-trap / data-lievit-escape-action on the panel. WAI-ARIA APG Dialog (Modal): role=dialog + aria-modal=true + aria-labelledby the title. Sizes: sm | md | lg | xl (panel max-width). Closable=false = must-act pattern: the X button and Esc are suppressed. Body and footer are OWNED template markup, NOT Content slots (WIRE has none; the adopter edits their copy). a11y pattern: APG Dialog Modal (WAI-ARIA APG + react-aria useDialog/FocusScope interaction model as the spec reference; original implementation). Inventory: Ant Design Modal. Styling: original over --lv-* OKLCH tokens; look inspired by Tailwind UI (no code copied).",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/modal.jte",
+      "type": "registry:jte",
+      "target": "lievit/modal.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
+  "enhancers": ["focus-trap"],
+  "docs": "Copies the modal WIRE template to your JTE root at lievit/modal.jte, reached as @template.lievit.modal(...). This is a WIRE overlay: the server controls open/closed via the @Wire boolean `open`. When open=true, the scrim and panel are rendered; when open=false, the wrapper is hidden and the panel leaves the a11y tree. Params: `open` (boolean), `title` (the accessible name, aria-labelledby), `size` (sm|md|lg|xl), `closable` (shows X + allows Esc/scrim-click to close; false = must-act), `_dialogId` (unique prefix for aria id linkage, set per instance). The shared focus-trap.enhancer.ts provides focus trap, Esc-to-close, scroll-lock, and focus-restore -- wire it via installFocusTrap(runtime). Body and footer are OWNED markup in your copied template; edit them freely. For a trigger-driven static dialog (browser owns show/hide, no round-trip), the STATIC native-<dialog> pattern is a different template."
+}

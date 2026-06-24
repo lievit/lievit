@@ -1,14 +1,20 @@
 {
   "name": "toast",
   "type": "registry:jte",
-  "description": "A transient overlay notification rendered server-side from a flash / notification: severity drives both colour and the ARIA live role (danger/warning are assertive role=alert, the rest are polite role=status) plus a leading Lucide icon. Variants cover the sonner surface: severity (info/success/warning/danger), a neutral `default`, a `loading` spinner, and `promise` (the resolved/rejected outcome rendered server-first). A single toast fixes itself to one of the six positions (top/bottom x left/center/right); render several inside the toast/viewport stack container (data-slot=toast-viewport). The auto-dismiss timer + dismiss button are a CSP-clean typed-TS enhancer (no wire round-trip: a shown toast needs no server decision). Server-first PARTIAL + enhancer (ADR-0012); replaces the <lv-toast> Lit island.",
+  "description": "Transient live-region status announcer (v-next). Three server-rendered JTE partials sharing one data model: toast-item (toast.jte) stamps a single notification card; toast/region.jte renders the two always-present live-region sub-containers (role=status polite for info/success, role=alert assertive for warning/destructive); notification-bell.jte is the icon-button + badge + popover history hub. The colocated toast.enhancer.ts owns queue management, countdown timers, auto-dismiss-pause-on-focus (react-aria useToast model), Esc-dismiss with focus restore, SSE insertion path, and bell counter. Variant vocabulary: info | success | warning | destructive. PARTIAL + ENH (ADR-0012); replaces the standalone toast.jte + viewport.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon", "spinner"],
+  "registryDependencies": ["tokens", "icon"],
   "files": [
     {
       "path": "jte/toast.jte",
       "type": "registry:jte",
       "target": "lievit/toast.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/toast/region.jte",
+      "type": "registry:jte",
+      "target": "lievit/toast/region.jte",
       "root": "jte"
     },
     {
@@ -18,11 +24,18 @@
       "root": "jte"
     },
     {
+      "path": "jte/notification-bell.jte",
+      "type": "registry:jte",
+      "target": "lievit/notification-bell.jte",
+      "root": "jte"
+    },
+    {
       "path": "jte/toast.enhancer.ts",
       "type": "registry:ui",
       "target": "lievit/toast.enhancer.ts"
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "z"],
-  "docs": "Copies the toast partial (+ its toast/viewport stack container) to your JTE root at lievit/toast.jte (reached as @template.lievit.toast(variant=..., content=@`...`)) and the CSP-clean enhancer to your alias root at lievit/toast.enhancer.ts. Render the partial from the server's flash / notification (e.g. @if(flash != null) @template.lievit.toast(variant = flash.level(), content = @`${flash.message()}`) @endif) so 'open' is simply 'rendered'. variant covers severity (info/success/warning/danger) plus default (neutral), loading (spinner) and promise (pass promiseState=success|danger to render the resolved outcome). A lone toast fixes itself to position (top/bottom x left/center/right); to stack several, wrap @template.lievit.toast(standalone = false, ...) calls in @template.lievit.toast.viewport(position = ...). Pass an `actions` slot (data-slot=toast-actions) to render a row of buttons/links below the message (e.g. the notification toast's 'Mark all read'), instead of cramming them into content. Import the enhancer once from your entry module and call enhanceAllToasts() on load (and after any DOM swap): it starts the auto-dismiss timer (data-toast-duration) and wires the dismiss button. The source is yours: edit freely."
+  "enhancer": "toast.enhancer.ts",
+  "docs": "Render toast/region.jte ONCE before </body> (outside any aria-modal surface). The two live-region sub-containers (polite + assertive) are always present at page load -- this is the load-order invariant for reliable AT announcements. Toasts arrive via: (1) the Lievit-Toast response header on any wire round-trip; (2) SSE when data-toast-sse-url is set on the region; (3) window.lievit.toast({...}) from adopter scripts. The enhancer manages the queue (maxVisible cap), countdown timers (paused while focused), Esc-dismiss with focus restore, and the notification-bell unread counter. Variant drives both the live-region sub-container (polite for info/success, assertive for warning/destructive) and the accent token pair. notification-bell.jte is optional: include it in your toolbar to give users a browsable notification history that accumulates across page load."
 }

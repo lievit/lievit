@@ -254,72 +254,118 @@ describe("hover-card: positioning (align + sideOffset), preview model intact", (
 });
 
 // ---------------------------------------------------------------------------
-// toast: default + loading + promise variants, stacking viewport + position
+// toast: re-forged item (Wave 5) + region.jte live-region container
 // ---------------------------------------------------------------------------
-describe("toast: default / loading / promise variants", () => {
-  const src = read("toast.jte");
-  test("declares the new variants in the param doc + a promiseState param", () => {
-    expect(src).toContain('@param String variant = "info"');
-    expect(src).toContain("@param String promiseState");
-    expect(src).toContain('"default"');
-    expect(src).toContain('"loading"');
-    expect(src).toContain('"promise"');
+// REMOVED from item: promiseState/promise variant, loading variant + spinner composition,
+// heading, gg.jte.Content content/actions slots (replaced by action/actionHref/actionWireClick
+// params), standalone/position (placement now lives in region.jte).
+//   - promise/loading variants were removed because: promise resolves server-side to a
+//     concrete severity before the fragment is rendered; loading state belongs to
+//     progress/loading-section, not to the transient toast stamp.
+//   - standalone/position were removed because: placement is now a region concern
+//     (region.jte's `placement` param), not an item concern. The item is always injected
+//     into the region's live-region sub-containers by the enhancer.
+//   - Content slots were replaced by flat action params to keep the item a pure static
+//     stamp (no slot composition complexity for the enhancer injection path).
+describe("toast item (Wave 5 re-forge): new surface", () => {
+  const item = read("toast.jte");
+  test("item declares the re-forged variant vocabulary (info|success|warning|destructive)", () => {
+    // Variant drives live-region routing + accent token pair.
+    // promise/loading/default are REMOVED: promise resolves server-side; loading belongs
+    // in progress/loading-section, not a transient toast.
+    expect(item).toContain('@param String variant = "info"');
+    expect(item).toContain('"info"');
+    expect(item).toContain('"success"');
+    expect(item).toContain('"warning"');
+    expect(item).toContain('"destructive"');
+    expect(item).not.toContain('@param String promiseState');
+    expect(item).not.toContain('"loading"');
+    expect(item).not.toContain('"promise"');
   });
-  test("promise resolves server-side to a concrete severity (success or danger)", () => {
-    expect(src).toContain('"promise".equals(variant) ? ("danger".equals(promiseState) ? "danger" : "success") : variant');
+  test("item has role=none (content lives inside the live region, no extra role on the card)", () => {
+    // WAI-ARIA Alert pattern: the live-region role (status/alert) is on the sub-containers
+    // in region.jte; the item card is content inside that region and carries role=none.
+    expect(item).toContain('role="none"');
+    expect(item).not.toContain('role="alert"');
+    expect(item).not.toContain('role="status"');
   });
-  test("default + loading are neutral: surface fill, no severity tint, polite (not alert)", () => {
-    expect(src).toContain('neutral = "default".equals(effective) || "loading".equals(effective)');
-    expect(src).toContain('neutral ? "var(--lv-color-surface)"');
-    // urgent (assertive) is only danger/warning, so neutral stays role=status/polite
-    expect(src).toContain('urgent = "danger".equals(effective) || "warning".equals(effective)');
+  test("item carries the enhancer data contract (data-slot, data-variant, data-toast-id, data-toast-duration)", () => {
+    // The enhancer (toast.enhancer.ts) reads these to route items and manage countdown timers.
+    expect(item).toContain('data-slot="toast-item"');
+    expect(item).toContain('data-variant="${variant}"');
+    expect(item).toContain('data-toast-id="${toastId}"');
+    expect(item).toContain('data-toast-duration="${duration}"');
   });
-  test("loading swaps the severity icon for the spinner partial", () => {
-    expect(src).toContain('@if("loading".equals(effective))');
-    expect(src).toContain("@template.lievit.spinner(");
+  test("item action params replace the old Content slots (flat params, no gg.jte.Content)", () => {
+    // action/actionHref/actionWireClick replace the old gg.jte.Content actions slot.
+    // Flat params allow the enhancer to inject the fragment without slot composition.
+    expect(item).toContain('@param String action = null');
+    expect(item).toContain('@param String actionHref = null');
+    expect(item).toContain('@param String actionWireClick = null');
+    expect(item).not.toContain('@param gg.jte.Content actions');
+    expect(item).not.toContain('@param gg.jte.Content content');
   });
-  test("the enhancer contract is preserved (data-lievit-toast + duration + dismiss button)", () => {
-    expect(src).toContain("data-lievit-toast");
-    expect(src).toContain('data-toast-duration="${duration}"');
-    expect(src).toContain("data-toast-dismiss");
-    expect(src).toContain('aria-atomic="true"');
+  test("item has no standalone/position params (placement is a region.jte concern now)", () => {
+    // Placement moved to region.jte `placement` param; the item is always injected
+    // into the region's live-region sub-containers — it never positions itself.
+    expect(item).not.toContain('@param boolean standalone');
+    expect(item).not.toContain('@param String position');
+    expect(item).not.toContain('standalone ?');
+  });
+  test("item has no spinner composition (loading variant removed)", () => {
+    // Loading variant was removed: spinner belongs to progress/loading-section,
+    // not to the transient toast stamp.
+    expect(item).not.toContain('@template.lievit.spinner(');
+  });
+  test("item dismissible button is present (data-slot=toast-dismiss, aria-label)", () => {
+    // WAI-ARIA: real <button type=button aria-label="Dismiss notification">.
+    expect(item).toContain('data-slot="toast-dismiss"');
+    expect(item).toContain('aria-label="Dismiss notification"');
   });
 });
 
-describe("toast: actions slot (the kit notification toast needs an actions row)", () => {
-  const src = read("toast.jte");
-  test("declares an optional gg.jte.Content actions param defaulting to null", () => {
-    expect(src).toContain("@param gg.jte.Content actions = null");
+describe("toast region.jte (Wave 5): live-region container surface", () => {
+  const region = read("toast/region.jte");
+  test("region has two sub-containers: role=status polite (info/success) + role=alert assertive (warning/destructive)", () => {
+    // WAI-ARIA APG Alert pattern: disruptive variants use role=alert/assertive;
+    // non-disruptive use role=status/polite. aria-atomic=false so each item announces
+    // individually, not the full container.
+    expect(region).toContain('role="status"');
+    expect(region).toContain('aria-live="polite"');
+    expect(region).toContain('role="alert"');
+    expect(region).toContain('aria-live="assertive"');
+    expect(region).toContain('aria-atomic="false"');
   });
-  test("renders the actions region only when set (purely additive, slotted into the body)", () => {
-    expect(src).toMatch(/@if\(actions != null\)/);
-    expect(src).toContain('data-slot="toast-actions"');
-    expect(src).toContain("${actions}");
+  test("region placement param drives fixed positioning (top/bottom * start/center/end)", () => {
+    // Placement is a region concern, not an item concern (item removed standalone/position).
+    expect(region).toContain('@param String placement = "bottom-end"');
+    expect(region).toContain('"top-start"');
+    expect(region).toContain('"top-end"');
+    expect(region).toContain('"bottom-start"');
+    expect(region).toContain('"bottom-end"');
+    expect(region).toContain('position:fixed');
   });
-  test("the actions row sits below the message body, gap-stacked + token-styled", () => {
-    expect(src).toMatch(/\$\{content\}\s*@if\(actions != null\)/);
-    expect(src).toContain("gap-[var(--lv-space-2)]");
+  test("region carries data-slot=toast-region and the enhancer data attributes", () => {
+    // The enhancer reads data-toast-max-visible, data-toast-sse-url, data-toast-bell-id.
+    expect(region).toContain('data-slot="toast-region"');
+    expect(region).toContain('data-toast-max-visible="${maxVisible}"');
+    expect(region).toContain('data-toast-placement="${placement}"');
   });
-  test("usage doc shows a notification toast with an actions row", () => {
-    expect(src.toLowerCase()).toMatch(/actions row|mark all read/);
+  test("bottom placements stack column-reverse so a new toast appears nearest the edge (sonner model)", () => {
+    expect(region).toContain('placement.startsWith("bottom")');
+    expect(region).toContain('"column-reverse"');
+    expect(region).toContain('"column"');
+  });
+  test("region has no inline <script> (CSP-clean; behavior lives in toast.enhancer.ts)", () => {
+    expect(region).not.toMatch(/<script/i);
   });
 });
 
-describe("toast: stacking viewport + position", () => {
-  const toast = read("toast.jte");
+describe("toast: stacking viewport + position (toast/viewport.jte is retained)", () => {
+  // toast/viewport.jte is the fixed stack container (retained for backward compat /
+  // pre-enhancer SSR stacking use-case). The item no longer has standalone/position params
+  // (those belong to region.jte now), but viewport.jte is its own standalone container.
   const vp = read("toast/viewport.jte");
-  test("a standalone toast fixes itself to one of the six sonner positions", () => {
-    expect(toast).toContain("@param String position");
-    expect(toast).toContain("@param boolean standalone");
-    for (const p of ["top-left", "top-center", "top-right", "bottom-left", "bottom-center"]) {
-      expect(toast, `position case ${p}`).toContain(`"${p}"`);
-    }
-    expect(toast).toContain('standalone ? "position: fixed; z-index: var(--lv-z-toast');
-  });
-  test("inside a viewport the toast flows (standalone=false => position: relative)", () => {
-    expect(toast).toContain('standalone ? "position: fixed');
-    expect(toast).toContain('"position: relative;"');
-  });
   test("viewport is the fixed stack container (data-slot=toast-viewport) keyed on position", () => {
     expect(vp).toContain('data-slot="toast-viewport"');
     expect(vp).toContain("@param String position");
@@ -348,8 +394,13 @@ describe("meta.json registration of the new sub-partials + the viewport", () => 
   test("kbd/meta.json registers the group child", () => {
     expect(paths("kbd")).toContain("jte/kbd/group.jte");
   });
-  test("toast/meta.json registers the viewport child + depends on spinner", () => {
+  test("toast/meta.json registers region.jte + viewport.jte; depends on icon (not spinner)", () => {
+    // Wave 5 re-forge: toast item no longer composes the spinner partial (loading variant
+    // removed), so spinner is no longer a registryDependency. The icon partial is used
+    // for the intent icon slot. Both region.jte and viewport.jte are listed in files.
+    expect(paths("toast")).toContain("jte/toast/region.jte");
     expect(paths("toast")).toContain("jte/toast/viewport.jte");
-    expect(meta("toast").registryDependencies).toContain("spinner");
+    expect(meta("toast").registryDependencies).toContain("icon");
+    expect(meta("toast").registryDependencies).not.toContain("spinner");
   });
 });

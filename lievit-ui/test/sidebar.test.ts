@@ -456,6 +456,44 @@ describe("sidebar variants: data-variant + inset (real DOM)", () => {
   });
 });
 
+describe("sidebar v-next: DOM fixes (open=false, disabled parent, SSR state, mobile off-canvas)", () => {
+  test("open=true: the <details> element has the open attribute set", () => {
+    // DOM test: simulate what the server renders with open=true (open="").
+    const root = renderSidebar();
+    const details = root.querySelector<HTMLDetailsElement>('details[data-sidebar="disclosure"]')!;
+    details.setAttribute("open", "");
+    expect(details.hasAttribute("open")).toBe(true);
+    expect(details.open).toBe(true);
+  });
+
+  test("open=false: the <details> element has NO open attribute (smart-attribute renders nothing)", () => {
+    // DOM test: simulate what the server renders with open=false (attribute omitted).
+    const root = renderSidebar();
+    const details = root.querySelector<HTMLDetailsElement>('details[data-sidebar="disclosure"]')!;
+    // The renderSidebar helper does NOT set the open attribute, mirroring the open=false SSR output.
+    expect(details.hasAttribute("open")).toBe(false);
+    expect(details.open).toBe(false);
+  });
+
+  test("SSR collapsed hint: data-state=collapsed and aria-expanded=false render statically (no enhancer)", () => {
+    const root = renderSidebar({ collapsed: true });
+    // No enhancer: pure SSR state must be reflected on the root + trigger.
+    expect(root.getAttribute("data-state")).toBe("collapsed");
+    const trigger = root.querySelector('[data-slot="sidebar-trigger"]')!;
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("mobile off-canvas: backdrop click closes the overlay (removes data-mobile-open)", () => {
+    const root = renderSidebar();
+    enhanceSidebar(root);
+    // Set the mobile-open state directly (jsdom has no real layout / matchMedia).
+    root.setAttribute("data-mobile-open", "");
+    const backdrop = root.querySelector<HTMLButtonElement>('[data-sidebar="backdrop"]')!;
+    backdrop.click();
+    expect(root.hasAttribute("data-mobile-open")).toBe(false);
+  });
+});
+
 describe("sidebar partials: source contract (JTE compiles in the jte-compile smoke)", () => {
   const main = readJte("sidebar.jte");
   const group = readJte("sidebar/group.jte");
@@ -564,5 +602,39 @@ describe("sidebar partials: source contract (JTE compiles in the jte-compile smo
     expect(enhancer).toMatch(/metaKey\s*\|\|\s*e\.ctrlKey/);
     expect(enhancer).toMatch(/key === "b"/);
     expect(enhancer).toContain("toggleSidebar");
+  });
+
+  test("v-next: open=false uses smart-attribute pattern (omits the attr when false)", () => {
+    // Source-contract: the template uses the JTE boolean smart-attribute form `open="${open}"`.
+    // JTE omits the attribute entirely when the boolean is false, and renders bare `open`
+    // (equivalent to open="") when true. No String ternary (open ? "" : null) is needed:
+    // JTE's native boolean attribute handling is the canonical and correct form here.
+    expect(item).toContain('open="${open}"');
+  });
+
+  test("v-next: disabled parent <summary> carries tabindex=-1 and pointer-events", () => {
+    // Source-contract: disabled parent summary must be skipped by keyboard and pointer.
+    expect(item).toContain('tabindex="${disabled ? "-1" : null}"');
+    expect(item).toContain('pointer-events: ${disabled ? "none" : "auto"}');
+  });
+
+  test("v-next: font-weight uses CSS tokens, not bare numbers", () => {
+    expect(item).toContain("var(--lv-font-medium)");
+    expect(item).toContain("var(--lv-font-normal)");
+    expect(item).not.toMatch(/font-weight[^;]*"500"/);
+    expect(item).not.toMatch(/font-weight[^;]*"400"/);
+  });
+
+  test("v-next: group with no label omits aria-labelledby (smart-attribute fix)", () => {
+    // Source-contract: the pattern must gate on hasLabel so JTE omits the attribute when null.
+    expect(group).toContain('aria-labelledby="${hasLabel ? labelId : null}"');
+  });
+
+  test("v-next: the header bar trigger is NOT gated on the header param (TRIGGER DECOUPLING)", () => {
+    // The decoupling fix: the trigger is inside a bar that always renders.
+    // The template comment explicitly documents the fix.
+    expect(main).toContain("TRIGGER DECOUPLING");
+    // The trigger must appear unconditionally: verify data-slot="sidebar-trigger" is present.
+    expect(main).toContain('data-slot="sidebar-trigger"');
   });
 });

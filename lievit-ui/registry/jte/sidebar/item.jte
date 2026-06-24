@@ -57,7 +57,7 @@
 !{var hasIcon = icon != null && !icon.isEmpty();}
 !{var hasBadge = badge != null && !badge.isEmpty();}
 !{var isParent = content != null;}
-!{var rowStyle = "display: flex; align-items: center; gap: var(--lv-space-2); width: 100%; box-sizing: border-box; padding: var(--lv-space-2); border-radius: var(--lv-radius-md); color: inherit; text-decoration: none; font: inherit; text-align: left; cursor: pointer; background: " + (active ? "var(--lv-color-sidebar-accent)" : "transparent") + "; font-weight: " + (active ? "500" : "400") + ";";}
+!{var rowStyle = "display: flex; align-items: center; gap: var(--lv-space-2); width: 100%; box-sizing: border-box; padding: var(--lv-space-2); border-radius: var(--lv-radius-md); color: inherit; text-decoration: none; font: inherit; text-align: left; cursor: pointer; background: " + (active ? "var(--lv-color-sidebar-accent)" : "transparent") + "; font-weight: " + (active ? "var(--lv-font-medium)" : "var(--lv-font-normal)") + ";";}
 @if(isParent)
     <li data-slot="sidebar-menu-item" class="${cssClass}" style="position: relative;">
         <details data-sidebar="disclosure" open="${open}">
@@ -65,8 +65,9 @@
                 data-slot="sidebar-menu-button"
                 aria-current="${active ? "page" : null}"
                 aria-disabled="${disabled ? "true" : null}"
+                tabindex="${disabled ? "-1" : null}"
                 class="lv-sidebar-item"
-                style="${rowStyle} list-style: none; opacity: ${disabled ? "0.5" : "1"};"
+                style="${rowStyle} list-style: none; opacity: ${disabled ? "0.5" : "1"}; pointer-events: ${disabled ? "none" : "auto"};"
             >
                 @if(hasIcon)
                     <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>

@@ -1,0 +1,149 @@
+<%--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  modal WIRE template -- centred overlay dialog whose open-state is a server fact.
+
+  TIER: WIRE + ENH (focus-trap.enhancer.ts). The server holds `open`; when open=true
+  the full panel + scrim subtree is rendered; when open=false the subtree is absent
+  (display:none / hidden) so the AT never sees a closed dialog, and Tab never reaches
+  panel content. The single irreducible client behaviour -- focus trap, Esc-to-close,
+  scroll-lock, focus-restore-on-close -- is delegated entirely to the shared
+  focus-trap.enhancer.ts via the data-attribute contract. Do NOT hand-roll any of it.
+
+  WIRE surface (the Java DialogComponent fields mapped to @params here):
+    @param boolean open          -- the server open-state (renders/hides the panel)
+    @param String  title         -- the accessible name (aria-labelledby on the panel)
+    @param String  size          -- sm | md | lg | xl (panel max-width)
+    @param boolean closable      -- shows the X button; lets Esc/scrim close fire close()
+  Body content (OWNED markup in the template, NOT a Content slot -- WIRE has none):
+    @param String  _dialogId     -- computed unique id for aria-labelledby linkage
+    [edit the owned body region in the adopter's copy of this template]
+
+  STRUCTURE (scientific decision rule):
+    - WAI-ARIA APG Dialog (Modal): https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/
+    - react-aria useDialog / FocusScope interaction model: keyboard map + focus order + ARIA
+      wiring transcribed into ORIGINAL template + focus-trap.enhancer.ts (no code copied).
+    - Ant Design Modal: inventory reference for sizes (sm/md/lg/xl), closable, header/footer
+      chrome, the "must-act" non-closable mode (no code copied).
+    - Styling: ORIGINAL over --lv-* OKLCH tokens; visual look inspired by Tailwind UI (no code
+      copied).
+
+  A11y (WAI-ARIA APG Dialog, Modal):
+    - Scrim: aria-hidden="true", click fires close() when closable.
+    - Panel (open=true): role="dialog" aria-modal="true" aria-labelledby="<_dialogId>-title".
+      data-lievit-focus-trap activates the shared enhancer.
+      data-lievit-escape-action="close" is set only when closable=true (else omitted: the
+      enhancer will not handle Esc, enforcing the must-act pattern).
+    - Title: id="<_dialogId>-title" wires the labelledby relationship.
+    - Close button: real <button> with aria-label="Close" (icon-only => accessible name
+      mandatory per APG).
+    - Tab / Shift+Tab: cycled within the panel only by focus-trap.enhancer.ts.
+    - Esc: fires close() via the enhancer (only when closable).
+    - Focus restore: enhancer restores focus to the opener when the panel is removed from DOM.
+    - Scroll lock: enhancer sets body overflow:hidden while open; restored on close.
+    - Closed state: the panel subtree is absent (hidden attr) -> leaves the a11y tree +
+      tab order entirely (better than display:none alone; native hidden attribute is honoured
+      by every AT as "not perceivable").
+
+  Enhancer wiring (data-attribute contract -- do NOT edit the shared enhancer):
+    data-lievit-focus-trap          on the panel div  -> activates trap
+    data-lievit-escape-action       on the panel div  -> "close" when closable, omitted otherwise
+
+  Params:
+    boolean open          = false     server open-state; when false the panel is hidden
+    String  title         = "Dialog"  the dialog accessible name (aria-labelledby target)
+    String  size          = "md"      "sm" | "md" | "lg" | "xl" -- panel max-width
+    boolean closable      = true      show X button; allow Esc + scrim-click to close
+    String  _dialogId     = "lv-dialog"  unique id prefix for aria linkage; set per instance
+
+  Usage:
+    @@template.lievit.modal(open = dialog.open(), title = "Edit record", size = "md",
+        closable = true, _dialogId = "edit-dialog")
+    @@template.lievit.modal(open = confirm.open(), title = "Delete?", size = "sm",
+        closable = false, _dialogId = "confirm-dialog")
+--%>
+@param boolean open = false
+@param String title = "Dialog"
+@param String size = "md"
+@param boolean closable = true
+@param String _dialogId = "lv-dialog"
+
+!{var _titleId = _dialogId + "-title";}
+!{var _maxW = switch (size) {
+    case "sm" -> "24rem";
+    case "lg" -> "36rem";
+    case "xl" -> "42rem";
+    default   -> "28rem";
+  };}
+
+<div
+  data-slot="modal"
+  data-lievit-component-root
+  data-size="${size}"
+  style="font-family:var(--lv-font-sans);"
+>
+  <div
+    data-slot="modal-panel-wrapper"
+    hidden="${!open}"
+    style="position:fixed;inset:0;z-index:var(--lv-z-overlay);display:flex;align-items:center;justify-content:center;"
+  >
+    <%-- Scrim: aria-hidden, click fires close() only when closable. --%>
+    <div
+      data-slot="dialog-backdrop"
+      aria-hidden="true"
+      style="position:absolute;inset:0;background:var(--lv-color-overlay);"
+      l:click="${closable ? "close" : null}"
+    ></div>
+
+    <%-- Panel: the modal dialog surface. focus-trap wired via data-attributes. --%>
+    <div
+      data-slot="dialog"
+      data-size="${size}"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="${_titleId}"
+      data-lievit-focus-trap="${open ? "" : null}"
+      data-lievit-escape-action="${closable ? "close" : null}"
+      style="position:relative;z-index:var(--lv-z-modal);display:flex;flex-direction:column;width:calc(100% - var(--lv-space-8));max-width:${_maxW};max-height:calc(100vh - var(--lv-space-8));background:var(--lv-color-popover);color:var(--lv-color-popover-fg);border:1px solid var(--lv-color-border);border-radius:var(--lv-radius-lg);box-shadow:var(--lv-shadow-xl);overflow:hidden;"
+    >
+      <%-- Header --%>
+      <div
+        data-slot="dialog-header"
+        style="display:flex;align-items:center;justify-content:space-between;gap:var(--lv-space-3);padding:var(--lv-space-4) var(--lv-space-6);border-bottom:1px solid var(--lv-color-border);flex-shrink:0;"
+      >
+        <h2
+          data-slot="dialog-title"
+          id="${_titleId}"
+          style="margin:0;font-size:var(--lv-text-lg);font-weight:var(--lv-font-semibold);line-height:var(--lv-leading-tight);color:var(--lv-color-fg);"
+        >${title}</h2>
+        @if(closable)
+          <button
+            type="button"
+            data-slot="dialog-close"
+            aria-label="Close"
+            l:click="close"
+            style="display:inline-flex;align-items:center;justify-content:center;width:var(--lv-space-8);height:var(--lv-space-8);border:0;background:transparent;cursor:pointer;border-radius:var(--lv-radius-sm);color:var(--lv-color-muted-fg);flex-shrink:0;outline:none;transition:color var(--lv-duration-fast) var(--lv-ease),box-shadow var(--lv-duration-fast) var(--lv-ease);"
+            class="focus-visible:shadow-[var(--lv-ring)]"
+          >@template.lievit.icon(name = "x", size = "1.25rem")</button>
+        @endif
+      </div>
+
+      <%-- Body (OWNED markup -- the adopter server-renders content here) --%>
+      <div
+        data-slot="dialog-body"
+        style="flex:1;overflow-y:auto;padding:var(--lv-space-6);font-size:var(--lv-text-base);line-height:var(--lv-leading);color:var(--lv-color-fg);"
+      >
+        <%-- OWNED body: the adopter places server-rendered markup here --%>
+      </div>
+
+      <%-- Footer (OWNED markup -- the adopter places action buttons here) --%>
+      <div
+        data-slot="dialog-footer"
+        style="display:flex;align-items:center;justify-content:flex-end;gap:var(--lv-space-2);padding:var(--lv-space-4) var(--lv-space-6);border-top:1px solid var(--lv-color-border);flex-shrink:0;"
+      >
+        <%-- OWNED footer: place wired action buttons here (l:click="confirm", l:click="cancel") --%>
+      </div>
+    </div>
+  </div>
+</div>
