@@ -1,0 +1,129 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * chart.css -- component CSS for lievit/chart.jte (v-next re-forge).
+ *
+ * Loaded by the adopter alongside the JTE template (the `lievit add chart` CLI copies both).
+ * NOT inlined in the JTE: inline <style> with @keyframes is rejected by a strict CSP.
+ *
+ * Responsibilities:
+ *   1. @keyframes lv-chart-shimmer: the loading skeleton shimmer sweep.
+ *   2. .lv-chart__shimmer: the shimmer placeholder block shown when loading=true.
+ *   3. .lv-chart__tooltip: the interactive tooltip panel (hidden by default, shown by the enhancer).
+ *   4. [data-dim]: opacity reduction on marks that are NOT in the highlighted series/x.
+ *   5. [data-highlighted]: optional visual boost on highlighted marks.
+ *   6. :focus-visible on data marks: a token-driven focus ring so keyboard users see their position.
+ *
+ * All values read --lv-* tokens; no hardcoded hex/numeric values.
+ *
+ * CSP-safe: no inline scripts, no url() with external resources.
+ */
+
+/* -------------------------------------------------------------------------
+ * Loading shimmer keyframe + skeleton
+ * -------------------------------------------------------------------------
+ * A linear-gradient that slides left-to-right on the background-position.
+ * Reuses the skeleton palette (--lv-skeleton-bg / --lv-skeleton-shimmer) so
+ * the chart loading state matches other skeleton placeholders on the same page.
+ * -------------------------------------------------------------------------*/
+
+@keyframes lv-chart-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.lv-chart__shimmer {
+  display: block;
+  width: 100%;
+  border-radius: var(--lv-radius-md, 6px);
+  background: linear-gradient(
+    90deg,
+    var(--lv-skeleton-bg)      25%,
+    var(--lv-skeleton-shimmer) 50%,
+    var(--lv-skeleton-bg)      75%
+  );
+  background-size: 400% 100%;
+  animation: lv-chart-shimmer 1.5s var(--lv-motion-easing-in-out, ease-in-out) infinite;
+}
+
+/* Reduced motion: collapse to static fill. */
+@media (prefers-reduced-motion: reduce) {
+  .lv-chart__shimmer {
+    animation: none;
+    background: var(--lv-skeleton-bg);
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * Tooltip
+ * -------------------------------------------------------------------------
+ * Hidden by default. The enhancer toggles [data-open] and sets position via
+ * inline style (pointer coordinates). Using position:fixed keeps the tooltip
+ * from being clipped by an overflow:hidden ancestor.
+ * -------------------------------------------------------------------------*/
+
+.lv-chart__tooltip {
+  display: none;
+  position: fixed;
+  z-index: var(--lv-z-tooltip, 950);
+  pointer-events: none;
+  max-width: 16rem;
+  padding:
+    var(--lv-space-2, 0.5rem)
+    var(--lv-space-3, 0.75rem);
+  border-radius: var(--lv-radius-md, 6px);
+  background: var(--lv-color-popover, var(--lv-color-bg));
+  color: var(--lv-color-popover-fg, var(--lv-color-fg));
+  border: 1px solid var(--lv-color-border);
+  box-shadow: var(--lv-shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+  font-size: var(--lv-text-sm, 0.875rem);
+  line-height: var(--lv-leading-snug, 1.375);
+  opacity: 1;
+  transition: opacity var(--lv-duration-fast, 100ms) ease;
+}
+
+.lv-chart__tooltip[data-open] {
+  display: block;
+}
+
+/* -------------------------------------------------------------------------
+ * Mark visibility states (set by the enhancer on hover/focus)
+ * -------------------------------------------------------------------------*/
+
+/* Dimmed marks: slightly transparent when another series/x is highlighted. */
+.lv-chart__bar[data-dim],
+.lv-chart__point[data-dim],
+.lv-chart__sector[data-dim] {
+  opacity: 0.35;
+  transition: opacity var(--lv-duration-fast, 100ms) ease;
+}
+
+/* Highlighted marks: full opacity + a subtle drop shadow for pop. */
+.lv-chart__bar[data-highlighted],
+.lv-chart__point[data-highlighted],
+.lv-chart__sector[data-highlighted] {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px var(--lv-color-ring, var(--lv-color-primary)));
+  transition:
+    opacity var(--lv-duration-fast, 100ms) ease,
+    filter var(--lv-duration-fast, 100ms) ease;
+}
+
+/* -------------------------------------------------------------------------
+ * Keyboard focus ring on interactive marks
+ * -------------------------------------------------------------------------
+ * SVG elements are focusable when tabindex="0" is present (set by chart.jte
+ * when interactive=true). :focus-visible gives the standard platform ring.
+ * -------------------------------------------------------------------------*/
+
+.lv-chart__bar:focus-visible,
+.lv-chart__point:focus-visible,
+.lv-chart__sector:focus-visible {
+  outline: 2px solid var(--lv-color-ring, var(--lv-color-primary));
+  outline-offset: 2px;
+}

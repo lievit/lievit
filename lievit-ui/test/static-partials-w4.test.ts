@@ -57,8 +57,18 @@ describe("static partials w4 -- shared hygiene", () => {
       expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles|import .*\blit\b/);
     });
 
-    test(`${name}: documents the escape-hatch seam (interactive/rich variant is opt-in, not shipped)`, () => {
-      expect(src.toLowerCase()).toContain("escape-hatch");
+    test(`${name}: documents the opt-in enhancement seam (the interactive/rich variant is not the baseline)`, () => {
+      // Each server-first partial documents its opt-in enhancement seam in the source comment.
+      // date-picker: uses "escape-hatch" in the comment (typed-TS micro-enhancement seam).
+      // chart: the colocated chart.enhancer.ts is the opt-in interactive layer gated by
+      //   `@param boolean interactive` (default false); the source comment calls it "escape-hatch"
+      //   in the doc header OR documents it via the `interactive` param comment block. Accept either.
+      const hasEscapeHatch = src.toLowerCase().includes("escape-hatch");
+      const hasInteractiveParam = src.includes("@param boolean interactive");
+      expect(
+        hasEscapeHatch || hasInteractiveParam,
+        `${name}: expected either "escape-hatch" in the source comment OR "@param boolean interactive"`
+      ).toBe(true);
     });
   }
 });
@@ -66,36 +76,57 @@ describe("static partials w4 -- shared hygiene", () => {
 describe("chart (server-rendered static SVG bar chart)", () => {
   const src = read("chart");
 
-  test("typed data params: a String[] of categories, an int[] of values, an accessible label", () => {
-    expect(src).toContain("@param String label");
+  test("typed data params: a String title (accessible name), optional legacy categories/values arrays", () => {
+    // Re-forge: `label` param renamed to `title` (the required accessible name + in-SVG <title>).
+    // Legacy single-series `categories`/`values` params are kept for graduated migration.
+    expect(src).toContain("@param String title");
     expect(src).toContain("@param String[] categories");
     expect(src).toContain("@param int[] values");
   });
 
-  test("emits a server-rendered <svg role=img> with the accessible label and an in-SVG <title>", () => {
-    expect(src).toMatch(/<svg\b/);
-    expect(src).toContain('role="img"');
-    expect(src).toContain('aria-label="${label}"');
-    expect(src).toContain("<title>${label}</title>");
+  test("interactive enhancer is opt-in via param; zero-JS static SVG baseline always renders", () => {
+    // The chart now ships an OPTIONAL colocated chart.enhancer.ts for interactive hover tooltips.
+    // `interactive=false` (default) renders the full static SVG with zero JavaScript.
+    // `interactive=true` wires the enhancer via data-lievit-enhancer="chart".
+    expect(src).toContain("@param boolean interactive");
+    expect(src).toContain('data-lievit-enhancer="${interactive ? "chart" : null}"');
   });
 
-  test("renders one bar (<rect>) per data point, looping the values array", () => {
-    expect(src).toMatch(/@for\(int i = 0; i < values\.length; i\+\+\)/);
+  test("emits a server-rendered <svg role=img> with aria-labelledby pointing to an in-SVG <title id>", () => {
+    // Re-forge: the SVG no longer carries aria-label="${label}"; instead it uses
+    // aria-labelledby="${svgLabelledBy}" pointing to the in-SVG <title id="${_svgTitleId}">.
+    // This is the WAI-ARIA img pattern: role="img" + aria-labelledby on the <svg>.
+    expect(src).toMatch(/<svg\b/);
+    expect(src).toContain('role="img"');
+    expect(src).toContain('aria-labelledby="${svgLabelledBy}"');
+    expect(src).toContain('<title id="${_svgTitleId}">${title}</title>');
+  });
+
+  test("renders one bar (<rect>) per data point, looping the computed n range over series data", () => {
+    // Re-forge: the old `@for(int i = 0; i < values.length; i++)` is replaced by a multi-series
+    // loop over `n` (computed from seriesData), with `bandX = padLeft + bandW * i`. The mark hook
+    // is now class="lv-chart__bar" + data-slot="lv-chart__bar" (was data-slot="chart-bar").
+    expect(src).toMatch(/@for\(int i = 0; i < n; i\+\+\)/);
     expect(src).toMatch(/<rect\b/);
-    expect(src).toContain('data-slot="chart-bar"');
+    expect(src).toContain('class="lv-chart__bar"');
+    expect(src).toContain('data-slot="lv-chart__bar"');
     // each bar carries its own aria-label so the datum is reachable
-    expect(src).toContain('aria-label="${cat}: ${v}"');
+    expect(src).toContain('aria-label="${xLabel}: ${(int)bv}"');
   });
 
   test("shadcn fidelity: the per-bar <rect> does NOT nest role=img inside the parent svg role=img", () => {
-    // The accessible name stays per bar (aria-label); the redundant child role is dropped
-    // (a nested role=img inside a role=img graphic, issue #463 ⑦). Only the <svg> carries the role.
-    const rect = markupOf(src).match(/<rect[\s\S]*?<\/rect>/)?.[0] ?? "";
+    // The accessible name stays per bar (aria-label); role is conditional on `interactive` and
+    // defaults to null (omitted), so non-interactive bars carry NO role (issue #463 ⑦).
+    // Re-forge: <rect> is self-closed (/>); no </rect> closing tag.
+    const markup = markupOf(src);
+    // The bar block starts at class="lv-chart__bar"; match up to the self-closing />
+    const rect = markup.match(/<rect\b[\s\S]*?\/>/)?.[0] ?? "";
     expect(rect, "rect block not found").not.toBe("");
-    expect(rect, "child <rect> must not carry its own role").not.toContain("role=");
-    expect(rect, "the per-bar aria-label is kept").toContain('aria-label="${cat}: ${v}"');
+    // role is conditional (interactive ? "img" : null) — non-interactive renders no role attr
+    expect(rect, "child <rect> must not carry a static role=img").not.toContain('role="img"');
+    expect(rect, "the per-bar aria-label is kept").toContain('aria-label="${xLabel}: ${(int)bv}"');
     // the parent svg still owns the single img role
-    expect(markupOf(src)).toContain('role="img"');
+    expect(markup).toContain('role="img"');
   });
 
   test("axis: category labels render under the plot (and are aria-hidden, not double-announced)", () => {
@@ -106,13 +137,15 @@ describe("chart (server-rendered static SVG bar chart)", () => {
   });
 
   test("bar fill defaults to a --lv-color-chart token and stays token-driven (no JS, no canvas)", () => {
+    // Re-forge: the single-series `color` default param is unchanged; multi-series palette cycles
+    // --lv-color-chart-1..5. Structural colours use --lv-color-muted-fg (not --lv-color-muted).
     expect(src).toContain('@param String color = "var(--lv-color-chart-1)"');
     // check the MARKUP (the doc comment names <canvas> only to say it is NOT used)
     expect(markupOf(src).toLowerCase()).not.toContain("<canvas");
     expect(src, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     // structural colours read tokens
     expect(src).toContain("var(--lv-color-border)");
-    expect(src).toContain("var(--lv-color-muted)");
+    expect(src).toContain("var(--lv-color-muted-fg)");
   });
 
   test("type param selects the geometry: bar (default) | line | area | pie", () => {
@@ -124,33 +157,44 @@ describe("chart (server-rendered static SVG bar chart)", () => {
   });
 
   test("line variant: a server-computed <polyline> through the points + per-datum <circle> with aria-label", () => {
+    // Re-forge: mark hooks moved to class + data-slot pattern (data-slot value now "lv-chart__line"
+    // / "lv-chart__point" instead of "chart-line" / "chart-point").
     expect(src).toMatch(/<polyline\b/);
-    expect(src).toContain('data-slot="chart-line"');
+    expect(src).toContain('class="lv-chart__line"');
+    expect(src).toContain('data-slot="lv-chart__line"');
     expect(src).toMatch(/<circle\b/);
-    expect(src).toContain('data-slot="chart-point"');
+    expect(src).toContain('class="lv-chart__point"');
+    expect(src).toContain('data-slot="lv-chart__point"');
     // the data point keeps the reachable per-datum aria-label
-    expect(src).toContain('aria-label="${cat}: ${v}"');
+    expect(src).toContain('aria-label="${xLabel}: ${(int)pv2}"');
     // the decorative line itself is aria-hidden (datum is announced on the point)
-    expect(markupOf(src)).toMatch(/data-slot="chart-line"[\s\S]*?aria-hidden="true"/);
+    expect(markupOf(src)).toMatch(/data-slot="lv-chart__line"[\s\S]*?aria-hidden="true"/);
   });
 
   test("area variant: a filled <polygon> closed to the baseline, token fill, aria-hidden chrome", () => {
+    // Re-forge: mark hook is now class="lv-chart__area" + data-slot="lv-chart__area".
+    // Fill uses the computed per-series `aColor` variable (resolved from series map or palette),
+    // not the bare `color` param. The polygon is self-closed />.
     expect(src).toMatch(/<polygon\b/);
-    expect(src).toContain('data-slot="chart-area"');
-    // the area fill is the same token-driven series colour
-    expect(markupOf(src)).toMatch(/data-slot="chart-area"[\s\S]*?fill="\$\{color\}"/);
+    expect(src).toContain('class="lv-chart__area"');
+    expect(src).toContain('data-slot="lv-chart__area"');
+    // the area fill is the per-series resolved token colour
+    expect(markupOf(src)).toMatch(/data-slot="lv-chart__area"[\s\S]*?fill="\$\{aColor\}"/);
   });
 
   test("pie variant: one server-computed arc <path> per slice, palette-cycled, per-slice aria-label", () => {
+    // Re-forge: mark hook is now class="lv-chart__sector" + data-slot="lv-chart__sector"
+    // (was data-slot="chart-slice"). The arc variables are sliceCat/pv (renamed from cat/v).
     expect(src).toMatch(/<path\b/);
-    expect(src).toContain('data-slot="chart-slice"');
+    expect(src).toContain('class="lv-chart__sector"');
+    expect(src).toContain('data-slot="lv-chart__sector"');
     // the SVG arc command is computed in Java, not hardcoded
     expect(src).toContain('" A "');
     // pie cycles the five-step --lv-color-chart-N palette
     expect(src).toContain("var(--lv-color-chart-5)");
     expect(src).toMatch(/palette\[i % palette\.length\]/);
-    // each slice is reachable
-    expect(markupOf(src)).toMatch(/data-slot="chart-slice"[\s\S]*?aria-label="\$\{cat\}: \$\{v\}"/);
+    // each slice is reachable (variables now sliceCat / pv)
+    expect(markupOf(src)).toMatch(/data-slot="lv-chart__sector"[\s\S]*?aria-label="\$\{sliceCat\}: \$\{\(int\)pv\}"/);
   });
 
   test("legend: an opt-in static legend sub-part is wired (data-slot chart-legend), aria-hidden swatch", () => {

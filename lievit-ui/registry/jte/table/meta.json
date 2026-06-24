@@ -1,0 +1,59 @@
+{
+  "name": "table",
+  "type": "registry:jte",
+  "description": "Composable table primitive set (shadcn-style, NOT data-driven). Seven sub-partials: table.jte (the <table> scroll wrapper), table/header.jte (<thead>, optional stickyHeader), table/body.jte (<tbody>), table/footer.jte (<tfoot>), table/row.jte (<tr> with ariaSelected, ariaRowIndex, state, hoverable, striped, bordered, dataRowId), table/head.jte (<th scope> with ariaSort for sortable column headers), table/cell.jte (<td>), table/caption.jte (<caption> for the table accessible name). The caller owns the row and cell loop; composability matches shadcn Table / TableHeader / TableBody / TableRow / TableHead / TableCell / TableCaption / TableFooter. WAI-ARIA APG Table pattern: native elements, scope attributes, aria-sort on <th> (not on inner button), aria-selected / aria-rowindex on rows. The data-driven HTMX-sortable variant is the separate data-table.jte, which COMPOSES these primitives. Server-first PARTIAL (ADR-0012). Zero client state, CSP-clean, --lv-* tokens only.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/table.jte",
+      "type": "registry:jte",
+      "target": "lievit/table.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/table/header.jte",
+      "type": "registry:jte",
+      "target": "lievit/table/header.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/table/body.jte",
+      "type": "registry:jte",
+      "target": "lievit/table/body.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/table/footer.jte",
+      "type": "registry:jte",
+      "target": "lievit/table/footer.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/table/row.jte",
+      "type": "registry:jte",
+      "target": "lievit/table/row.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/table/head.jte",
+      "type": "registry:jte",
+      "target": "lievit/table/head.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/table/cell.jte",
+      "type": "registry:jte",
+      "target": "lievit/table/cell.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/table/caption.jte",
+      "type": "registry:jte",
+      "target": "lievit/table/caption.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type", "shadow", "z", "motion"],
+  "docs": "Copies the composable table primitive set to your JTE root under lievit/. Compose via @template.lievit.table(ariaLabel=\"...\", content=@`...`) wrapping @template.lievit.table.header / .body / .footer / .row / .head / .cell / .caption. The caller owns the row loop. For the data-driven HTMX-sortable variant, use data-table.jte (separate component that composes this set). WAI-ARIA APG Table: native elements, scope attributes on <th>, aria-sort on <th> for sortable columns, aria-selected and aria-rowindex on <tr>. Pass ariaSelected / ariaRowIndex / dataRowId to table.row; ariaSort to table.head; stickyHeader to table.header. The accessible name is either a <caption> (table.caption) or ariaLabel on the table wrapper (not both). The source is yours: edit freely."
+}

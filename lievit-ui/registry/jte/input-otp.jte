@@ -1,115 +1,253 @@
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui input-otp partial -- a segmented one-time-code input rendered SERVER-SIDE (ADR-0012).
-  N native single-character <input>s + a hidden `name` mirror; the small auto-advance / paste /
-  backspace-nav behaviour is a CSP-clean typed-TS enhancer (input-otp.enhancer.ts), NOT inline
-  script. Pairs with registry/jte/input-otp.enhancer.ts.
+  lievit-ui input-otp partial -- a fixed-length one-time-password / PIN entry field:
+  a horizontal row of N individual digit slots (each a real single-character input) enclosed in
+  a role="group" container. The assembled value lives in a hidden mirror input (name="...") so
+  the code POSTs with a plain HTML form, zero round-trips mid-entry. The one irreducible client
+  behaviour (auto-advance, paste-fill, backspace-retreat, roving tabindex) lives in the colocated
+  input-otp.enhancer.ts; the server renders the truth every time.
 
-  TIER: PARTIAL (+ enhancer). The OTP value is NOT server state mid-entry: there is nothing for the
-  server to decide between keystrokes, so round-tripping each keystroke over the wire would be pure
-  chat for no gain. The slots are server-rendered native inputs; the value is form-submitted (the
-  server binds it at POST via the hidden mirror under `name`), so it is server-bound at the moment
-  that matters. The only client bit is the focus choreography (auto-advance, paste-fill, backspace
-  step-back), which is a tiny typed-TS module the strict CSP accepts (no inline on* handlers).
+  TIER: PARTIAL (+ enhancer). The OTP value is NOT server state mid-entry: there is nothing for
+  the server to decide between keystrokes, so no wire round-trip per character. The hidden mirror
+  submits the joined value with the enclosing form (zero JS at POST time). The enhancer runs only
+  for the focus choreography and optional completion callback.
 
-  STRUCTURE (scientific decision rule): WAI one-time-password-field (Radix), the model the dropped
-  Lit island cited: a role="group" of real <input> slots, each aria-label="Character N of M", the
-  per-type inputmode, autocomplete="one-time-code" on the first slot so the platform SMS-autofill
-  fills the whole code, and a visually-hidden mirror <input name> so `new FormData(form)` sees the
-  joined value with zero JS. Native inputs beat a custom widget: the platform owns focus, IME, paste
-  and autofill; the enhancer only nudges focus between slots.
+  STRUCTURE (scientific decision rule): WAI-ARIA APG Spinbutton pattern applied to a group of
+  per-slot spinbuttons, following the "Date Picker Spin Buttons" example
+  (https://www.w3.org/WAI/ARIA/apg/patterns/spinbutton/examples/datepicker-spinbuttons/) as the
+  canonical model for multiple role="spinbutton" elements in a role="group". APG has no dedicated
+  OTP pattern so this is a BUILT implementation. The enhancer owns roving tabindex (only the active
+  slot is tabindex="0"); Tab exits freely (non-modal). Each slot receives real DOM focus -- NOT
+  aria-activedescendant. collection-nav is NOT composed (OTP focus model differs from listbox/menu).
 
-  SEPARATOR + GROUPS: `groupSize` splits the slots into explicit visual groups (shadcn's
-  InputOTPGroup), with an InputOTPSeparator (a Lucide dash) rendered between groups. `groupSize=3`
-  on a length-6 code gives `***-***`. The separator is decorative (aria-hidden); the slots stay one
-  continuous keyboard + value sequence (the enhancer indexes by data-otp-slot, not by group).
+  A11y (APG Spinbutton + group):
+    - group container: role="group" aria-label from groupLabel; aria-describedby points to the
+      error region when errorMessage is set; aria-disabled when disabled.
+    - each slot input: role="spinbutton", aria-valuenow (numeric mode, the digit or omitted when
+      empty), aria-valuemin="0" aria-valuemax="9" (numeric only), aria-valuetext (the char or
+      "blank"), aria-label per slotLabel template ({n}/{total} substituted), aria-invalid when error.
+    - roving tabindex: slot 0 has tabindex="0" on first render (enhancer manages subsequent roving).
+    - error region: role="alert" id=errorId, always present (empty when no error) so screen readers
+      track it; the assertive live region announces automatically when errorMessage is set.
+    - separators: span[aria-hidden=true] between slots -- decorative, no semantic weight.
+    - autocomplete="one-time-code" on slot 0 enables platform SMS autofill.
+    - mask toggle (optional): button[type=button] with aria-label toggled by masked state.
+    - no focus trap; no collection-nav; Tab exits freely.
 
-  onComplete: when set, the enhancer fires a `lievit:otp-complete` CustomEvent (detail = the joined
-  value) on the root once every slot is filled, and -- if `onComplete="submit"` -- submits the
-  enclosing <form>. Wire it to a wire action via the data-otp-complete attribute (the consuming
-  wire template reads it), or listen for the event. Server-first: still no per-keystroke round-trip.
-
-  A11y (WAI one-time-password-field): div[role=group][aria-label] wrapping N inputs each
-  aria-label="Character N of M"; aria-invalid mirrored on the group + slots. Separators are
-  aria-hidden decorations between visual groups.
+  Slot list param (slots): each element is a Map of String to String with keys:
+    index          0-based slot position (numeric string)
+    position       1-based (for aria-label substitution)
+    slotId         stable HTML id: "{name}-slot-{index}" (or caller-supplied id prefix)
+    value          single char or empty string (pre-filled from the value param)
+    inputType      "text" or "password" when masked
+    inputmode      "numeric" (mode=numeric) or "text" (mode=alphanumeric/any)
+    tabIndex       "0" for slot 0, "-1" for all others (enhancer takes over after mount)
+    ariaValueNow   numeric value 0-9 in numeric mode when filled, else empty
+    ariaValueMin   "0" in numeric mode, else empty
+    ariaValueMax   "9" in numeric mode, else empty
+    ariaValueText  the char value if filled, "blank" if empty
+    ariaLabel      substituted slot label e.g. "Digit 1 of 6"
 
   Params:
-    name      String   submit field name; the joined value POSTs under it via the hidden mirror
-    length    int       number of code slots (default 6)
-    value     String   prefilled value (default empty); chars distributed across the slots
-    type      String   "numeric" | "alphanumeric" | "alpha" (default "numeric"); drives inputmode + pattern
-    mask      boolean   render slots as password fields (default false)
-    disabled  boolean   disable every slot (default false)
-    invalid   boolean   error ring + aria-invalid (default false)
-    groupSize int       split slots into groups of this size with a separator between (0 = no grouping)
-    onComplete String   "submit" submits the form when filled; any non-blank value enables the complete event
-    label     String   accessible label for the slot group (default "One-time code")
+    String name                       submit field name; the joined value POSTs under it via mirror.
+    java.util.List<java.util.Map<String,String>> slots  per-slot data (see Slot list above).
+    java.util.List<Integer> separatorAfter  0-based slot indices AFTER which a separator is shown.
+    String groupLabel                 accessible label for the role="group" container; REQUIRED.
+    String errorId                    stable id for the role="alert" error region.
+    String errorMessage               non-blank = error state; null/blank = no error.
+    boolean hasError                  true when errorMessage is non-blank.
+    boolean disabled                  all slots inert.
+    boolean masked                    slots rendered as type="password".
+    String mode                       "numeric" | "alphanumeric" | "any" -- drives data-otp-mode.
+    int length                        number of slots -- drives data-otp-length.
+    boolean autoSubmit                fire completeAction on N-th char (true) vs wait for Enter.
+    String value                      pre-filled assembled value (distributed across slots).
+    String size                       "sm" | "md" | "lg" (default "md").
+    String completeAction             optional: "submit" submits the enclosing form; any non-blank
+                                      value fires a lievit:otp-complete CustomEvent on the root.
+    boolean showMaskToggle            when true, renders a mask toggle button after the group.
 
   Usage:
-    @template.lievit.input-otp(name = "otp", length = 6, type = "numeric")
-    @template.lievit.input-otp(name = "otp", length = 6, groupSize = 3, onComplete = "submit")
-    import the enhancer once from your entry module: import "./lievit/input-otp.enhancer";
+    The slots list is typically built server-side from the length + value + mode + masked params.
+    See the companion InputOtpModel helper or build manually.
+    @@template.lievit.input-otp(name = "otp", slots = slots, groupLabel = "One-time code",
+        errorId = "otp-error", length = 6, mode = "numeric")
+    @@template.lievit.input-otp(name = "pin", slots = slots, groupLabel = "PIN",
+        errorId = "pin-error", length = 4, size = "lg", completeAction = "submit")
+    Import the enhancer once from your entry module:
+    import { enhanceAllInputOtp } from "lievit/input-otp.enhancer";
 --%>
 @param String name
-@param int length = 6
-@param String value = ""
-@param String type = "numeric"
-@param boolean mask = false
+@param java.util.List<java.util.Map<String, String>> slots
+@param java.util.List<Integer> separatorAfter = java.util.List.of()
+@param String groupLabel
+@param String errorId
+@param String errorMessage = null
+@param boolean hasError = false
 @param boolean disabled = false
-@param boolean invalid = false
-@param int groupSize = 0
-@param String onComplete = null
-@param String label = "One-time code"
-!{var inputMode = type.equals("numeric") ? "numeric" : "text";}
-!{var pattern = type.equals("numeric") ? "[0-9]*" : (type.equals("alpha") ? "[a-zA-Z]*" : "[a-zA-Z0-9]*");}
-!{var slotType = mask ? "password" : "text";}
-!{var grouped = groupSize > 0;}
-!{var hasComplete = onComplete != null && !onComplete.isBlank();}
-<div data-slot="input-otp" data-lievit-otp data-otp-type="${type}" data-otp-length="${length}" data-otp-complete="${hasComplete ? onComplete : null}" style="display: inline-flex; align-items: center; gap: var(--lv-space-2); font-family: var(--lv-font-sans);">
-    <div
-        role="group"
-        aria-label="${label}"
-        aria-invalid="${invalid ? "true" : "false"}"
-        data-slot="input-otp-group"
-        data-otp-group
-        style="display: inline-flex; align-items: center; gap: 0;"
+@param boolean masked = false
+@param String mode = "numeric"
+@param int length = 6
+@param boolean autoSubmit = true
+@param String value = ""
+@param String size = "md"
+@param String completeAction = null
+@param boolean showMaskToggle = false
+
+<%-- Slot dimension class: data-[size=N] attr selectors drive width + height + font.
+     All strings are COMPLETE and static so Tailwind's scanner picks them up. --%>
+!{var slotDimClass = "data-[size=sm]:w-[var(--lv-space-8)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=sm]:text-[length:var(--lv-text-sm)] data-[size=md]:w-[var(--lv-space-9)] data-[size=md]:h-[var(--lv-space-9)] data-[size=md]:text-[length:var(--lv-text-base)] data-[size=lg]:w-[var(--lv-space-10)] data-[size=lg]:h-[var(--lv-space-10)] data-[size=lg]:text-[length:var(--lv-text-lg)]";}
+
+<%-- Slot border + ring: destructive ring on error, muted border on disabled, default otherwise.
+     focus-visible uses the standard --lv-ring token (all interactive controls share it). --%>
+!{var slotBorderClass = hasError
+    ? "border-[var(--lv-color-destructive)] focus-visible:shadow-[var(--lv-ring-destructive)]"
+    : disabled
+        ? "border-[var(--lv-color-muted)]"
+        : "border-[var(--lv-color-border)] focus-visible:border-[var(--lv-color-primary)] focus-visible:shadow-[var(--lv-ring)]";}
+
+<%-- aria-describedby: only point to the error region when in error state. Smart attr: null omits. --%>
+!{var groupDescribedBy = hasError ? errorId : null;}
+
+<%-- SAFE-escaped root data-* fragment. Builds one string, emits $unsafe (safe: all values escaped).
+     JTE forbids @for in an attribute NAME position, so we pre-build the fragment in a !{} block.
+     data-otp-mode value is user-typed but locked (only 3 values); still escape for belt-and-braces. --%>
+!{var rootDataAttrs_ = new StringOutput();}
+!{var escapedMode_ = new StringOutput();}
+!{Escape.htmlAttribute(mode, escapedMode_);}
+!{rootDataAttrs_.writeContent(" data-otp-mode=\"" + escapedMode_ + "\"");}
+!{rootDataAttrs_.writeContent(" data-otp-length=\"" + length + "\"");}
+!{rootDataAttrs_.writeContent(" data-otp-autosubmit=\"" + (autoSubmit ? "true" : "false") + "\"");}
+!{var hasCompleteAction = completeAction != null && !completeAction.isBlank();}
+!{if (hasCompleteAction) {
+    var escapedComplete_ = new StringOutput();
+    Escape.htmlAttribute(completeAction, escapedComplete_);
+    rootDataAttrs_.writeContent(" data-otp-complete=\"" + escapedComplete_ + "\"");
+  }}
+!{var rootDataAttrsMarkup = rootDataAttrs_.toString();}
+
+<%-- Component root: data-slot + data-size for test selectors and styling hooks. --%>
+<div
+  data-slot="input-otp"
+  data-size="${size}"
+  class="inline-flex flex-col gap-[var(--lv-space-1)] font-[var(--lv-font-sans)]"
+  $unsafe{rootDataAttrsMarkup}
+>
+  <%-- OTP group row: role="group" + the sequence of slot inputs with optional separators.
+       aria-disabled is a smart attribute: emits the attribute when disabled, omitted when false.
+       (Native disabled on each <input> removes slots from the tab order; the group aria-disabled
+       informs AT of the group-level semantics without overriding the native per-slot attribute.) --%>
+  <div
+    role="group"
+    aria-label="${groupLabel}"
+    aria-describedby="${groupDescribedBy}"
+    aria-disabled="${disabled ? "true" : null}"
+    data-slot="input-otp-group"
+    class="inline-flex items-center gap-[var(--lv-space-2)]"
+  >
+    @for(var slot : slots)
+      !{var slotIndex = Integer.parseInt(slot.get("index"));}
+      <%-- Decorative separator BEFORE this slot when separatorAfter contains the previous index.
+           aria-hidden: separators are purely visual; the slot labels carry positional meaning. --%>
+      @if(separatorAfter.contains(slotIndex - 1))
+        <span
+          aria-hidden="true"
+          data-slot="input-otp-separator"
+          class="text-[var(--lv-color-muted-fg)] select-none px-[var(--lv-space-1)]"
+        >&#8211;</span>
+      @endif
+
+      <%-- Per-slot spinbutton input.
+           Smart attributes: JTE omits the attribute when the value is null (the canonical way to
+           conditionally emit an attribute -- never split an element across @if/@else for this).
+           aria-valuenow / aria-valuemin / aria-valuemax: non-blank in numeric mode only.
+           disabled: boolean smart attr emits the bare attribute when true, omits when false.
+           tabindex: string from the slot map ("0" for slot 0, "-1" for all others). --%>
+      !{var ariaValueNow_ = slot.get("ariaValueNow");}
+      !{var ariaValueMin_ = slot.get("ariaValueMin");}
+      !{var ariaValueMax_ = slot.get("ariaValueMax");}
+      !{var ariaValueNowAttr = (ariaValueNow_ != null && !ariaValueNow_.isBlank()) ? ariaValueNow_ : null;}
+      !{var ariaValueMinAttr = (ariaValueMin_ != null && !ariaValueMin_.isBlank()) ? ariaValueMin_ : null;}
+      !{var ariaValueMaxAttr = (ariaValueMax_ != null && !ariaValueMax_.isBlank()) ? ariaValueMax_ : null;}
+      <input
+        id="${slot.get("slotId")}"
+        type="${slot.get("inputType")}"
+        inputmode="${slot.get("inputmode")}"
+        role="spinbutton"
+        maxlength="1"
+        autocomplete="${slotIndex == 0 ? "one-time-code" : "off"}"
+        value="${slot.get("value")}"
+        aria-label="${slot.get("ariaLabel")}"
+        aria-valuenow="${ariaValueNowAttr}"
+        aria-valuemin="${ariaValueMinAttr}"
+        aria-valuemax="${ariaValueMaxAttr}"
+        aria-valuetext="${slot.get("ariaValueText")}"
+        aria-invalid="${hasError ? "true" : null}"
+        aria-required="false"
+        disabled="${disabled}"
+        tabindex="${slot.get("tabIndex")}"
+        data-slot="input-otp-slot"
+        data-otp-slot="${slot.get("index")}"
+        class="inline-flex shrink-0 items-center justify-center text-center rounded-[var(--lv-radius-md)] border bg-[var(--lv-color-input)] text-[var(--lv-color-fg)] font-[var(--lv-font-mono)] caret-[var(--lv-color-primary)] outline-none transition-[box-shadow,border-color] duration-[var(--lv-duration-fast)] placeholder:text-[var(--lv-color-muted-fg)] disabled:cursor-not-allowed disabled:opacity-[var(--lv-opacity-disabled)] ${slotDimClass} ${slotBorderClass}"
+      />
+    @endfor
+  </div>
+
+  <%-- Mask toggle button (optional): only rendered when showMaskToggle=true.
+       Icon-only button: aria-label is mandatory (no visible text); toggled by masked state.
+       type="button" prevents form submission. The masked state is driven by the caller -- the
+       caller re-renders the template (e.g. via htmx swap or a server round-trip) with the new
+       masked value, not by the enhancer (the enhancer never manages input type). --%>
+  @if(showMaskToggle)
+    <button
+      type="button"
+      aria-label="${masked ? "Show code" : "Hide code"}"
+      data-slot="input-otp-mask-toggle"
+      data-otp-mask-toggle
+      class="inline-flex items-center justify-center rounded-[var(--lv-radius-md)] text-[var(--lv-color-muted-fg)] hover:text-[var(--lv-color-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] transition-[color] duration-[var(--lv-duration-fast)] disabled:cursor-not-allowed disabled:opacity-[var(--lv-opacity-disabled)]"
     >
-        @for(int i = 0; i < length; i++)
-            @if(grouped && i > 0 && i % groupSize == 0)
-                <span data-slot="input-otp-separator" data-otp-separator aria-hidden="true" style="display: inline-flex; align-items: center; color: var(--lv-color-muted-fg); margin: 0 var(--lv-space-1);">
-                    @template.lievit.icon(name = "minus", size = "1rem")
-                </span>
-            @endif
-            !{var ch = i < value.length() ? String.valueOf(value.charAt(i)) : "";}
-            !{var runStart = i == 0 || (grouped && i % groupSize == 0);}
-            !{var runEnd = i == length - 1 || (grouped && (i + 1) % groupSize == 0);}
-            !{var borderColor = invalid ? "var(--lv-color-danger)" : "var(--lv-color-border)";}
-            !{var leftBorder = runStart ? ("1px solid " + borderColor) : "none";}
-            !{var radius = runStart && runEnd ? "var(--lv-radius-sm)" : (runStart ? "var(--lv-radius-sm) 0 0 var(--lv-radius-sm)" : (runEnd ? "0 var(--lv-radius-sm) var(--lv-radius-sm) 0" : "0"));}
-            <input
-                type="${slotType}"
-                inputmode="${inputMode}"
-                pattern="${pattern}"
-                autocomplete="${i == 0 ? "one-time-code" : "off"}"
-                maxlength="1"
-                aria-label="Character ${i + 1} of ${length}"
-                aria-invalid="${invalid ? "true" : "false"}"
-                disabled="${disabled}"
-                value="${ch}"
-                data-slot="input-otp-slot"
-                data-otp-slot="${i}"
-                style="width: var(--lv-space-9); height: var(--lv-space-9); text-align: center; font-family: var(--lv-font-mono, var(--lv-font-sans)); font-size: var(--lv-text-base); color: var(--lv-color-fg); background: var(--lv-color-bg); border-top: 1px solid ${borderColor}; border-bottom: 1px solid ${borderColor}; border-right: 1px solid ${borderColor}; border-left: ${leftBorder}; border-radius: ${radius}; box-sizing: border-box; caret-color: var(--lv-color-primary); outline: none;${invalid ? " box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-color-destructive) 20%, transparent);" : ""}"
-            />
-        @endfor
-    </div>
-    <input
-        type="hidden"
-        name="${name}"
-        value="${value}"
-        data-otp-mirror
-        tabindex="-1"
-        aria-hidden="true"
-    />
+      <%-- Eye / eye-off icon: inlined SVG (self-contained, no sub-partial dependency). --%>
+      @if(masked)
+        <%-- "Show" icon: eye --%>
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      @else
+        <%-- "Hide" icon: eye-off --%>
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      @endif
+    </button>
+  @endif
+
+  <%-- Error region: role="alert" always present (empty when no error).
+       role="alert" implies aria-live="assertive" + aria-atomic="true" per ARIA spec.
+       The node must pre-exist in the DOM so AT tracks it from page load; populating it
+       dynamically (via a server swap) fires the assertive announcement without navigation. --%>
+  <div
+    id="${errorId}"
+    role="alert"
+    data-slot="input-otp-error"
+    class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-destructive)] empty:hidden"
+  >${hasError ? errorMessage : ""}</div>
+
+  <%-- Hidden value mirror: submits the assembled value with the enclosing form under `name`.
+       The enhancer keeps this in sync on every keystroke / paste so FormData sees the joined
+       value at submit time. aria-hidden + tabindex="-1" keep it out of the a11y tree + tab order. --%>
+  <input
+    type="hidden"
+    name="${name}"
+    value="${value}"
+    data-otp-mirror
+    tabindex="-1"
+    aria-hidden="true"
+  />
 </div>

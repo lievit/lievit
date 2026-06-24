@@ -650,14 +650,20 @@ describe("input-otp.jte (server-first segmented code)", () => {
     expect(markup).toContain("data-otp-mirror");
     expect(markup).not.toMatch(/<script/i);
   });
-  test("supports explicit groups + a decorative Lucide separator between them", () => {
-    expect(src).toMatch(/@param int groupSize/);
-    expect(src).toContain("@if(grouped && i > 0 && i % groupSize == 0)");
-    expect(src).toContain("data-otp-separator");
-    expect(src).toContain('@template.lievit.icon(name = "minus"');
+  test("supports explicit groups + a decorative inline em-dash separator between them", () => {
+    // Re-forge: `groupSize` (modulo-based) replaced by `separatorAfter` (List<Integer> of
+    // 0-based slot indices after which a separator is shown). The separator is now an INLINE
+    // em-dash span (&#8211;), NOT the @template.lievit.icon(name="minus") partial.
+    expect(src).toMatch(/@param java\.util\.List<Integer> separatorAfter/);
+    expect(src).toContain("separatorAfter.contains(slotIndex - 1)");
+    expect(src).toContain("data-slot=\"input-otp-separator\"");
+    // inline em-dash span (no icon partial dependency)
+    expect(src).toContain("&#8211;");
+    expect(src).not.toContain('@template.lievit.icon(name = "minus"');
   });
-  test("declares onComplete on the root so the enhancer can fire/submit when filled", () => {
-    expect(src).toMatch(/@param String onComplete/);
-    expect(src).toContain('data-otp-complete="${hasComplete ? onComplete : null}"');
+  test("declares completeAction on the root so the enhancer can fire/submit when filled", () => {
+    // Re-forge: `onComplete` param renamed to `completeAction`; data-otp-complete wires it.
+    expect(src).toMatch(/@param String completeAction/);
+    expect(src).toContain('data-otp-complete=');
   });
 });

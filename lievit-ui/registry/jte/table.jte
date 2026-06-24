@@ -1,68 +1,81 @@
 @import gg.jte.Content
 <%--
-  lievit-ui :: table (static JTE partial - composable set)
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
 
-  The table PRIMITIVE markup, mirroring shadcn's Table / TableHeader / TableBody /
-  TableFooter / TableRow / TableHead / TableCell / TableCaption. This is layout-only
-  chrome: borders, a muted header, hover rows. Sorting / selection / pagination are the
-  caller's job (or the server-first `data-table` partial, which adds server-sorted headers
-  + the pagination partial on top of this look), keeping this tier presentational.
+  lievit-ui table partial -- the <table> scroll wrapper (composable set root).
 
-  Tier rationale: pure presentation, no client state, so a JTE partial (DONE criterion 1).
+  TIER: PARTIAL presentational (ADR-0012 server-first pivot). Zero client state.
+  The table composable set mirrors shadcn Table / TableHeader / TableBody / TableRow /
+  TableHead / TableCell / TableCaption / TableFooter: the caller owns the row and cell
+  loop, this partial is the <table> wrapper + horizontal-scroll container.
 
-  SHAPE DECISION (scientific rule). Two options were compared:
-    (A) one parameterised partial fed a rows/headers data model - closed, forces a rigid
-        data shape, not composable, does NOT match shadcn's component set.
-    (B) a SET of composable sub-templates, one per shadcn part, each taking a Content
-        block - "data down, events up", lets the caller own the row/cell loop, matches
-        shadcn's structure 1:1.
-  (B) wins on (4) API ergonomics / composability and (2) customisability, so the table is
-  shipped as this entry file plus sibling parts in `table/`:
-    table.jte         -> @@template.lievit.table(...)          the <table> wrapper (+ scroll container)
-    table/header.jte  -> @@template.lievit.table.header(...)   <thead>
-    table/body.jte    -> @@template.lievit.table.body(...)     <tbody>
-    table/footer.jte  -> @@template.lievit.table.footer(...)   <tfoot>
-    table/row.jte     -> @@template.lievit.table.row(...)      <tr> (hover; data-state=selected)
-    table/head.jte    -> @@template.lievit.table.head(...)     <th scope=col> (muted header cell)
-    table/cell.jte    -> @@template.lievit.table.cell(...)     <td>
-    table/caption.jte -> @@template.lievit.table.caption(...)  <caption>
+  STRUCTURE (scientific decision rule):
+    - WAI-ARIA APG Table pattern (https://www.w3.org/WAI/ARIA/apg/patterns/table/).
+      Native <table> supplies implicit role="table"; scope, colspan, rowspan, and
+      browser column-width algorithms come for free -- NEVER a <div role="table">.
+    - Composable set (shadcn-style): table.jte (wrapper) + table/{header,body,footer,
+      row,head,cell,caption}.jte. The caller composes, owns the loop; this partial
+      provides ONLY the chrome. data-table.jte is the separate HTMX-driven data view
+      that COMPOSES these primitives.
+    - Styling: ORIGINAL generation over --lv-* tokens; look inspired by Tailwind UI
+      (no code copied).
 
-  Accessibility: real <table>/<thead>/<tbody>/<tfoot>/<tr>/<th>/<td>/<caption> elements;
-  header cells are <th scope="col"> (row headers pass scope="row"); the caption is the
-  accessible name of the table. The wrapper sets overflow-x-auto so wide tables scroll
-  without breaking the page (shadcn parity).
+  A11y (WAI-ARIA APG Table):
+    - Native <table> (implicit role="table"). ariaLabel or a visible <caption>
+      (rendered via table.caption) is REQUIRED for the accessible name.
+    - Keyboard: APG states "Not applicable" -- the platform handles Tab focus on any
+      focusable child (sort buttons, checkboxes, action links).
+    - No focus trap, no roving tabindex; static structure.
 
   Params:
-    klass   - extra classes for the <table>.
-    content - the <thead>/<tbody>/<tfoot>/<caption> blocks, composed by the caller.
+    String ariaLabel        = null   aria-label on <table> when no visible caption
+                                     is composed as a child. One of ariaLabel or a
+                                     table.caption child is REQUIRED for an accessible
+                                     name.
+    String ariaLabelledBy   = null   aria-labelledby pointing to an element id that
+                                     labels the table. Mutually exclusive with ariaLabel.
+    String ariaDescribedBy  = null   aria-describedby pointing to an external description
+                                     element id.
+    String cssClass         = ""     extra utility classes on the <table> element.
+    String attrs            = ""     TRUSTED raw ($unsafe) -- STATIC author-typed strings
+                                     only (e.g. data-controller="...").
+    gg.jte.Content content           the thead / tbody / tfoot / caption blocks composed
+                                     by the caller.
 
   Usage:
-    @@template.lievit.table(content = @@`
-      @@template.lievit.table.caption(content = @@`Q2 listings`)
+    @@template.lievit.table(ariaLabel = "Q2 Listings", content = @@`
+      @@template.lievit.table.caption(content = @@`Q2 Listings`)
       @@template.lievit.table.header(content = @@`
         @@template.lievit.table.row(content = @@`
           @@template.lievit.table.head(content = @@`Ref`)
           @@template.lievit.table.head(content = @@`Agent`)
-          @@template.lievit.table.head(klass = "text-right", content = @@`Price`)
+          @@template.lievit.table.head(cssClass = "text-right", content = @@`Price`)
         `)
       `)
       @@template.lievit.table.body(content = @@`
         @@template.lievit.table.row(content = @@`
           @@template.lievit.table.cell(content = @@`A-1024`)
           @@template.lievit.table.cell(content = @@`Cecchetto`)
-          @@template.lievit.table.cell(klass = "text-right", content = @@`240000`)
+          @@template.lievit.table.cell(cssClass = "text-right", content = @@`240000`)
         `)
       `)
     `)
 --%>
-@param String klass = ""
+@param String ariaLabel = null
+@param String ariaLabelledBy = null
+@param String ariaDescribedBy = null
+@param String cssClass = ""
+@param String attrs = ""
 @param gg.jte.Content content
-<div data-slot="table-container" class="lv-table-container relative w-full overflow-x-auto">
+<div data-slot="table-container" class="relative w-full overflow-x-auto">
   <table
     data-slot="table"
-    class="lv-table w-full caption-bottom text-[var(--lv-text-sm)] ${klass}"
+    aria-label="${ariaLabel}"
+    aria-labelledby="${ariaLabelledBy}"
+    aria-describedby="${ariaDescribedBy}"
+    class="w-full caption-bottom text-[length:var(--lv-text-sm)] ${cssClass}"
     style="font-family:var(--lv-font-sans);color:var(--lv-color-fg);border-collapse:collapse;"
-  >
-    ${content}
-  </table>
+    $unsafe{attrs}
+  >${content}</table>
 </div>

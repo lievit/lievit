@@ -124,8 +124,9 @@ describe("dashboard block -- server-first composition (ADR-0012: no island tags)
   });
 
   test("the charts row is the CHART partial (server-rendered inline SVG)", () => {
+    // Re-forge: chart API migrated from `label =` to `title =` (the renamed accessible-name param).
     expect(src).toContain("@template.lievit.chart(");
-    expect(src).toContain("label = chartLabel == null ? chartTitle : chartLabel");
+    expect(src).toContain("title = chartLabel == null ? chartTitle : chartLabel");
   });
 
   test("the recent-items table is built from the composable table partial set", () => {

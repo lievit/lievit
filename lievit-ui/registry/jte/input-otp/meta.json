@@ -1,7 +1,8 @@
 {
   "name": "input-otp",
   "type": "registry:jte",
-  "description": "A segmented one-time-code input rendered server-side: N native single-character <input> slots + a hidden `name` mirror that submits the joined value in a plain POST form (zero wire round-trips mid-entry). The auto-advance / paste-fill / backspace-nav choreography is a CSP-clean typed-TS enhancer. Server-first PARTIAL + enhancer (ADR-0012); replaces the <lv-input-otp> Lit island. WAI one-time-password-field ARIA (role=group + per-slot Character N of M labels).",
+  "description": "A fixed-length one-time-password / PIN entry field (v-next CLIENT-ENHANCER): N native single-character inputs in a role=\"group\" + a hidden name mirror that submits the joined value in a plain POST form (zero wire round-trips mid-entry). Auto-advance / paste-fill / backspace-retreat / roving-tabindex choreography lives in the colocated input-otp.enhancer.ts (CSP-clean, no inline on*). APG Spinbutton group a11y (role=spinbutton per slot, aria-valuenow/text, roving tabindex, role=alert error region). Sizes sm/md/lg; optional separator positions; optional mask toggle; optional lievit:otp-complete CustomEvent or form submit on completion.",
+  "tier": "PARTIAL+ENH",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -17,6 +18,39 @@
       "target": "lievit/input-otp.enhancer.ts"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the input-otp partial to your JTE root at lievit/input-otp.jte (reached as @template.lievit.input-otp(name=..., length=6, type=\"numeric\")) and the CSP-clean enhancer to your alias root at lievit/input-otp.enhancer.ts. Import the enhancer once from your entry module and call enhanceAllInputOtp() on load (and after any DOM swap). The slots POST the joined value under `name` via the hidden mirror with zero wire round-trips mid-entry; the value is server-bound at POST. The source is yours: edit freely."
+  "params": [
+    { "name": "name", "type": "String", "required": true, "description": "Submit field name; the joined value POSTs under it via the hidden mirror." },
+    { "name": "slots", "type": "List<Map<String,String>>", "required": true, "description": "Per-slot data list; each map has keys: index, position, slotId, value, inputType, inputmode, tabIndex, ariaValueNow, ariaValueMin, ariaValueMax, ariaValueText, ariaLabel." },
+    { "name": "groupLabel", "type": "String", "required": true, "description": "Accessible label for the role=group container; REQUIRED (no default; a missing label is an a11y violation)." },
+    { "name": "errorId", "type": "String", "required": true, "description": "Stable id for the role=alert error region." },
+    { "name": "separatorAfter", "type": "List<Integer>", "default": "List.of()", "description": "0-based slot indices AFTER which a decorative separator is rendered." },
+    { "name": "errorMessage", "type": "String", "default": "null", "description": "Non-blank = error state; null/blank = no error." },
+    { "name": "hasError", "type": "boolean", "default": "false", "description": "True when errorMessage is non-blank." },
+    { "name": "disabled", "type": "boolean", "default": "false", "description": "All slots inert; aria-disabled on group." },
+    { "name": "masked", "type": "boolean", "default": "false", "description": "Slots rendered as type=password." },
+    { "name": "mode", "type": "String", "default": "\"numeric\"", "description": "\"numeric\" | \"alphanumeric\" | \"any\" -- drives data-otp-mode and client-side validation." },
+    { "name": "length", "type": "int", "default": "6", "description": "Number of slots (N); drives data-otp-length." },
+    { "name": "autoSubmit", "type": "boolean", "default": "true", "description": "Fire completeAction on N-th char (true) vs wait for Enter (false)." },
+    { "name": "value", "type": "String", "default": "\"\"", "description": "Pre-filled assembled value distributed across slots (mirrors the server-side field value)." },
+    { "name": "size", "type": "String", "default": "\"md\"", "description": "\"sm\" | \"md\" | \"lg\" -- slot height+width (32/36/40px, toolbar-aligned)." },
+    { "name": "completeAction", "type": "String", "default": "null", "description": "Optional completion behaviour: \"submit\" also requestSubmit()-s the enclosing form; any non-blank fires a lievit:otp-complete CustomEvent. Null = plain form POST only." },
+    { "name": "showMaskToggle", "type": "boolean", "default": "false", "description": "When true, renders a mask toggle button (eye/eye-off) after the group row." }
+  ],
+  "enhancer": {
+    "file": "jte/input-otp.enhancer.ts",
+    "exports": ["enhanceInputOtp", "enhanceAllInputOtp"],
+    "events": [
+      { "name": "lievit:otp-complete", "bubbles": true, "detail": "string (the assembled token)", "fired": "when all N slots are filled and data-otp-complete is set" }
+    ]
+  },
+  "tokens": ["color", "space", "radius", "type", "ring", "shadow", "opacity", "duration", "font"],
+  "a11y": {
+    "pattern": "APG Spinbutton + group (BUILT, no dedicated OTP APG pattern)",
+    "sources": [
+      "https://www.w3.org/WAI/ARIA/apg/patterns/spinbutton/",
+      "https://www.w3.org/WAI/ARIA/apg/patterns/spinbutton/examples/datepicker-spinbuttons/",
+      "https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/"
+    ]
+  },
+  "docs": "Copy input-otp.jte to your JTE root at lievit/input-otp.jte (called as @template.lievit.input-otp(...)) and the CSP-clean enhancer to your alias root at lievit/input-otp.enhancer.ts. Build a slots List<Map<String,String>> server-side (or use the companion InputOtpModel helper). Call enhanceAllInputOtp() on load and after any DOM swap. The assembled code POSTs under `name` via the hidden mirror at form submit; the completeAction param optionally fires a lievit:otp-complete event or auto-submits the form when all N slots are filled."
 }

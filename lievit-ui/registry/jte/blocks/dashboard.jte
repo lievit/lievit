@@ -186,7 +186,7 @@
           ${chartTitle}
         </div>
         @template.lievit.chart(
-          label = chartLabel == null ? chartTitle : chartLabel,
+          title = chartLabel == null ? chartTitle : chartLabel,
           categories = chartCategories,
           values = chartValues
         )
@@ -202,7 +202,7 @@
             ${chart2Title}
           </div>
           @template.lievit.chart(
-            label = chart2Title,
+            title = chart2Title,
             categories = chart2Categories,
             values = chart2Values
           )
