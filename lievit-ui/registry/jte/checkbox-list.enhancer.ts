@@ -5,18 +5,26 @@
 
 /**
  * checkbox-list enhancer (ADR-0012, server-first + progressive enhancement): the CSP-clean
- * typed-TS that UPGRADES the server-rendered `lievit/checkbox-list.jte` partial. The options, the
- * checked state and the form-bound native checkboxes are all server-rendered HTML; JS-OFF the user
- * simply ticks the native boxes and they POST the repeated `name`. This module only ADDS the two
- * tools the partial keeps hidden until JS runs: a client-side filter over the visible options, and
- * a select-all / clear bulk toggle. It never owns the value -- the native checkboxes stay the form
- * source of truth, so the field POSTs identically whether or not JS ran.
+ * typed-TS module that UPGRADES the server-rendered `lievit/checkbox-list.jte` partial.
+ *
+ * The options, the checked state, and the form-bound native checkboxes are all server-rendered
+ * HTML; JS-OFF the user simply ticks the native boxes and they POST the repeated `name`. This
+ * module only ADDS the two tools the partial keeps hidden until JS runs:
+ *   - a client-side filter over the visible options (search input, role=searchbox)
+ *   - a select-all / clear bulk toggle button (aria-pressed mirrors all-checked state)
+ *
+ * Neither tool owns the value: the native checkboxes stay the form source of truth, so the
+ * field POSTs identically whether or not JS ran.
  *
  * No inline script (the strict CSP refuses inline on* handlers; this attaches listeners in code).
  *
- * The pure filter predicate ({@link matchesQuery}) is exported so it can be unit-tested without a
- * DOM. Idempotent: {@link enhanceCheckboxList} marks each root and skips an already-enhanced one;
+ * The pure filter predicate ({@link matchesQuery}) is exported for unit testing without a DOM.
+ * Idempotent: {@link enhanceCheckboxList} marks each root and skips an already-enhanced one;
  * {@link enhanceAllCheckboxLists} wires every root on the page (call on load + after a DOM swap).
+ *
+ * Checkbox slot: the re-forged checkbox primitive uses data-slot="checkbox-input" on the native
+ * input. This enhancer queries "[data-slot='checkbox-input']" to match. The deprecated name
+ * "checkbox-control" is NOT used.
  */
 
 const ENHANCED = "data-checkbox-list-enhanced";
@@ -43,15 +51,38 @@ function revealTools(root: HTMLElement): void {
   if (tools) tools.hidden = false;
 }
 
-/** The enabled, currently-visible (not display:none) checkboxes -- what the bulk toggle acts on. */
+/**
+ * The enabled, currently-visible (not display:none) checkboxes -- what the bulk toggle acts on.
+ * Queries data-slot="checkbox-input" to match the re-forged checkbox primitive.
+ */
 function visibleBoxes(root: HTMLElement): HTMLInputElement[] {
   return Array.from(
-    root.querySelectorAll<HTMLInputElement>("[data-slot='checkbox-control']"),
+    root.querySelectorAll<HTMLInputElement>("[data-slot='checkbox-input']"),
   ).filter((box) => {
     if (box.disabled) return false;
     const option = box.closest<HTMLElement>("[data-checkbox-list-option]");
     return !option || option.style.display !== "none";
   });
+}
+
+/**
+ * Sync the toggle-all button's aria-pressed + visible label to reflect the current all-checked
+ * state of the visible, enabled boxes. The button carries two data-* labels:
+ *   data-select-all-label  -- shown when NOT all are checked
+ *   data-clear-label       -- shown when all are checked
+ * The enhancer swaps the button's text content to keep the label accurate after each change.
+ */
+function syncToggleState(
+  root: HTMLElement,
+  toggleAll: HTMLButtonElement | null,
+): void {
+  if (!toggleAll) return;
+  const boxes = visibleBoxes(root);
+  const allChecked = boxes.length > 0 && boxes.every((b) => b.checked);
+  toggleAll.setAttribute("aria-pressed", String(allChecked));
+  const selectLabel = toggleAll.getAttribute("data-select-all-label") ?? "Select all";
+  const clearLabel = toggleAll.getAttribute("data-clear-label") ?? selectLabel;
+  toggleAll.textContent = allChecked ? clearLabel : selectLabel;
 }
 
 /** Enhance one checkbox-list root. No-op if already enhanced. */
@@ -71,14 +102,7 @@ export function enhanceCheckboxList(root: HTMLElement): void {
       const label = option.getAttribute("data-label") ?? option.textContent ?? "";
       option.style.display = matchesQuery(label, query) ? "" : "none";
     }
-    syncToggleState();
-  };
-
-  const syncToggleState = (): void => {
-    if (!toggleAll) return;
-    const boxes = visibleBoxes(root);
-    const allChecked = boxes.length > 0 && boxes.every((b) => b.checked);
-    toggleAll.setAttribute("aria-pressed", String(allChecked));
+    syncToggleState(root, toggleAll);
   };
 
   if (search) {
@@ -96,17 +120,19 @@ export function enhanceCheckboxList(root: HTMLElement): void {
         box.dispatchEvent(new Event("input", { bubbles: true }));
         box.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      syncToggleState();
+      syncToggleState(root, toggleAll);
     });
   }
 
-  // keep the toggle's aria-pressed honest when the user ticks boxes by hand
+  // Keep the toggle's aria-pressed + label honest when the user ticks boxes by hand.
   root.addEventListener("change", (e) => {
     const target = e.target as HTMLElement;
-    if (target.matches("[data-slot='checkbox-control']")) syncToggleState();
+    if (target.matches("[data-slot='checkbox-input']")) {
+      syncToggleState(root, toggleAll);
+    }
   });
 
-  syncToggleState();
+  syncToggleState(root, toggleAll);
 }
 
 /** Enhance every `[data-lievit-checkbox-list]` root in scope. */

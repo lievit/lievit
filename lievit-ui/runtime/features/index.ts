@@ -19,6 +19,7 @@ import { installTooltip } from "./tooltip.enhancer.js";
 import { installCheckbox } from "./checkbox.enhancer.js";
 import { installTextareaAutosize } from "./textarea-autosize.enhancer.js";
 import { installSlider } from "./slider.enhancer.js";
+import { installScrollArea } from "./scroll-area.enhancer.js";
 import { installConfirm } from "./confirm.js";
 import { installCurrent } from "./current.js";
 import { installDirty } from "./dirty.js";
@@ -106,6 +107,7 @@ export { installTooltip } from "./tooltip.enhancer.js";
 export { installCheckbox } from "./checkbox.enhancer.js";
 export { installTextareaAutosize } from "./textarea-autosize.enhancer.js";
 export { installSlider } from "./slider.enhancer.js";
+export { installScrollArea } from "./scroll-area.enhancer.js";
 
 /**
  * Installs every batch-2 client feature on a runtime (the convenience an app's `main.ts` calls after
@@ -148,4 +150,5 @@ export function installAllFeatures(
   installCheckbox(runtime);
   installTextareaAutosize(runtime);
   installSlider(runtime);
+  installScrollArea(runtime);
 }

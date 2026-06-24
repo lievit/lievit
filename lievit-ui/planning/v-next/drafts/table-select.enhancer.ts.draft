@@ -1,0 +1,220 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ */
+
+/**
+ * Table-select enhancer: the ONE irreducible client behavior for the table partial's
+ * optional bulk-select column. Mounted when `data-lievit-enhancer="table-select"` is
+ * present on the `div[id="table-region"]` wrapper (rendered only when `selectable=true`).
+ *
+ * What it owns (irreducible because no server round-trip is warranted):
+ *
+ * 1. Select-all checkbox indeterminate DOM property: set when some-but-not-all rows are
+ *    checked. The `indeterminate` DOM property is write-only from JS -- the HTML parser
+ *    ignores an `indeterminate` attribute. This is the canonical JS-only tri-state signal.
+ *
+ * 2. aria-selected on each tr: updated to "true"/"false" as row checkboxes toggle, so
+ *    screen readers in browse mode can report which rows are selected.
+ *
+ * 3. Bulk-action bar visibility: the `data-bulk-action-bar` element is shown when
+ *    selectedCount > 0, hidden when selectedCount === 0.
+ *
+ * 4. selectedIds hidden input: populated with a comma-separated list of checked row
+ *    data-row-id values before the bulk-action bar's form submits.
+ *
+ * 5. htmx:afterSwap reset: when HTMX replaces the table region (sort/page change), the
+ *    server fragment has all checkboxes unchecked; the enhancer resets the select-all
+ *    indeterminate state and hides the bulk-action bar.
+ *
+ * What it does NOT own:
+ * - It does NOT submit the bulk action (the data-bulk-action-bar slot owns that form/button).
+ * - It does NOT virtualize rows or manage filter inputs.
+ * - It does NOT fire wire actions directly.
+ *
+ * Selector contract (written by table.jte, read here):
+ *   data-lievit-enhancer="table-select"  on the div#table-region wrapper
+ *   data-select-all                       on the select-all th checkbox input
+ *   data-select-row                       on each per-row td checkbox input
+ *   data-row-id="<escaped>"               on each body tr
+ *   data-bulk-action-bar                  on the bulk-action bar div
+ *
+ * CSP compliance: no eval, no Function(), no inline handlers. Reads dataset.*, sets DOM
+ * properties, listens to 'change' and 'htmx:afterSwap'. Strict-CSP-safe.
+ *
+ * APG source: https://www.w3.org/WAI/ARIA/apg/patterns/checkbox/examples/checkbox-mixed/
+ */
+
+/** CSS selector for a mounted table-select region. */
+const REGION_SELECTOR = '[data-lievit-enhancer="table-select"]';
+
+/** Returns the select-all checkbox within a region, or null. */
+function getSelectAll(region: Element): HTMLInputElement | null {
+  return region.querySelector<HTMLInputElement>("input[data-select-all]");
+}
+
+/** Returns all per-row checkboxes within a region. */
+function getRowCheckboxes(region: Element): NodeListOf<HTMLInputElement> {
+  return region.querySelectorAll<HTMLInputElement>("input[data-select-row]");
+}
+
+/** Returns all body rows within a region (those with data-row-id). */
+function getBodyRows(region: Element): NodeListOf<HTMLElement> {
+  return region.querySelectorAll<HTMLElement>("tr[data-row-id]");
+}
+
+/** Returns the bulk-action bar element within a region, or null. */
+function getBulkBar(region: Element): HTMLElement | null {
+  return region.querySelector<HTMLElement>("[data-bulk-action-bar]");
+}
+
+/**
+ * Recomputes the select-all indeterminate state and bulk-action bar visibility
+ * from the current checked state of all row checkboxes.
+ */
+function syncState(region: Element): void {
+  const all = getSelectAll(region);
+  const rowCbs = getRowCheckboxes(region);
+  const bar = getBulkBar(region);
+
+  const total = rowCbs.length;
+  let checkedCount = 0;
+  rowCbs.forEach((cb) => { if (cb.checked) checkedCount++; });
+
+  if (all) {
+    if (checkedCount === 0) {
+      all.checked = false;
+      all.indeterminate = false;
+    } else if (checkedCount === total) {
+      all.checked = true;
+      all.indeterminate = false;
+    } else {
+      all.checked = false;
+      all.indeterminate = true;
+    }
+  }
+
+  if (bar) {
+    if (checkedCount > 0) {
+      bar.style.display = "";
+      bar.classList.remove("hidden");
+    } else {
+      bar.style.display = "none";
+      bar.classList.add("hidden");
+    }
+    /* Populate the hidden selectedIds input before any form submit. */
+    populateSelectedIds(region, bar);
+  }
+}
+
+/**
+ * Writes the current selection set into a hidden input[name="selectedIds"] inside
+ * the bulk-action bar, creating it on first call if absent.
+ */
+function populateSelectedIds(region: Element, bar: HTMLElement): void {
+  const rows = getBodyRows(region);
+  const rowCbs = getRowCheckboxes(region);
+  const ids: string[] = [];
+  rowCbs.forEach((cb, i) => {
+    if (cb.checked) {
+      const row = rows.item(i) as HTMLElement | undefined;
+      const id = row?.dataset["rowId"];
+      if (id) ids.push(id);
+    }
+  });
+
+  let hiddenInput = bar.querySelector<HTMLInputElement>("input[name='selectedIds']");
+  if (!hiddenInput) {
+    hiddenInput = document.createElement("input");
+    hiddenInput.type = "hidden";
+    hiddenInput.name = "selectedIds";
+    bar.prepend(hiddenInput);
+  }
+  hiddenInput.value = ids.join(",");
+}
+
+/**
+ * Syncs the aria-selected attribute on a body row's tr element.
+ */
+function setRowSelected(cb: HTMLInputElement, selected: boolean): void {
+  const row = cb.closest<HTMLElement>("tr[data-row-id]");
+  if (row) row.setAttribute("aria-selected", selected ? "true" : "false");
+}
+
+/**
+ * Binds the change listener on a single region element.
+ * Returns an unsubscribe function.
+ */
+function bindRegion(region: Element): () => void {
+  function onSelectAllChange(e: Event): void {
+    const all = e.target as HTMLInputElement;
+    const rowCbs = getRowCheckboxes(region);
+    rowCbs.forEach((cb) => {
+      cb.checked = all.checked;
+      setRowSelected(cb, all.checked);
+    });
+    syncState(region);
+  }
+
+  function onRowChange(e: Event): void {
+    const cb = e.target as HTMLInputElement;
+    if (cb.hasAttribute("data-select-row")) {
+      setRowSelected(cb, cb.checked);
+      syncState(region);
+    }
+  }
+
+  function onAfterSwap(e: Event): void {
+    /* HTMX replaced the table region -- reset all state to cleared. */
+    const target = (e as CustomEvent).detail?.target as Element | undefined;
+    if (!target || !region.contains(target) && target !== region) return;
+    const rowCbs = getRowCheckboxes(region);
+    rowCbs.forEach((cb) => {
+      cb.checked = false;
+      setRowSelected(cb, false);
+    });
+    syncState(region);
+  }
+
+  const selectAllInput = getSelectAll(region);
+  if (selectAllInput) {
+    selectAllInput.addEventListener("change", onSelectAllChange);
+  }
+  region.addEventListener("change", onRowChange);
+  document.addEventListener("htmx:afterSwap", onAfterSwap);
+
+  /* Initial sync in case the server rendered some rows pre-selected. */
+  syncState(region);
+
+  return () => {
+    if (selectAllInput) selectAllInput.removeEventListener("change", onSelectAllChange);
+    region.removeEventListener("change", onRowChange);
+    document.removeEventListener("htmx:afterSwap", onAfterSwap);
+  };
+}
+
+/**
+ * Installs the table-select enhancer: scans the document for all
+ * `[data-lievit-enhancer="table-select"]` regions and binds each.
+ *
+ * This is a self-contained module (not wired through the LievitRuntime lifecycle bus)
+ * because the table is a PARTIAL (not a WIRE component) and does not participate in
+ * the runtime's component lifecycle. Call this from your `main.ts` AFTER the DOM is
+ * ready, alongside any HTMX initialization:
+ *
+ *   import { installTableSelect } from "lievit/table-select.enhancer.js";
+ *   document.addEventListener("DOMContentLoaded", () => installTableSelect());
+ *
+ * For HTMX-powered pages that inject new table regions dynamically, also call
+ * `installTableSelect()` inside `htmx:afterSwap` if new selectable tables may be swapped in.
+ *
+ * @returns an unsubscribe function that removes all bound listeners
+ */
+export function installTableSelect(): () => void {
+  const regions = document.querySelectorAll<Element>(REGION_SELECTOR);
+  const unbinders: Array<() => void> = [];
+  regions.forEach((region) => {
+    unbinders.push(bindRegion(region));
+  });
+  return () => unbinders.forEach((fn) => fn());
+}

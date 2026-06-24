@@ -1,7 +1,7 @@
 {
   "name": "scroll-area",
   "type": "registry:jte",
-  "description": "A scrollable viewport with a token-styled native scrollbar (standardised scrollbar-width + scrollbar-color, no JS, no <style> block). type modes (auto / always / hover / scroll) map to scrollbar visibility + gutter; orientation is vertical / horizontal / both. The viewport is a focusable role=region (named when label is set). Server-first PARTIAL (ADR-0012): no client state, no Lit island, no wire component. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A scrollable viewport with optional overlay scrollbar rails (shadcn Scroll Area parity). Two modes: overlay=false uses the browser's native scrollbar (zero JS, CSP-clean, styled via token-driven CSS); overlay=true hides the native scrollbar and renders custom overlay rails driven by the scroll-area.enhancer.ts (thumb sizing via ResizeObserver, thumb drag via pointer events, aria-valuenow live updates). The three visibility policies (hover/always/scroll) are driven by CSS selectors on data-scrolling and data-pointer-over attributes toggled by the enhancer. Orientation: vertical / horizontal / both. The viewport carries tabindex=0 (keyboard-scrollable) and optionally role=region + aria-label for a named landmark. Server-first PARTIAL (ADR-0012): overlay=false ships zero JS.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -10,8 +10,14 @@
       "type": "registry:jte",
       "target": "lievit/scroll-area.jte",
       "root": "jte"
+    },
+    {
+      "path": "jte/scroll-area.css",
+      "type": "registry:css",
+      "target": "lievit/scroll-area.css",
+      "root": "jte"
     }
   ],
-  "tokens": ["color", "radius", "ring"],
-  "docs": "Copies the scroll-area partial to your JTE root at lievit/scroll-area.jte, reached as @template.lievit.scroll-area(content=@`...`). Set orientation (vertical/horizontal/both), type (auto/always/hover/scroll), maxHeight, and an optional label for a named region. The hover/scroll reveal-on-hover thumb needs one :hover rule in your own stylesheet (documented in the partial header); without it the viewport still scrolls with a hidden scrollbar. The source is yours: edit freely."
+  "tokens": ["color", "radius", "ring", "space", "duration", "ease"],
+  "docs": "Copies scroll-area.jte and scroll-area.css to your project. Import the CSS alongside the template. When overlay=false (default) the native scrollbar is used: no JS, CSP-clean, token-styled. When overlay=true the native scrollbar is hidden (lv-scrollbar-hide class) and custom overlay rails are activated by the scroll-area.enhancer.ts (install it once via installScrollArea(runtime) in your main.ts). Rail visibility is controlled by data-type (hover/always/scroll) via CSS selectors in scroll-area.css; the enhancer sets data-scrolling and data-pointer-over on the root. Thumb drag is handled via pointer events with setPointerCapture. TOKENS_NEEDED (not yet in lievit-tokens.css): --lv-z-scrollbar:10, --lv-color-scrollbar-thumb, --lv-color-scrollbar-thumb-active, --lv-color-scrollbar-track (currently falling back to --lv-color-border / --lv-color-border-hover)."
 }

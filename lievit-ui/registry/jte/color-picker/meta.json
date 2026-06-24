@@ -1,7 +1,7 @@
 {
   "name": "color-picker",
   "type": "registry:jte",
-  "description": "A colour FORM field (Filament ColorPicker; native-first, no dep): a swatch + a native <input type=color> (the canonical no-dep colour picker) + an optional row of preset hex swatches. JS-OFF the native input carries the OS colour picker, keyboard + a11y for free and POSTs the chosen hex under `name` with zero JavaScript; the presets are a pure convenience. JS-ON a tiny CSP-clean typed-TS enhancer wires the preset <button>s to write their colour into the native input (firing native input/change so l:model + forms see it) and keeps the hex readout in sync. The native input stays the form source of truth, so the field POSTs identically whether or not JS ran. WAI-ARIA: labelled native input, aria-labelled preset buttons (colour never the only signal), aria-live hex readout. Plain HTML + Tailwind + --lv-* tokens, CSP-clean.",
+  "description": "A composite color-selection form control (v-next, PARTIAL+ENH). A trigger button (colored preview swatch + current hex label) opens a non-modal popover containing hex/RGB/HSL channel spinbuttons, an optional alpha slider, a preset swatch grid, and an optional eyedropper button. The committed color is a single hex string in a hidden native input, submitted with the form. A11y: WAI-ARIA APG Spinbutton (channel inputs) + APG Toolbar (swatch grid roving-tabindex) + APG Button (trigger), assembled as a BUILT composite widget (no single APG pattern covers a color picker). The swatch grid composes the shared collection-nav roving-tabindex enhancer. Strictly CSP-clean: no inline script, no on* handlers. The typed-TS enhancer owns channel sync (hex/RGB/HSL derivation), popover open/close + focus management, swatch application, spinbutton Home/End/PageUp/PageDown, format toggle, and eyedropper API integration.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -17,6 +17,35 @@
       "target": "lievit/color-picker.enhancer.ts"
     }
   ],
-  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Copies the color-picker partial to your JTE root at lievit/color-picker.jte (reached as @template.lievit.color-picker(name=..., value=...)) and the CSP-clean enhancer to lievit/color-picker.enhancer.ts. Import the enhancer once from your entry module and call enhanceAllColorPickers() on load (and after any DOM swap). JS-OFF the native <input type=color> POSTs the hex under `name`; JS-ON the enhancer wires the optional preset swatches to set the colour and syncs the readout. Pass `value` (a 7-char hex like #2563eb), an optional `presets` List of hex strings, plus `label` / `ariaLabel` / `describedBy` / `disabled` / `required` / `invalid` / `model`. No external dependency: the native control is the picker. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring", "opacity", "z", "font"],
+  "params": [
+    { "name": "name",          "type": "String",                    "required": true,  "description": "Form field name submitted with the committed hex value." },
+    { "name": "value",         "type": "String",                    "default": "#000000", "description": "Current committed hex color string (#rrggbb)." },
+    { "name": "alpha",         "type": "boolean",                   "default": false,  "description": "When true, renders the alpha channel slider." },
+    { "name": "alphaValue",    "type": "int",                       "default": 100,    "description": "Alpha percentage 0-100, used when alpha=true." },
+    { "name": "format",        "type": "String",                    "default": "hex",  "description": "Initial display format: hex | rgb | hsl." },
+    { "name": "swatches",      "type": "java.util.List<String>",    "default": "java.util.List.of()", "description": "Preset hex values rendered as clickable swatch chips." },
+    { "name": "swatchColumns", "type": "int",                       "default": 8,      "description": "Swatch grid column count." },
+    { "name": "eyedropper",    "type": "boolean",                   "default": false,  "description": "Renders the eyedropper button; degrades gracefully when EyeDropper API is absent." },
+    { "name": "disabled",      "type": "boolean",                   "default": false,  "description": "Dims and blocks all interaction." },
+    { "name": "size",          "type": "String",                    "default": "md",   "description": "sm | md | lg -- trigger height, toolbar-aligned." },
+    { "name": "ariaLabel",     "type": "String",                    "default": "Color picker", "description": "Accessible name for the composite group." },
+    { "name": "ariaLabelledby","type": "String",                    "default": null,   "description": "Overrides ariaLabel when a visible label element exists." },
+    { "name": "id",            "type": "String",                    "default": null,   "description": "Base id; derived from name if null." },
+    { "name": "cssClass",      "type": "String",                    "default": "",     "description": "Extra utility classes on the root wrapper." },
+    { "name": "attrs",         "type": "String",                    "default": "",     "description": "TRUSTED raw ($unsafe) -- STATIC author-typed strings only." },
+    { "name": "dataAttrs",     "type": "java.util.Map<String,String>", "default": "java.util.Map.of()", "description": "SAFE dynamic data-* values (each via Escape.htmlAttribute)." }
+  ],
+  "enhancer": {
+    "mount": "[data-lv-color-picker]",
+    "exports": ["enhanceColorPicker", "enhanceAllColorPickers"],
+    "peerSharedEnhancers": ["collection-nav"],
+    "notes": "The swatch role='toolbar' is wired with data-lievit-collection + data-lievit-collection-roving-tabindex='true' + data-manual-activation='true'. The shared collection-nav enhancer (installCollectionNav) must also be installed to handle swatch ArrowLeft/ArrowRight/Home/End navigation. The color-picker enhancer handles swatch click semantics (apply color without confirming)."
+  },
+  "tokensNeeded": [
+    "--lv-color-swatch-border: oklch(0.80 0.00 0) light / oklch(0.40 0.00 0) dark -- swatch chip border distinct from --lv-color-border",
+    "--lv-cp-swatch-size: var(--lv-space-5) -- swatch chip square size alias (20x20px); adopter-overridable",
+    "--lv-cp-preview-size: calc(var(--lv-space-9) - 4px) -- trigger preview swatch square size alias"
+  ],
+  "docs": "Copies color-picker.jte to lievit/color-picker.jte and the typed-TS enhancer to lievit/color-picker.enhancer.ts. Call enhanceAllColorPickers() on load and after any DOM swap. The shared collection-nav enhancer (installCollectionNav) must also be installed for swatch keyboard navigation. Params: name (required), value (#rrggbb), format (hex|rgb|hsl), swatches (List of hex strings), alpha (boolean), alphaValue (0-100), eyedropper (boolean), disabled, size (sm|md|lg), ariaLabel, ariaLabelledby, id, cssClass, attrs, dataAttrs."
 }

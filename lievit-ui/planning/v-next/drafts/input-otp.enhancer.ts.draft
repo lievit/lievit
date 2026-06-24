@@ -1,0 +1,379 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ */
+
+/**
+ * input-otp WIRE enhancer (v-next, ADR-0012 + ADR-0019): the ONE irreducible client behaviour
+ * for the server-rendered OTP group. The template renders N native single-character inputs and
+ * the server owns the assembled token and error state. This enhancer handles everything that
+ * cannot be expressed as a server round-trip without a disqualifying UX cost:
+ *
+ *   1. Roving tabindex management: only the active slot is tabindex="0"; all others are "-1".
+ *      The group is a composite widget; Tab exits the group; Arrow/Home/End navigate within it.
+ *   2. Auto-advance: a valid character moves DOM focus to the next slot.
+ *   3. Backspace retreat: Backspace on an empty slot retreats to the previous slot and clears it.
+ *   4. Paste distribution: a paste on any slot fills slots left-to-right from slot 0, strips
+ *      non-conforming characters per mode, announces "Code filled" on success.
+ *   5. Completion: once all N slots are filled, assembles the token, sets the hidden value
+ *      mirror (data-otp-value), and fires the `complete` wire action (single round-trip).
+ *      When autoSubmit=false, completion fires on Enter instead.
+ *   6. Post-reset focus: after a `reset` wire round-trip all slots are empty; the enhancer moves
+ *      focus to slot 0.
+ *   7. Mask state: managed by the server (@Wire boolean masked -> type="password"|"text"); the
+ *      enhancer does NOT manage input type -- it reads type from the slot.
+ *
+ * The enhancer registers on the WIRE lifecycle (ADR-0019):
+ *   - onComponentInit: mount (initial page scan + new component roots).
+ *   - afterCall: re-check post-reset focus after every wire round-trip.
+ *
+ * Character validation is CONVENIENCE only: invalid chars are rejected client-side to avoid
+ * filling a slot with a wrong char. The `complete()` Java action is the AUTHORITATIVE validator.
+ *
+ * WAI-ARIA APG sources:
+ *   Spinbutton: https://www.w3.org/WAI/ARIA/apg/patterns/spinbutton/
+ *   Roving tabindex: https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/
+ */
+
+import type { LievitRuntime } from "../../runtime/runtime.js";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type OtpMode = "numeric" | "alphanumeric" | "any";
+
+const ACCEPT: Record<OtpMode, RegExp> = {
+  numeric: /^[0-9]$/,
+  alphanumeric: /^[A-Za-z0-9]$/,
+  any: /^[\x20-\x7E]$/,
+};
+
+// ---------------------------------------------------------------------------
+// Slot helpers
+// ---------------------------------------------------------------------------
+
+/** The ordered slot inputs of a component root (sorted by data-otp-slot index). */
+function slotsOf(root: Element): HTMLInputElement[] {
+  return Array.from(root.querySelectorAll<HTMLInputElement>("[data-otp-slot]")).sort(
+    (a, b) => Number(a.dataset.otpSlot) - Number(b.dataset.otpSlot),
+  );
+}
+
+/** The hidden value mirror (data-otp-value) within the root. */
+function mirrorOf(root: Element): HTMLInputElement | null {
+  return root.querySelector<HTMLInputElement>("[data-otp-value]");
+}
+
+/** Accept regexp for a root's declared mode (defaults to numeric). */
+function acceptFor(root: Element): RegExp {
+  const m = (root as HTMLElement).dataset.otpMode as OtpMode | undefined;
+  return ACCEPT[m ?? "numeric"] ?? ACCEPT.numeric;
+}
+
+/** Whether autoSubmit is enabled on this root (default true). */
+function autoSubmitFor(root: Element): boolean {
+  return (root as HTMLElement).dataset.otpAutosubmit !== "false";
+}
+
+/** The declared slot count (N) from data-otp-length. */
+function lengthFor(root: Element): number {
+  return Number((root as HTMLElement).dataset.otpLength ?? slotsOf(root).length);
+}
+
+// ---------------------------------------------------------------------------
+// Roving tabindex
+// ---------------------------------------------------------------------------
+
+/**
+ * Set tabindex="0" on the given slot and tabindex="-1" on all others.
+ * This is the APG roving-tabindex model for composite widgets.
+ */
+function rove(slots: HTMLInputElement[], active: HTMLInputElement): void {
+  for (const s of slots) {
+    s.tabIndex = s === active ? 0 : -1;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Value assembly and the wire call
+// ---------------------------------------------------------------------------
+
+/** Assemble the token from all slot values in order. */
+function assembleToken(slots: HTMLInputElement[]): string {
+  return slots.map((s) => s.value).join("");
+}
+
+/**
+ * Write the assembled token into the value mirror and fire a native `input` event so the
+ * l:model directive picks up the pending model update. The runtime drains pending l:model
+ * updates before sending an action call, so `complete` receives the current value.
+ */
+function syncMirror(root: Element, token: string): void {
+  const mirror = mirrorOf(root);
+  if (!mirror) return;
+  if (mirror.value !== token) {
+    mirror.value = token;
+    mirror.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+/**
+ * Announce a short polite status message. Uses the shared lievit announcer when available
+ * (ADR-0019 shared mechanism); falls back to a transient role="status" element.
+ */
+function announce(message: string): void {
+  const shared = (window as { $lievit?: { announce?: (msg: string, p?: string) => void } })
+    .$lievit;
+  if (shared?.announce) {
+    shared.announce(message, "polite");
+    return;
+  }
+  const el = document.createElement("div");
+  el.setAttribute("role", "status");
+  el.setAttribute("aria-live", "polite");
+  el.setAttribute("aria-atomic", "true");
+  el.style.cssText =
+    "position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;";
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.textContent = message;
+    setTimeout(() => el.remove(), 3000);
+  }, 50);
+}
+
+// ---------------------------------------------------------------------------
+// Validation helpers
+// ---------------------------------------------------------------------------
+
+/** Normalise a character per mode: alphanumeric -> uppercase; others pass through. */
+function normalise(ch: string, mode: OtpMode): string {
+  return mode === "alphanumeric" ? ch.toUpperCase() : ch;
+}
+
+// ---------------------------------------------------------------------------
+// Mount + event binding per component root
+// ---------------------------------------------------------------------------
+
+const MOUNTED = "data-otp-mounted";
+
+/**
+ * Bind event listeners on one OTP component root. Idempotent (MOUNTED guard).
+ * Called from onComponentInit and must work on any root that matches the selector,
+ * whether it was just added by a morph or was already on the page at startup.
+ */
+function mount(root: Element, runtime: LievitRuntime): void {
+  if (root.hasAttribute(MOUNTED)) return;
+  const slots = slotsOf(root);
+  if (slots.length === 0) return;
+  root.setAttribute(MOUNTED, "");
+
+  const mode = ((root as HTMLElement).dataset.otpMode as OtpMode | undefined) ?? "numeric";
+  const accept = acceptFor(root);
+
+  // -------------------------------------------------------------------------
+  // Roving tabindex: initialise -- slot 0 gets tabindex="0", rest get "-1".
+  // The enhancer only initialises on mount; subsequent roving is driven by focus events.
+  // -------------------------------------------------------------------------
+  rove(slots, slots[0]);
+
+  // -------------------------------------------------------------------------
+  // input event: validate, write char, advance focus, sync mirror, maybe complete.
+  // -------------------------------------------------------------------------
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    const idx = i;
+
+    slot.addEventListener("input", () => {
+      // Keep only the last accepted char (handles overtype on a filled slot).
+      const raw = Array.from(slot.value).reverse().find((c) => accept.test(c));
+      if (raw) {
+        slot.value = normalise(raw, mode);
+        // Advance to the next slot (focus + roving).
+        if (idx < slots.length - 1) {
+          const next = slots[idx + 1];
+          rove(slots, next);
+          next.focus();
+          next.select();
+        }
+        // Sync mirror; check for completion.
+        const token = assembleToken(slots);
+        syncMirror(root, token);
+        if (
+          token.length === lengthFor(root) &&
+          token.length > 0 &&
+          autoSubmitFor(root)
+        ) {
+          void runtime.callAction(root, "complete");
+        }
+      } else {
+        slot.value = "";
+        syncMirror(root, assembleToken(slots));
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // keydown event: handle navigation + backspace + delete + enter.
+    // -----------------------------------------------------------------------
+    slot.addEventListener("keydown", (e: KeyboardEvent) => {
+      switch (e.key) {
+        case "Backspace":
+          if (slot.value !== "") {
+            // Slot has a value: clear it, stay on this slot.
+            slot.value = "";
+            syncMirror(root, assembleToken(slots));
+            e.preventDefault();
+          } else if (idx > 0) {
+            // Empty slot: retreat to previous slot, clear it.
+            e.preventDefault();
+            const prev = slots[idx - 1];
+            prev.value = "";
+            syncMirror(root, assembleToken(slots));
+            rove(slots, prev);
+            prev.focus();
+          }
+          break;
+        case "Delete":
+          slot.value = "";
+          syncMirror(root, assembleToken(slots));
+          e.preventDefault();
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          if (idx > 0) {
+            rove(slots, slots[idx - 1]);
+            slots[idx - 1].focus();
+          }
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          if (idx < slots.length - 1) {
+            rove(slots, slots[idx + 1]);
+            slots[idx + 1].focus();
+          }
+          break;
+        case "Home":
+          e.preventDefault();
+          rove(slots, slots[0]);
+          slots[0].focus();
+          break;
+        case "End":
+          e.preventDefault();
+          {
+            const last = slots[slots.length - 1];
+            rove(slots, last);
+            last.focus();
+          }
+          break;
+        case "Enter":
+          // autoSubmit=false: fire complete on Enter if all slots are filled.
+          if (!autoSubmitFor(root)) {
+            const token = assembleToken(slots);
+            if (token.length === lengthFor(root) && token.length > 0) {
+              e.preventDefault();
+              void runtime.callAction(root, "complete");
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // focus event: sync roving tabindex when the user clicks directly on a slot.
+    // -----------------------------------------------------------------------
+    slot.addEventListener("focus", () => {
+      rove(slots, slot);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // paste event: delegated on the GROUP div (not per-slot) per the spec §6.
+  // Strip non-conforming chars, distribute left-to-right from slot 0, announce.
+  // -------------------------------------------------------------------------
+  const group = root.querySelector("[data-slot=\"input-otp-group\"]") ?? root;
+  group.addEventListener("paste", (rawEvt: Event) => {
+    const e = rawEvt as ClipboardEvent;
+    e.preventDefault();
+    const raw = e.clipboardData?.getData("text") ?? "";
+    const chars = Array.from(raw)
+      .filter((c) => accept.test(c))
+      .map((c) => normalise(c, mode));
+    if (chars.length === 0) return;
+
+    const currentSlots = slotsOf(root);
+    let cursor = 0;
+    for (const ch of chars) {
+      if (cursor >= currentSlots.length) break;
+      currentSlots[cursor].value = ch;
+      cursor++;
+    }
+    const token = assembleToken(currentSlots);
+    syncMirror(root, token);
+
+    // Move focus to the first unfilled slot (or the last slot if all filled).
+    const firstEmpty = currentSlots.findIndex((s) => s.value === "");
+    const focusTarget =
+      firstEmpty >= 0 ? currentSlots[firstEmpty] : currentSlots[currentSlots.length - 1];
+    rove(currentSlots, focusTarget);
+    focusTarget.focus();
+
+    if (token.length === lengthFor(root) && token.length > 0) {
+      announce("Code filled");
+      if (autoSubmitFor(root)) {
+        void runtime.callAction(root, "complete");
+      }
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Post-reset focus: if all slots are empty after a wire round-trip, move to slot 0.
+// ---------------------------------------------------------------------------
+function checkReset(root: Element): void {
+  if (!root.hasAttribute(MOUNTED)) return;
+  const slots = slotsOf(root);
+  if (slots.length === 0) return;
+  const allEmpty = slots.every((s) => s.value === "");
+  if (allEmpty && document.activeElement && root.contains(document.activeElement)) {
+    rove(slots, slots[0]);
+    slots[0].focus();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public install function (coordinator wires this into runtime/features/index.ts)
+// ---------------------------------------------------------------------------
+
+/** CSS attribute selector for an OTP component root (the WIRE component FQN attribute). */
+const OTP_SELECTOR = "[data-slot=\"input-otp\"][data-lievit-id]";
+
+/**
+ * Installs the OTP WIRE enhancer on a started {@link LievitRuntime}.
+ *
+ * Call this from your main.ts alongside installAllFeatures:
+ *
+ *   import { installInputOtp } from "lievit/input-otp.enhancer.js";
+ *   installInputOtp(runtime);
+ *
+ * @param runtime the started runtime to extend
+ * @returns an unsubscribe function (removes the lifecycle hook)
+ */
+export function installInputOtp(runtime: LievitRuntime): () => void {
+  return runtime.use({
+    onComponentInit({ root }): void {
+      // Called on initial page scan and when a morph introduces a new component root.
+      if (root.matches(OTP_SELECTOR)) {
+        mount(root, runtime);
+      }
+    },
+    afterCall({ root }): void {
+      // Called after every wire round-trip (after the morph patches the DOM).
+      // Re-apply post-reset focus if the component just cleared all slots.
+      if (root.matches(OTP_SELECTOR)) {
+        checkReset(root);
+      }
+    },
+  });
+}

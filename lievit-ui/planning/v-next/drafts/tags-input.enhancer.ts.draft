@@ -1,0 +1,303 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ */
+
+/**
+ * tags-input enhancer (WIRE + ENH tier): the CSP-clean typed-TS that owns the irreducibly-client
+ * behaviours of `lievit/tags-input.jte`. The server (Java TagsInputComponent) is the source of
+ * truth for tags, inputValue, mode, suggestions, and popupOpen; this module owns:
+ *   - chip roving-tabindex (exactly one chip has tabindex=0 at a time);
+ *   - keyboard map on the well (arrow navigation between chips, Backspace-on-empty pops last chip,
+ *     ArrowDown opens suggestion popup, Escape closes popup, comma/delimiter commits a tag);
+ *   - paste splitting: a pasted string with delimiter segments fires addTag once per segment;
+ *   - focus-restore after morph: after a removeTag call morphs the DOM, focus returns to the
+ *     adjacent chip or the entry input.
+ *
+ * No inline script (the strict CSP refuses inline on* handlers; this attaches listeners in code).
+ *
+ * Installation: call {@link installTagsInput}(runtime) once before runtime.start(). The function
+ * registers onComponentInit + afterCall lifecycle hooks that scan for [data-slot="tags-input"]
+ * roots and mount the enhancer idempotently (each root is marked with data-lievit-tags-mounted).
+ *
+ * The pure helper {@link normalizeTag} is exported so the trim rule is unit-testable without a DOM.
+ */
+
+import type { LievitRuntime } from "../../runtime/runtime.js";
+
+/** Trim a raw tag candidate; an empty / whitespace-only result is rejected by the caller. */
+export function normalizeTag(raw: string): string {
+  return raw.trim();
+}
+
+/** The idempotency marker stamped on each mounted root. */
+const MOUNTED = "data-lievit-tags-mounted";
+
+// ---------------------------------------------------------------------------
+// DOM helpers
+// ---------------------------------------------------------------------------
+
+function getChips(root: Element): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-slot="chip"]'));
+}
+
+function getEntryInput(root: Element): HTMLInputElement | null {
+  return root.querySelector<HTMLInputElement>('[data-slot="entry-input"]');
+}
+
+function isDisabled(root: Element): boolean {
+  return root.hasAttribute("data-disabled");
+}
+
+function isMaxReached(root: Element): boolean {
+  return root.hasAttribute("data-max-reached");
+}
+
+function getDelimiter(root: Element): string {
+  return root.getAttribute("data-delimiter") ?? ",";
+}
+
+// ---------------------------------------------------------------------------
+// Roving tabindex
+// ---------------------------------------------------------------------------
+
+/** Ensure exactly one chip has tabindex=0; others get -1. No-op when the chip list is empty. */
+function rovingInit(chips: HTMLElement[]): void {
+  if (chips.length === 0) return;
+  const hasActive = chips.some((c) => c.tabIndex === 0);
+  if (!hasActive) chips[0]!.tabIndex = 0;
+  for (const chip of chips) {
+    if (chip.tabIndex !== 0) chip.tabIndex = -1;
+  }
+}
+
+/** Move the roving focus to `target`, giving it tabindex=0, and call focus(). */
+function rovingMoveTo(chips: HTMLElement[], target: HTMLElement): void {
+  for (const chip of chips) chip.tabIndex = -1;
+  target.tabIndex = 0;
+  target.focus();
+  target.scrollIntoView({ block: "nearest" });
+}
+
+// ---------------------------------------------------------------------------
+// Mount
+// ---------------------------------------------------------------------------
+
+function mountRoot(root: HTMLElement, runtime: LievitRuntime): void {
+  if (root.hasAttribute(MOUNTED)) return;
+  root.setAttribute(MOUNTED, "");
+
+  const entryInput = getEntryInput(root);
+  if (!entryInput) return;
+
+  rovingInit(getChips(root));
+
+  // --- Keydown on the well (bubbles from chips and entry input) ---
+  root.addEventListener("keydown", (rawEv: Event) => {
+    const e = rawEv as KeyboardEvent;
+    if (isDisabled(root)) return;
+
+    const currentChips = getChips(root);
+    const activeEl = document.activeElement as HTMLElement | null;
+    const focusedChip = currentChips.find((c) => c === activeEl) ?? null;
+    const onInput = activeEl === entryInput;
+
+    if (focusedChip !== null) {
+      // Chip-focused keyboard map (APG Keyboard Interface)
+      const idx = currentChips.indexOf(focusedChip);
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (idx > 0) {
+          rovingMoveTo(currentChips, currentChips[idx - 1]!);
+        } else {
+          focusedChip.tabIndex = -1;
+          entryInput.focus();
+        }
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (idx < currentChips.length - 1) {
+          rovingMoveTo(currentChips, currentChips[idx + 1]!);
+        } else {
+          focusedChip.tabIndex = -1;
+          entryInput.focus();
+        }
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        if (currentChips.length > 0) rovingMoveTo(currentChips, currentChips[0]!);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        const lastChip = currentChips[currentChips.length - 1];
+        if (lastChip != null) {
+          if (focusedChip === lastChip) {
+            lastChip.tabIndex = -1;
+            entryInput.focus();
+          } else {
+            rovingMoveTo(currentChips, lastChip);
+          }
+        }
+      } else if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        // Store focus restoration target BEFORE the action removes the chip
+        const afterIdx = idx < currentChips.length - 1 ? idx : idx - 1;
+        if (afterIdx >= 0) {
+          root.setAttribute("data-pending-focus-idx", String(afterIdx));
+        } else {
+          root.setAttribute("data-pending-focus", "entry-input");
+        }
+        void runtime.callAction(focusedChip, "removeTag", { trigger: focusedChip });
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        focusedChip.tabIndex = -1;
+        entryInput.focus();
+      }
+    } else if (onInput) {
+      // Entry input keyboard map
+      if (e.key === "ArrowLeft") {
+        if (entryInput.selectionStart === 0 && entryInput.selectionEnd === 0) {
+          const chipsNow = getChips(root);
+          if (chipsNow.length > 0) {
+            e.preventDefault();
+            rovingMoveTo(chipsNow, chipsNow[chipsNow.length - 1]!);
+          }
+        }
+      } else if (e.key === "Backspace") {
+        if (entryInput.value === "") {
+          const chipsNow = getChips(root);
+          if (chipsNow.length > 0) {
+            e.preventDefault();
+            const last = chipsNow[chipsNow.length - 1]!;
+            root.setAttribute("data-pending-focus", "entry-input");
+            void runtime.callAction(last, "removeTag", { trigger: last });
+          }
+        }
+      } else if (e.key === "ArrowDown") {
+        const popup = root.querySelector('[data-slot="suggestions-popup"]');
+        if (popup == null) {
+          e.preventDefault();
+          void runtime.callAction(root, "togglePopup", { trigger: root });
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        const popup = root.querySelector('[data-slot="suggestions-popup"]');
+        if (popup != null) {
+          void runtime.callAction(root, "togglePopup", { trigger: root });
+        }
+      } else {
+        // Delimiter key (but not Enter, which is handled by l:keydown.enter on the template)
+        const delim = getDelimiter(root);
+        if (e.key === delim && e.key !== "Enter") {
+          e.preventDefault();
+          if (!isMaxReached(root)) {
+            void runtime.callAction(entryInput, "addTag", { trigger: entryInput });
+          }
+        }
+      }
+    }
+  });
+
+  // --- Paste splitting on the entry input ---
+  entryInput.addEventListener("paste", (rawEv: Event) => {
+    const e = rawEv as ClipboardEvent;
+    if (isDisabled(root) || isMaxReached(root)) return;
+    const pasted = e.clipboardData?.getData("text") ?? "";
+    if (!pasted) return;
+    const delim = getDelimiter(root);
+    const segments = pasted
+      .split(delim)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (segments.length <= 1) return; // single segment: let browser paste normally
+    e.preventDefault();
+    // For each segment: $set inputValue then addTag. Sequential wire calls.
+    for (const segment of segments) {
+      // $set is a magic action the server parses inline args for (see runtime.ts callFromObject)
+      void runtime.callAction(
+        entryInput,
+        `$set('inputValue','${segment.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')`,
+        { trigger: entryInput },
+      );
+      void runtime.callAction(entryInput, "addTag", { trigger: entryInput });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Focus restoration after morph
+// ---------------------------------------------------------------------------
+
+function restoreFocusAfterMorph(root: HTMLElement): void {
+  const pendingFocus = root.getAttribute("data-pending-focus");
+  const pendingFocusIdx = root.getAttribute("data-pending-focus-idx");
+  root.removeAttribute("data-pending-focus");
+  root.removeAttribute("data-pending-focus-idx");
+
+  const chips = getChips(root);
+  const entry = getEntryInput(root);
+
+  if (pendingFocus === "entry-input") {
+    entry?.focus();
+  } else if (pendingFocusIdx != null) {
+    const idx = parseInt(pendingFocusIdx, 10);
+    const target = chips[Math.min(idx, chips.length - 1)];
+    if (target != null) {
+      rovingMoveTo(chips, target);
+    } else if (entry != null) {
+      entry.focus();
+    }
+  } else {
+    // No pending focus: just re-seed the roving tabindex after morph
+    rovingInit(chips);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Install
+// ---------------------------------------------------------------------------
+
+/**
+ * Register the tags-input enhancer with the lievit runtime.
+ *
+ * Call once, BEFORE runtime.start(), so the onComponentInit hook fires for components already
+ * on the page during the first scan:
+ *   installTagsInput(runtime);
+ *   runtime.start();
+ *
+ * @param runtime the LievitRuntime instance
+ * @returns an unsubscribe function (removes the lifecycle hooks)
+ */
+export function installTagsInput(runtime: LievitRuntime): () => void {
+  function scanRoot(root: Element): void {
+    // Mount any tags-input inside the updated component subtree
+    for (const el of Array.from(
+      root.querySelectorAll<HTMLElement>('[data-slot="tags-input"]'),
+    )) {
+      mountRoot(el, runtime);
+    }
+    // Also mount when the root itself is a tags-input (direct component root case)
+    if (root instanceof HTMLElement && root.getAttribute("data-slot") === "tags-input") {
+      mountRoot(root, runtime);
+    }
+  }
+
+  return runtime.use({
+    onComponentInit({ root }): void {
+      scanRoot(root);
+    },
+    afterCall({ root, ok }): void {
+      if (!ok) return;
+      scanRoot(root);
+      // Restore focus for any tags-input roots updated by this call.
+      // Include both descendants AND root itself (when the component root IS a tags-input).
+      const tagsInputRoots: HTMLElement[] = Array.from(
+        root.querySelectorAll<HTMLElement>('[data-slot="tags-input"]'),
+      );
+      if (root instanceof HTMLElement && root.getAttribute("data-slot") === "tags-input") {
+        tagsInputRoots.push(root);
+      }
+      for (const el of tagsInputRoots) {
+        restoreFocusAfterMorph(el);
+      }
+    },
+  });
+}
