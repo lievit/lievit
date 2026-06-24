@@ -1,0 +1,17 @@
+{
+  "name": "aspect-ratio",
+  "type": "registry:jte",
+  "description": "A CSS layout wrapper that constrains its content to a fixed width-to-height ratio using the native CSS `aspect-ratio` property (Baseline 2022). Two-element pattern: outer div handles visual framing (border-radius, border, overflow); inner div enforces the ratio. Semantically transparent: no role or aria-* on the wrapper. Purely presentational PARTIAL; no JS, no enhancer.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/aspect-ratio.jte",
+      "type": "registry:jte",
+      "target": "lievit/aspect-ratio.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "radius"],
+  "docs": "Copies the aspect-ratio partial to your JTE root at lievit/aspect-ratio.jte, reached as @template.lievit.aspect-ratio(content = @`...`). Default ratio is 16:9 (ratioX=16, ratioY=9). Pass typed int params for any ratio: @template.lievit.aspect-ratio(ratioX=1, ratioY=1, rounded=\"full\", cssClass=\"max-w-xs\", content=@`<img ...>`). Common ratios: 16:9 (video/hero), 4:3 (document), 1:1 (square/avatar), 3:2 (photo), 21:9 (cinematic), 9:16 (portrait/Reels). Use overflow=\"visible\" when content inside needs to escape the clip (e.g. a tooltip anchor). Use border=true for a framing border. Add corner radius via rounded param (sm|md|lg|xl|full)."
+}

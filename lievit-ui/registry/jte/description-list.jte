@@ -25,6 +25,11 @@
 
   TOKEN FIDELITY: terms read --lv-color-muted-fg, values --lv-color-fg; the grid gap reads the
   space scale, so a theme retints + respaces the whole list.
+  size controls the row gap and base text size (sm/md/lg scale) so a caller can match the
+  surrounding page density without overriding individual rows.
+  bordered wraps the <dl> in a card chrome (border + radius + bg) for use inside panel-like
+  surfaces; off by default (lists are usually flush in an existing card/section).
+  title + extra render a header row above the <dl> when the list needs a visible label.
 
   A11y: a native <dl> already associates each <dt> with its <dd> for assistive tech (a description
   list); no extra ARIA needed. The list is read-only content, not a control.
@@ -32,7 +37,11 @@
   Params:
     gg.jte.Content content        the rows (description-list.item partials).
     int columns     = 1           the column count from the sm: breakpoint (1..N); 1 => a stacked list.
-    String cssClass = ""          extra utility classes on the list root.
+    boolean bordered = false      wrap the <dl> in a card chrome (border + radius + bg).
+    String size     = "md"        row-gap + base text size: "sm" | "md" | "lg".
+    String title    = null        optional section heading rendered above the <dl>; omitted when null.
+    gg.jte.Content extra = null   optional slot beside the title (actions, a badge, a link).
+    String cssClass = ""          extra utility classes on the <dl> root.
 
   Usage:
     @@template.lievit.description-list(columns = 2, content = @@`
@@ -40,17 +49,46 @@
       @@template.lievit.description-list.item(term = "Email", content = @@`mario@@example.com`)
       @@template.lievit.description-list.item(term = "Note", columnSpan = 2, content = @@`Cliente storico.`)
     `)
+
+    @@template.lievit.description-list(columns = 2, title = "Dettagli contatto", bordered = true, content = @@`
+      @@template.lievit.description-list.item(term = "Nome", content = @@`Mario Rossi`)
+    `)
 --%>
 @param gg.jte.Content content
 @param int columns = 1
+@param boolean bordered = false
+@param String size = "md"
+@param String title = null
+@param gg.jte.Content extra = null
 @param String cssClass = ""
 
 !{var cols = Math.max(1, columns);}
 
+!{var gapYClass = "sm".equals(size) ? "gap-y-[var(--lv-space-2)]"
+    : "lg".equals(size) ? "gap-y-[var(--lv-space-7)]"
+    : "gap-y-[var(--lv-space-4)]";}
+
+!{var textSizeClass = "sm".equals(size) ? "text-[length:var(--lv-text-xs)]"
+    : "lg".equals(size) ? "text-[length:var(--lv-text-base)]"
+    : "text-[length:var(--lv-text-sm)]";}
+
+!{var borderedClass = bordered
+    ? "border border-[var(--lv-color-border)] rounded-[var(--lv-radius-md)] bg-[var(--lv-color-card)] p-[var(--lv-space-4)]"
+    : "";}
+
+@if(title != null)
+<div data-slot="description-list-header" class="mb-[var(--lv-space-4)] flex items-center justify-between">
+  <p data-slot="description-list-title" class="m-0 text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)]" style="font-weight:var(--lv-font-semibold);">${title}</p>
+  @if(extra != null)<div data-slot="description-list-extra">${extra}</div>@endif
+</div>
+@endif
+
 <dl
   data-slot="description-list"
   data-columns="${cols}"
-  class="m-0 grid grid-cols-1 gap-x-[var(--lv-space-6)] gap-y-[var(--lv-space-4)] text-[length:var(--lv-text-sm)] sm:[grid-template-columns:repeat(var(--lv-dl-cols),minmax(0,1fr))]"
+  data-size="${size}"
+  data-bordered="${bordered}"
+  class="m-0 grid grid-cols-1 gap-x-[var(--lv-space-6)] ${gapYClass} ${textSizeClass} sm:[grid-template-columns:repeat(var(--lv-dl-cols),minmax(0,1fr))] ${borderedClass} ${cssClass}"
   style="font-family:var(--lv-font-sans); --lv-dl-cols:${cols};"
 >
   ${content}

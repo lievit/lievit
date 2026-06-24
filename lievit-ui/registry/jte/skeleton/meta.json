@@ -1,0 +1,23 @@
+{
+  "name": "skeleton",
+  "type": "registry:jte",
+  "description": "A shimmer-animated layout placeholder that reserves space while real content loads. Five shape presets (lines/card/avatar-row/image/button-bar), three sizes, active/inactive toggle. role=status + aria-live for AT; shimmer suppressed under prefers-reduced-motion (via skeleton.css). Zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/skeleton.jte",
+      "type": "registry:jte",
+      "target": "lievit/skeleton.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/skeleton.css",
+      "type": "registry:css",
+      "target": "lievit/skeleton.css",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "radius", "space"],
+  "docs": "Copies skeleton.jte + skeleton.css to your project. The shimmer animation uses --lv-skeleton-bg and --lv-skeleton-shimmer tokens (net-new; added to lievit-tokens.css by `lievit add skeleton`). Call as @template.lievit.skeleton(skeletonShape=..., skeletonRows=..., active=...). The source is yours: edit freely."
+}

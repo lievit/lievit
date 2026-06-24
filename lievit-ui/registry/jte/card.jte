@@ -1,147 +1,231 @@
 @import gg.jte.Content
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui card partial -- a surface container with the full shadcn slot set.
+  lievit-ui card partial -- a visual grouping surface with a structured header + body + footer.
 
-  TIER: STATIC presentational -> JTE partial. The former <lv-card> island generated a header
-  id at runtime only to wire aria-labelledby; the server can mint that id deterministically
-  from the caller's `headingId`, so no client is needed.
+  TIER: PARTIAL -- pure server-rendered presentation. No enhancer, no client state. The card is a
+  structural container; interactivity belongs to the content composed inside it or to the wrapper
+  the caller places around it.
 
-  STRUCTURE (scientific decision rule): shadcn's Card is a composition of distinct slots --
-  Card / CardHeader / CardTitle / CardDescription / CardAction / CardContent / CardFooter. In
-  JTE that maps to ONE partial with a Content slot per region (the server-first equivalent of
-  the named sub-components): `title` + `description` + `action` compose the header, `content`
-  is the body, `footer` is the optional bottom region. The header region renders when any of
-  title / description / action is supplied; the footer when `footer` is supplied. The elevation
-  reads --lv-shadow-sm; border + radius read tokens too, so a theme retints the whole surface.
+  STRUCTURE (scientific decision rule):
+    - WAI-ARIA: no APG widget pattern applies (a card is a structural grouping, not an interactive
+      widget). A11y contract follows WAI-ARIA landmark semantics + heading hierarchy:
+      as="section" with a title -> region landmark (aria-labelledby); as="div" -> no landmark.
+    - Inventory reference: Ant Design Card (sizes, bordered, extra slot, inner card / meta card).
+      The collapsible variant is NOT in the card -- it is the `accordion` WIRE component composed
+      inside the content slot (single-source rule: the accordion owns the open-state + APG Accordion
+      keyboard contract).
+    - Styling: ORIGINAL generation over --lv-* (OKLCH) tokens; look inspired by Tailwind UI (no
+      code copied). Five variants map to the library's intent vocabulary (same token pairs as alert).
 
-  TOKEN FIDELITY (shadcn): the surface reads --lv-color-card / --lv-color-card-fg (NOT the page
-  bg/fg) so a card tints distinctly from the page; radius is --lv-radius-xl (shadcn rounded-xl).
-  shadcn's card is BORDERLESS between sections: one flex column with a uniform gap + vertical
-  padding and the same horizontal padding per region, no ruled header/footer.
-
-  PADDING (the `pad` knob -- the de-opinionation decision). shadcn's card hardcodes the level-6
-  spacing token for the gap, the vertical padding, and every region's horizontal padding. That
-  is too opinionated for a tight content panel (the bug this fixes: adopters forked the partial
-  to get a denser card). `pad` scales ALL of it off ONE token per level, so a theme-consistent
-  card can be compact or roomy without a fork:
-    none -> no gap, no vertical padding, no per-region horizontal padding (the caller owns spacing)
-    sm   -> var(--lv-space-3)  (12px)  compact / tight content panel
-    md   -> var(--lv-space-6)  (24px)  THE default, the shadcn level-6 baseline
-    lg   -> var(--lv-space-8)  (32px)  roomy
-  The gap, the surface py, and every region px all read the SAME chosen token, so the card stays
-  internally consistent at any density.
-
-  HEADER + DIVIDER (the `divided` knob). The header is already OPTIONAL: it renders only when a
-  title / description / action is supplied, and a card with none is a bare surface (no forced
-  header, no forced divider -- shadcn is borderless between sections). `divided=true` opts INTO a
-  thin ruled separator under the header and above the footer (the --lv-color-border token), for
-  the cards that want the ruled look; default false keeps the borderless shadcn card.
-
-  Back-compat: the original `heading` String still renders a plain text title; when both
-  `heading` and a rich `title` slot are given, the slot wins (content-over-scalar precedence,
-  the same rule badge.jte / kbd.jte use). pad defaults to md (the old fixed level-6 spacing) and
-  divided defaults to false (the old borderless card), so an existing call renders unchanged.
-
-  A11y (WAI-ARIA region): a title (slot or heading) present => role="region" + aria-labelledby
-  pointing at the title id, so assistive tech announces the section by its title; no title =>
-  no landmark (a bare surface). The CardAction sits in the header beside the title (shadcn pins
-  it to the header's end), so the section's primary control is announced within the labelled region.
+  A11y (WAI-ARIA structural, no APG widget):
+    - as="section" + title set: aria-labelledby points at the heading (id=titleId); the region is
+      announced by name in the AT landmark list. Required per APG: a <section> without a name is
+      treated as generic and not listed.
+    - as="section" + no title + no aria-labelledby in attrs: axe fires region-missing-accessible-name.
+      The template comment documents this requirement; it is an ABUSE CASE, not a bug.
+    - as="div": no landmark, no aria-labelledby (correct for decorative grouping).
+    - as="article": native role="article" landmark; no additional role attr needed.
+    - titleTag (h1..h6): the caller MUST choose the level consistent with the surrounding document
+      outline. The card does not impose h3 everywhere; h3 is the default for a typical sub-section.
+    - The card root is NOT focusable (no tabindex in the default template). Interactive descendants
+      (buttons in trailing, form controls in content, footer buttons) handle their own keys.
+    - Collapsible composition: the `accordion` WIRE component owns aria-expanded + aria-controls +
+      Enter/Space on its native <button> trigger. The card partial is passive; those attributes MUST
+      NOT appear on the card root (seeing them is a defect).
 
   Params:
-    gg.jte.Content title       = null  rich card title; wins over `heading` when both are set.
-    String heading             = null  plain-text title (back-compat); renders a header when set.
-    String headingId           = "lv-card-heading"  id linking aria-labelledby to the title.
-    gg.jte.Content description = null  a muted subtitle under the title (CardDescription).
-    gg.jte.Content action      = null  a control pinned to the header end (CardAction).
-    gg.jte.Content content             the card body (CardContent).
-    gg.jte.Content footer      = null  an optional bottom region (CardFooter).
-    String pad                 = "md"  "none" | "sm" | "md" | "lg" -- the spacing density (gap +
-                                       surface py + per-region px), all off one token. md = shadcn.
-    boolean divided            = false  opt into a ruled separator under the header / above the footer.
-    String cssClass            = ""    extra utility classes on the card.
+    String as              = "div"     root element: "div" | "section" | "article".
+    String variant         = "default" "default" | "outlined" | "elevated" | "ghost" | "destructive".
+    String size            = "md"      "sm" | "md" | "lg" -- internal padding + header typography.
+    String title           = null      card title text. When set, the header region renders.
+                                       When null AND no header slot, the header is omitted.
+    String titleTag        = "h3"      heading element: "h1".."h6". Ignored when header slot used.
+    String titleId         = "lv-card-title"  id linking aria-labelledby to the heading element.
+                                       Override per card in a list to avoid duplicate ids.
+    String subtitle        = null      secondary text below the title.
+    boolean bordered       = true      renders the border ring (--lv-color-border).
+    boolean noPadding      = false     strips body padding (full-bleed content like a table/image).
+    boolean fullHeight     = false     adds h-full so the card fills its grid cell.
+    String cssClass        = ""        extra utility classes on the root element.
+    String attrs           = ""        TRUSTED raw ($unsafe) -- STATIC author-typed strings only
+                                       (aria-label="Revenue summary", tabindex, data-* analytics).
+                                       NEVER interpolate a per-row DB value here.
+    Map<String,String> dataAttrs = {}  SAFE escaped dynamic data-* (value via Escape.htmlAttribute).
+    gg.jte.Content header  = null      SLOT -- replaces the title/subtitle/titleTag auto-header.
+                                       When set, title + subtitle + titleTag are ignored.
+    gg.jte.Content leading = null      SLOT -- icon or avatar placed before the title in the header.
+    gg.jte.Content trailing = null     SLOT -- action area (buttons, dropdown-menu) at header end.
+    gg.jte.Content footer  = null      SLOT -- padded footer bar below the body, separated by border.
+    gg.jte.Content content             REQUIRED -- the card body (everything inside the body padding).
 
   Usage:
     @@template.lievit.card(content = @@`<p>Plain surface.</p>`)
-    @@template.lievit.card(heading = "Listings", headingId = "listings-card", content = @@`<p>...</p>`)
-    @@template.lievit.card(pad = "sm", content = @@`<p>A tight content panel.</p>`)
-    @@template.lievit.card(
-      title = @@`Team plan`,
-      description = @@`Billed monthly`,
-      action = @@`<button type="button">Upgrade</button>`,
-      divided = true,
+    @@template.lievit.card(as = "section", title = "Revenue", titleId = "rev-card",
+      content = @@`<p>Fiscal Q2 summary.</p>`)
+    @@template.lievit.card(variant = "elevated", size = "lg",
+      title = "Team plan", titleTag = "h2",
+      subtitle = "Billed monthly",
+      trailing = @@`<button type="button">Upgrade</button>`,
       content = @@`<p>2 of 5 seats used.</p>`,
       footer = @@`<small>Renews 1 Jul</small>`)
+    @@template.lievit.card(variant = "destructive", noPadding = true,
+      title = "Error", content = @@`<table>...</table>`)
+    @@template.lievit.card(variant = "ghost", bordered = false,
+      content = @@`<p>Content-only grouping.</p>`)
 --%>
-@param gg.jte.Content title = null
-@param String heading = null
-@param String headingId = "lv-card-heading"
-@param gg.jte.Content description = null
-@param gg.jte.Content action = null
-@param gg.jte.Content content
-@param gg.jte.Content footer = null
-@param String pad = "md"
-@param boolean divided = false
+@param String as = "div"
+@param String variant = "default"
+@param String size = "md"
+@param String title = null
+@param String titleTag = "h3"
+@param String titleId = "lv-card-title"
+@param String subtitle = null
+@param boolean bordered = true
+@param boolean noPadding = false
+@param boolean fullHeight = false
 @param String cssClass = ""
+@param String attrs = ""
+@param java.util.Map<String, String> dataAttrs = java.util.Map.of()
+@param gg.jte.Content header = null
+@param gg.jte.Content leading = null
+@param gg.jte.Content trailing = null
+@param gg.jte.Content footer = null
+@param gg.jte.Content content
 
-!{var hasTitle = title != null || (heading != null && !heading.isBlank());}
-!{var hasHeader = hasTitle || description != null || action != null;}
+<%-- Derived: header presence --%>
+!{var hasHeader = title != null || header != null;}
 
-<%-- ONE spacing token drives gap + surface py + every region px, so the card stays internally
-     consistent at any density; "none" lets the caller own all spacing. md is the shadcn level-6
-     baseline (back-compat). Each level resolves to the FULL utility (the token sits inside var())
-     so a theme reads the var, not a bare scale number. --%>
-!{var gapClass = switch (pad) {
-    case "none" -> "gap-0";
-    case "sm"   -> "gap-[var(--lv-space-3)]";
-    case "lg"   -> "gap-[var(--lv-space-8)]";
-    default     -> "gap-[var(--lv-space-6)]";
+<%-- Variant -> bg + border + shadow.
+     "elevated": shadow replaces border (bordered effectively false for elevated).
+     "destructive": tinted bg (color-mix 10%) + destructive border. --%>
+!{var variantBg = switch (variant) {
+    case "outlined"    -> "transparent";
+    case "elevated"    -> "var(--lv-color-popover)";
+    case "ghost"       -> "transparent";
+    case "destructive" -> "color-mix(in srgb, var(--lv-color-destructive) 10%, var(--lv-color-bg))";
+    default            -> "var(--lv-color-card)";
   };}
-!{var surfacePyCls = switch (pad) {
-    case "none" -> "py-0";
-    case "sm"   -> "py-[var(--lv-space-3)]";
-    case "lg"   -> "py-[var(--lv-space-8)]";
-    default     -> "py-[var(--lv-space-6)]";
+!{var variantFg = "destructive".equals(variant) ? "var(--lv-color-fg)" : "var(--lv-color-card-fg)";}
+!{var variantBorder = switch (variant) {
+    case "ghost"       -> "none";
+    case "elevated"    -> "none";
+    case "destructive" -> "1px solid var(--lv-color-destructive)";
+    default            -> bordered ? "1px solid var(--lv-color-border)" : "none";
   };}
-!{var regionPxCls = switch (pad) {
-    case "none" -> "px-0";
-    case "sm"   -> "px-[var(--lv-space-3)]";
-    case "lg"   -> "px-[var(--lv-space-8)]";
-    default     -> "px-[var(--lv-space-6)]";
+<%-- elevated always gets shadow; ghost + outlined get none; default gets xs when no border; md for elevated. --%>
+!{var variantShadow = switch (variant) {
+    case "elevated" -> "var(--lv-shadow-md)";
+    case "ghost"    -> "none";
+    case "outlined" -> "none";
+    default         -> bordered ? "var(--lv-shadow-xs)" : "none";
   };}
-<%-- the ruled separator (divided=true) reads the border token, like separator.jte; pb/pt add a
-     little breathing room under/over the rule when there is region padding. --%>
-!{var headerDivCls = divided ? " border-b border-[var(--lv-color-border)] pb-[var(--lv-space-6)]" : "";}
-!{var footerDivCls = divided ? " border-t border-[var(--lv-color-border)] pt-[var(--lv-space-6)]" : "";}
+
+<%-- Size -> body padding + header title size + subtitle size.
+     noPadding strips body padding independently; header retains its padding. --%>
+!{var bodyPad = noPadding ? "0" : switch (size) {
+    case "sm" -> "var(--lv-space-3)";
+    case "lg" -> "var(--lv-space-6)";
+    default   -> "var(--lv-space-4)";
+  };}
+!{var headerPad = switch (size) {
+    case "sm" -> "var(--lv-space-3)";
+    case "lg" -> "var(--lv-space-6) var(--lv-space-6) var(--lv-space-4)";
+    default   -> "var(--lv-space-4)";
+  };}
+!{var footerPad = switch (size) {
+    case "sm" -> "var(--lv-space-3)";
+    case "lg" -> "var(--lv-space-4) var(--lv-space-6)";
+    default   -> "var(--lv-space-3) var(--lv-space-4)";
+  };}
+!{var titleSize  = switch (size) {
+    case "sm" -> "var(--lv-text-sm)";
+    case "lg" -> "var(--lv-text-lg)";
+    default   -> "var(--lv-text-base)";
+  };}
+!{var subtitleSize = "sm".equals(size) ? "var(--lv-text-xs)" : "var(--lv-text-sm)";}
+
+<%-- aria-labelledby on the root when as="section" + title is set (auto-header path only). --%>
+!{var ariaLabelledBy = "section".equals(as) && title != null ? titleId : null;}
+
+<%-- h-full class when fullHeight=true --%>
+!{var heightClass = fullHeight ? " h-full" : "";}
+
+<%-- SAFE dynamic data-* attributes (mirrors badge.jte / alert.jte pattern).
+     JTE forbids @for in attribute-NAME position; build the fragment here. --%>
+!{var _da = new StringOutput();}
+!{for (var e : dataAttrs.entrySet()) {
+    if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
+      _da.writeContent(" data-" + e.getKey() + "=\"");
+      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), _da);
+      _da.writeContent("\"");
+    }
+  }}
+!{var _daMarkup = _da.toString();}
+<%-- The root is always a <div> (JTE forbids an expression in a tag NAME). The `as` landmark
+     intent is preserved via role: a titled section becomes a labelled region; an article keeps
+     role=article. A plain div carries no role. This is JTE-safe (role is an attribute value). --%>
+!{var _role = ("section".equals(as) && title != null) ? "region" : ("article".equals(as) ? "article" : null);}
 
 <div
   data-slot="card"
-  role="${hasTitle ? "region" : null}"
-  aria-labelledby="${hasTitle ? headingId : null}"
-  class="flex flex-col ${gapClass} overflow-hidden rounded-[var(--lv-radius-xl)] border border-[var(--lv-color-border)] bg-[var(--lv-color-card)] ${surfacePyCls} text-[var(--lv-color-card-fg)] shadow-[var(--lv-shadow-sm)] ${cssClass}"
-  style="font-family:var(--lv-font-sans);"
+  data-variant="${variant}"
+  data-size="${size}"
+  role="${_role}"
+  aria-labelledby="${ariaLabelledBy}"
+  class="flex flex-col overflow-hidden font-[var(--lv-font-sans)]${heightClass} ${cssClass}"
+  style="background:${variantBg};color:${variantFg};border:${variantBorder};box-shadow:${variantShadow};border-radius:var(--lv-radius-lg);"
+  $unsafe{_daMarkup}
+  $unsafe{attrs}
 >
   @if(hasHeader)
-    <div data-slot="card-header" class="grid items-start gap-[var(--lv-space-1)] ${regionPxCls}${headerDivCls}" style="grid-template-columns: 1fr auto;">
-      <div class="grid gap-[var(--lv-space-1)]" style="grid-column: 1;">
-        @if(hasTitle)
-          <div data-slot="card-title" id="${headingId}" class="text-[length:var(--lv-text-lg)] font-[var(--lv-font-semibold)] leading-none">@if(title != null)${title}@else${heading}@endif</div>
-        @endif
-        @if(description != null)
-          <div data-slot="card-description" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">${description}</div>
-        @endif
-      </div>
-      @if(action != null)
-        <div data-slot="card-action" class="self-start justify-self-end" style="grid-column: 2; grid-row: 1;">${action}</div>
+    <div data-slot="card-header"
+      class="flex items-start gap-[var(--lv-space-2)]"
+      style="padding:${headerPad};"
+    >
+      @if(leading != null)
+        <div data-slot="card-leading" class="shrink-0 flex items-center">${leading}</div>
+      @endif
+      @if(header != null)
+        <div data-slot="card-title-area" class="min-w-0 flex-1">${header}</div>
+      @else
+        <div data-slot="card-title-area" class="min-w-0 flex-1 grid gap-[var(--lv-space-1)]">
+          <%-- JTE forbids an expression in a tag name, so the heading is a role=heading div with
+               aria-level derived from titleTag (h1..h6); semantically equivalent to the native tag. --%>
+          <div
+            id="${titleId}"
+            data-slot="card-title"
+            role="heading"
+            aria-level="${titleTag != null && titleTag.matches("h[1-6]") ? titleTag.substring(1) : "2"}"
+            class="leading-[var(--lv-leading-none)]"
+            style="font-size:${titleSize};font-weight:var(--lv-font-medium);margin:0;"
+          >${title}</div>
+          @if(subtitle != null)
+            <p data-slot="card-subtitle"
+              class="m-0 text-[var(--lv-color-muted-fg)]"
+              style="font-size:${subtitleSize};font-weight:var(--lv-font-normal);"
+            >${subtitle}</p>
+          @endif
+        </div>
+      @endif
+      @if(trailing != null)
+        <div data-slot="card-trailing" class="ml-auto shrink-0 flex items-center gap-[var(--lv-space-2)]">${trailing}</div>
       @endif
     </div>
+    <%-- visual separator between header and body (border-t, aria-hidden) --%>
+    <div data-slot="card-separator" aria-hidden="true"
+      style="height:1px;background:var(--lv-color-border);flex-shrink:0;"
+    ></div>
   @endif
-  <div data-slot="card-content" class="${regionPxCls} text-[length:var(--lv-text-base)]">
-    ${content}
-  </div>
+  <div data-slot="card-body" style="padding:${bodyPad};flex:1;">${content}</div>
   @if(footer != null)
-    <div data-slot="card-footer" class="flex items-center ${regionPxCls}${footerDivCls} text-[length:var(--lv-text-sm)]">${footer}</div>
+    <div data-slot="card-separator-footer" aria-hidden="true"
+      style="height:1px;background:var(--lv-color-border);flex-shrink:0;"
+    ></div>
+    <div data-slot="card-footer" class="flex items-center" style="padding:${footerPad};">${footer}</div>
   @endif
 </div>

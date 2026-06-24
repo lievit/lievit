@@ -1,7 +1,7 @@
 {
   "name": "button-group",
   "type": "registry:jte",
-  "description": "Joins buttons (and/or nested groups, selects, input-groups) into a segmented control: a role=group flex box whose CSS collapses the shared inner rounding + borders between adjacent children (shadcn's ButtonGroup, horizontal or vertical). Pure layout over the children the caller passes in, no client state; focus-visible children raise their z-index so the ring is never clipped by a neighbour's border. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "Joins buttons (and/or nested groups, selects, input-groups) into a segmented control: a role=group flex box whose CSS collapses the shared inner rounding + borders between adjacent children (shadcn's ButtonGroup, horizontal or vertical). Pure layout over the children the caller passes in, no client state; focus-visible children raise their z-index so the ring is never clipped by a neighbour's border. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean. Accepts an `attrs` param (TRUSTED raw $unsafe) for static author-typed strings such as data-testid.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["radius"],
-  "docs": "Copies the button-group partial to your JTE root at lievit/button-group.jte, reached as @template.lievit.button-group(content=@`...`). Pass the buttons (or nested groups / selects / input-groups) as the content slot; they join seamlessly with collapsed inner rounding and shared borders. Set orientation=\"vertical\" to stack on the vertical axis, and label for the group's aria-label (announced as one labelled group). Keyboard behaviour stays each child's own (Tab moves between them); a button-group is not a radio/toolbar, so no roving tabindex is imposed. The source is yours: edit freely."
+  "docs": "Copies the button-group partial to your JTE root at lievit/button-group.jte, reached as @template.lievit.button-group(content=@`...`). Pass the buttons (or nested groups / selects / input-groups) as the content slot; they join seamlessly with collapsed inner rounding and shared borders. Set orientation=\"vertical\" to stack on the vertical axis, and label for the group's aria-label (announced as one labelled group). Use attrs (TRUSTED raw, static strings only) to pass additional HTML attributes such as data-testid. Keyboard behaviour stays each child's own (Tab moves between them); a button-group is not a radio/toolbar, so no roving tabindex is imposed. The source is yours: edit freely."
 }

@@ -206,6 +206,7 @@
   --lv-text-xl: 1.25rem;
   --lv-text-2xl: 1.5rem;
   --lv-text-3xl: 1.875rem;
+  --lv-text-4xl: 2.25rem;
 
   /* weights */
   --lv-font-normal: 400;
@@ -271,6 +272,14 @@
      progress animation can be tuned independently of the global scale) */
   --lv-motion-duration-slow: 320ms; /* = --lv-duration-slow; aliased for progress indeterminate */
   --lv-motion-easing-in-out: cubic-bezier(0.4, 0, 0.2, 1); /* = --lv-ease; aliased for progress */
+  /* loading-section motion aliases (net-new, additive) */
+  --lv-motion-duration-base: 200ms; /* = --lv-duration; alias for spinner rotation duration */
+  --lv-motion-easing-linear: linear; /* linear easing for spinner + skeleton shimmer */
+  --lv-pointer-events-none: none; /* pointer-events value; structural, not colour-dependent */
+
+  /* skeleton tokens (net-new, loading-section spec §5) */
+  --lv-skeleton-bg: oklch(0.93 0.005 264); /* placeholder bar fill -- light mode */
+  --lv-skeleton-shimmer: oklch(0.97 0.003 264); /* shimmer highlight peak -- light mode */
 
   /* ----------------------------------------------------------------------- *
    * ICON sizing (consumed by the Lucide icon partial)                       *
@@ -387,6 +396,10 @@
   --lv-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.45);
   --lv-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
   --lv-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55);
+
+  /* skeleton tokens (net-new, loading-section spec §5) -- dark-mode overrides */
+  --lv-skeleton-bg: oklch(0.24 0.008 264); /* placeholder bar fill -- dark mode */
+  --lv-skeleton-shimmer: oklch(0.30 0.006 264); /* shimmer highlight peak -- dark mode */
 }
 
 /* ========================================================================= *
@@ -433,4 +446,13 @@
 @keyframes lv-progress-arc-spin {
   0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* lv-skeleton-shimmer: slides the gradient background-position left-to-right to produce
+   the shimmer sweep. background-size must be 400% on the element so the gradient covers
+   the range. Duration + easing reference the motion alias tokens so adopters can tune them
+   via :root override. The animation name is lv-skeleton-* to match the lv-* namespace. */
+@keyframes lv-skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }

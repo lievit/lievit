@@ -91,7 +91,7 @@
   };}
 <%-- the input is sr-only (focusable, submitted), the <label> is the visible segment; peer-checked
      paints the pressed state, peer-focus-visible raises the ring above the joined neighbours. --%>
-!{var segLabelClass = "relative inline-flex cursor-pointer select-none items-center justify-center gap-[var(--lv-space-1)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] rounded-[var(--lv-radius-md)] transition-[color,box-shadow] hover:bg-[var(--lv-color-muted)] peer-checked:border-[var(--lv-color-primary)] peer-checked:bg-[var(--lv-color-primary)] peer-checked:text-[var(--lv-color-primary-fg)] peer-checked:hover:bg-[var(--lv-color-primary)] peer-focus-visible:z-10 peer-focus-visible:border-[var(--lv-color-ring)] peer-focus-visible:shadow-[var(--lv-ring)] peer-disabled:cursor-not-allowed peer-disabled:opacity-50 " + segHeight;}
+!{var segLabelClass = "relative inline-flex cursor-pointer select-none items-center justify-center gap-[var(--lv-space-1)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] rounded-[var(--lv-radius-md)] transition-[color,box-shadow] hover:bg-[var(--lv-color-muted)] peer-checked:border-[var(--lv-color-primary)] peer-checked:bg-[var(--lv-color-primary)] peer-checked:text-[var(--lv-color-primary-fg)] peer-checked:hover:bg-[var(--lv-color-primary)] peer-focus-visible:z-10 peer-focus-visible:border-[var(--lv-color-ring)] peer-focus-visible:shadow-[var(--lv-ring)] peer-disabled:cursor-not-allowed peer-disabled:opacity-50 peer-[aria-invalid=true]:border-[var(--lv-color-destructive)] " + segHeight;}
 
 <fieldset
   data-slot="toggle-buttons"
@@ -103,7 +103,7 @@
   data-invalid="${invalid ? "true" : null}"
   data-disabled="${disabled ? "true" : null}"
   disabled="${disabled}"
-  class="m-0 min-w-0 border-0 p-0 ${cssClass}"
+  class="m-0 min-w-0 border-0 p-0 aria-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)] ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
   @if(label != null && !label.isBlank())

@@ -1,7 +1,7 @@
 {
   "name": "data-list",
   "type": "registry:jte",
-  "description": "A divided list surface: a real <ul role=\"list\"> whose <li> rows (data-list.row) are ruled by a hairline divide and split into a leading media slot + a left content column + a right actions cluster. The container ships the optional bordered card chrome + the divide rule; data-list.row ships the row (role=listitem, leading/content/actions slots). The read-only LIST display primitive for the kit's infolist / RepeatableEntry and panelled record lists, distinct from item (a single composable row) and data-table (a sortable/selectable grid). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A divided list surface: a real <ul role=\"list\"> whose <li> rows (data-list.row) are ruled by a hairline divide and split into a leading media slot + a left content column + a right actions cluster. The container ships the optional bordered card chrome + the divide rule; data-list.row ships the row (role=listitem, leading/content/actions slots, optional whole-tile href link, hoverHighlight tint, SAFE dataAttrs channel). The read-only LIST display primitive for the kit's infolist / RepeatableEntry and panelled record lists, distinct from item (a single composable row) and data-table (a sortable/selectable grid). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -18,6 +18,6 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the data-list partial (+ its data-list/row child) to your JTE root at lievit/data-list.jte, reached as @template.lievit.data-list(content=@`...`). Stack data-list.row rows inside it (each a real <li role=\"listitem\" with leading / content / actions slots); the list rules them with a divide-y hairline. Pass bordered=false for a flush, inline list with no card chrome. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type", "ring", "motion"],
+  "docs": "Copies the data-list partial (+ its data-list/row child) to your JTE root at lievit/data-list.jte, reached as @template.lievit.data-list(content=@`...`). Stack data-list.row rows inside it (each a real <li role=\"listitem\" with leading / content / actions slots). Pass ariaLabel to label the list for assistive tech. Pass bordered=false for a flush, inline list with no card chrome. On the row: pass href for a whole-tile <a> link (block-display inside the <li>); hoverHighlight=false for non-interactive rows; dataAttrs for SAFE escaped data-* (per-row DB values). The source is yours: edit freely."
 }

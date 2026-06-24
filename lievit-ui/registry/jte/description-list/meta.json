@@ -1,7 +1,7 @@
 {
   "name": "description-list",
   "type": "registry:jte",
-  "description": "A read-only label->value list rendered as a native <dl> grid: each row a <dt> term + <dd> definition (description-list.item), laid out in N columns via the --lv-dl-cols custom property, with per-item columnSpan. The detail-page primitive the kit's AdminViewView.Section (its ordered label-to-display map) and Filament's infolist section grid map onto: a structured READ of a record, terms left/above, values right/below. Native dt/dd association (no extra ARIA). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A read-only label->value list rendered as a native <dl> grid: each row a <dt> term + <dd> definition (description-list.item), laid out in N columns via the --lv-dl-cols custom property, with per-item columnSpan. size (sm/md/lg) controls row gap + base text density. bordered wraps the <dl> in card chrome. title + extra slot render a header row above the <dl>. description-list.item supports a colon param to append ':' to the term. The detail-page primitive the kit's AdminViewView.Section and Filament's infolist section grid map onto. Native dt/dd association (no extra ARIA). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -18,6 +18,6 @@
       "root": "jte"
     }
   ],
-  "tokens": ["color", "space", "type"],
-  "docs": "Copies the description-list partial (+ its description-list/item child) to your JTE root at lievit/description-list.jte, reached as @template.lievit.description-list(columns=2, content=@`...`). Fill it with description-list.item rows (term + content value); the value content can be a plain string or an infolist-entry (badge / swatch / icon). columns drives the grid; an item may span more columns via columnSpan. The source is yours: edit freely."
+  "tokens": ["color", "space", "radius", "type"],
+  "docs": "Copies the description-list partial (+ its description-list/item child) to your JTE root at lievit/description-list.jte, reached as @template.lievit.description-list(columns=2, content=@`...`). Fill it with description-list.item rows (term + content value); the value content can be a plain string or an infolist-entry (badge / swatch / icon). columns drives the grid; an item may span more columns via columnSpan. size=sm|md|lg tunes the row gap and text density. bordered adds card chrome. title + extra render a header row. colon=false on an item suppresses the auto-appended ':'. The source is yours: edit freely."
 }

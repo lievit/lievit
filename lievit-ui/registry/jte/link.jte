@@ -1,109 +1,122 @@
 @import gg.jte.Content
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui link partial -- a standalone styled anchor: the Filament LinkComponent / the action
-  LINK variant rendered as a real <a href>, with an optional leading/trailing Lucide icon and an
-  optional trailing badge.
+  lievit-ui link partial (v-next) -- a standalone styled anchor (navigation affordance,
+  distinct from the button's action affordance).
 
-  TIER: STATIC presentational -> JTE partial (ADR-0012 server-first pivot). A link carries no
-  client state: it is a plain <a> the browser navigates (middle-click + open-in-new-tab work),
-  so the whole thing is server-rendered, zero JS, CSP-clean. lievit-ui folded links into the
-  button partial until now; this is the dedicated render for io.lievit.kit.component.LinkView and
-  for the action LINK variant, which need an anchor that LOOKS like a link, not a button.
+  TIER: STATIC presentational -> JTE partial (ADR-0012 server-first pivot). A link carries
+  no client state: it is a plain <a> the browser navigates. CSP-clean, zero JS.
 
-  WHY a separate partial (link vs button): a button is an affordance for an ACTION; a link is an
-  affordance for NAVIGATION. shadcn keeps them distinct (Button asChild=<a> is still button-shaped;
-  the "link" Button variant is the bridge). Filament's LinkComponent is its own primitive. Here a
-  link is a text-coloured anchor (no button chrome), so it reads as a link inline in prose, in a
-  toolbar, or as a row action -- exactly the LINK ActionVariant the kit dispatches.
+  STRUCTURE: always renders <a>. When disabled, href is null-dropped via a JTE smart
+  attribute so the anchor stays in the DOM (for aria-disabled) but has no navigation target.
+  An external link adds target/_blank + rel/noopener + a sr-only hint and a trailing Unicode
+  glyph. The external icon is an inline Unicode character (no dependency on the icon partial).
 
-  STRUCTURE (scientific decision rule): two variants drive the colour pair from the tokens so a
-  retheme retints every link -- `default` (primary-coloured, underline-on-hover, the shadcn "link"
-  button variant) and `muted` (muted-foreground text that goes full-foreground on hover, the
-  toolbar / breadcrumb-tail affordance). An optional Lucide glyph composes the icon partial; its
-  POSITION is `leading` (default) or `trailing` (iconPosition), matching Filament's icon-position
-  knob. An optional trailing badge composes the badge partial (e.g. a "New" count next to the link
-  text), so the link + its annotation render as one inline unit. Server-first polymorphism: a blank
-  href renders an inert <span> styled identically (the disabled / no-target case), mirroring how
-  badge.jte / chip.jte degrade.
+  VARIANT (v-next vocabulary -- BREAKING from v0.x):
+    default     primary-coloured text, underlines on hover (shadcn "link" affordance).
+    muted       muted-fg text, underlines on hover.
+    destructive destructive-coloured text, underlines on hover.
+    ghost       full fg text, underlines on hover (the transparent link).
+  Old `muted` hover-to-fg-darkening replaced with uniform underline-on-hover.
 
-  TARGET: when `newTab` is set the anchor opens in a new tab with rel="noopener noreferrer" (the
-  LinkView.newTab() / Filament openUrlInNewTab contract); a screen-reader hint is the caller's job
-  via the label text, the partial only sets the safe rel.
+  SIZE (v-next, new param -- not in v0.x):
+    inherit  no font-size class (inherits the surrounding typographic context). Default.
+    sm       text-xs
+    md       text-sm
+    lg       text-base
 
-  A11y: a real focusable <a> with the platform anchor semantics + a focus-visible ring. The icon is
-  decorative (aria-hidden, icon partial) -- the link TEXT names the destination, never the glyph
-  alone. Colour is never the only signal: the text + the underline-on-hover carry the affordance.
+  DISABLED (v-next, new param -- not in v0.x):
+    href is dropped, aria-disabled="true" is set, opacity-50 + cursor-not-allowed added.
+
+  EXTERNAL LINK (replaces `newTab` from v0.x):
+    external = true sets target=_blank + rel=noopener noreferrer, a sr-only "(opens in new
+    tab)" hint inside the <a>, and a trailing Unicode glyph. No dependency on the icon
+    partial (hard rule 5).
+
+  EXTRA ATTRIBUTES -- two channels, by trust:
+    attrs     (TRUSTED, raw $unsafe) -- STATIC author-typed strings only.
+    dataAttrs (SAFE, escaped)        -- Map<String,String> of dynamic data-*, each value
+                                       escaped via Escape.htmlAttribute.
+
+  A11y: a real focusable <a> with platform anchor semantics. focus-visible ring via
+  --lv-ring. aria-disabled when disabled. The external glyph is aria-hidden (decorative);
+  the sr-only text provides the screen-reader hint.
 
   Params:
-    String label        = null       the link text (used when no content slot is supplied).
-    gg.jte.Content content           optional rich children; takes precedence over label.
-    String href         = null       the link target; blank => inert <span> (no navigation).
-    String variant      = "default"  "default" (primary, underlines on hover) | "muted".
-    String icon         = null       optional Lucide icon name composed via the icon partial.
-    String iconPosition = "leading"  "leading" | "trailing" -- where the icon sits.
-    String badge        = null       optional trailing badge text composed via the badge partial.
-    String badgeVariant = "secondary"  the trailing badge's variant.
-    boolean newTab      = false      open in a new tab (target=_blank + rel=noopener noreferrer).
-    String cssClass     = ""         extra utility classes on the link.
+    gg.jte.Content content            REQUIRED: the link's visible label.
+    String href                       REQUIRED: the link target.
+    String variant   = "default"     "default" | "muted" | "destructive" | "ghost".
+    String size      = "inherit"     "sm" | "md" | "lg" | "inherit".
+    boolean external = false          target=_blank + rel + sr-only + trailing glyph.
+    boolean disabled = false          aria-disabled + no href + dims visually.
+    String download  = null          adds download="${download}" (omitted when null).
+    String ariaLabel = null          aria-label on the <a> (omitted when null).
+    String cssClass  = ""            extra utility classes.
+    String attrs     = ""            TRUSTED raw ($unsafe) -- STATIC strings only.
+    Map<String,String> dataAttrs = {} SAFE dynamic data-* (Escape.htmlAttribute on each value).
 
   Usage:
-    @@template.lievit.link(label = "Vedi tutti", href = "/attivita")
-    @@template.lievit.link(label = "Esporta", href = "/export", icon = "download")
-    @@template.lievit.link(label = "Documentazione", href = "https://docs", newTab = true,
-                   icon = "external-link", iconPosition = "trailing")
-    @@template.lievit.link(label = "Inbox", href = "/inbox", badge = "12")
-    @@template.lievit.link(variant = "muted", label = "Annulla", href = "/attivita")
+    @@template.lievit.link(href = "/attivita", content = @@`Vedi tutti`)
+    @@template.lievit.link(href = "/export", variant = "muted", content = @@`Esporta`)
+    @@template.lievit.link(href = "https://docs", external = true, content = @@`Documentazione`)
+    @@template.lievit.link(href = "/report.pdf", download = "report.pdf", content = @@`Scarica`)
+    @@template.lievit.link(href = "/annulla", variant = "ghost", disabled = true, content = @@`Annulla`)
+    @@template.lievit.link(href = "/elimina", variant = "destructive", content = @@`Elimina account`)
 --%>
-@param String label = null
-@param gg.jte.Content content = null
-@param String href = null
+@param gg.jte.Content content
+@param String href
 @param String variant = "default"
-@param String icon = null
-@param String iconPosition = "leading"
-@param String badge = null
-@param String badgeVariant = "secondary"
-@param boolean newTab = false
+@param String size = "inherit"
+@param boolean external = false
+@param boolean disabled = false
+@param String download = null
+@param String ariaLabel = null
 @param String cssClass = ""
+@param String attrs = ""
+@param java.util.Map<String, String> dataAttrs = java.util.Map.of()
 
-!{var isLink = href != null && !href.isBlank();}
-!{var hasIcon = icon != null && !icon.isBlank();}
-!{var iconLeading = !"trailing".equals(iconPosition);}
-!{var hasBadge = badge != null && !badge.isBlank();}
-!{var color = "muted".equals(variant) ? "var(--lv-color-muted-fg)" : "var(--lv-color-primary)";}
-<%-- default mirrors the shadcn "link" affordance (underline on hover); muted darkens to full fg. --%>
-!{var hoverClass = "muted".equals(variant) ? "hover:text-[var(--lv-color-fg)]" : "hover:underline";}
-!{var linkClass = "lievit-link lievit-link--" + variant + " inline-flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-none no-underline underline-offset-4 transition-colors focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] " + hoverClass + " " + cssClass;}
-!{var linkStyle = "font-family:var(--lv-font-sans);color:" + color + ";";}
+!{var variantClass = switch (variant) {
+    case "muted"       -> "text-[var(--lv-color-muted-fg)] hover:underline hover:underline-offset-4";
+    case "destructive" -> "text-[var(--lv-color-destructive)] hover:underline hover:underline-offset-4";
+    case "ghost"       -> "text-[var(--lv-color-fg)] hover:underline hover:underline-offset-4";
+    default            -> "text-[var(--lv-color-primary)] hover:underline hover:underline-offset-4 focus-visible:underline focus-visible:underline-offset-4";
+  };}
+!{var sizeClass = switch (size) {
+    case "sm" -> "text-[length:var(--lv-text-xs)] font-[var(--lv-font-sans)]";
+    case "md" -> "text-[length:var(--lv-text-sm)] font-[var(--lv-font-sans)]";
+    case "lg" -> "text-[length:var(--lv-text-base)] font-[var(--lv-font-sans)]";
+    default   -> "";
+  };}
+!{var disabledClass = disabled ? " opacity-50 cursor-not-allowed" : "";}
+!{var base = "inline-flex items-center gap-[var(--lv-space-1)] underline-offset-4 outline-none transition-colors focus-visible:shadow-[var(--lv-ring)]";}
+!{var fullClass = (base + " " + variantClass + (sizeClass.isEmpty() ? "" : " " + sizeClass) + disabledClass + " " + cssClass).strip();}
 
-@if(isLink)
+<%-- SAFE dynamic data-* attributes: each value escaped via Escape.htmlAttribute. --%>
+!{var dataAttrs_ = new StringOutput();}
+!{for (var e : dataAttrs.entrySet()) {
+    if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
+      dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
+      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), dataAttrs_);
+      dataAttrs_.writeContent("\"");
+    }
+  }}
+!{var dataAttrsMarkup = dataAttrs_.toString();}
+
 <a
-  href="${href}"
   data-slot="link"
   data-variant="${variant}"
-  target="${newTab ? "_blank" : null}"
-  rel="${newTab ? "noopener noreferrer" : null}"
-  class="${linkClass}"
-  style="${linkStyle}"
->
-  @if(hasIcon && iconLeading)<span data-slot="link-icon" aria-hidden="true" class="inline-flex shrink-0 items-center">@template.lievit.icon(name = icon, size = "1rem")</span>@endif
-  <span data-slot="link-label">@if(content != null)${content}@else${label}@endif</span>
-  @if(hasIcon && !iconLeading)<span data-slot="link-icon" aria-hidden="true" class="inline-flex shrink-0 items-center">@template.lievit.icon(name = icon, size = "1rem")</span>@endif
-  @if(hasBadge)<span data-slot="link-badge" class="inline-flex shrink-0 items-center">@template.lievit.badge(variant = badgeVariant, label = badge)</span>@endif
-</a>
-@else
-<span
-  data-slot="link"
-  data-variant="${variant}"
-  aria-disabled="true"
-  class="${linkClass} opacity-50"
-  style="${linkStyle}"
->
-  @if(hasIcon && iconLeading)<span data-slot="link-icon" aria-hidden="true" class="inline-flex shrink-0 items-center">@template.lievit.icon(name = icon, size = "1rem")</span>@endif
-  <span data-slot="link-label">@if(content != null)${content}@else${label}@endif</span>
-  @if(hasIcon && !iconLeading)<span data-slot="link-icon" aria-hidden="true" class="inline-flex shrink-0 items-center">@template.lievit.icon(name = icon, size = "1rem")</span>@endif
-  @if(hasBadge)<span data-slot="link-badge" class="inline-flex shrink-0 items-center">@template.lievit.badge(variant = badgeVariant, label = badge)</span>@endif
-</span>
-@endif
+  data-size="${size}"
+  href="${disabled ? null : href}"
+  target="${external ? "_blank" : null}"
+  rel="${external ? "noopener noreferrer" : null}"
+  download="${download}"
+  aria-label="${ariaLabel}"
+  aria-disabled="${disabled ? "true" : null}"
+  class="${fullClass}"
+  $unsafe{dataAttrsMarkup}
+  $unsafe{attrs}
+>${content}@if(external)<span class="sr-only">(opens in new tab)</span><span aria-hidden="true" class="inline-block align-middle text-[length:0.75em]">↗</span>@endif</a>

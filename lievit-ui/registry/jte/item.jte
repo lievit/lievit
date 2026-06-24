@@ -1,86 +1,143 @@
 @import gg.jte.Content
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui item partial -- a generic list/menu row: an optional leading media slot, a
-  title + description content column, and an optional trailing actions slot.
+  lievit-ui item partial (v-next) -- a generic list/menu row with a leading media slot,
+  a primary content column, and a trailing actions slot.
 
   TIER: STATIC presentational -> JTE partial. The row is layout + styling; any interactivity
   (a clickable row, a menu item with keyboard nav) is the adopter's <a>/<button> or a Lit
-  menu island. This is shadcn's `Item` (the composable row), not a stateful control.
+  menu island. This is shadcn's Item (the composable row), not a stateful control.
 
-  STRUCTURE (scientific decision rule): shadcn composes Item + ItemMedia + ItemContent +
-  ItemTitle + ItemDescription + ItemActions. In JTE we expose the three regions as Content
-  slots (leading / content / trailing) and let the caller fill them, which keeps the same
-  composability without N partials. Variants (default | outline | muted) and sizes
-  (default | sm) mirror shadcn's cva. shadcn wins styling ergonomics; there is no Radix
-  behaviour to defer to for a presentational row.
+  STRUCTURE: three slot regions exposed as Content params (leading / content / trailing).
+  The root element is selectable via the `element` param (li | dd | dt | div). Classes are
+  computed once into local vars; all element branches reuse the same class string.
 
-  A11y: defaults to a plain <div>. When the row is a real list entry pass role="listitem"
-  via `role` and wrap a group in role="list". When it is actionable, put the <a>/<button> in
-  the leading/content slot (it keeps its own semantics + focus ring); the row itself adds a
-  hover tint so the affordance reads. Media images must carry their own alt; decorative icons
-  come from the Lucide partial (aria-hidden by default).
+  VARIANT (v-next vocabulary -- BREAKING from v0.x):
+    default   text-fg, transparent bg, hover to accent fill
+    active    accent fill, accent-fg text (the currently selected row)
+    danger    destructive text, hover to destructive fill
+    muted     muted-fg text, transparent bg (no hover tint)
+  Old `outline` variant removed; `active` added; `danger` replaces nothing (was caller's job).
+
+  SIZE (v-next vocabulary -- BREAKING from v0.x):
+    sm   min-h-space-8,  text-xs
+    md   min-h-space-9,  text-sm  (default)
+    lg   min-h-space-10, text-base
+  Old `default` / `sm` vocab replaced with sm/md/lg to match the control height scale.
+
+  DISABLED: dims via opacity-50 + pointer-events-none. No aria-disabled on a
+  non-interactive element (the adopter's inner <a>/<button> owns its own disabled state).
+
+  EXTRA ATTRIBUTES -- two channels, by trust (same XSS contract as button.jte):
+    attrs     (TRUSTED, raw $unsafe) -- STATIC author-typed strings only.
+    dataAttrs (SAFE, escaped)        -- Map<String,String> of dynamic data-* attributes,
+                                       each value escaped via Escape.htmlAttribute.
+
+  A11y: the row itself is not interactive; focus-visible ring fires only if the element
+  can receive focus (e.g. div[tabindex=0]). The leading/trailing slots carry aria-hidden
+  so decorative icons are invisible to AT; the content slot owns the accessible label.
 
   Params:
-    gg.jte.Content content        the main column (use title/description partials or markup).
-    gg.jte.Content leading = null leading media slot (icon, avatar, image, index number).
-    gg.jte.Content trailing = null trailing slot (actions, chevron, badge, meta).
-    String variant  = "default"   default | outline | muted.
-    String size     = "default"   default | sm.
-    String role     = null        e.g. "listitem"; null => plain div.
-    String cssClass = ""          extra utility classes on the root.
+    gg.jte.Content content              REQUIRED: the item's primary label text or richer markup.
+    gg.jte.Content leading = null       optional slot: leading icon/avatar (aria-hidden wrapper).
+    gg.jte.Content trailing = null      optional slot: badge/count/chevron (aria-hidden wrapper).
+    String element  = "li"             root element: "li" | "dd" | "dt" | "div".
+    String variant  = "default"        "default" | "active" | "danger" | "muted".
+    String size     = "md"             "sm" | "md" | "lg".
+    boolean disabled = false           dims + disables pointer events.
+    String cssClass = ""               extra utility classes on the root.
+    String attrs    = ""               TRUSTED raw ($unsafe) -- STATIC strings only.
+    Map<String,String> dataAttrs = {}  SAFE dynamic data-* (Escape.htmlAttribute on each value).
 
   Usage:
-    @template.lievit.item(
-      leading = @`@template.lievit.icon(name = "folder")`,
-      content = @`
-        <div class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] leading-snug">Contratti</div>
-        <p class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">24 documenti</p>
-      `,
-      trailing = @`@template.lievit.icon(name = "chevron-right", cssClass = "text-[var(--lv-color-muted-fg)]")`
+    @@template.lievit.item(content = @@`Contratti`)
+    @@template.lievit.item(variant = "active", content = @@`Selezionato`)
+    @@template.lievit.item(
+      element = "li",
+      variant = "default",
+      size = "md",
+      leading = @@`@@template.lievit.icon(name = "folder", size = "1rem")`,
+      content = @@`<span>Contratti</span>`,
+      trailing = @@`@@template.lievit.icon(name = "chevron-right", size = "1rem")`
     )
-
-    Grouped list:
-    <div role="list" class="flex flex-col">
-      @template.lievit.item(role = "listitem", content = @`<span>Riga A</span>`)
-      @template.lievit.item(role = "listitem", content = @`<span>Riga B</span>`)
-    </div>
+    @@template.lievit.item(variant = "danger", content = @@`Elimina`)
+    @@template.lievit.item(disabled = true, content = @@`Non disponibile`)
 --%>
 @param gg.jte.Content content
 @param gg.jte.Content leading = null
 @param gg.jte.Content trailing = null
+@param String element = "li"
 @param String variant = "default"
-@param String size = "default"
-@param String role = null
+@param String size = "md"
+@param boolean disabled = false
 @param String cssClass = ""
+@param String attrs = ""
+@param java.util.Map<String, String> dataAttrs = java.util.Map.of()
 
 !{var variantClass = switch (variant) {
-    case "outline" -> "border-[var(--lv-color-border)]";
-    case "muted" -> "bg-[var(--lv-color-muted-bg)]";
-    default -> "bg-transparent";
+    case "active"  -> "bg-[var(--lv-color-accent)] text-[var(--lv-color-accent-fg)]";
+    case "danger"  -> "text-[var(--lv-color-destructive)] hover:bg-[var(--lv-color-destructive)] hover:text-[var(--lv-color-destructive-fg)]";
+    case "muted"   -> "text-[var(--lv-color-muted-fg)] bg-transparent";
+    default        -> "text-[var(--lv-color-fg)] bg-transparent hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)]";
   };}
-!{var sizeClass = size.equals("sm") ? "gap-[var(--lv-space-2)] px-[var(--lv-space-4)] py-[var(--lv-space-3)]" : "gap-[var(--lv-space-4)] p-[var(--lv-space-4)]";}
+!{var sizeClass = switch (size) {
+    case "sm" -> "min-h-[var(--lv-space-8)] text-[length:var(--lv-text-xs)] px-[var(--lv-space-3)] gap-[var(--lv-space-2)]";
+    case "lg" -> "min-h-[var(--lv-space-10)] text-[length:var(--lv-text-base)] px-[var(--lv-space-3)] gap-[var(--lv-space-2)]";
+    default   -> "min-h-[var(--lv-space-9)] text-[length:var(--lv-text-sm)] px-[var(--lv-space-3)] gap-[var(--lv-space-2)]";
+  };}
+!{var disabledClass = disabled ? " opacity-50 pointer-events-none" : "";}
+!{var base = "flex items-center w-full rounded-[var(--lv-radius-md)] font-[var(--lv-font-sans)] transition-colors outline-none focus-visible:shadow-[var(--lv-ring)]";}
+!{var fullClass = base + " " + sizeClass + " " + variantClass + disabledClass + " " + cssClass;}
 
+<%-- SAFE dynamic data-* attributes: each value escaped via Escape.htmlAttribute. --%>
+!{var dataAttrs_ = new StringOutput();}
+!{for (var e : dataAttrs.entrySet()) {
+    if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
+      dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
+      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), dataAttrs_);
+      dataAttrs_.writeContent("\"");
+    }
+  }}
+!{var dataAttrsMarkup = dataAttrs_.toString();}
+
+@if("li".equals(element))
+<li
+  data-slot="item"
+  data-variant="${variant}"
+  data-size="${size}"
+  class="${fullClass}"
+  $unsafe{dataAttrsMarkup}
+  $unsafe{attrs}
+>@if(leading != null)<span data-slot="item-leading" aria-hidden="true">${leading}</span>@endif<span data-slot="item-content" class="flex-1 min-w-0 truncate">${content}</span>@if(trailing != null)<span data-slot="item-trailing" aria-hidden="true">${trailing}</span>@endif</li>
+@elseif("dd".equals(element))
+<dd
+  data-slot="item"
+  data-variant="${variant}"
+  data-size="${size}"
+  class="${fullClass}"
+  $unsafe{dataAttrsMarkup}
+  $unsafe{attrs}
+>@if(leading != null)<span data-slot="item-leading" aria-hidden="true">${leading}</span>@endif<span data-slot="item-content" class="flex-1 min-w-0 truncate">${content}</span>@if(trailing != null)<span data-slot="item-trailing" aria-hidden="true">${trailing}</span>@endif</dd>
+@elseif("dt".equals(element))
+<dt
+  data-slot="item"
+  data-variant="${variant}"
+  data-size="${size}"
+  class="${fullClass}"
+  $unsafe{dataAttrsMarkup}
+  $unsafe{attrs}
+>@if(leading != null)<span data-slot="item-leading" aria-hidden="true">${leading}</span>@endif<span data-slot="item-content" class="flex-1 min-w-0 truncate">${content}</span>@if(trailing != null)<span data-slot="item-trailing" aria-hidden="true">${trailing}</span>@endif</dt>
+@else
 <div
   data-slot="item"
   data-variant="${variant}"
   data-size="${size}"
-  role="${role}"
-  class="group/item flex flex-wrap items-center rounded-[var(--lv-radius-md)] border border-transparent text-[length:var(--lv-text-sm)] transition-colors outline-none focus-visible:border-[var(--lv-color-ring)] focus-visible:shadow-[var(--lv-ring)] ${variantClass} ${sizeClass} ${cssClass}"
->
-  @if(leading != null)
-    <div data-slot="item-media" class="flex shrink-0 items-center justify-center gap-[var(--lv-space-2)] [&_svg]:pointer-events-none">
-      ${leading}
-    </div>
-  @endif
-  <div data-slot="item-content" class="flex flex-1 flex-col gap-[var(--lv-space-1)]">
-    ${content}
-  </div>
-  @if(trailing != null)
-    <div data-slot="item-actions" class="flex items-center gap-[var(--lv-space-2)]">
-      ${trailing}
-    </div>
-  @endif
-</div>
+  class="${fullClass}"
+  $unsafe{dataAttrsMarkup}
+  $unsafe{attrs}
+>@if(leading != null)<span data-slot="item-leading" aria-hidden="true">${leading}</span>@endif<span data-slot="item-content" class="flex-1 min-w-0 truncate">${content}</span>@if(trailing != null)<span data-slot="item-trailing" aria-hidden="true">${trailing}</span>@endif</div>
+@endif

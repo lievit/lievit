@@ -27,16 +27,19 @@
   A11y (WAI-ARIA list): role="list" on the <ul> (Safari drops the implicit list role when
   list-style is removed, so it is stated), each row carries role="listitem" (data-list.row sets it).
   The list itself is presentational; the rows carry the content and any controls.
+  ariaLabel: when set, wires aria-label directly on the <ul> so screenreaders can identify the list
+  purpose (e.g. "Recent contacts"). Omit when context already labels the list.
 
   Params:
     gg.jte.Content content        the rows (data-list.row partials).
     boolean bordered = true       wrap the list in a bordered card surface (Filament panelled list);
                                   false => a flush, inline divided list with no outer chrome.
     String role     = "list"      the list role; override to null for a bare presentational <ul>.
+    String ariaLabel = null       optional accessible label on the <ul>; omitted when null.
     String cssClass = ""          extra utility classes on the list root.
 
   Usage:
-    @@template.lievit.data-list(content = @@`
+    @@template.lievit.data-list(ariaLabel = "Recent contacts", content = @@`
       @@template.lievit.data-list.row(
         content = @@`<span class="font-[var(--lv-font-medium)]">Mario Rossi</span>`,
         actions = @@`@@template.lievit.badge(label = "Attivo", variant = "success")`)
@@ -46,6 +49,7 @@
 @param gg.jte.Content content
 @param boolean bordered = true
 @param String role = "list"
+@param String ariaLabel = null
 @param String cssClass = ""
 
 !{var chromeClass = bordered
@@ -56,6 +60,7 @@
   data-slot="data-list"
   data-bordered="${bordered}"
   role="${role}"
+  aria-label="${ariaLabel}"
   class="m-0 flex list-none flex-col p-0 [&>li:not(:first-child)]:border-t [&>li]:border-[var(--lv-color-border)] ${chromeClass} ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >

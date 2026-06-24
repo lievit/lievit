@@ -69,6 +69,14 @@ describe("toggle-buttons.jte -- native, zero-JS segmented form control", () => {
     expect(markup).toContain('aria-describedby="${describedBy}"');
   });
 
+  test("invalid fieldset carries a destructive shadow ring via aria-[invalid=true] selector", () => {
+    expect(src).toContain("aria-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)]");
+  });
+
+  test("invalid segment labels carry a destructive border via peer-[aria-invalid=true] selector", () => {
+    expect(src).toContain("peer-[aria-invalid=true]:border-[var(--lv-color-destructive)]");
+  });
+
   test("options come in via a Map param or a content slot, never hardcoded", () => {
     expect(src).toMatch(/@param java\.util\.Map<String, String> options/);
     expect(src).toMatch(/@param gg\.jte\.Content content/);

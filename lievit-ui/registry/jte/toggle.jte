@@ -1,76 +1,130 @@
 @import gg.jte.Content
+@import gg.jte.output.StringOutput
+@import gg.jte.html.escape.Escape
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-ui toggle partial -- a two-state pressed <button> (aria-pressed), token-styled.
+  lievit-ui toggle partial -- a real <button aria-pressed> (WAI-ARIA APG Toggle Button pattern).
 
-  TIER: STATIC presentational -> JTE partial. A native <button> carrying aria-pressed is the
-  WAI-ARIA toggle-button pattern: the button role + Enter/Space activation come from the platform.
-  The pressed state is server-owned (data down): the controller renders `pressed`, and the click
-  is wired by the consuming wire template via `l:click` (or a plain form POST), not by the button
-  itself. No client state ships.
+  TIER: PARTIAL presentational. The pressed state is a server fact (data down): the controller
+  renders `pressed`, the click is wired by the consuming WIRE template via wireClick / attrs.
+  No client state. The morph patches aria-pressed on re-render; CSS [aria-pressed="true"] drives
+  the visual automatically.
 
-  STRUCTURE (scientific decision rule): shadcn's Toggle is a Radix Toggle (a button with
-  data-state, no extra JS for the role). We reproduce its variants (`default` ghost / `outline`)
-  and sizes (`sm` / `default` / `lg`) with `--lv-*` tokens; the pressed look is driven by
-  `aria-pressed="true"`, which paints the shadcn accent surface (`--lv-color-accent` fill +
-  `--lv-color-accent-fg` text), not a flat muted grey. An optional Lucide glyph composes the
-  icon partial (never Font Awesome). When `invalid` is set the control carries `aria-invalid`
-  and shows the destructive border + ring (shadcn's `aria-invalid:ring-destructive`).
+  STRUCTURE (scientific decision rule): a real native <button> with aria-pressed is the WAI-ARIA
+  APG Button Toggle Button variant (https://www.w3.org/WAI/ARIA/apg/patterns/button/).
+  The native button gives role + Enter/Space activation + Tab focus + disabled semantics for free.
+  Ant Design Button group / Segmented as inventory reference (sizes, variants, icon-only, disabled).
+  Styling inspired by Tailwind UI toggle look over --lv-* tokens; original generation, no copy.
 
-  A11y (Radix / WAI-ARIA): a real <button type=button> with `aria-pressed="true|false"` announces
-  the on/off state. For an icon-only toggle pass `ariaLabel` (the button then has an accessible
-  name). The icon is decorative (aria-hidden, icon partial).
+  A11y (WAI-ARIA APG Button -- Toggle Button):
+    Element: real <button type="button"> -- native role=button, keyboard, disabled for free.
+    State: aria-pressed="true|false" reflects current pressed state; CSS [aria-pressed="true"]
+    drives the visual fill/text -- no JS, no class mutation, purely declarative.
+    Label stability (APG rule): the visible label MUST NOT change between pressed/unpressed states.
+    State is communicated by aria-pressed, not label text. Assert in tests.
+    Icon-only: ariaLabel REQUIRED when iconOnly=true (no visible text = no accessible name; axe
+    accessible-name rule fires without it). Icon is decorative (aria-hidden via icon partial default).
+    aria-describedby: optional external description element id.
+    aria-busy: set by the lievit runtime beforeCall/afterCall during a wire round-trip (runtime-managed).
+    disabled: native disabled attr (removes from tab order + blocks activation).
+    Focus: platform. focus-visible ring via --lv-ring token. No trap, no roving.
+    No live region (aria-pressed announces state change to AT directly).
+
+  WIRE / ESCAPING (the XSS decision rule, verbatim from button.jte):
+    wireClick (SAFE): the wire action name, emitted as l:click="${wireClick}" when non-blank.
+    wireArgs (SAFE): per-item args, each emitted as data-<key>="<escaped-value>". A DB-derived
+    value goes through wireArgs, NEVER attrs.
+    attrs (TRUSTED, raw): $unsafe, STATIC author-typed strings ONLY. Never user/DB data.
+    dataAttrs (SAFE, escaped): Map of dynamic data-* (values via Escape.htmlAttribute).
 
   Params:
-    String pressedAction = null  l:click expression (the wire action that flips the state).
-    boolean pressed   = false    current pressed state (server-owned, data down).
-    boolean disabled  = false    disables + dims the control.
-    boolean invalid   = false    aria-invalid="true" + destructive border/ring (error state).
-    String variant    = "default" "default" (ghost) | "outline".
-    String size       = "default" "sm" | "default" | "lg".
-    String icon       = null     optional Lucide icon name rendered before the content.
-    String ariaLabel  = null     accessible name (required for icon-only toggles).
-    String value      = null     optional value (e.g. when this toggle is part of a group).
-    gg.jte.Content content = null  the toggle's label content.
-    String cssClass   = ""        extra utility classes on the button.
+    boolean pressed          = false    current pressed state; drives aria-pressed.
+    String  variant          = "outline" "outline" | "ghost" | "primary" | "secondary".
+    String  size             = "md"     "sm" | "md" | "lg" -- height-based, toolbar-aligned.
+    boolean iconOnly         = false    square icon-only control; ariaLabel REQUIRED when true.
+    boolean disabled         = false    dims + blocks activation; native disabled on the button.
+    String  ariaLabel        = null     aria-label; REQUIRED when iconOnly=true.
+    String  ariaDescribedBy  = null     aria-describedby pointing to an external description id.
+    String  cssClass         = ""       extra utility classes on the root button.
+    String  attrs            = ""       TRUSTED raw ($unsafe) -- STATIC author-typed strings only.
+    java.util.Map<String, String> dataAttrs = java.util.Map.of()  SAFE dynamic data-* (escaped).
+    String  wireClick        = null     SAFE wire action name; emitted as l:click="${wireClick}".
+    java.util.Map<String, String> wireArgs = java.util.Map.of()  SAFE per-item args merged into data-*.
+    gg.jte.Content content              the label / icon+label / single icon when iconOnly.
+    gg.jte.Content leading   = null     optional icon before the label.
+    gg.jte.Content trailing  = null     optional icon/badge after the label.
 
   Usage:
-    @@template.lievit.toggle(icon = "star", ariaLabel = "Preferito", pressed = item.starred(),
-      pressedAction = "toggleStar")
-    @@template.lievit.toggle(variant = "outline", pressed = bold, content = @@`Grassetto`)
+    @@template.lievit.toggle(pressed = item.starred(), ariaLabel = "Preferito",
+      wireClick = "toggleStar", wireArgs = java.util.Map.of("id", item.id()),
+      content = @@`Preferito`)
+    @@template.lievit.toggle(variant = "outline", pressed = isBold,
+      wireClick = "toggleBold", content = @@`Grassetto`)
+    @@template.lievit.toggle(variant = "ghost", iconOnly = true, ariaLabel = "Bold",
+      pressed = isBold, wireClick = "toggleBold",
+      content = @@`@@template.lievit.icon(name = "bold", size = "1rem")`)
 --%>
-@param String pressedAction = null
 @param boolean pressed = false
+@param String variant = "outline"
+@param String size = "md"
+@param boolean iconOnly = false
 @param boolean disabled = false
-@param boolean invalid = false
-@param String variant = "default"
-@param String size = "default"
-@param String icon = null
 @param String ariaLabel = null
-@param String value = null
-@param gg.jte.Content content = null
+@param String ariaDescribedBy = null
 @param String cssClass = ""
+@param String attrs = ""
+@param java.util.Map<String, String> dataAttrs = java.util.Map.of()
+@param String wireClick = null
+@param java.util.Map<String, String> wireArgs = java.util.Map.of()
+@param gg.jte.Content content
+@param gg.jte.Content leading = null
+@param gg.jte.Content trailing = null
+
+!{var sizeClass = switch (size) {
+    case "sm" -> iconOnly
+        ? "h-[var(--lv-space-8)] w-[var(--lv-space-8)] p-0"
+        : "h-[var(--lv-space-8)] px-[var(--lv-space-3)] text-[length:var(--lv-text-xs)]";
+    case "lg" -> iconOnly
+        ? "h-[var(--lv-space-10)] w-[var(--lv-space-10)] p-0"
+        : "h-[var(--lv-space-10)] px-[var(--lv-space-5)] text-[length:var(--lv-text-base)]";
+    default -> iconOnly
+        ? "h-[var(--lv-space-9)] w-[var(--lv-space-9)] p-0"
+        : "h-[var(--lv-space-9)] px-[var(--lv-space-4)] text-[length:var(--lv-text-sm)]";
+  };}
+!{var variantClass = switch (variant) {
+    case "ghost"     -> "bg-transparent border-transparent text-[var(--lv-color-fg)] hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] aria-[pressed=true]:bg-[var(--lv-color-accent)] aria-[pressed=true]:text-[var(--lv-color-accent-fg)] aria-[pressed=true]:border-transparent";
+    case "primary"   -> "bg-[var(--lv-color-primary)] border-[var(--lv-color-primary)] text-[var(--lv-color-primary-fg)] hover:brightness-90 aria-[pressed=true]:brightness-90";
+    case "secondary" -> "bg-[var(--lv-color-secondary)] border-[var(--lv-color-secondary)] text-[var(--lv-color-secondary-fg)] hover:brightness-95 aria-[pressed=true]:bg-[var(--lv-color-accent)] aria-[pressed=true]:text-[var(--lv-color-accent-fg)] aria-[pressed=true]:border-[var(--lv-color-accent)]";
+    default          -> "bg-[var(--lv-color-bg)] border-[var(--lv-color-border)] text-[var(--lv-color-fg)] hover:bg-[var(--lv-color-accent)] hover:text-[var(--lv-color-accent-fg)] aria-[pressed=true]:bg-[var(--lv-color-accent)] aria-[pressed=true]:text-[var(--lv-color-accent-fg)] aria-[pressed=true]:border-[var(--lv-color-accent)]";
+  };}
+!{var dataAttrsMerged = new java.util.LinkedHashMap<String, String>();}
+!{dataAttrsMerged.putAll(dataAttrs);}
+!{dataAttrsMerged.putAll(wireArgs);}
+!{var dataAttrs_ = new StringOutput();}
+!{for (var e : dataAttrsMerged.entrySet()) {
+    if (e.getKey() != null && e.getKey().matches("[A-Za-z][A-Za-z0-9-]*")) {
+      dataAttrs_.writeContent(" data-" + e.getKey() + "=\"");
+      Escape.htmlAttribute(e.getValue() == null ? "" : e.getValue(), dataAttrs_);
+      dataAttrs_.writeContent("\"");
+    }
+  }}
+!{var dataAttrsMarkup = dataAttrs_.toString();}
 
 <button
-  data-slot="toggle"
   type="button"
-  aria-pressed="${pressed ? "true" : "false"}"
-  aria-invalid="${invalid ? "true" : null}"
-  aria-label="${ariaLabel}"
+  data-slot="toggle"
   data-variant="${variant}"
   data-size="${size}"
-  data-value="${value}"
+  data-pressed="${pressed ? "true" : "false"}"
+  aria-pressed="${pressed ? "true" : "false"}"
+  aria-label="${ariaLabel}"
+  aria-describedby="${ariaDescribedBy}"
   disabled="${disabled}"
-  l:click="${pressedAction}"
-  class="inline-flex items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border border-transparent bg-transparent text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] outline-none transition-[color,box-shadow] hover:bg-[var(--lv-color-surface)] focus-visible:shadow-[var(--lv-ring)] disabled:pointer-events-none disabled:opacity-50 data-[variant=outline]:border-[var(--lv-color-border)] data-[size=sm]:h-[var(--lv-space-8)] data-[size=sm]:min-w-[var(--lv-space-8)] data-[size=sm]:px-[var(--lv-space-2)] data-[size=default]:h-[var(--lv-space-9)] data-[size=default]:min-w-[var(--lv-space-9)] data-[size=default]:px-[var(--lv-space-3)] data-[size=lg]:h-[var(--lv-space-10)] data-[size=lg]:min-w-[var(--lv-space-10)] data-[size=lg]:px-[var(--lv-space-4)] aria-[pressed=true]:bg-[var(--lv-color-accent)] aria-[pressed=true]:text-[var(--lv-color-accent-fg)] aria-[invalid=true]:border-[var(--lv-color-destructive)] aria-[invalid=true]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_20%,transparent)] ${cssClass}"
+  l:click="${(wireClick != null && !wireClick.isBlank()) ? wireClick : null}"
+  class="inline-flex items-center justify-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-md)] border font-[var(--lv-font-medium)] outline-none transition-[color,background-color,box-shadow] focus-visible:shadow-[var(--lv-ring)] disabled:pointer-events-none disabled:opacity-50 ${variantClass} ${sizeClass} ${cssClass}"
   style="font-family:var(--lv-font-sans);"
->
-  @if(icon != null && !icon.isBlank())
-    <span aria-hidden="true" class="flex shrink-0 items-center">
-      @template.lievit.icon(name = icon, size = "1rem")
-    </span>
-  @endif
-  @if(content != null)${content}@endif
-</button>
+  $unsafe{dataAttrsMarkup}
+  $unsafe{attrs}
+>@if(leading != null)${leading}@endif${content}@if(trailing != null)${trailing}@endif</button>

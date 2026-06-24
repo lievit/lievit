@@ -1,9 +1,9 @@
 {
   "name": "loading-section",
   "type": "registry:jte",
-  "description": "A centred loading placeholder for a whole region: a spinner with an optional caption, framed in a token-styled box that reserves height so content does not jump. The Filament loading-section equivalent. Composes the spinner primitive; plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "Unified loading state component: three modes (spinner/skeleton/section) in one partial. spinner: SVG ring for action feedback. skeleton: shimmer layout placeholder. section: real content slot with overlay spinner for blocking async ops. role=status/region, aria-live, fullPage overlay, showTip, CSP-clean. Zero JS.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "spinner"],
+  "registryDependencies": ["tokens", "skeleton"],
   "files": [
     {
       "path": "jte/loading-section.jte",
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the loading-section partial to your JTE root at lievit/loading-section.jte, reached as @template.lievit.loading-section(label=..., bordered=..., caption=...). It composes @template.lievit.spinner, so `lievit add loading-section` pulls the spinner too. Swap it for the real content once loaded (htmx target / wire morph). The source is yours: edit freely."
+  "docs": "Copies loading-section.jte to your JTE root at lievit/loading-section.jte. Three modes: @template.lievit.loading-section() (spinner, default), @template.lievit.loading-section(mode=\"skeleton\", skeletonShape=\"lines\"), @template.lievit.loading-section(mode=\"section\") { content }. Self-contained: no cross-partial deps at runtime. The source is yours: edit freely."
 }

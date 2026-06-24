@@ -1,7 +1,7 @@
 {
   "name": "kbd",
   "type": "registry:jte",
-  "description": "A keyboard-key badge: the small recessed pill that shows a shortcut key (Ctrl, Cmd, Esc). Renders the semantic <kbd> element (screen-reader-correct), token-styled with the muted fill + a 1px border. Ships the KbdGroup child partial (data-slot=kbd-group) that wraps several keys as one shortcut (e.g. 'Ctrl + K'). Server-first PARTIAL, zero JS, CSP-clean.",
+  "description": "A keyboard-key badge (v-next): the small recessed pill that shows a shortcut key (Ctrl, Cmd, Esc) or a chord (Ctrl+K). Takes a List<String> of key names; a single-entry list renders one <kbd>; a multi-entry list renders an outer <kbd> wrapping inner <kbd> elements with a separator. Size scale (sm|md|lg); ariaLabel smart attr; monospace font via --lv-font-mono. Renders the semantic <kbd> element (screen-reader-correct), token-styled with muted fill + 1px border. Server-first PARTIAL, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -19,5 +19,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the kbd partial (+ its kbd/group child) to your JTE root at lievit/kbd.jte, reached as @template.lievit.kbd(key=\"Esc\"). Pass key for plain text or a content slot for rich children (content wins). Group several keys into one shortcut with @template.lievit.kbd.group(content=@`@template.lievit.kbd(key=\"Ctrl\") + @template.lievit.kbd(key=\"K\")`). The source is yours: edit freely."
+  "docs": "Copies the kbd partial (+ its kbd/group child) to your JTE root at lievit/kbd.jte, reached as @template.lievit.kbd(keys=java.util.List.of(\"Esc\")). v-next: pass a single-element list for one key, a multi-element list for a chord (Ctrl+K). Size: sm|md|lg. ariaLabel overrides the AT announcement when needed. The source is yours: edit freely."
 }

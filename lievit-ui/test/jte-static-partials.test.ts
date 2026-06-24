@@ -94,52 +94,104 @@ describe("static JTE partials: house rules", () => {
 
 describe("skeleton.jte", () => {
   const src = read("skeleton.jte");
-  test("declares its params", () => {
-    for (const p of ["shape", "width", "height", "klass", "label"]) {
-      expect(src).toMatch(new RegExp(`@param String ${p}`));
-    }
+  const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+  test("v-next: declares new params (size, active, skeletonRows, skeletonShape, label)", () => {
+    expect(src).toContain('@param String size = "md"');
+    expect(src).toContain("@param boolean active = true");
+    expect(src).toContain("@param int skeletonRows = 3");
+    expect(src).toContain('@param String skeletonShape = "lines"');
+    expect(src).toContain('@param String label = "Loading…"');
   });
-  test("is an aria-live status with a pulse animation", () => {
-    expect(src).toContain('role="status"');
-    expect(src).toContain('aria-busy="true"');
-    expect(src).toContain("animate-pulse");
+  test("v-next: old params removed (shape, width, height, klass)", () => {
+    expect(src).not.toContain("@param String shape");
+    expect(src).not.toContain("@param String width");
+    expect(src).not.toContain("@param String height");
+    expect(src).not.toContain("@param String klass");
   });
-  test("draws its fill from the muted token, not a hardcoded colour", () => {
-    expect(src).toContain("var(--lv-color-muted)");
-    expect(src).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+  test("is an aria-live status with role=status (shimmer replaces pulse)", () => {
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain('aria-live="polite"');
+    // v-next uses shimmer (lv-skeleton--active class + skeleton.css), not animate-pulse.
+    expect(markup).not.toContain("animate-pulse");
+    expect(markup).toContain("lv-skeleton--active");
+  });
+  test("draws fill from --lv-skeleton-bg token, not hardcoded colour", () => {
+    expect(src).toContain("--lv-skeleton-bg");
+    expect(markup).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 });
 
 describe("aspect-ratio.jte", () => {
   const src = read("aspect-ratio.jte");
-  test("takes a ratio param and a Content child", () => {
-    expect(src).toMatch(/@param String ratio/);
+  test("takes ratioX + ratioY int params (v-next: typed ints replacing single String ratio) and a Content child", () => {
+    // v-next: OLD @param String ratio (e.g. "16/9") → NEW @param int ratioX + @param int ratioY.
+    // Typed ints make the call-site type-safe; the template owns CSS formatting.
+    expect(src).toMatch(/@param int ratioX/);
+    expect(src).toMatch(/@param int ratioY/);
     expect(src).toMatch(/@param gg\.jte\.Content content/);
+    // old single String ratio param is gone
+    expect(src).not.toMatch(/@param String ratio\b/);
   });
-  test("uses the native CSS aspect-ratio property (not the padding-bottom hack)", () => {
-    expect(src).toContain("aspect-ratio:${ratio}");
+  test("uses the native CSS aspect-ratio property via --lv-ar-ratio custom property (two-element pattern)", () => {
+    // v-next: the ratio is emitted as a CSS custom property --lv-ar-ratio on the outer div
+    // (value: e.g. "16 / 9"), and the inner div enforces it via aspect-ratio:var(--lv-ar-ratio).
+    // Two-element pattern: outer = framing (overflow/border-radius); inner = ratio enforcement.
+    expect(src).toContain("--lv-ar-ratio");
+    expect(src).toContain("aspect-ratio:var(--lv-ar-ratio)");
     // check the MARKUP only (the doc comment mentions the legacy hack on purpose)
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).not.toContain("padding-bottom");
+    // two-element pattern: outer + inner slots
+    expect(markup).toContain('data-slot="aspect-ratio"');
+    expect(markup).toContain('data-slot="aspect-ratio-inner"');
   });
   test("renders the slotted content", () => {
     expect(src).toContain("${content}");
   });
 });
 
-describe("kbd.jte", () => {
+describe("kbd.jte (v-next)", () => {
   const src = read("kbd.jte");
   test("renders the semantic <kbd> element", () => {
     expect(src).toMatch(/<kbd[\s>]/);
     expect(src).toContain("</kbd>");
   });
-  test("content takes precedence over the key string", () => {
-    expect(src).toContain("@if(content != null)${content}@else${key}@endif");
+  test("carries data-slot=kbd and data-size", () => {
+    expect(src).toContain('data-slot="kbd"');
+    expect(src).toContain('data-size="${size}"');
   });
-  test("is non-selectable and token-styled", () => {
+  test("v-next: takes a List<String> keys param (replaces key/content string params)", () => {
+    expect(src).toContain("@param java.util.List<String> keys");
+    // old string params are gone
+    expect(src).not.toContain("@param String key");
+    expect(src).not.toContain("@param gg.jte.Content content");
+  });
+  test("single key (keys.size()==1) renders one <kbd>", () => {
+    // The chord branch wraps inner <kbd> elements; the single branch renders one directly
+    expect(src).toContain("keys.size() > 1");
+  });
+  test("chord (keys.size()>1) renders outer <kbd> wrapping inner <kbd> per key", () => {
+    // inner <kbd> in the chord branch
+    expect(src).toContain('<kbd class="${innerBase}">');
+  });
+  test("ariaLabel is a smart attribute (emitted only when non-null)", () => {
+    expect(src).toContain('@param String ariaLabel = null');
+    expect(src).toContain('aria-label="${ariaLabel}"');
+  });
+  test("size param drives text and padding tokens (sm/md/lg)", () => {
+    expect(src).toContain("var(--lv-text-xs)");
+    expect(src).toContain("var(--lv-text-sm)");
+    expect(src).toContain("var(--lv-text-base)");
+    expect(src).toContain("var(--lv-space-2)");
+    expect(src).toContain("var(--lv-space-1)");
+  });
+  test("is non-selectable", () => {
     expect(src).toContain("select-none");
+  });
+  test("token-driven bg, border, and monospace font", () => {
     expect(src).toContain("var(--lv-color-muted-bg)");
     expect(src).toContain("var(--lv-color-border)");
+    expect(src).toContain("var(--lv-font-mono)");
   });
 });
 
@@ -521,10 +573,13 @@ describe("toggle.jte", () => {
     const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).toMatch(/<button[\s\n]/);
     expect(markup).toContain('aria-pressed="${pressed ? "true" : "false"}"');
-    expect(markup).toContain('l:click="${pressedAction}"');
+    // v-next: wireClick replaces pressedAction; smart attribute omits l:click when blank
+    expect(src).toContain("wireClick != null && !wireClick.isBlank()");
+    expect(markup).toContain("l:click=");
   });
-  test("the optional icon comes from the Lucide icon partial, token-styled", () => {
-    expect(src).toContain("@template.lievit.icon(name = icon");
+  test("carries focus-visible ring via --lv-ring token (icon via content/leading/trailing slots)", () => {
+    // v-next: icon string param removed; icons go through leading/trailing Content slots
+    expect(src).not.toContain("@param String icon");
     expect(src).toContain("var(--lv-ring)");
   });
 });

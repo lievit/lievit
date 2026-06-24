@@ -2,14 +2,19 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Parametrized padding + optional ruled header on card.jte (the de-opinionation fix).
+ * card-pad.test.ts — v-next: the old `pad` + `divided` API is gone.
  *
- * shadcn's card hardcodes the level-6 spacing token for the gap, the vertical padding, and every
- * region's horizontal padding, and gest forked _partials/card.jte to get a tight content panel.
- * This pins the two knobs that remove the fork: pad (none|sm|md|lg, default md=the old level-6
- * baseline) scaling ALL the spacing off ONE token, and divided (default false) opting into a
- * ruled separator under the header / above the footer without a forced divider. As with the other
- * static-partials suites, this asserts on the partial SOURCE as text.
+ * HISTORY: this file was originally "Parametrized padding + optional ruled header on card.jte",
+ * pinning the `pad` (none|sm|md|lg) + `divided` (boolean) de-opinionation fix that avoided a
+ * gest fork. In the Wave 3 re-forge both params were removed:
+ *   - `pad` → replaced by `size` (sm|md|lg) + `noPadding` (boolean). The size param drives
+ *     body, header, and footer padding off per-region space tokens (not one shared token).
+ *   - `divided` → the separator under the header is now ALWAYS-RENDERED (aria-hidden, space-token
+ *     height) when a header is present. There is no opt-in; the UI contract requires the separator.
+ *
+ * This file now pins the *new* spacing/separator surface introduced by size + noPadding, asserting
+ * the same goals (caller controls density; no forced fork) on the new API. The full API + variant
+ * + a11y contract lives in test/card.test.ts.
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -18,116 +23,83 @@ import { join } from "node:path";
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const src = readFileSync(join(jteDir, "card.jte"), "utf8");
 
-/** pad level -> the single spacing token it drives (gap + surface py + per-region px). */
-const PAD_SCALE: ReadonlyArray<readonly [string, string | null]> = [
-  ["none", null],
-  ["sm", "--lv-space-3"],
-  ["md", "--lv-space-6"], // the shadcn level-6 baseline + default
-  ["lg", "--lv-space-8"],
-];
-
-describe("card -- parametrized padding (pad)", () => {
-  test("declares pad with the documented default md", () => {
-    expect(src, "pad param missing").toContain('@param String pad = "md"');
+describe("card -- size param replaces the old pad param (three-level density control)", () => {
+  test('declares size with default "md"', () => {
+    expect(src).toContain('@param String size = "md"');
   });
 
-  for (const [level, token] of PAD_SCALE) {
-    test(`pad="${level}" maps to ${token ?? "no-spacing (none)"}`, () => {
-      if (token === null) {
-        // "none" -> the caller owns spacing: gap-0 + py-0 + px-0, no token.
-        expect(src).toMatch(/case "none"\s*->\s*"gap-0"/);
-        expect(src).toMatch(/case "none"\s*->\s*"py-0"/);
-        expect(src).toMatch(/case "none"\s*->\s*"px-0"/);
-      } else {
-        // the level drives gap + py + px off the SAME token (each as a full var() utility).
-        expect(src, `gap ${level} must drive ${token}`).toContain(`gap-[var(${token})]`);
-        expect(src, `py ${level} must drive ${token}`).toContain(`py-[var(${token})]`);
-        expect(src, `px ${level} must drive ${token}`).toContain(`px-[var(${token})]`);
-      }
-    });
-  }
-
-  test("ONE token drives gap + surface py + per-region px (internal consistency at any density)", () => {
-    // the three classes are computed per-level (one token), not hardcoded to level-6 anymore.
-    expect(src).toMatch(/var gapClass = switch \(pad\)/);
-    expect(src).toMatch(/var surfacePyCls = switch \(pad\)/);
-    expect(src).toMatch(/var regionPxCls = switch \(pad\)/);
-    // and they are interpolated onto the elements.
-    expect(src).toContain("${gapClass}");
-    expect(src).toContain("${surfacePyCls}");
-    expect(src).toContain("${regionPxCls}");
+  test("sm size maps body padding to --lv-space-3 (tight layout)", () => {
+    expect(src).toContain("var(--lv-space-3)");
+    expect(src).toMatch(/case "sm"/);
   });
 
-  test("the surface no longer hardcodes the level-6 gap/padding (the fork cause is gone)", () => {
-    // the old fixed gap-[var(--lv-space-6)] + py-[var(--lv-space-6)] on the surface are now tokenized.
-    expect(src, "surface gap must be parametrized").not.toContain("flex flex-col gap-[var(--lv-space-6)]");
-    expect(src, "per-region px must be parametrized").not.toContain('class="px-[var(--lv-space-6)] text-[length:var(--lv-text-base)]"');
+  test("md size maps body padding to --lv-space-4 (standard layout; md is the switch default branch)", () => {
+    expect(src).toContain("var(--lv-space-4)");
+    // md is the default case in the switch (no explicit case "md" label); the token must be present.
+    expect(src).toContain("var(--lv-space-4)");
   });
 
-  test('pad="none" collapses all spacing to *-0 so the caller owns it', () => {
-    expect(src).toContain('gap-0');
-    expect(src).toContain('py-0');
-    expect(src).toContain('px-0');
+  test("lg size maps body padding to --lv-space-6 (spacious layout)", () => {
+    expect(src).toContain("var(--lv-space-6)");
+    expect(src).toMatch(/case "lg"/);
+  });
+
+  test("data-size attribute on root lets the caller target density via CSS/JS without a fork", () => {
+    expect(src).toContain('data-size="${size}"');
+  });
+
+  test("old pad param is GONE (the rename removes the fork source)", () => {
+    // The old @param String pad = "md" that drove the gest fork is replaced by size.
+    expect(src).not.toContain('@param String pad');
+    expect(src).not.toMatch(/var gapClass = switch \(pad\)/);
+    expect(src).not.toMatch(/var surfacePyCls = switch \(pad\)/);
   });
 });
 
-describe("card -- optional ruled header/footer (divided)", () => {
-  test("declares divided as a boolean defaulting to false (borderless shadcn card)", () => {
-    expect(src, "divided param missing").toContain("@param boolean divided = false");
+describe("card -- noPadding replaces pad='none' (full-bleed content)", () => {
+  test("declares noPadding boolean (false by default, preserving the normal padding contract)", () => {
+    expect(src).toContain("@param boolean noPadding = false");
   });
 
-  test("divided=true adds a border-bottom under the header and a border-top above the footer", () => {
-    expect(src).toMatch(/divided \?\s*" border-b border-\[var\(--lv-color-border\)\]/);
-    expect(src).toMatch(/divided \?\s*" border-t border-\[var\(--lv-color-border\)\]/);
-  });
-
-  test("divided=false adds NO divider (the header stays optional, no forced rule)", () => {
-    // the ternaries fall to "" when not divided -> no border class injected.
-    expect(src).toMatch(/headerDivCls = divided \? [^;]*: "";/);
-    expect(src).toMatch(/footerDivCls = divided \? [^;]*: "";/);
-    expect(src).toContain("${headerDivCls}");
-    expect(src).toContain("${footerDivCls}");
-  });
-
-  test("the header is still OPTIONAL (renders only when a title/description/action is supplied)", () => {
-    expect(src).toContain("@if(hasHeader)");
-    expect(src).toContain("!{var hasHeader = hasTitle || description != null || action != null;}");
+  test("noPadding=true strips body padding to 0 so table/image content bleeds to the card edge", () => {
+    // The old pad="none" case used gap-0 + py-0 + px-0 on a shared token.
+    // v-next: noPadding strips only body padding (bodyPad = "0"); header retains its padding.
+    expect(src).toContain('noPadding ? "0"');
   });
 });
 
-describe("card -- back-compat with the existing slot set is preserved", () => {
-  test("the full shadcn slot set + data-slot regions are untouched", () => {
-    for (const slot of ["card", "card-header", "card-title", "card-description", "card-action", "card-content", "card-footer"]) {
-      expect(src, `data-slot="${slot}" missing`).toContain(`data-slot="${slot}"`);
-    }
+describe("card -- separator replaces the old divided param (always-present under header)", () => {
+  test("separator is ALWAYS rendered under header when header is present (no opt-in flag)", () => {
+    // The old divided=false (default) produced no divider; divided=true added a border.
+    // v-next: the separator is always present (data-slot=card-separator, aria-hidden=true,
+    // height driven by --lv-color-border). The UI contract requires it for visual hierarchy.
+    expect(src).toContain('data-slot="card-separator"');
+    expect(src).toMatch(/aria-hidden="true"[^>]*data-slot="card-separator"|data-slot="card-separator"[^>]*aria-hidden="true"/);
   });
 
-  test("the title-over-heading precedence + labelled-region a11y are unchanged", () => {
-    expect(src).toContain("@if(title != null)${title}@else${heading}@endif");
-    expect(src).toContain('role="${hasTitle ? "region" : null}"');
-    expect(src).toContain('aria-labelledby="${hasTitle ? headingId : null}"');
+  test("separator uses --lv-color-border token (not a hardcoded colour)", () => {
+    expect(src).toContain("var(--lv-color-border)");
   });
 
-  test("the pre-existing params (heading/headingId/title/description/action/footer/content) stay", () => {
-    expect(src).toContain("@param String heading = null");
-    expect(src).toContain('@param String headingId = "lv-card-heading"');
-    expect(src).toContain("@param gg.jte.Content title = null");
-    expect(src).toContain("@param gg.jte.Content description = null");
-    expect(src).toContain("@param gg.jte.Content action = null");
-    expect(src).toContain("@param gg.jte.Content footer = null");
-    expect(src).toContain("@param gg.jte.Content content");
+  test("old divided param is GONE (the separator is unconditional)", () => {
+    expect(src).not.toContain("@param boolean divided");
+    expect(src).not.toMatch(/headerDivCls/);
+    expect(src).not.toMatch(/footerDivCls/);
   });
 
-  test("the surface still reads the card tokens (tint + radius + elevation)", () => {
-    expect(src).toContain("bg-[var(--lv-color-card)]");
-    expect(src).toContain("rounded-[var(--lv-radius-xl)]");
-    expect(src).toContain("shadow-[var(--lv-shadow-sm)]");
-    expect(src).toContain("border-[var(--lv-color-border)]");
+  test("footer separator (card-separator-footer) is also always-rendered when footer is present", () => {
+    expect(src).toContain('data-slot="card-separator-footer"');
   });
+});
 
-  test("no inline <script>, no on* handlers (CSP-clean)", () => {
+describe("card -- no inline <script>, no on* handlers (CSP-clean smoke)", () => {
+  test("no inline <script> tag", () => {
     expect(src).not.toMatch(/<script/i);
-    const inlineHandlers = src.match(/\son[a-z]+=/gi) ?? [];
-    expect(inlineHandlers, `unexpected inline handlers: ${inlineHandlers.join(", ")}`).toEqual([]);
+  });
+
+  test("no inline on* handlers", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    const handlers = markup.match(/\son[a-z]+=/gi) ?? [];
+    expect(handlers, `unexpected inline handlers: ${handlers.join(", ")}`).toEqual([]);
   });
 });

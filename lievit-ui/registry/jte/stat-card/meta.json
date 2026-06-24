@@ -1,9 +1,9 @@
 {
   "name": "stat-card",
   "type": "registry:jte",
-  "description": "A KPI (key-metric) card: a heading, a big primary value, an optional description line carrying a trend icon (before/after the text), an optional leading icon, a semantic colour tint, and an optional whole-card link (the entire tile becomes one <a>). The dashboard stat tile the kit's io.lievit.kit.StatWidget resolves to (heading / value / description / icon / color / descriptionIcon + IconPosition / url + newTab). The inline sparkline rides an optional chart slot (a chart island), not the static card. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A single-metric KPI display card: prominent label + value + optional trend indicator (direction + delta magnitude) + leading/trailing/footer slots + optional whole-card link. Purely presentational PARTIAL; the server pre-formats the value. Variant drives a left-border accent colour; size drives the value font prominence (sm=2xl, md=3xl, lg=4xl). No enhancer, no client state.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon"],
+  "registryDependencies": ["tokens"],
   "files": [
     {
       "path": "jte/stat-card.jte",
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow"],
-  "docs": "Copies the stat-card partial to your JTE root at lievit/stat-card.jte, reached as @template.lievit.stat-card(heading=\"Annunci attivi\", value=\"142\"). Add a description + descriptionIcon for a trend line (iconPosition before|after), a leading icon, a color tint, and a url to make the whole tile a link (newTab to open in a new tab). Pass a chart island through the chart slot for the StatWidget sparkline. The source is yours: edit freely."
+  "docs": "Copies the stat-card partial to your JTE root at lievit/stat-card.jte, reached as @template.lievit.stat-card(title=\"Nuovi contatti\", value=\"284\"). Params: title (required), value (required, pre-formatted by controller), prefix/suffix for inline unit symbols, trend (up|down|neutral|none) + trendValue for the delta annotation, variant (default|info|success|warning|destructive) for a left-border accent, size (sm|md|lg) for typographic prominence, href to make the whole card a navigable link, loading=true for the skeleton state, and three content slots (leading, trailing, footer). Wire HTMX refresh via the attrs channel (trusted raw, static strings only). NOTE: --lv-text-4xl (used by size=lg) must be defined in your token file; it is not present in the base lievit-tokens.css as of v-next wave 1."
 }

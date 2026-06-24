@@ -1,9 +1,9 @@
 {
   "name": "link",
   "type": "registry:jte",
-  "description": "A standalone styled anchor: the Filament LinkComponent / the action LINK variant rendered as a real <a href>, with an optional leading or trailing Lucide icon and an optional trailing badge. Two variants drive the colour pair from the tokens: default (primary-coloured, underlines on hover, the shadcn link affordance) and muted (muted-foreground text darkening to full foreground on hover). A blank href degrades to an inert aria-disabled <span>; newTab opens in a new tab with rel=noopener noreferrer. Server-first PARTIAL (ADR-0012): no client state, no island, zero JS, CSP-clean. The dedicated render for io.lievit.kit.component.LinkView, which lievit-ui previously folded into the button partial.",
+  "description": "A standalone styled anchor (v-next): the navigation affordance (distinct from button's action affordance). Always renders <a>; when disabled, href is smart-dropped and aria-disabled is set. external=true adds target=_blank + rel=noopener noreferrer + sr-only hint + inline Unicode glyph (no icon partial dependency). Variant (default|muted|destructive|ghost) drives colour via tokens; size (sm|md|lg|inherit) drives font size. Extra attributes via trusted `attrs` + safe-escaped `dataAttrs`. Server-first PARTIAL (ADR-0012), zero JS, CSP-clean.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon", "badge"],
+  "registryDependencies": ["tokens"],
   "files": [
     {
       "path": "jte/link.jte",
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the link partial to your JTE root at lievit/link.jte, reached as @template.lievit.link(label=\"...\", href=\"...\"). A link is a navigation affordance (distinct from button's action affordance): a text-coloured anchor, not button chrome. variant drives the colour (default=primary underline-on-hover, muted=muted-fg darkening to fg); pass label for plain text or a content slot for rich children (content wins); icon + iconPosition (leading|trailing) compose the icon partial; badge + badgeVariant compose a trailing badge partial (e.g. a count); newTab adds target=_blank + rel=noopener noreferrer. A blank href renders an inert aria-disabled span styled identically. Requires the icon + badge partials. The source is yours: edit freely."
+  "docs": "Copies the link partial to your JTE root at lievit/link.jte, reached as @template.lievit.link(href=\"...\", content=@`...`). v-next: always a real <a>; disabled drops href + sets aria-disabled; external=true opens in new tab with sr-only hint and Unicode glyph; variant (default|muted|destructive|ghost); size (inherit|sm|md|lg); download param; ariaLabel; dataAttrs for safe per-row data. The source is yours: edit freely."
 }

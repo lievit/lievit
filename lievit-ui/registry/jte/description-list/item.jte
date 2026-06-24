@@ -17,6 +17,13 @@
   grid. An entry may span more columns via columnSpan (the kit Entry.columnSpan), applied to BOTH
   the dt and dd so the pair stays a grid cell-pair.
 
+  Text size is NOT set on dt/dd: it is inherited from the parent <dl> container, which drives it
+  via `size` (sm/md/lg). This keeps the pair's text density consistent with the container.
+
+  colon: when true (default) appends ":" to the rendered term text so authors write plain labels
+  ("Nome") and the colon is a formatting concern, not data. Set false for contexts that supply
+  their own punctuation or where a colon is semantically wrong.
+
   A11y: native <dt>/<dd> association; the term labels the value with no extra ARIA. `content` may be
   an infolist-entry (a badge / swatch / icon), which carries its own semantics.
 
@@ -24,28 +31,32 @@
     String term                   the label (a humanized attribute name).
     gg.jte.Content content        the value markup (string, badge, infolist-entry...).
     int columnSpan  = 1           parent grid columns this pair spans (the kit Entry.columnSpan).
+    boolean colon   = true        append ":" to the term text; set false to suppress.
     String cssClass = ""          extra utility classes on the <dd> value.
 
   Usage:
     @@template.lievit.description-list.item(term = "Email", content = @@`mario@@example.com`)
     @@template.lievit.description-list.item(term = "Stato", content = @@`@@template.lievit.badge(label = "Attivo", variant = "success")`)
     @@template.lievit.description-list.item(term = "Note", columnSpan = 2, content = @@`Cliente storico.`)
+    @@template.lievit.description-list.item(term = "Nome", colon = false, content = @@`Mario Rossi`)
 --%>
 @param String term
 @param gg.jte.Content content
 @param int columnSpan = 1
+@param boolean colon = true
 @param String cssClass = ""
 
 !{var span = Math.max(1, columnSpan);}
 !{var spanStyle = span > 1 ? "grid-column:span " + span + " / span " + span + ";" : "";}
+!{var termText = colon ? term + ":" : term;}
 
 <dt
   data-slot="description-list-term"
-  class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)]"
+  class="font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)]"
   style="${spanStyle}"
->${term}</dt>
+>${termText}</dt>
 <dd
   data-slot="description-list-value"
-  class="m-0 mb-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] ${cssClass}"
+  class="m-0 mb-[var(--lv-space-1)] font-[var(--lv-font-normal)] text-[var(--lv-color-fg)] ${cssClass}"
   style="${spanStyle}"
 >${content}</dd>

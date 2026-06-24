@@ -1,0 +1,38 @@
+/*
+ * Copyright 2026 Francesco Bilotta
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * lievit-ui skeleton component CSS.
+ *
+ * The shimmer animation and reduced-motion suppression are co-located here so the
+ * suppression rule lives next to the cause. All selector names carry the lv-skeleton
+ * prefix (namespaced, greppable). The keyframe is declared in lievit-tokens.css
+ * (lv-skeleton-shimmer) alongside the other lv-* keyframes.
+ *
+ * Tokens consumed: --lv-skeleton-bg, --lv-skeleton-shimmer (net-new, loading-section spec §5).
+ */
+
+/* Static fill: applied to every bar regardless of active state. */
+.lv-skeleton__bar {
+  background: var(--lv-skeleton-bg);
+}
+
+/* Shimmer: gradient + animation when the parent carries lv-skeleton--active. */
+.lv-skeleton--active .lv-skeleton__bar {
+  background: linear-gradient(
+    90deg,
+    var(--lv-skeleton-bg)      25%,
+    var(--lv-skeleton-shimmer) 50%,
+    var(--lv-skeleton-bg)      75%
+  );
+  background-size: 400% 100%;
+  animation: lv-skeleton-shimmer 1.5s var(--lv-motion-easing-in-out, ease-in-out) infinite;
+}
+
+/* Reduced motion: collapse to static fill, no animation. */
+@media (prefers-reduced-motion: reduce) {
+  .lv-skeleton--active .lv-skeleton__bar {
+    animation: none;
+    background: var(--lv-skeleton-bg);
+  }
+}

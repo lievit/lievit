@@ -1,7 +1,7 @@
 {
   "name": "spinner",
   "type": "registry:jte",
-  "description": "A busy indicator with role=status and an accessible label; respects prefers-reduced-motion. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "An animated SVG ring (background circle + foreground arc) that signals an indeterminate background operation. Two variants (default/primary), three sizes (sm/md/lg), role=status + aria-live for AT, animate-spin + motion-reduce:animate-none for reduced-motion. Zero JS, CSP-clean, inline-context safe (<span> root).",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "radius"],
-  "docs": "Copies the spinner partial to your JTE root at lievit/spinner.jte, reached as @template.lievit.spinner(size=..., label=...). The source is yours: edit freely."
+  "docs": "Copies the spinner partial to your JTE root at lievit/spinner.jte, reached as @template.lievit.spinner(size=..., variant=..., label=...). The root is a <span role=status> so it composes safely inside inline or flex contexts. The source is yours: edit freely."
 }

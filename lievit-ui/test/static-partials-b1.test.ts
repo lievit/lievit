@@ -166,24 +166,84 @@ describe("button-group (#432)", () => {
   });
 });
 
-describe("item (#435)", () => {
+describe("item (#435, v-next)", () => {
   const src = read("item");
-  test("exposes leading / content / trailing slots + variant + size", () => {
+  test("exposes leading / content / trailing slots + variant + size (v-next params)", () => {
     expect(src).toContain("@param gg.jte.Content content");
-    expect(src).toContain("@param gg.jte.Content leading");
-    expect(src).toContain("@param gg.jte.Content trailing");
+    expect(src).toContain("@param gg.jte.Content leading = null");
+    expect(src).toContain("@param gg.jte.Content trailing = null");
     expect(src).toContain("@param String variant");
     expect(src).toContain("@param String size");
+    // v-next new params
+    expect(src).toContain("@param String element");
+    expect(src).toContain("@param boolean disabled");
+    expect(src).toContain("@param String attrs");
+    expect(src).toContain("@param java.util.Map<String, String> dataAttrs");
+    // v-next removed: role param gone (element replaces it)
+    expect(src).not.toContain("@param String role");
   });
-  test("slots render only when provided (null-guarded)", () => {
+  test("v-next variant vocabulary: default|active|danger|muted (outline removed)", () => {
+    // active and danger are new; outline is gone
+    expect(src).toContain('"active"');
+    expect(src).toContain('"danger"');
+    expect(src).not.toContain('"outline"');
+  });
+  test("v-next size vocabulary: sm|md|lg (replaces default|sm)", () => {
+    expect(src).toContain('"sm"');
+    expect(src).toContain('"md"');
+    expect(src).toContain('"lg"');
+    // old `size.equals("sm")` singular branch is gone
+    expect(src).not.toContain("size.equals(\"default\")");
+  });
+  test("slots render only when provided (null-guarded), with correct data-slots", () => {
     expect(src).toContain("@if(leading != null)");
     expect(src).toContain("@if(trailing != null)");
+    expect(src).toContain('data-slot="item-leading"');
+    expect(src).toContain('data-slot="item-content"');
+    expect(src).toContain('data-slot="item-trailing"');
     expect(src).toContain("${content}");
   });
-  test("a11y: focus-visible ring via tokens, optional list role pass-through", () => {
-    expect(src).toContain("focus-visible:border-[var(--lv-color-ring)]");
+  test("root carries data-slot=item + data-variant + data-size", () => {
+    expect(src).toContain('data-slot="item"');
+    expect(src).toContain('data-variant="${variant}"');
+    expect(src).toContain('data-size="${size}"');
+  });
+  test("disabled: opacity-50 + pointer-events-none (no aria-disabled on a non-interactive element)", () => {
+    expect(src).toContain("opacity-50");
+    expect(src).toContain("pointer-events-none");
+    // no aria-disabled attribute in the markup (strip comments first -- the doc mentions it)
+    const itemMarkup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    expect(itemMarkup).not.toContain("aria-disabled");
+  });
+  test("variant classes reference correct token pairs", () => {
+    // default: accent hover
+    expect(src).toContain("var(--lv-color-accent)");
+    expect(src).toContain("var(--lv-color-accent-fg)");
+    // danger: destructive
+    expect(src).toContain("var(--lv-color-destructive)");
+    expect(src).toContain("var(--lv-color-destructive-fg)");
+    // muted
+    expect(src).toContain("var(--lv-color-muted-fg)");
+  });
+  test("size classes reference correct space tokens (min-h based)", () => {
+    expect(src).toContain("var(--lv-space-8)");
+    expect(src).toContain("var(--lv-space-9)");
+    expect(src).toContain("var(--lv-space-10)");
+    expect(src).toContain("var(--lv-space-3)");
+    expect(src).toContain("var(--lv-space-2)");
+  });
+  test("a11y: focus-visible ring via tokens", () => {
     expect(src).toContain("focus-visible:shadow-[var(--lv-ring)]");
-    expect(src).toContain('role="${role}"');
+  });
+  test("dataAttrs values are escaped via Escape.htmlAttribute (XSS contract)", () => {
+    expect(src).toContain("@import gg.jte.html.escape.Escape");
+    expect(src).toMatch(/Escape\.htmlAttribute\(/);
+    expect(src).toContain("$unsafe{dataAttrsMarkup}");
+  });
+  test("no inline style= attributes with CSS custom property references", () => {
+    const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+    const styleAttrs = markup.match(/style="[^"]*var\(--lv-/g) ?? [];
+    expect(styleAttrs, `inline style with token ref: ${styleAttrs.join(", ")}`).toEqual([]);
   });
 });
 

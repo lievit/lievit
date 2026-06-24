@@ -1,7 +1,7 @@
 {
   "name": "item",
   "type": "registry:jte",
-  "description": "A composable list/menu row with the full shadcn compound vocabulary: the core item exposes leading (media) / content / trailing (actions) slots and variant (default | outline | muted) + size (default | sm); the typed child partials mirror shadcn's ItemTitle / ItemDescription / ItemHeader / ItemFooter / ItemGroup (role=list) / ItemSeparator / ItemMedia (default | icon | image), each its own data-slot. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A composable list/menu row (v-next). The core item exposes leading (media) / content / trailing (actions) slots; element param selects the root tag (li|dd|dt|div); variant (default|active|danger|muted) and size (sm|md|lg) drive token-based colour + height; disabled dims the row. Extra attributes via trusted `attrs` + safe-escaped `dataAttrs`. The typed child partials mirror shadcn ItemTitle / ItemDescription / ItemHeader / ItemFooter / ItemGroup / ItemSeparator / ItemMedia. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -55,5 +55,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the item partial (+ its item/title, item/description, item/header, item/footer, item/group, item/separator and item/media children) to your JTE root at lievit/item.jte, reached as @template.lievit.item(content=@`...`). Compose the content column from item.title + item.description (typed sub-parts, not free markup), span the row with item.header / item.footer, wrap a list of rows in item.group (role=list, give each item role=\"listitem\") and divide them with item.separator. Put a leading icon/image tile via item.media (variant icon | image). The source is yours: edit freely."
+  "docs": "Copies the item partial (+ its item/title, item/description, item/header, item/footer, item/group, item/separator and item/media children) to your JTE root at lievit/item.jte, reached as @template.lievit.item(content=@`...`). v-next: element selects the root tag (li|dd|dt|div); variant (default|active|danger|muted); size (sm|md|lg); disabled dims the row. dataAttrs carries safe-escaped per-row data. Compose the content column from item/title + item/description (typed sub-parts); span the row with item/header / item/footer; wrap a list of rows in item/group (role=list, give each item element=\"li\") and divide them with item/separator. Leading icon/image tile via item/media. The source is yours: edit freely."
 }

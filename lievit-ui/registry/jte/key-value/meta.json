@@ -1,7 +1,7 @@
 {
   "name": "key-value",
   "type": "registry:jte",
-  "description": "A read-only two-column table of key -> value pairs, the detail-page primitive Filament's KeyValueEntry needs (a resolved map shown as a small ruled table inside an infolist). An empty map renders the header row only. Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A read-only two-column table of key -> value pairs, the detail-page primitive Filament's KeyValueEntry needs (a resolved map shown as a small ruled table inside an infolist). bordered (default true) adds card chrome; striped alternates a surface tint on even rows; emptyMessage renders a full-width cell when the map is empty. th headers carry scope='col' for a11y; no redundant role='table' (native implicit role). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type"],
-  "docs": "Copies the key-value partial to your JTE root at lievit/key-value.jte, reached as @template.lievit.key-value(pairs=..., keyLabel=..., valueLabel=...). Pass an already-projected ordered Map<String,String> (the read side resolves it). The source is yours: edit freely."
+  "docs": "Copies the key-value partial to your JTE root at lievit/key-value.jte, reached as @template.lievit.key-value(pairs=..., keyLabel=..., valueLabel=...). Pass an already-projected ordered Map<String,String> (the read side resolves it). bordered=false removes the card chrome. striped=true alternates even rows with a surface tint. emptyMessage shows a full-width cell when the map is empty. The source is yours: edit freely."
 }

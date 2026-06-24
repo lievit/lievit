@@ -10,7 +10,7 @@
 
   TIER (planning two-tier model): STATIC presentational -> JTE partial. Pure layout over an
   already-projected ordered map; no client state, no lifecycle => not a Lit island, not a wire
-  component. An empty map renders the header row only (so the table still reads as "no entries").
+  component.
 
   STRUCTURE (scientific decision rule): the semantic shape for a labelled key/value grid is a real
   <table> with a <thead> (the keyLabel / valueLabel headers) + a <tbody> of <tr><td>key</td>
@@ -18,44 +18,76 @@
   Filament's KeyValueEntry renders exactly this two-column ruled table, so we ship it as the
   primitive. NOT description-list (that is a dt/dd grid for a record's fields, not a homogeneous
   map with column headers); NOT data-table (no sorting / selection / pagination).
+  A native <table> carries the implicit table role (WAI-ARIA 1.2 §4.c prohibits a redundant
+  prohibits duplicating the implicit ARIA role of a host-language semantic element).
 
   TOKEN FIDELITY: the border reads --lv-color-border, the radius --lv-radius-md, headers read
   --lv-color-muted-fg, cell text --lv-color-fg, padding the space scale; a retheme retints the
   whole table without a markup edit.
 
-  A11y: a native <table> with a <thead> labels each column for assistive tech; the table is
+  bordered: wraps the table in a card chrome (border + radius + overflow:hidden) when true (default).
+  striped: alternates a surface tint on even rows via --lv-color-surface for readability on long maps.
+  emptyMessage: when set, renders a full-width cell when the pairs map is empty instead of an empty
+  tbody. When null, the tbody is left empty (no row rendered, only the header).
+
+  A11y: native <table> with <thead> labels each column via scope="col" on each <th>; the table is
   read-only content, not a control, so no extra ARIA is needed.
 
   Params:
     pairs      Map<String,String>   the ordered key -> value pairs (already projected to strings).
     keyLabel   String  = "Key"      the key-column header.
     valueLabel String  = "Value"    the value-column header.
+    boolean bordered   = true       wrap the table in bordered card chrome (border + radius).
+    boolean striped    = false      tint even rows with --lv-color-surface for readability.
+    String emptyMessage = null      message when pairs is empty; null => empty tbody.
     cssClass   String  = ""         extra utility classes on the table root.
 
   Usage:
     @@template.lievit.key-value(pairs = pairs, keyLabel = "Field", valueLabel = "Value")
+    @@template.lievit.key-value(pairs = pairs, striped = true, emptyMessage = "No entries yet.")
 --%>
 @param Map<String, String> pairs
 @param String keyLabel = "Key"
 @param String valueLabel = "Value"
+@param boolean bordered = true
+@param boolean striped = false
+@param String emptyMessage = null
 @param String cssClass = ""
+
+!{var borderedClass = bordered
+    ? "border border-[var(--lv-color-border)] rounded-[var(--lv-radius-md)] overflow-hidden"
+    : "";}
+
 <table
-    data-slot="key-value"
-    class="w-full border-collapse text-[length:var(--lv-text-sm)] ${cssClass}"
-    style="font-family: var(--lv-font-sans); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); overflow: hidden;"
+  data-slot="key-value"
+  data-bordered="${bordered}"
+  data-striped="${striped}"
+  class="w-full border-collapse text-[length:var(--lv-text-sm)] ${borderedClass} ${cssClass}"
+  style="font-family:var(--lv-font-sans);"
 >
-    <thead>
-        <tr>
-            <th data-slot="key-value-key-head" style="text-align: left; padding: var(--lv-space-2); font-weight: var(--lv-font-medium); color: var(--lv-color-muted-fg); border-bottom: 1px solid var(--lv-color-border);">${keyLabel}</th>
-            <th data-slot="key-value-value-head" style="text-align: left; padding: var(--lv-space-2); font-weight: var(--lv-font-medium); color: var(--lv-color-muted-fg); border-bottom: 1px solid var(--lv-color-border);">${valueLabel}</th>
+  <thead>
+    <tr>
+      <th data-slot="key-value-key-head" scope="col" class="text-left px-[var(--lv-space-3)] py-[var(--lv-space-2)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] border-b border-[var(--lv-color-border)]">${keyLabel}</th>
+      <th data-slot="key-value-value-head" scope="col" class="text-left px-[var(--lv-space-3)] py-[var(--lv-space-2)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted-fg)] border-b border-[var(--lv-color-border)]">${valueLabel}</th>
+    </tr>
+  </thead>
+  <tbody>
+    @if(pairs.isEmpty())
+      @if(emptyMessage != null)
+        <tr data-slot="key-value-row">
+          <td colspan="2" class="px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[var(--lv-color-muted-fg)] text-center">${emptyMessage}</td>
         </tr>
-    </thead>
-    <tbody>
-        @for(Map.Entry<String, String> pair : pairs.entrySet())
-            <tr data-slot="key-value-row" data-key="${pair.getKey()}">
-                <td style="padding: var(--lv-space-2); color: var(--lv-color-fg); border-top: 1px solid var(--lv-color-border);">${pair.getKey()}</td>
-                <td style="padding: var(--lv-space-2); color: var(--lv-color-fg); border-top: 1px solid var(--lv-color-border);">${pair.getValue()}</td>
-            </tr>
-        @endfor
-    </tbody>
+      @endif
+    @else
+      !{int[] _idx = {0};}
+      @for(Map.Entry<String, String> pair : pairs.entrySet())
+        !{_idx[0]++;}
+        !{var rowClass = (striped && _idx[0] % 2 == 0) ? "bg-[var(--lv-color-surface)]" : "";}
+        <tr data-slot="key-value-row" class="${rowClass}">
+          <td class="px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[var(--lv-color-fg)] font-[var(--lv-font-normal)] border-t border-[var(--lv-color-border)]">${pair.getKey()}</td>
+          <td class="px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[var(--lv-color-fg)] font-[var(--lv-font-normal)] border-t border-[var(--lv-color-border)]">${pair.getValue()}</td>
+        </tr>
+      @endfor
+    @endif
+  </tbody>
 </table>

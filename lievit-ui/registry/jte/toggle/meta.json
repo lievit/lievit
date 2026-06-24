@@ -1,9 +1,9 @@
 {
   "name": "toggle",
   "type": "registry:jte",
-  "description": "A two-state pressed <button> (aria-pressed) with shadcn variants/sizes and an optional Lucide icon. The pressed state is server-owned (data down); the click is wired via l:click. Server-first replacement for the Lit island.",
+  "description": "A two-state pressed <button> (WAI-ARIA APG Toggle Button: aria-pressed) with four variants (outline/ghost/primary/secondary), three toolbar-aligned sizes (sm/md/lg), optional leading/trailing slots, and icon-only square mode. The pressed state is server-owned (data down); CSS [aria-pressed=true] drives the visual without JS. Click wired via wireClick + wireArgs (SAFE escaped) or a static attrs string (TRUSTED raw). Server-first replacement for the Lit island toggle.",
   "dependencies": [],
-  "registryDependencies": ["tokens", "icon"],
+  "registryDependencies": ["tokens"],
   "files": [
     {
       "path": "jte/toggle.jte",
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "ring"],
-  "docs": "Copies the toggle partial to your JTE root at lievit/toggle.jte, reached as @template.lievit.toggle(...). Render `pressed` from the controller and wire `pressedAction` (l:click) to the wire action that flips it. `variant` (default|outline), `size` (sm|default|lg), optional `icon`; set `ariaLabel` for icon-only toggles. Requires the icon partial. The source is yours: edit freely."
+  "docs": "Copies the toggle partial to your JTE root at lievit/toggle.jte, reached as @template.lievit.toggle(...). Render `pressed` from the controller; wire `wireClick` (SAFE action name) + `wireArgs` (SAFE Map) to the action that flips it. `variant` (outline|ghost|primary|secondary), `size` (sm|md|lg). For icon-only toggles set `iconOnly=true` and supply `ariaLabel`. Use `leading` / `trailing` content slots for icons or badges flanking the label. Dynamic data-* go through `dataAttrs` (SAFE escaped Map); static directives go through `attrs` (TRUSTED raw). The source is yours: edit freely."
 }

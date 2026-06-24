@@ -1,7 +1,7 @@
 {
   "name": "card",
   "type": "registry:jte",
-  "description": "A surface container with the full shadcn slot set: title / description / action compose the header, content is the body, footer the optional bottom region (each a Content slot, the server-first equivalent of CardTitle/CardDescription/CardAction/CardContent/CardFooter). A title makes it a labelled region (role=region + aria-labelledby). Plain HTML + Tailwind + --lv-* tokens, zero JS, CSP-clean.",
+  "description": "A visual grouping surface (v-next). Five variants (default/outlined/elevated/ghost/destructive), three sizes (sm/md/lg), structured slots (leading/trailing/header/footer/content). The `as` param controls the root element (div/section/article) for correct landmark semantics; as=section with a title emits aria-labelledby for the region. No client state, no enhancer -- the card is a structural PARTIAL. The collapsible use-case is handled by composing the `accordion` WIRE component inside the content slot.",
   "dependencies": [],
   "registryDependencies": ["tokens"],
   "files": [
@@ -13,5 +13,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow"],
-  "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Compose the header from title + description + action slots (or the plain-text heading + headingId for back-compat) and add a footer slot; a title renders a labelled region. pad (none|sm|md|lg, default md=shadcn level-6) scales the gap + surface padding + per-region padding off one token, so a tight content panel uses pad=\"sm\" instead of forking; divided=true opts into a ruled separator under the header / above the footer (default false = borderless shadcn card). The source is yours: edit freely."
+  "docs": "Copies the card partial to your JTE root at lievit/card.jte, reached as @template.lievit.card(content=@`...`). Choose variant (default/outlined/elevated/ghost/destructive), size (sm/md/lg), and supply content + optional leading/trailing/header/footer slots. Set as=\"section\" + title for a labelled region landmark (aria-labelledby wired automatically). bordered=false removes the border ring; noPadding=true strips body padding for full-bleed content; fullHeight=true adds h-full for equal-height grid rows. Static author-typed ARIA goes in attrs; per-row dynamic data-* goes in dataAttrs (escaped). The source is yours: edit freely."
 }

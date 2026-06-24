@@ -140,40 +140,51 @@ describe("alert", () => {
 
 describe("card", () => {
   const src = read("card");
-  test("optional heading + headingId + a body content slot (back-compat)", () => {
-    expect(src).toContain("@param String heading");
-    expect(src).toContain("@param String headingId");
+  test("required body content slot + size/variant/title/titleId/subtitle/noPadding API (v-next re-forge)", () => {
+    // v-next: old heading/headingId/description/action Content params replaced by
+    // scalar title/titleTag/titleId/subtitle + Content slots: header/leading/trailing/footer/content.
+    expect(src).toContain("@param String title = null");
+    expect(src).toContain('@param String titleTag = "h3"');
+    expect(src).toContain('@param String titleId = "lv-card-title"');
+    expect(src).toContain("@param String subtitle = null");
+    expect(src).toContain("@param boolean noPadding = false");
     expect(src).toContain("@param gg.jte.Content content");
     expect(src).toContain("${content}");
   });
-  test("ships the full shadcn slot set: title / description / action / content / footer", () => {
-    // each distinct shadcn sub-component maps to a Content slot param + a data-slot region
-    expect(src).toContain("@param gg.jte.Content title");
-    expect(src).toContain("@param gg.jte.Content description");
-    expect(src).toContain("@param gg.jte.Content action");
-    expect(src).toContain("@param gg.jte.Content footer");
+  test("ships the v-next data-slot set: card-header / card-title / card-title-area / card-body / card-footer", () => {
+    // v-next: card-description + card-action + card-content slots removed;
+    // replaced by card-title-area, card-body, card-separator, card-separator-footer.
     expect(src).toContain('data-slot="card-header"');
     expect(src).toContain('data-slot="card-title"');
-    expect(src).toContain('data-slot="card-description"');
-    expect(src).toContain('data-slot="card-action"');
-    expect(src).toContain('data-slot="card-content"');
+    expect(src).toContain('data-slot="card-title-area"');
+    expect(src).toContain('data-slot="card-body"');
     expect(src).toContain('data-slot="card-footer"');
+    // leading and trailing slots for icon + action area
+    expect(src).toContain('data-slot="card-leading"');
+    expect(src).toContain('data-slot="card-trailing"');
   });
   test("each optional slot renders only when supplied (no empty regions)", () => {
-    expect(src).toContain("@if(description != null)");
-    expect(src).toContain("@if(action != null)");
+    expect(src).toContain("@if(subtitle != null)");
     expect(src).toContain("@if(footer != null)");
-    // the rich title slot wins over the plain heading (content-over-scalar)
-    expect(src).toContain("@if(title != null)${title}@else${heading}@endif");
+    // header renders when title or header slot is set
+    expect(src).toContain("var hasHeader = title != null || header != null;");
+    expect(src).toContain("@if(hasHeader)");
   });
-  test("a title makes it a labelled region; no title => no landmark", () => {
-    expect(src).toContain('role="${hasTitle ? "region" : null}"');
-    expect(src).toContain('aria-labelledby="${hasTitle ? headingId : null}"');
-    expect(src).toContain('id="${headingId}"');
+  test("landmark a11y: as=section + title => role=region + aria-labelledby; no title => no landmark", () => {
+    // v-next: root is always <div> (JTE forbids tag-name expressions); landmark comes via role.
+    // The _role variable is region when as=section+title, article when as=article, else null.
+    expect(src).toContain('"section".equals(as) && title != null');
+    expect(src).toContain('role="${_role}"');
+    expect(src).toContain('aria-labelledby="${ariaLabelledBy}"');
+    expect(src).toContain('id="${titleId}"');
   });
-  test("elevated surface via the shadow token", () => {
-    expect(src).toContain("shadow-[var(--lv-shadow-sm)]");
-    expect(src).toContain("border-[var(--lv-color-border)]");
+  test("always-rendered separator under header + shadow/border tokens (v-next surface)", () => {
+    // v-next: a visual separator (data-slot=card-separator, aria-hidden) is always present
+    // under the header region. Ghost/elevated variants suppress borders via inline style,
+    // not by omitting the element.
+    expect(src).toContain('data-slot="card-separator"');
+    expect(src).toContain("var(--lv-shadow-xs)");
+    expect(src).toContain("var(--lv-color-border)");
   });
 });
 
@@ -245,9 +256,16 @@ describe("spinner", () => {
     expect(src).toContain('aria-label="${label}"');
     expect(src).toContain("motion-reduce:animate-none");
   });
-  test("ring colours read tokens", () => {
-    expect(src).toContain("border-[var(--lv-color-border)]");
-    expect(src).toContain("border-t-[var(--lv-color-primary)]");
+  test("ring colours read tokens (v-next: SVG ring, not border-trick)", () => {
+    // v-next: the border-trick ring (border + border-t coloured) is REPLACED by an SVG ring
+    // (two <circle> strokes). Colours are set via inline style="color:${strokeColor};" where
+    // strokeColor resolves to --lv-color-muted-fg (default) or --lv-color-primary (primary variant).
+    // The old border-[var(--lv-color-border)] + border-t-[var(--lv-color-primary)] classes are gone.
+    expect(src).toContain("var(--lv-color-muted-fg)");
+    expect(src).toContain("var(--lv-color-primary)");
+    // SVG ring anatomy: background track + foreground arc
+    expect(src).toContain("stroke-dasharray");
+    expect(src).toContain("stroke-dashoffset");
   });
 });
 
