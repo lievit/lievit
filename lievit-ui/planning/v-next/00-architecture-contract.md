@@ -197,6 +197,11 @@ SAME SHAPE of API so 60 agents produce a coherent library, not 60 dialects.
   Filament toolbar-alignment decision, `button.jte`): `sm → --lv-space-8` (32px), `md → --lv-space-9`
   (36px, the default + shadcn baseline), `lg → --lv-space-10` (40px). A `button`, `input`, `native-select`
   of the same size are pixel-aligned. Every form-control + button v-next component obeys this scale.
+- The `sm | md | lg` height-based scale is mandatory ONLY for **form controls and action buttons** (the
+  toolbar-alignment constraint above). A **display / presentational** component whose natural sizing axis
+  differs (a diameter, an icon glyph box) MAY extend the vocabulary (e.g. `xs | sm | md | lg | xl | 2xl`),
+  provided it justifies it in §3 of its spec. `avatar` (diameter-based) and `icon` (glyph box) are the
+  reference examples (consistency-report D5); they are deliberately NOT toolbar-pixel-aligned.
 
 ### 5.c States (token-driven, ARIA-reflected)
 
