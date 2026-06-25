@@ -125,9 +125,12 @@ describe("3. command-palette static partial", () => {
     expect(markup).toContain('role="combobox"');
     expect(markup).toContain('role="listbox"');
     expect(markup).toContain('role="option"');
-    // v-next: the command-enhancer mount hook is data-lievit-command on the panel (was the
-    // per-option data-command-label); the option label is the option's text content.
-    expect(markup).toContain("data-lievit-command");
+    // Stimulus conversion: the mount hook is data-controller="lv-command" on the panel (filter +
+    // Enter/Backspace + shortcut + focus-trap + dismiss doctrine via data-lv-wire-close). The
+    // legacy data-lievit-command enhancer is retired from the markup (deleted in a cleanup pass).
+    expect(markup).toContain('data-controller="lv-command"');
+    expect(markup).toContain("data-lv-wire-close");
+    expect(markup).not.toContain("data-lievit-command");
     expect(markup).not.toMatch(/<script/i);
     // the enhancer is CSP-clean: addEventListener, no eval/new Function, no Lit/floating-ui import.
     const ts = read("jte/command.enhancer.ts");

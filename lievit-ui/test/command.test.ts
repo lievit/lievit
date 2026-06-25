@@ -2,32 +2,57 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Tests for the v-next command palette (registry/jte/command.jte + command.enhancer.ts).
- * The palette is a CONTROLLED/UNCONTROLLED overlay rendered by the caller's Wire component.
+ * Tests for the v-next command palette (registry/jte/command.jte) converted to the
+ * `lv-command` Stimulus controller. The palette is a CONTROLLED/UNCONTROLLED overlay rendered
+ * by the caller's Wire component.
  *
- * Coverage:
+ * Substrate: happy-dom + the REAL @hotwired/stimulus Application started by startStimulus()
+ * (auto-loads controllers by filename) + the REAL LievitRuntime behind a fetch stub + the REAL
+ * lievit wire morph. No mocked $lievit, no mocked runtime: the stub captures the actual `_calls`
+ * the runtime POSTs. flushStimulus() awaits the MutationObserver.
+ *
+ * Coverage (every branch the command.enhancer + focus-trap.enhancer suite had, plus the doctrine
+ * and morph-safety the enhancer test could not state):
  *   - commandFilter: pure, DOM-free filter (blank query, substring, accent, no match)
- *   - activatePanel: filtering visible items, group hiding, empty state toggle
- *   - Enter dispatch: executeAction, openPageAction, href navigation
- *   - Backspace in nested page fires backToRootAction
- *   - Global shortcut (Ctrl+K) fires close while panel is in DOM
- *   - Idempotency of activatePanel
- *   - installCommandEnhancer: wires panels via onComponentInit + cleans up on afterCall
- *
- * Substrate: happy-dom (real LievitRuntime, real DOM, no mocked $lievit).
- * Pattern: build DOM, then start runtime so onComponentInit fires on the already-present panel.
+ *   - client-side filtering: seed, hide non-matching, empty state, restore on clear, group hiding
+ *   - Enter dispatch: executeAction, openPageAction, href navigation, disabled / no-active no-op
+ *   - Backspace in nested page fires backToRoot (and the no-op branches)
+ *   - close doctrine: Escape + global shortcut fire close ONLY when controlled (data-lv-wire-close);
+ *     uncontrolled => ZERO wire call (the wire-410 page-expired contract, BOTH branches)
+ *   - focus trap: initial focus moves into the panel on connect
+ *   - morph-safety: after a real morph one keystroke filters once / one shortcut fires once; a panel
+ *     removed by a morph stops firing (disconnect tore the listeners down)
  */
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
 import { LievitRuntime } from "../runtime/runtime.js";
-import {
-  commandFilter,
-  activatePanel,
-  installCommandEnhancer,
-} from "../registry/jte/command.enhancer.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
+import { commandFilter } from "../runtime/stimulus/controllers/lv-command-controller.js";
 
 // ---------------------------------------------------------------------------
-// DOM helpers
+// Runtime stub (captures the wire actions the runtime POSTs)
+// ---------------------------------------------------------------------------
+
+function makeRuntime(): { runtime: LievitRuntime; calledActions: string[] } {
+  const calledActions: string[] = [];
+  const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const calls = body._calls as string[] | undefined;
+    if (calls) {
+      calledActions.push(...calls);
+    }
+    return new Response("<div></div>", {
+      status: 200,
+      headers: { "Lievit-Snapshot": "s2" },
+    });
+  });
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calledActions };
+}
+
+// ---------------------------------------------------------------------------
+// DOM builder (shaped exactly as command.jte emits when open=true)
 // ---------------------------------------------------------------------------
 
 type ItemDef = {
@@ -37,31 +62,57 @@ type ItemDef = {
   disabled?: boolean;
   pageId?: string;
   href?: string;
-  intent?: string;
 };
 
-/**
- * Build a DOM shaped like command.jte renders (open=true, flat or grouped).
- * Mounts the panel inside a component root so the runtime can find it.
- */
-function buildPanel(opts: {
+interface BuildOpts {
   items?: ItemDef[];
   groups?: string[];
   page?: string;
   shortcut?: string;
-  escapeAction?: string;
+  /** When present, the panel is wire-CONTROLLED (data-lv-wire-close). Omit for uncontrolled. */
+  wireClose?: string;
   executeAction?: string;
   openPageAction?: string;
   backToRootAction?: string;
-  /** When true, wrap in a lievit component root and return both. */
-  withComponentRoot?: boolean;
-}): {
+}
+
+interface Mounted {
   componentRoot: HTMLElement;
   panel: HTMLElement;
   input: HTMLInputElement;
   listbox: HTMLElement;
   emptyEl: HTMLElement;
-} {
+}
+
+function buildOptionLi(item: ItemDef): HTMLElement {
+  const li = document.createElement("li");
+  li.id = `opt-${item.id ?? item.label}`;
+  li.setAttribute("role", "option");
+  li.setAttribute("data-slot", "option");
+  li.setAttribute("data-id", item.id ?? item.label);
+  li.setAttribute("aria-selected", "false");
+  li.setAttribute("data-lievit-item", "");
+  if (item.disabled === true) {
+    li.setAttribute("aria-disabled", "true");
+  }
+  if (item.pageId != null && item.pageId !== "") {
+    li.setAttribute("data-page-id", item.pageId);
+  }
+  if (item.href != null && item.href !== "") {
+    li.setAttribute("data-href", item.href);
+  }
+
+  const inner = document.createElement("div");
+  inner.setAttribute("data-slot", "option-inner");
+  const labelSpan = document.createElement("span");
+  // The controller reads the label from the non-aria-hidden span inside option-inner.
+  labelSpan.textContent = item.label;
+  inner.appendChild(labelSpan);
+  li.appendChild(inner);
+  return li;
+}
+
+function buildPanel(opts: BuildOpts): Mounted {
   document.body.innerHTML = "";
   const items = opts.items ?? [];
   const groups = opts.groups ?? [];
@@ -73,9 +124,10 @@ function buildPanel(opts: {
 
   const panel = document.createElement("div");
   panel.setAttribute("data-slot", "panel");
-  panel.setAttribute("data-lievit-command", "");
-  panel.setAttribute("data-lievit-focus-trap", "");
-  panel.setAttribute("data-lievit-escape-action", opts.escapeAction ?? "close");
+  panel.setAttribute("data-controller", "lv-command");
+  if (opts.wireClose != null) {
+    panel.setAttribute("data-lv-wire-close", opts.wireClose);
+  }
   panel.setAttribute("data-page", opts.page ?? "");
   panel.setAttribute("data-shortcut", opts.shortcut ?? "mod+k");
   if (opts.executeAction != null) {
@@ -88,7 +140,7 @@ function buildPanel(opts: {
     panel.setAttribute("data-back-to-root-action", opts.backToRootAction);
   }
 
-  // Search input.
+  // Search input (the data-action + target the controller binds against).
   const inputWrapper = document.createElement("div");
   inputWrapper.setAttribute("data-slot", "search-input");
   const input = document.createElement("input");
@@ -96,15 +148,14 @@ function buildPanel(opts: {
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-label", "Search commands");
   input.setAttribute("aria-controls", "cmd-listbox");
-  input.setAttribute("aria-haspopup", "listbox");
-  input.setAttribute("aria-autocomplete", "list");
-  input.setAttribute("aria-expanded", "true");
   input.setAttribute("aria-activedescendant", "");
   input.setAttribute("autocomplete", "off");
+  input.setAttribute("data-lv-command-target", "input");
+  input.setAttribute("data-action", "input->lv-command#filter keydown->lv-command#onInputKey");
   inputWrapper.appendChild(input);
   panel.appendChild(inputWrapper);
 
-  // Listbox.
+  // Listbox (collection-nav contract stays; the controller never touches it).
   const listbox = document.createElement("ul");
   listbox.id = "cmd-listbox";
   listbox.setAttribute("role", "listbox");
@@ -115,7 +166,6 @@ function buildPanel(opts: {
   listbox.setAttribute("data-lievit-collection-activedescendant-target", "#cmd-input");
 
   if (groups.length > 0) {
-    // Grouped rendering.
     for (const groupName of groups) {
       const groupLi = document.createElement("li");
       groupLi.setAttribute("role", "presentation");
@@ -131,14 +181,12 @@ function buildPanel(opts: {
       const groupUl = document.createElement("ul");
       groupUl.setAttribute("role", "group");
       groupUl.setAttribute("aria-labelledby", labelSpan.id);
-
       for (const item of items.filter((it) => it.group === groupName)) {
         groupUl.appendChild(buildOptionLi(item));
       }
       groupLi.appendChild(groupUl);
       listbox.appendChild(groupLi);
     }
-    // Ungrouped items after the groups.
     for (const item of items.filter((it) => !it.group)) {
       listbox.appendChild(buildOptionLi(item));
     }
@@ -166,58 +214,26 @@ function buildPanel(opts: {
   return { componentRoot, panel, input, listbox, emptyEl: emptyLi };
 }
 
-function buildOptionLi(item: ItemDef): HTMLElement {
-  const li = document.createElement("li");
-  li.id = `opt-${item.id ?? item.label}`;
-  li.setAttribute("role", "option");
-  li.setAttribute("data-slot", "option");
-  li.setAttribute("data-id", item.id ?? item.label);
-  li.setAttribute("aria-selected", "false");
-  li.setAttribute("data-lievit-item", "");
-  if (item.disabled === true) {
-    li.setAttribute("aria-disabled", "true");
-  }
-  if (item.pageId != null && item.pageId !== "") {
-    li.setAttribute("data-page-id", item.pageId);
-    li.dataset["pageId"] = item.pageId;
-  }
-  if (item.href != null && item.href !== "") {
-    li.setAttribute("data-href", item.href);
-    li.dataset["href"] = item.href;
-  }
-  li.dataset["id"] = item.id ?? item.label;
-
-  const inner = document.createElement("div");
-  inner.setAttribute("data-slot", "option-inner");
-  const labelSpan = document.createElement("span");
-  // The enhancer reads the label from the non-aria-hidden span inside option-inner.
-  labelSpan.textContent = item.label;
-  inner.appendChild(labelSpan);
-  li.appendChild(inner);
-  return li;
+/** Build the DOM, start the real Stimulus app + runtime, and await the MutationObserver. */
+async function mount(opts: BuildOpts): Promise<Mounted & { calledActions: string[] }> {
+  const built = buildPanel(opts);
+  const { runtime, calledActions } = makeRuntime();
+  startStimulus({ runtime });
+  await flushStimulus();
+  return { ...built, calledActions };
 }
 
-function makeFetchImpl(actions: string[]): typeof fetch {
-  return vi.fn(async (_url: unknown, init?: RequestInit) => {
-    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
-    const calls = body._calls as string[] | undefined;
-    if (calls != null) {
-      actions.push(...calls);
-    }
-    return new Response("<div></div>", {
-      status: 200,
-      headers: { "Lievit-Snapshot": "s2" },
-    });
-  }) as unknown as typeof fetch;
-}
-
-/** Simulate the user typing into the search input. */
+/** Simulate the user typing into the search input (Stimulus filter action fires). */
 function type(input: HTMLInputElement, q: string): void {
   input.value = q;
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-/** Visible option labels (not hidden). */
+function key(target: EventTarget, init: KeyboardEventInit): void {
+  target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
+}
+
+/** Visible (not hidden) option labels. */
 function visibleLabels(panel: HTMLElement): string[] {
   return Array.from(panel.querySelectorAll<HTMLElement>("[data-lievit-item]"))
     .filter((el) => !el.hidden)
@@ -229,12 +245,20 @@ function visibleLabels(panel: HTMLElement): string[] {
     });
 }
 
-// ---------------------------------------------------------------------------
-// Teardown
-// ---------------------------------------------------------------------------
+const settle = (): Promise<unknown> => new Promise((r) => setTimeout(r, 10));
 
-afterEach(() => {
+beforeEach(() => {
   document.body.innerHTML = "";
+});
+
+afterEach(async () => {
+  // Clear the DOM FIRST and let Stimulus's MutationObserver disconnect the controllers (tearing
+  // down their document-scoped listeners: the shortcut chord + the FocusTrap), THEN stop the app.
+  // The controller binds document listeners (like lv-sidebar), so a leaked one would fire into the
+  // next test's shared wire bridge — clearing while the observer is live prevents that.
+  document.body.innerHTML = "";
+  await flushStimulus();
+  stopStimulus();
 });
 
 // ---------------------------------------------------------------------------
@@ -264,55 +288,43 @@ describe("commandFilter (pure, DOM-free)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// activatePanel: filtering + empty state
+// Client-side filtering (real controller via the data-action wiring)
 // ---------------------------------------------------------------------------
 
-describe("activatePanel: client-side filtering", () => {
-  it("seeds with every item visible and empty state hidden", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    const { panel, emptyEl } = buildPanel({
-      items: [
-        { label: "Dashboard" },
-        { label: "Settings" },
-        { label: "New contact" },
-      ],
+describe("lv-command: client-side filtering", () => {
+  it("seeds with every item visible and the empty state hidden on connect", async () => {
+    const { panel, emptyEl } = await mount({
+      wireClose: "close",
+      items: [{ label: "Dashboard" }, { label: "Settings" }, { label: "New contact" }],
     });
-    activatePanel(panel, runtime);
     expect(visibleLabels(panel)).toEqual(["Dashboard", "Settings", "New contact"]);
     expect(emptyEl.hidden).toBe(true);
   });
 
-  it("typing a query hides non-matching items in-place", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    const { panel, input } = buildPanel({
+  it("typing a query hides non-matching items in place", async () => {
+    const { panel, input } = await mount({
+      wireClose: "close",
       items: [{ label: "Dashboard" }, { label: "Settings" }, { label: "New contact" }],
     });
-    activatePanel(panel, runtime);
     type(input, "set");
     expect(visibleLabels(panel)).toEqual(["Settings"]);
   });
 
-  it("shows empty state when nothing matches", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    const { panel, input, emptyEl } = buildPanel({
+  it("shows the empty state when nothing matches", async () => {
+    const { panel, input, emptyEl } = await mount({
+      wireClose: "close",
       items: [{ label: "Dashboard" }, { label: "Settings" }],
     });
-    activatePanel(panel, runtime);
     type(input, "zzz");
     expect(visibleLabels(panel)).toEqual([]);
     expect(emptyEl.hidden).toBe(false);
   });
 
-  it("restores all items and hides empty state when query is cleared", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    const { panel, input, emptyEl } = buildPanel({
+  it("restores all items and hides the empty state when the query is cleared", async () => {
+    const { panel, input, emptyEl } = await mount({
+      wireClose: "close",
       items: [{ label: "Dashboard" }, { label: "Settings" }],
     });
-    activatePanel(panel, runtime);
     type(input, "zzz");
     type(input, "");
     expect(visibleLabels(panel)).toEqual(["Dashboard", "Settings"]);
@@ -320,15 +332,10 @@ describe("activatePanel: client-side filtering", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// activatePanel: group hiding
-// ---------------------------------------------------------------------------
-
-describe("activatePanel: group visibility", () => {
-  it("hides a group container when all its items are filtered out", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    const { panel, input } = buildPanel({
+describe("lv-command: group visibility", () => {
+  it("hides a group container when all its items are filtered out", async () => {
+    const { panel, input } = await mount({
+      wireClose: "close",
       items: [
         { label: "Dashboard", group: "Navigation" },
         { label: "Settings", group: "Navigation" },
@@ -336,239 +343,244 @@ describe("activatePanel: group visibility", () => {
       ],
       groups: ["Navigation", "Actions"],
     });
-    activatePanel(panel, runtime);
     type(input, "contact");
-    const navGroup = panel.querySelector<HTMLElement>("[data-group-name='Navigation']");
-    const actGroup = panel.querySelector<HTMLElement>("[data-group-name='Actions']");
-    expect(navGroup?.hidden).toBe(true);
-    expect(actGroup?.hidden).toBe(false);
+    expect(panel.querySelector<HTMLElement>("[data-group-name='Navigation']")?.hidden).toBe(true);
+    expect(panel.querySelector<HTMLElement>("[data-group-name='Actions']")?.hidden).toBe(false);
   });
 
-  it("shows a group when at least one of its items matches", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    const { panel, input } = buildPanel({
+  it("shows a group when at least one of its items matches", async () => {
+    const { panel, input } = await mount({
+      wireClose: "close",
       items: [
         { label: "Dashboard", group: "Navigation" },
         { label: "Settings", group: "Navigation" },
       ],
       groups: ["Navigation"],
     });
-    activatePanel(panel, runtime);
     type(input, "dash");
-    const navGroup = panel.querySelector<HTMLElement>("[data-group-name='Navigation']");
-    expect(navGroup?.hidden).toBe(false);
+    expect(panel.querySelector<HTMLElement>("[data-group-name='Navigation']")?.hidden).toBe(false);
     expect(visibleLabels(panel)).toEqual(["Dashboard"]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// activatePanel: Enter dispatch
+// Enter dispatch
 // ---------------------------------------------------------------------------
 
-describe("activatePanel: Enter dispatch", () => {
+describe("lv-command: Enter dispatch", () => {
   it("Enter fires executeAction with the active item's data-id", async () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel, input } = buildPanel({
+    const { input, calledActions } = await mount({
+      wireClose: "close",
       items: [{ label: "Dashboard", id: "go-dashboard" }],
     });
-    activatePanel(panel, runtime);
-
-    // Simulate collection-nav setting aria-activedescendant on the input.
     input.setAttribute("aria-activedescendant", "opt-go-dashboard");
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    await vi.waitFor(() => expect(actions.length).toBeGreaterThan(0));
-    expect(actions).toContain("executeCommand");
+    key(input, { key: "Enter" });
+    await settle();
+    expect(calledActions).toContain("executeCommand");
   });
 
   it("Enter fires openPageAction for an item with data-page-id", async () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel, input } = buildPanel({
+    const { input, calledActions } = await mount({
+      wireClose: "close",
       items: [{ label: "File commands", id: "file-page", pageId: "file" }],
     });
-    activatePanel(panel, runtime);
-
     input.setAttribute("aria-activedescendant", "opt-file-page");
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    await vi.waitFor(() => expect(actions.length).toBeGreaterThan(0));
-    expect(actions).toContain("openPage");
+    key(input, { key: "Enter" });
+    await settle();
+    expect(calledActions).toContain("openPage");
   });
 
-  it("Enter on a disabled item is a no-op", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel, input } = buildPanel({
+  it("Enter on an href item navigates client-side and fires NO wire action", async () => {
+    const { input, calledActions } = await mount({
+      wireClose: "close",
+      items: [{ label: "External", id: "ext", href: "#go" }],
+    });
+    input.setAttribute("aria-activedescendant", "opt-ext");
+    key(input, { key: "Enter" });
+    await settle();
+    expect(calledActions).toEqual([]);
+  });
+
+  it("Enter on a disabled item is a no-op", async () => {
+    const { input, calledActions } = await mount({
+      wireClose: "close",
       items: [{ label: "Disabled", id: "disabled-cmd", disabled: true }],
     });
-    activatePanel(panel, runtime);
-
     input.setAttribute("aria-activedescendant", "opt-disabled-cmd");
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(actions).toEqual([]);
+    key(input, { key: "Enter" });
+    await settle();
+    expect(calledActions).toEqual([]);
   });
 
-  it("Enter with no aria-activedescendant is a no-op", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel, input } = buildPanel({ items: [{ label: "Dashboard" }] });
-    activatePanel(panel, runtime);
-
+  it("Enter with no aria-activedescendant is a no-op", async () => {
+    const { input, calledActions } = await mount({
+      wireClose: "close",
+      items: [{ label: "Dashboard" }],
+    });
     input.setAttribute("aria-activedescendant", "");
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(actions).toEqual([]);
+    key(input, { key: "Enter" });
+    await settle();
+    expect(calledActions).toEqual([]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// activatePanel: Backspace in nested page
+// Backspace in a nested page
 // ---------------------------------------------------------------------------
 
-describe("activatePanel: Backspace fires backToRoot in nested page", () => {
-  it("Backspace with empty input in a nested page fires backToRootAction", async () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel, input } = buildPanel({
+describe("lv-command: Backspace fires backToRoot in a nested page", () => {
+  it("Backspace with an empty input in a nested page fires backToRootAction", async () => {
+    const { input, calledActions } = await mount({
+      wireClose: "close",
       items: [{ label: "New file" }],
       page: "File commands",
     });
-    activatePanel(panel, runtime);
-
     input.value = "";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }));
-
-    await vi.waitFor(() => expect(actions.length).toBeGreaterThan(0));
-    expect(actions).toContain("backToRoot");
+    key(input, { key: "Backspace" });
+    await settle();
+    expect(calledActions).toContain("backToRoot");
   });
 
-  it("Backspace with non-empty input in a nested page is a no-op (normal text delete)", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel, input } = buildPanel({
+  it("Backspace with a non-empty input in a nested page is a no-op (normal text delete)", async () => {
+    const { input, calledActions } = await mount({
+      wireClose: "close",
       items: [{ label: "New file" }],
       page: "File commands",
     });
-    activatePanel(panel, runtime);
-
     input.value = "ne";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }));
-    expect(actions).toEqual([]);
+    key(input, { key: "Backspace" });
+    await settle();
+    expect(calledActions).toEqual([]);
   });
 
-  it("Backspace at root page (empty page) does not fire any action", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel, input } = buildPanel({ items: [{ label: "Dashboard" }], page: "" });
-    activatePanel(panel, runtime);
-
+  it("Backspace at the root page (empty page) fires no action", async () => {
+    const { input, calledActions } = await mount({
+      wireClose: "close",
+      items: [{ label: "Dashboard" }],
+      page: "",
+    });
     input.value = "";
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }));
-    expect(actions).toEqual([]);
+    key(input, { key: "Backspace" });
+    await settle();
+    expect(calledActions).toEqual([]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// activatePanel: global shortcut (Ctrl+K closes while panel is open)
+// Close doctrine: controlled fires / uncontrolled silent (Escape + shortcut)
 // ---------------------------------------------------------------------------
 
-describe("activatePanel: global shortcut fires close", () => {
-  it("Ctrl+K while panel is in DOM fires closeAction", async () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    runtime.start();
-    const { panel } = buildPanel({
-      items: [{ label: "Dashboard" }],
+describe("lv-command: close doctrine (the wire-410 contract, BOTH branches)", () => {
+  it("CONTROLLED: Ctrl+K fires the close action exactly once", async () => {
+    const { calledActions } = await mount({
+      wireClose: "close",
       shortcut: "mod+k",
-      escapeAction: "close",
-    });
-    activatePanel(panel, runtime);
-
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }),
-    );
-
-    await vi.waitFor(() => expect(actions.length).toBeGreaterThan(0));
-    expect(actions).toContain("close");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// activatePanel: idempotency
-// ---------------------------------------------------------------------------
-
-describe("activatePanel: idempotency", () => {
-  it("calling activatePanel twice does not double-bind the filter", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    const { panel, input } = buildPanel({
-      items: [{ label: "Dashboard" }, { label: "Settings" }],
-    });
-    activatePanel(panel, runtime);
-    activatePanel(panel, runtime); // second call: no-op
-    type(input, "set");
-    // Single filter pass: exactly Settings visible.
-    expect(visibleLabels(panel)).toEqual(["Settings"]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// installCommandEnhancer: lifecycle integration
-// ---------------------------------------------------------------------------
-
-describe("installCommandEnhancer: runtime lifecycle", () => {
-  it("activates panels on onComponentInit", () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    installCommandEnhancer(runtime);
-    const { panel, input } = buildPanel({
-      items: [{ label: "Dashboard" }, { label: "Settings" }],
-    });
-    runtime.start(); // fires onComponentInit on the already-present panel
-    type(input, "set");
-    expect(visibleLabels(panel)).toEqual(["Settings"]);
-  });
-
-  it("panel absent from DOM after afterCall stops receiving events", async () => {
-    const actions: string[] = [];
-    const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(actions) });
-    installCommandEnhancer(runtime);
-    const { panel } = buildPanel({
       items: [{ label: "Dashboard" }],
     });
-    runtime.start();
-    // Panel carries ACTIVE_ATTR while in DOM.
-    expect(panel.hasAttribute("data-lievit-rt-command-active")).toBe(true);
+    key(document, { key: "k", ctrlKey: true });
+    await settle();
+    expect(calledActions.filter((a) => a === "close")).toHaveLength(1);
+  });
 
-    // Remove panel from DOM: simulate morph removing it.
-    panel.remove();
+  it("CONTROLLED: a custom close action via data-lv-wire-close is the one fired", async () => {
+    const { calledActions } = await mount({
+      wireClose: "togglePalette",
+      shortcut: "mod+k",
+      items: [{ label: "Dashboard" }],
+    });
+    key(document, { key: "k", ctrlKey: true });
+    await settle();
+    expect(calledActions).toContain("togglePalette");
+    expect(calledActions).not.toContain("close");
+  });
 
-    // Trigger afterCall on the lifecycle bus (simulate a morph completing).
-    // We do this by firing a fake successful response via calling an action.
-    // afterCall prunes stale panels.
-    // Verify the panel is marked inactive after the afterCall prune.
-    // (We trigger it indirectly by checking the Map cleanup path fires when body.contains=false.)
-    // Direct test: after panel.remove(), panel no longer has ACTIVE_ATTR after next afterCall.
-    // We can use runtime internals only via the public API: fire a callAction which triggers afterCall.
-    // Use a wrapper to check the cleanup logic directly.
-    // Since the panel is no longer in the body, the next afterCall prunes it.
-    // We'll check this by verifying the panel lost ACTIVE_ATTR.
-    // Trigger afterCall by calling a wire action (the fetch mock returns a morph response).
-    const componentRoot = document.querySelector<HTMLElement>("[data-lievit-component]");
-    if (componentRoot != null) {
-      // The component root is still in the DOM (just the panel removed).
-      // Call a dummy action to trigger the afterCall lifecycle.
-      await runtime.callAction(componentRoot, "noop", {});
-    }
-    expect(panel.hasAttribute("data-lievit-rt-command-active")).toBe(false);
+  it("UNCONTROLLED: Ctrl+K fires NO wire call (no data-lv-wire-close)", async () => {
+    const { calledActions } = await mount({
+      shortcut: "mod+k",
+      items: [{ label: "Dashboard" }],
+    });
+    key(document, { key: "k", ctrlKey: true });
+    await settle();
+    expect(calledActions).toHaveLength(0);
+  });
+
+  it("CONTROLLED: Escape fires the close action exactly once", async () => {
+    const { calledActions } = await mount({
+      wireClose: "close",
+      items: [{ label: "Dashboard" }],
+    });
+    key(document, { key: "Escape" });
+    await settle();
+    expect(calledActions.filter((a) => a === "close")).toHaveLength(1);
+  });
+
+  it("UNCONTROLLED: Escape fires NO wire call (the 410 page-expired regression)", async () => {
+    const { calledActions } = await mount({
+      items: [{ label: "Dashboard" }],
+    });
+    key(document, { key: "Escape" });
+    await settle();
+    expect(calledActions).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Focus trap (shared FocusTrap)
+// ---------------------------------------------------------------------------
+
+describe("lv-command: focus trap", () => {
+  it("moves initial focus into the panel (the search input) on connect", async () => {
+    const { input } = await mount({
+      wireClose: "close",
+      items: [{ label: "Dashboard" }, { label: "Settings" }],
+    });
+    expect(document.activeElement).toBe(input);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Morph-safety (real lievit wire morph)
+// ---------------------------------------------------------------------------
+
+describe("lv-command: morph-safety", () => {
+  it("after a real morph one keystroke filters once and one shortcut fires close once", async () => {
+    const { componentRoot, calledActions } = await mount({
+      wireClose: "close",
+      shortcut: "mod+k",
+      items: [{ label: "Dashboard" }, { label: "Settings" }],
+    });
+
+    // A real wire morph re-renders the subtree (idiomorph). Identical markup, so the controller
+    // must not double-connect and the listeners must stay single.
+    morph(componentRoot, componentRoot.outerHTML);
+    await flushStimulus();
+
+    const panel = componentRoot.querySelector<HTMLElement>("[data-slot='panel']")!;
+    const input = componentRoot.querySelector<HTMLInputElement>("#cmd-input")!;
+    type(input, "set");
+    expect(visibleLabels(panel)).toEqual(["Settings"]);
+
+    key(document, { key: "k", ctrlKey: true });
+    await settle();
+    expect(calledActions.filter((a) => a === "close")).toHaveLength(1);
+  });
+
+  it("a panel removed by a morph stops firing (disconnect tore the listeners down)", async () => {
+    const { componentRoot, calledActions } = await mount({
+      wireClose: "close",
+      shortcut: "mod+k",
+      items: [{ label: "Dashboard" }],
+    });
+
+    morph(
+      componentRoot,
+      `<div data-lievit-component="com.example.Cmd" data-lievit-snapshot="s2"><span>gone</span></div>`,
+    );
+    await flushStimulus();
+
+    // The document-level shortcut listener was removed on disconnect: no wire call.
+    key(document, { key: "k", ctrlKey: true });
+    await settle();
+    expect(calledActions).toHaveLength(0);
   });
 });
