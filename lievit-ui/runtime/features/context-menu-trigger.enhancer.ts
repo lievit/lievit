@@ -159,6 +159,14 @@ function wireTrigger(trigger: HTMLElement): () => void {
   if (trigger.hasAttribute(WIRED_ATTR)) {
     return () => {};
   }
+  // Migration guard (Stimulus conversion): a context-menu converted to the `lv-context-menu`
+  // controller owns its own contextmenu / keyboard / dismiss handling (the controller is on the
+  // [data-slot="context-menu"] root). This legacy enhancer must NOT also wire the trigger, or a
+  // right-click would open + position the menu twice. Converted templates carry the data-controller.
+  if (trigger.closest('[data-controller~="lv-context-menu"]') != null) {
+    trigger.setAttribute(WIRED_ATTR, "");
+    return () => {};
+  }
   trigger.setAttribute(WIRED_ATTR, "");
 
   /** The element that held focus when contextmenu fired; restored on close. */

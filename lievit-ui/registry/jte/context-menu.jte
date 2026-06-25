@@ -59,8 +59,15 @@
 
   Params:
     boolean         open            = false  when false the panel is absent from the DOM
-                                             (uncontrolled: the enhancer manages this;
-                                              controlled: bind to the caller's @Wire field)
+                                             (uncontrolled: the lv-context-menu controller manages
+                                              this; controlled: bind to the caller's @Wire field)
+    boolean         controlled      = false  false = uncontrolled (close is purely client-side, ZERO
+                                             wire round-trip); true = server owns the open state and
+                                             closeAction is stamped as data-lv-wire-close (the
+                                             controlled/uncontrolled doctrine, DismissableController)
+    String          closeAction     = "close"  CONTROLLED only: the wire action fired on close.
+                                             Stamped as data-lv-wire-close ONLY when controlled=true;
+                                             uncontrolled menus omit it -> no spurious 410 page-expired
     String          id              = "lv-ctx-menu"  unique id for the panel (page-scoped)
     String          size            = "md"   "sm" | "md" | "lg" -- item row height scale
     String          ariaLabel       = ""     accessible name for the panel; use this OR ariaLabelledby
@@ -88,6 +95,8 @@
     )
 --%>
 @param boolean open = false
+@param boolean controlled = false
+@param String closeAction = "close"
 @param String id = "lv-ctx-menu"
 @param String size = "md"
 @param String ariaLabel = ""
@@ -101,20 +110,24 @@
 !{var labelledbyAttr = !ariaLabelledby.isEmpty() ? ariaLabelledby : null;}
 
 <div
+  data-controller="lv-context-menu"
   data-slot="context-menu"
   data-size="${size}"
   data-trigger-selector="[data-slot='context-menu-trigger']"
   data-panel-id="${panelId}"
+  data-lv-wire-close="${controlled ? closeAction : null}"
   class="relative ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
   <div
     data-slot="context-menu-trigger"
     data-context-menu-for="${panelId}"
+    data-action="contextmenu->lv-context-menu#openFromPointer keydown->lv-context-menu#openFromKeyboard"
   >${trigger}</div>
   @if(open)
     <div
       id="${panelId}"
+      data-lv-context-menu-target="panel"
       data-slot="context-menu-panel"
       data-size="${size}"
       role="menu"
