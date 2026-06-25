@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
-    "@hotwired/stimulus": "^3.2.2"
+    "@hotwired/stimulus": "^3.2.2",
+    "@oddbird/css-anchor-positioning": "0.9.0"
   },
   "optionalDependencies": {
     "@codemirror/state": "^6.5.2",
