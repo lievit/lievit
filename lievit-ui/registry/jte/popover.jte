@@ -45,7 +45,8 @@
     Keyboard (APG Disclosure + native popover):
       Enter / Space on trigger: toggle open/close (platform, native button)
       Escape: closes auto/hint popover (native browser signal); popover-anchor.enhancer.ts syncs
-        the server close() action when the panel is controlled.
+        the server close() action ONLY when the panel is controlled (data-lv-wire-close present);
+        an uncontrolled panel closes client-side with no wire round-trip.
       Tab: non-trapping -- focus moves naturally through and out of the panel (non-modal).
     Focus: focus-return on Esc is native (browser popover spec); focus-return on light-dismiss
       (click-outside) is the enhancer's responsibility via data-lv-opener on the panel.
@@ -56,8 +57,10 @@
     Trigger carries: id="${triggerId}", style="anchor-name: --${triggerId}".
     Panel carries: style="position-anchor: --${triggerId}; position-area: <value>; ...".
     Inside panel: [data-lv-autofocus] -- the element the enhancer moves focus to after open.
-    The enhancer fires close() wire action on light-dismiss in controlled mode; it finds the
-    component root via panel.closest("[data-lievit-component]").
+    CONTROLLED only: the panel carries data-lv-wire-close="${escapeAction}", and on light-dismiss
+    the enhancer fires that wire action, finding the component root via
+    panel.closest("[data-lievit-component]"). UNCONTROLLED panels omit data-lv-wire-close, so the
+    enhancer fires NO wire call -- the close is purely client-side (no spurious 410 page-expired).
 
   Params:
     String          id         = "lv-popover"   the panel id (the popovertarget link). Unique per page.
@@ -68,6 +71,11 @@
                                                 Ignored when controlled=false (always rendered).
     boolean         controlled = false           false = uncontrolled (browser owns open state);
                                                 true  = server owns open state via the open param.
+    String          escapeAction = "close"        CONTROLLED only: wire action the popover-anchor
+                                                enhancer fires on light-dismiss to sync server
+                                                open-state. Stamped as data-lv-wire-close ONLY when
+                                                controlled=true; uncontrolled panels omit it and
+                                                close purely client-side (no wire round-trip).
     String          placement  = "bottom-start" CSS Anchor Positioning placement: one of the twelve
                                                 positions (bottom-start | bottom | bottom-end |
                                                 top-start | top | top-end | left-start | left |
@@ -105,6 +113,7 @@
 @param gg.jte.Content content
 @param boolean open = false
 @param boolean controlled = false
+@param String escapeAction = "close"
 @param String placement = "bottom-start"
 @param String type = "auto"
 @param int offset = 4
@@ -217,6 +226,7 @@
   data-placement="${placement}"
   data-with-arrow="${withArrow ? "true" : "false"}"
   data-lv-opener="${triggerId}"
+  data-lv-wire-close="${controlled ? escapeAction : null}"
   role="${labelled ? "dialog" : null}"
   aria-labelledby="${labelled ? titleId : null}"
   aria-describedby="${labelled && description != null ? descId : null}"

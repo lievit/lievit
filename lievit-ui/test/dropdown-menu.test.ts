@@ -193,8 +193,10 @@ describe("dropdown-menu -- native popover seam", () => {
     // New form: open="${open}" (JTE boolean smart-attribute: emits bare `open` when true,
     // omits the attr entirely when false). Semantically identical; JTE does the null-elision.
     expect(menuMarkup).toContain('open="${open}"');
-    // Also assert the light-dismiss action attr that ships alongside it.
-    expect(menuMarkup).toContain('data-lv-wire-close="${escapeAction}"');
+    // Controlled/uncontrolled doctrine: the light-dismiss action attr is stamped ONLY when
+    // open=true (controlled). When open=false (uncontrolled) JTE elides the null attribute, so
+    // the panel carries no close marker and the enhancer fires no spurious wire "close".
+    expect(menuMarkup).toContain('data-lv-wire-close="${open ? escapeAction : null}"');
   });
 });
 
@@ -255,8 +257,11 @@ describe("dropdown-menu -- collection-nav enhancer contract", () => {
     expect(menuMarkup).toContain('data-lievit-collection-wrap="true"');
   });
 
-  test("panel carries data-lievit-collection-escape-action bound to the escapeAction param", () => {
-    expect(menuMarkup).toContain('data-lievit-collection-escape-action="${escapeAction}"');
+  test("panel carries data-lievit-collection-escape-action bound to escapeAction ONLY when controlled (open=true)", () => {
+    // Uncontrolled (open=false): the Esc-action attr is null-elided, so collection-nav fires no
+    // wire call on Escape (the native popover Esc closes it client-side). Controlled (open=true):
+    // the attr is present so Esc syncs the server open-state.
+    expect(menuMarkup).toContain('data-lievit-collection-escape-action="${open ? escapeAction : null}"');
   });
 
   test("panel carries data-manual-activation='true' (Arrow keys move focus, not activate)", () => {
@@ -693,8 +698,10 @@ describe("dropdown-menu -- controlled/uncontrolled structural signals", () => {
     expect(menuMarkup).toContain('open="${open}"');
   });
 
-  test("escapeAction is forwarded to data-lievit-collection-escape-action (configurable per caller)", () => {
-    expect(menuMarkup).toContain('data-lievit-collection-escape-action="${escapeAction}"');
+  test("escapeAction is forwarded to data-lievit-collection-escape-action ONLY when controlled (open=true)", () => {
+    // Controlled/uncontrolled doctrine: the Esc wire action is gated on open=true. Uncontrolled
+    // (open=false) elides the attr so collection-nav fires no spurious wire "close" on Escape.
+    expect(menuMarkup).toContain('data-lievit-collection-escape-action="${open ? escapeAction : null}"');
   });
 
   test("doc comment describes CONTROLLED mode usage with open + escapeAction params", () => {
