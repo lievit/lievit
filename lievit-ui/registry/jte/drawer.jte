@@ -4,7 +4,7 @@
 
   lievit-ui drawer partial -- headless CONTROLLED / UNCONTROLLED side-panel overlay.
 
-  TIER: PARTIAL + ENH (focus-trap.enhancer.ts). No Java component, no @Wire field, no
+  TIER: PARTIAL + CTRL (lv-drawer Stimulus controller). No Java component, no @Wire field, no
   _component/_instance/_componentSnapshot params. The open-state belongs to the CALLER.
 
   CONTROLLED / UNCONTROLLED doctrine (architecture contract, "Overlay & stateful primitives"):
@@ -15,26 +15,28 @@
       enhancer, CSP-clean by construction.
     CONTROLLED (closeAction set, open driven by the caller's @Wire boolean):
       Pass open="${myComponent.drawerOpen()}" and closeAction="closeDrawer". When open=true:
-      the panel is rendered visible; a scrim div covers the page; data-lievit-focus-trap
-      activates the shared focus-trap enhancer (Tab cycling, scroll-lock, Esc fires
-      closeAction, inert on behind-content). When open=false: the panel and scrim carry
-      the `hidden` smart-attribute (absent from the a11y tree and tab order). This is the
-      "filter panel that must survive a round-trip" case: open survives the morph because
-      the CALLER @Wire owns it.
+      the panel is rendered visible; a scrim div covers the page; data-controller="lv-drawer"
+      mounts the Stimulus focus-trap controller (Tab cycling, scroll-lock, Esc fires
+      closeAction via the controlled/uncontrolled doctrine, return-focus on close). When
+      open=false: the panel and scrim carry the `hidden` smart-attribute (absent from the
+      a11y tree and tab order) and the controller drops the trap. This is the "filter panel
+      that must survive a round-trip" case: open survives the morph because the CALLER @Wire
+      owns it.
   The two modes compose cleanly: a trigger + no closeAction = pure uncontrolled; no trigger
   + closeAction = pure controlled. Passing both gives a drawer that the trigger OR the server
   can open.
 
   DRAWER vs MODAL seam (keep this clean -- do NOT add a third mechanism):
     The drawer is the Dialog pattern rendered to a viewport EDGE instead of the centre. It
-    shares the SAME focus-trap.enhancer.ts (data-lievit-focus-trap + data-lievit-escape-action
-    on the panel root) and the SAME scrim element pattern as modal. The only deltas are:
+    shares the SAME focus-mechanics (Tab trap + scroll-lock + Esc-to-close + return-focus) and
+    the SAME scrim element pattern as modal. The drawer realises those mechanics through the
+    lv-drawer Stimulus controller (the shared FocusTrap + DismissableController base); modal and
+    alert-dialog still compose the legacy data-lievit-focus-trap enhancer until their own
+    conversion. The only visual deltas are:
       - data-slot="drawer" (not "dialog") + data-placement + data-size for CSS edge-anchoring.
       - Placement-aware corner radius (inward-facing corners get --lv-radius-lg; edge-flush
         corners are square) expressed as CSS [data-placement] rules in drawer.css.
-      - Modal=false variant: no trap activation (data-lievit-focus-trap omitted), no scrim.
-    alert-dialog, modal, drawer/sheet all compose the SAME two enhancer attributes. One shared
-    enhancer, zero forks.
+      - Modal=false variant: no controller (data-controller omitted), no trap, no scrim.
 
   STRUCTURE (scientific decision rule):
     - WAI-ARIA APG Dialog (Modal): https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/
@@ -42,7 +44,7 @@
       placement is purely visual.
     - APG Dialog (Non-modal) for modal=false: no trap, no scrim, page remains interactive.
     - react-aria useDialog / FocusScope interaction model: keyboard map + focus order
-      transcribed into ORIGINAL template + focus-trap.enhancer.ts (no react-aria code copied).
+      transcribed into ORIGINAL template + the lv-drawer controller (no react-aria code copied).
     - Ant Design Drawer: feature inventory reference (placement, sizes, closable, push,
       destroyOnClose -- no Ant Design code copied).
     - Styling: ORIGINAL over --lv-* OKLCH tokens; visual look inspired by Tailwind UI
@@ -62,31 +64,32 @@
       <form method="dialog"><button type="submit">.
     - Scrim (modal=true, controlled, open=true): aria-hidden="true"; l:click fires
       closeAction when closable=true. Not focusable.
-    - Page content behind the panel (modal=true, controlled): the focus-trap enhancer adds
-      `inert` on the sibling content container while open (stronger than aria-hidden alone).
-    - Tab / Shift+Tab: modal=true + controlled -> focus-trap.enhancer.ts traps cycling
-      within the panel. modal=false, or uncontrolled -> native platform Tab (no trap).
-    - Esc: controlled + closable -> fires closeAction via data-lievit-escape-action.
-      controlled + !closable -> escape-action attr omitted; Esc is inert (must-act pattern).
+    - Tab / Shift+Tab: modal=true + controlled -> the lv-drawer controller's FocusTrap traps
+      cycling within the panel. modal=false, or uncontrolled -> native platform Tab (no trap).
+    - Esc: controlled + closable -> the controller fires closeAction through the shared
+      controlled/uncontrolled doctrine (data-lv-wire-close present). controlled + !closable ->
+      data-lv-wire-close omitted; Esc is inert (must-act pattern, the trap still holds).
       Uncontrolled: the browser handles Esc natively (native modal dialog).
-    - Scroll lock: enhancer adds overflow:hidden on body while trap is active (controlled,
-      modal=true). Browser adds its own scroll lock for native modal (uncontrolled modal).
-    - Focus restore: enhancer returns focus to the opener on deactivation (controlled).
+    - Scroll lock: the controller's FocusTrap sets overflow:hidden on body while the trap is
+      active (controlled, modal=true). Browser adds its own for native modal (uncontrolled).
+    - Focus restore: the FocusTrap returns focus to the opener on deactivation (controlled).
       Browser restores on native dialog close (uncontrolled).
     - Closed state (controlled, open=false): hidden on panel + scrim removes them from the
-      a11y tree and tab order.
+      a11y tree and tab order; data-lv-drawer-open-value flips to false and the trap is dropped.
 
-  Enhancer wiring (data-attribute contract -- do NOT edit focus-trap.enhancer.ts):
-    data-lievit-focus-trap       on the panel element -- activates trap (controlled + modal only)
-    data-lievit-escape-action    on the panel element -- wire action name on Esc (closable only)
+  Controller wiring (data-attribute contract -- the lv-drawer Stimulus controller):
+    data-controller="lv-drawer"  on the panel element -- mounts the controller (controlled + modal)
+    data-lv-drawer-open-value    on the panel element -- boolean open state; drives trap activation
+    data-lv-wire-close           on the panel element -- wire close action on Esc (closable only)
     data-initial-focus           inside the body markup -- receives initial focus first (caller opt-in)
 
-  Focus-trap seam (alert-dialog + modal compose the SAME two attributes -- keep clean):
-    alert-dialog: data-lievit-focus-trap + data-lievit-escape-action on its panel root.
-    modal: same two attributes on its <dialog> element.
-    drawer: same two attributes on its panel div (controlled + modal mode only).
-    Do NOT add a per-component attribute to vary modal vs non-modal: omit the attrs entirely
-    for non-modal -- that IS the parameterisation.
+  Focus-mechanics seam (one shared base -- keep clean):
+    The Tab trap + scroll-lock + return-focus + initial-focus priority live ONCE in the shared
+    FocusTrap (runtime/stimulus/base/focus-trap.ts); the controlled/uncontrolled close doctrine
+    lives ONCE in DismissableController. drawer mounts data-controller="lv-drawer" (controlled +
+    modal mode only); modal + alert-dialog still compose the legacy data-lievit-focus-trap
+    enhancer until their own conversion. Do NOT add a per-component attribute to vary modal vs
+    non-modal: omit data-controller entirely for non-modal -- that IS the parameterisation.
 
   DestroyOnClose: when destroyOnClose=true, the panel subtree is absent from the template
   output when open=false (the @if(open || !destroyOnClose) guard). When false (default), the
@@ -223,8 +226,8 @@
 
     UNCONTROLLED mode (isControlled=false):
       - No hidden attribute (browser manages show/hide via showModal()).
-      - No data-lievit-focus-trap (browser native modal trap handles Tab cycling).
-      - No data-lievit-escape-action (browser cancels on Esc natively).
+      - No data-controller="lv-drawer" (browser native modal trap handles Tab cycling).
+      - No data-lv-wire-close (browser cancels on Esc natively).
       - Panel is a <dialog> element (native top-layer, native backdrop).
 
     CONTROLLED mode (isControlled=true):
@@ -233,8 +236,13 @@
         correct -- the <dialog> element's showModal() / close() API is not called).
       - hidden="${!open}" when destroyOnClose=false (smart attr: bare hidden when !open).
       - Subtree absent from output when destroyOnClose=true + !open (the @if guard).
-      - data-lievit-focus-trap="" (activates enhancer trap + scroll-lock) when modal=true.
-      - data-lievit-escape-action="${closeAction}" when modal=true + closable=true.
+      - data-controller="lv-drawer" (mounts the Stimulus focus-trap controller: Tab cycle +
+        scroll-lock + return-focus, held while open) when trapModal (controlled + modal).
+      - data-lv-drawer-open-value="${open}" drives trap activation: the morph flips it, Stimulus
+        re-fires openValueChanged, the trap is held while true and dropped while false.
+      - data-lv-wire-close="${closeAction}" when modal=true + closable=true: the controller's
+        Escape path fires it via the shared controlled/uncontrolled doctrine. Omitted when
+        !closable => Escape is inert (must-act), the trap still holds.
       - data-push="${pushActive}" when push=true + modal=false (layout-shift CSS hook).
       - Positioned at the chosen edge via CSS [data-placement] + [data-size] in drawer.css.
   --%>
@@ -252,8 +260,9 @@
       aria-labelledby="${hasTitle ? titleId : null}"
       aria-label="${hasTitle ? null : "Drawer"}"
       hidden="${!open}"
-      data-lievit-focus-trap="${trapModal ? "" : null}"
-      data-lievit-escape-action="${(trapModal && closable) ? closeAction : null}"
+      data-controller="${trapModal ? "lv-drawer" : null}"
+      data-lv-drawer-open-value="${trapModal ? (open ? "true" : "false") : null}"
+      data-lv-wire-close="${(trapModal && closable) ? closeAction : null}"
       class="fixed z-[var(--lv-z-modal)] flex flex-col overflow-hidden bg-[var(--lv-color-popover)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-xl)]"
       style="--drawer-dim:${panelDim};"
     >
