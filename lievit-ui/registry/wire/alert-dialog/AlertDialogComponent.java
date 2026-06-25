@@ -2,12 +2,12 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
-package io.lievit.wire;
+package dev.lievit.wire;
 
-import io.lievit.LievitAction;
-import io.lievit.LievitComponent;
-import io.lievit.LievitProperty;
-import io.lievit.Wire;
+import dev.lievit.LievitAction;
+import dev.lievit.LievitComponent;
+import dev.lievit.LievitProperty;
+import dev.lievit.Wire;
 
 /**
  * {@code alert-dialog}: the server-first WIRE confirm-modal, the {@code role="alertdialog"}

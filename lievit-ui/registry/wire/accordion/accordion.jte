@@ -1,5 +1,5 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.wire.AccordionComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.wire.AccordionComponent
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

@@ -100,7 +100,7 @@ describe("lievit add collapsible: two-root copy-in", () => {
     expect(code).toBe(0);
 
     // the wire component's two files land under their respective roots...
-    const javaDest = join(project, "src/main/java/io/lievit/wire/CollapsibleComponent.java");
+    const javaDest = join(project, "src/main/java/dev/lievit/wire/CollapsibleComponent.java");
     const jteDest = join(project, "src/main/jte/lievit/collapsible.jte");
     expect(existsSync(javaDest), "Java class under the java root").toBe(true);
     expect(existsSync(jteDest), "JTE template under the jte root").toBe(true);
@@ -117,7 +117,7 @@ describe("lievit add collapsible: two-root copy-in", () => {
     run(["collapsible"], registry, project, out);
 
     const copiedJava = readFileSync(
-      join(project, "src/main/java/io/lievit/wire/CollapsibleComponent.java"),
+      join(project, "src/main/java/dev/lievit/wire/CollapsibleComponent.java"),
       "utf8"
     );
     const sourceJava = readFileSync(
@@ -136,7 +136,7 @@ describe("lievit add collapsible: two-root copy-in", () => {
     writeFileSync(join(project, "lievit.json"), JSON.stringify({ root: "src" }));
     run(["collapsible"], registry, project, out);
     expect(
-      existsSync(join(project, "src/main/java/io/lievit/wire/CollapsibleComponent.java"))
+      existsSync(join(project, "src/main/java/dev/lievit/wire/CollapsibleComponent.java"))
     ).toBe(true);
     expect(existsSync(join(project, "src/main/jte/lievit/collapsible.jte"))).toBe(true);
   });

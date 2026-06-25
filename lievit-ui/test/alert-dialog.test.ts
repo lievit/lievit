@@ -92,8 +92,8 @@ describe("alert-dialog -- param API (spec §2)", () => {
     expect(src).toContain('@param String attrs = ""');
   });
 
-  test("no io.lievit.* imports (JTE-compile gate constraint)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit\./);
+  test("no dev.lievit.* imports (JTE-compile gate constraint)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit\./);
   });
 
   test("only JTE-safe imports are present (gg.jte.* only)", () => {
@@ -414,8 +414,8 @@ describe("alert-dialog -- CSP + security hygiene", () => {
     }
   });
 
-  test("no @import io.lievit.* (JTE classpath does not include io.lievit at compile time)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit\./);
+  test("no @import dev.lievit.* (JTE classpath does not include dev.lievit at compile time)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit\./);
   });
 });
 

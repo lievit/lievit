@@ -14,22 +14,22 @@
     {
       "path": "icons/IconResolver.java",
       "type": "registry:wire",
-      "target": "io/lievit/ui/IconResolver.java",
+      "target": "dev/lievit/ui/IconResolver.java",
       "root": "java"
     },
     {
       "path": "icons/LievitIcons.java",
       "type": "registry:wire",
-      "target": "io/lievit/ui/LievitIcons.java",
+      "target": "dev/lievit/ui/LievitIcons.java",
       "root": "java"
     },
     {
       "path": "icons/LucideIconResolver.java",
       "type": "registry:wire",
-      "target": "io/lievit/ui/LucideIconResolver.java",
+      "target": "dev/lievit/ui/LucideIconResolver.java",
       "root": "java"
     }
   ],
   "tokens": ["icon", "color"],
-  "docs": "Copies the icon partial to your JTE root at lievit/icon.jte, reached as @template.lievit.icon(name=...). It renders standalone out of the box: the partial imports io.lievit.ui.LievitIcons.body(name), a lievit-OWNED facade over an IconResolver SPI defaulting to the bundled, tree-shaken Lucide set (LucideIconResolver) -- all three Java files (IconResolver, LucideIconResolver, LievitIcons) are copied to your io/lievit/ui/ source root, so NO adopter class is needed. Add an icon: drop registry/icons/<name>.svg and re-run registry/icons/generate-icon-map.mjs (regenerates LucideIconResolver). Ship a different icon set: implement io.lievit.ui.IconResolver and call LievitIcons.setResolver(...) once at startup; the partial's @import never changes. The source is yours: edit the package/import freely."
+  "docs": "Copies the icon partial to your JTE root at lievit/icon.jte, reached as @template.lievit.icon(name=...). It renders standalone out of the box: the partial imports dev.lievit.ui.LievitIcons.body(name), a lievit-OWNED facade over an IconResolver SPI defaulting to the bundled, tree-shaken Lucide set (LucideIconResolver) -- all three Java files (IconResolver, LucideIconResolver, LievitIcons) are copied to your dev/lievit/ui/ source root, so NO adopter class is needed. Add an icon: drop registry/icons/<name>.svg and re-run registry/icons/generate-icon-map.mjs (regenerates LucideIconResolver). Ship a different icon set: implement dev.lievit.ui.IconResolver and call LievitIcons.setResolver(...) once at startup; the partial's @import never changes. The source is yours: edit the package/import freely."
 }

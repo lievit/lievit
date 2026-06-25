@@ -23,7 +23,7 @@
  *   - label NOT rendered when label param is null.
  *   - Required marker forwarded to label partial.
  *   - labelTooltip forwarded to label hint param.
- *   - No io.lievit.* imports (presentational-only contract).
+ *   - No dev.lievit.* imports (presentational-only contract).
  *   - No inline <script> / on* handlers (CSP).
  *   - No nested JTE comments.
  *   - dataAttrs safe-escape pattern present.
@@ -43,8 +43,8 @@ const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
 // §1 Security / presentational contract
 // ---------------------------------------------------------------------------
 describe("field.jte -- security and presentational contract", () => {
-  test("never imports io.lievit.* (presentational only -- no domain imports)", () => {
-    expect(src).not.toMatch(/@import io\.lievit\./);
+  test("never imports dev.lievit.* (presentational only -- no domain imports)", () => {
+    expect(src).not.toMatch(/@import dev\.lievit\./);
   });
 
   test("no inline <script> (CSP)", () => {

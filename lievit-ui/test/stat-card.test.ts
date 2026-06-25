@@ -87,11 +87,11 @@ describe("stat-card -- param API", () => {
 });
 
 // ---------------------------------------------------------------------------
-// No io.lievit imports (hard rule from REFORGE-AGENT-BRIEF.md)
+// No dev.lievit imports (hard rule from REFORGE-AGENT-BRIEF.md)
 // ---------------------------------------------------------------------------
-describe("stat-card -- no io.lievit imports", () => {
-  test("never imports io.lievit.* (JTE classpath has only JDK + jte + icons)", () => {
-    expect(src).not.toMatch(/import io\.lievit/);
+describe("stat-card -- no dev.lievit imports", () => {
+  test("never imports dev.lievit.* (JTE classpath has only JDK + jte + icons)", () => {
+    expect(src).not.toMatch(/import dev\.lievit/);
   });
 });
 

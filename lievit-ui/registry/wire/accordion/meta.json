@@ -8,7 +8,7 @@
     {
       "path": "wire/accordion/AccordionComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/AccordionComponent.java",
+      "target": "dev/lievit/wire/AccordionComponent.java",
       "root": "java"
     },
     {

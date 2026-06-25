@@ -1,4 +1,4 @@
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.ComponentMetadata
 @import java.util.List
 @param String name
 @param String owner

@@ -6,7 +6,7 @@
 
   lievit-ui notification-bell partial -- an icon-button with an inline unread-count badge that
   opens a native-popover notification history panel. Domain-agnostic: items are a
-  List of Map (keys: variant, message, description, timestamp, read) so no io.lievit import
+  List of Map (keys: variant, message, description, timestamp, read) so no dev.lievit import
   is needed and the partial carries no domain coupling.
 
   TIER: PARTIAL presentational (ADR-0012 server-first pivot). Bell opens/closes via the native

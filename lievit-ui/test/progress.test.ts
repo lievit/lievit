@@ -516,8 +516,8 @@ describe("progress -- security and CSP hygiene", () => {
     expect(handlers, `unexpected inline handlers: ${handlers.join(", ")}`).toEqual([]);
   });
 
-  test("no io.lievit import (classpath of JTE compile gate has only JDK + jte + icons)", () => {
-    expect(src).not.toContain("@import io.lievit");
+  test("no dev.lievit import (classpath of JTE compile gate has only JDK + jte + icons)", () => {
+    expect(src).not.toContain("@import dev.lievit");
   });
 
   test("uses JTE comment syntax <%-- --%>, not @* *@", () => {
@@ -608,8 +608,8 @@ describe("progress -- JTE structural hygiene", () => {
     expect(firstVar).toBeGreaterThan(firstParam);
   });
 
-  test("no @import io.lievit.* (the JTE compile gate classpath excludes it)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no @import dev.lievit.* (the JTE compile gate classpath excludes it)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no @if in attribute NAME position (use smart attributes instead)", () => {

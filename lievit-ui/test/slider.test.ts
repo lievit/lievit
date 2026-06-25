@@ -77,8 +77,8 @@ describe("slider.jte -- params & docs API", () => {
     expect(src).toContain("@@template.lievit.slider(");
   });
 
-  test("no io.lievit import (gate classpath is JDK + jte only)", () => {
-    expect(src, "must not import io.lievit.*").not.toContain("@import io.lievit");
+  test("no dev.lievit import (gate classpath is JDK + jte only)", () => {
+    expect(src, "must not import dev.lievit.*").not.toContain("@import dev.lievit");
   });
 });
 

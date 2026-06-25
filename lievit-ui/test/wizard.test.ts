@@ -49,9 +49,9 @@ describe("wizard.jte -- header + JTE hygiene", () => {
     expect(handlers, `unexpected inline handlers: ${handlers.join(", ")}`).toEqual([]);
   });
 
-  test("is server-first: no Lit island residue, no io.lievit import", () => {
+  test("is server-first: no Lit island residue, no dev.lievit import", () => {
     expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles|import .*\blit\b/);
-    expect(src, "no io.lievit import allowed in a .jte").not.toContain("@import io.lievit");
+    expect(src, "no dev.lievit import allowed in a .jte").not.toContain("@import dev.lievit");
   });
 
   test("is token-driven: no bare hex colours", () => {
@@ -102,7 +102,7 @@ describe("wizard.jte -- @param API (the v-next CONTROLLED PARTIAL surface)", () 
     expect(src).not.toMatch(/@param[^\n]*_componentSnapshot/);
   });
 
-  test("no @import io.lievit.component.ComponentMetadata (PARTIAL has no Java wire root)", () => {
+  test("no @import dev.lievit.component.ComponentMetadata (PARTIAL has no Java wire root)", () => {
     expect(src).not.toContain("ComponentMetadata");
   });
 

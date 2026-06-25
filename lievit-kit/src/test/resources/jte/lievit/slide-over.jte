@@ -1,7 +1,7 @@
 @import java.util.Map
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.SlideOver
-@import io.lievit.kit.wire.SlideOverComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.SlideOver
+@import dev.lievit.kit.wire.SlideOverComponent
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

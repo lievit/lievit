@@ -7,21 +7,21 @@ live-search component over the wire.
 
 ## What it shows
 
-- A `ProductResource` ([`product/ProductResource.java`](src/main/java/io/lievit/example/admin/product/ProductResource.java))
+- A `ProductResource` ([`product/ProductResource.java`](src/main/java/dev/lievit/example/admin/product/ProductResource.java))
   declaring a **Table** (sortable + searchable columns, a status badge, a formatted price) and a
   **Form** (text + select fields, a binder, a Bean Validation validator).
 - A persistence-agnostic **`RecordRepository<Product>`** backed by an in-memory list
-  ([`InMemoryProductRepository`](src/main/java/io/lievit/example/admin/product/InMemoryProductRepository.java)) —
+  ([`InMemoryProductRepository`](src/main/java/dev/lievit/example/admin/product/InMemoryProductRepository.java)) —
   no database required. Swapping it for JDBC/JPA would not touch the resource, the controllers, or
   the templates.
-- A controller ([`web/ProductAdminController.java`](src/main/java/io/lievit/example/admin/web/ProductAdminController.java))
+- A controller ([`web/ProductAdminController.java`](src/main/java/dev/lievit/example/admin/web/ProductAdminController.java))
   that turns the resource into the kit's **`AdminListView` / `AdminFormView` view-models** and renders
   them with Thymeleaf, following the Filament route shape via `AdminRoutes` (`/admin/products`,
   `/admin/products/create`, `/admin/products/{id}/edit`). lievit-kit ships no HTTP routes by design;
   this controller is the adopter's wiring.
 - Bean Validation: an invalid create/edit fails `Form#save`, and the form re-renders with per-field
   errors.
-- A reactive **`ProductSearchComponent`** ([`product/ProductSearchComponent.java`](src/main/java/io/lievit/example/admin/product/ProductSearchComponent.java)) —
+- A reactive **`ProductSearchComponent`** ([`product/ProductSearchComponent.java`](src/main/java/dev/lievit/example/admin/product/ProductSearchComponent.java)) —
   a lievit component with `l:model.live` search that re-queries the repository over the wire on every
   keystroke, mounted on the list page. This is the interactive island next to the server-rendered
   CRUD pages.
@@ -48,9 +48,9 @@ Then open <http://localhost:8080/admin/products> and sign in as `admin` / `admin
 ./mvnw -pl examples/kit-crud-admin -am verify
 ```
 
-- [`ProductResourceTest`](src/test/java/io/lievit/example/admin/ProductResourceTest.java) — pure
+- [`ProductResourceTest`](src/test/java/dev/lievit/example/admin/ProductResourceTest.java) — pure
   (no-Spring) tests of the kit wiring: the view-models, and the form's save + validation.
-- [`AdminAppSmokeTest`](src/test/java/io/lievit/example/admin/AdminAppSmokeTest.java) — boots the app,
+- [`AdminAppSmokeTest`](src/test/java/dev/lievit/example/admin/AdminAppSmokeTest.java) — boots the app,
   mounts the search component over the real wire pipeline.
 
 ## Where to read more

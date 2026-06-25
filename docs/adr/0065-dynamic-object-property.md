@@ -23,7 +23,7 @@ dispatcher's dotted-update path only knows form objects, so `obj.a.b` neither cr
 
 ## Decision
 
-lievit adds `DynamicObject` (`io.lievit.wire.synth`, pure Java, ADR-0007): a schemaless,
+lievit adds `DynamicObject` (`dev.lievit.wire.synth`, pure Java, ADR-0007): a schemaless,
 `LinkedHashMap`-backed holder with deep dotted `get(path)` / `set(path, value)`. `set` creates the
 missing intermediate keys as nested `DynamicObject`s, so `set("a.b.c", v)` on an empty object
 materializes `a` and `b`. It renders to a plain String-keyed JSON map (`toMap()`, recursively), so

@@ -8,7 +8,7 @@
     {
       "path": "wire/calendar/CalendarComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/CalendarComponent.java",
+      "target": "dev/lievit/wire/CalendarComponent.java",
       "root": "java"
     },
     {
@@ -24,5 +24,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Register CalendarComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `allEvents` from your repository keyed by the visible range (rangeStart()..rangeEnd()) in the constructor / a @LievitRender hook -- the seed list is example data. Render it via the wire mount / @template.lievit.calendar(...); the cells + events are OWNED template markup (NOT a slot). Call enhanceCalendars(runtime) once from main.ts after startLievit() so dragging an event chip onto a day cell moves it server-side; add server-side authz in moveEvent(). The l:init skeleton makes first paint immediate; the l:model.debounce filter and l:click navigation re-render server-side. The @LievitComponent(template=\"lievit/calendar\") name + the io.lievit.wire package are yours to change once copied."
+  "docs": "Register CalendarComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Seed `allEvents` from your repository keyed by the visible range (rangeStart()..rangeEnd()) in the constructor / a @LievitRender hook -- the seed list is example data. Render it via the wire mount / @template.lievit.calendar(...); the cells + events are OWNED template markup (NOT a slot). Call enhanceCalendars(runtime) once from main.ts after startLievit() so dragging an event chip onto a day cell moves it server-side; add server-side authz in moveEvent(). The l:init skeleton makes first paint immediate; the l:model.debounce filter and l:click navigation re-render server-side. The @LievitComponent(template=\"lievit/calendar\") name + the dev.lievit.wire package are yours to change once copied."
 }

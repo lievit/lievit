@@ -1,9 +1,9 @@
-@import io.lievit.kit.AccountWidget
+@import dev.lievit.kit.AccountWidget
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-kit :: kit.widget.account - renders the io.lievit.kit.AccountWidget (the Filament
+  lievit-kit :: kit.widget.account - renders the dev.lievit.kit.AccountWidget (the Filament
   AccountWidget): a dashboard card greeting the authenticated user by name, with their avatar and a
   quick-links menu to the profile page. It is the dashboard twin of the topbar user menu.
 

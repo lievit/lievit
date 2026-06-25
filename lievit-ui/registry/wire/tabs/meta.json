@@ -8,7 +8,7 @@
     {
       "path": "wire/tabs/TabsComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/TabsComponent.java",
+      "target": "dev/lievit/wire/TabsComponent.java",
       "root": "java"
     },
     {

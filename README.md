@@ -6,18 +6,20 @@
 > and lievit keeps the browser in sync over a stateless, HMAC-signed wire. No JSON API, no
 > client state store, no parallel frontend codebase. Apache 2.0, no SaaS.
 
+[![Maven Central](https://img.shields.io/maven-central/v/dev.lievit/lievit-spring-boot-starter.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/dev.lievit/lievit-spring-boot-starter)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/spring--boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
 
-> **Status: `1.0.0` — first stable release.** The Maven reactor builds green: 13 modules
-> (the wire runtime, the single-file DSL, the v4 compiler, five template adapters, the Spring Boot
+> **Status: `1.0.3` — stable, on Maven Central.** The Maven reactor builds green:
+> the wire runtime, the single-file DSL, the v4 compiler, the JTE template adapter, the Spring Boot
 > starter, the admin kit, the CLI, the UI component library + client runtime, and the
-> `lievit-maven-plugin` that makes the libraries consumable by import), the `Lievit.test()`
-> harness, and runnable examples. 1.0.0 is server-rendered to the core: the UI primitives are JTE
-> partials + plain-TS progressive enhancers, **no Lit / no Web Components shipped**. Consume it via
-> JitPack, pinned to the `v1.0.0` tag (see [Install](#install)); a Maven Central / lievit-domain
-> repo is coming. See the [feature matrix](#feature-matrix) for the shipped-vs-roadmap split, and the
+> `lievit-maven-plugin` that makes the libraries consumable by import, plus the `Lievit.test()`
+> harness and runnable examples. (The thymeleaf/mustache/freemarker/raw adapters are parked on
+> `wip/template-adapters` until implemented — no empty jars ship.) lievit is server-rendered to the
+> core: the UI primitives are JTE partials + plain-TS progressive enhancers, **no Lit / no Web
+> Components shipped**. Consume it via
+> Maven Central under `dev.lievit` (see [Install](#install)). See the [feature matrix](#feature-matrix) for the shipped-vs-roadmap split, and the
 > [guides](docs/guide/) for task-oriented docs. Project home and canonical reference:
 > [iambilotta.com](https://iambilotta.com).
 
@@ -52,47 +54,27 @@ Not:     Not a framework alternative to Spring (it lives INSIDE Spring), not a c
 
 ## Install
 
-lievit is not on Maven Central yet. Until the first signed `0.1.0` lands there, consume it via
-[JitPack](https://jitpack.io), pinned to a commit SHA (or a tag once one exists). JitPack builds
-the Java 25 reactor on demand (see [`jitpack.yml`](jitpack.yml)) and publishes every module under
-the coordinate `com.github.lievit.lievit:<module>`.
-
+lievit is on [Maven Central](https://central.sonatype.com) under the groupId **`dev.lievit`**.
 The one dependency most apps need is the Spring Boot starter (`lievit-spring-boot-starter`); add
 `lievit-kit` for the admin layer and `lievit-dsl` for the single-file typed-HTML mode.
 
-**Maven** — add the JitPack repository and the starter:
+**Maven:**
 
 ```xml
-<repositories>
-    <repository>
-        <id>jitpack.io</id>
-        <url>https://jitpack.io</url>
-    </repository>
-</repositories>
-
 <dependency>
-    <groupId>com.github.lievit.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-spring-boot-starter</artifactId>
-    <version>1.0.0</version> <!-- the stable tag; or main-SNAPSHOT / a commit SHA -->
+    <version>1.0.3</version>
 </dependency>
 ```
 
 **Gradle** (Kotlin DSL):
 
 ```kotlin
-repositories {
-    maven { url = uri("https://jitpack.io") }
-}
-
 dependencies {
-    implementation("com.github.lievit.lievit:lievit-spring-boot-starter:1.0.0")
+    implementation("dev.lievit:lievit-spring-boot-starter:1.0.3")
 }
 ```
-
-Pin the `1.0.0` tag (or a commit SHA) rather than `main-SNAPSHOT` for a reproducible build (both are
-immutable on JitPack). The version follows JitPack's rules: a tag, a commit, or `<branch>-SNAPSHOT`. The first
-build of any new ref takes a minute while JitPack compiles the reactor; subsequent resolves are
-cached.
 
 ## Feature matrix
 
@@ -112,7 +94,7 @@ What is in the build today versus what the ADRs name as deliberately deferred. T
 | Forms & validation | Jakarta Bean Validation on `@Wire`, the `FieldValidator` SPI, the `_errors` model param, form objects (`LievitFormObject`) | [guide](docs/guide/forms-and-validation.md), [ADR-0017](docs/adr/0017-form-objects.md) |
 | Nested components | Keyed children, reactive props, modelable two-way bind, deterministic keys | [guide](docs/guide/nested-components.md), [ADR-0016](docs/adr/0016-nested-components.md), [ADR-0023](docs/adr/0023-v4-compiler-and-deterministic-keys.md) |
 | Islands | `l:island` + comment-marker fragments, replace/append/prepend morph | [guide](docs/guide/islands.md), [ADR-0024](docs/adr/0024-v4-client-convergence.md) |
-| Single-file DSL | Type-safe `Html` builder (`io.lievit.dsl.H`), escape-by-construction | [guide](docs/guide/single-file-dsl.md), [ADR-0018](docs/adr/0018-single-file-dsl.md) |
+| Single-file DSL | Type-safe `Html` builder (`dev.lievit.dsl.H`), escape-by-construction | [guide](docs/guide/single-file-dsl.md), [ADR-0018](docs/adr/0018-single-file-dsl.md) |
 | Template adapters | JTE (primary) + Thymeleaf + Mustache + FreeMarker + raw | [ADR-0004](docs/adr/0004-template-adapter-strategy.md) |
 | Typed state | Synthesizer registry + `Wireable` SPI, exact round-trip for records/enums/temporals/`BigDecimal`/`UUID`/`Set`/`Map`; class-instantiation guard | [ADR-0020](docs/adr/0020-typed-state-synthesizers.md), [ADR-0021](docs/adr/0021-class-instantiation-guard.md) |
 | Security | HMAC + `kid` rotation, locked fields, settable/callable allowlist, payload caps, fail-closed errors, checksum-failure rate limit | [wire protocol](docs/wire-protocol.md), [ADR-0013](docs/adr/0013-payload-hardening.md), [ADR-0014](docs/adr/0014-fail-closed-error-rendering.md) |
@@ -132,30 +114,12 @@ What is in the build today versus what the ADRs name as deliberately deferred. T
 | Kit relation fields beyond `BelongsToField` (`HasMany` / `BelongsToMany`) | lievit-kit |
 | Cross-instance broadcast fan-out (message broker behind the SSE channel) | [ADR-0040](docs/adr/0040-realtime-broadcast-channel-sse.md) |
 
-### Maven Central (planned)
+### Maven Central
 
-On the first tagged release the modules will also publish to
-[Maven Central](https://central.sonatype.com) under the groupId **`io.github.lievit`** (the free,
-GitHub-org-verified namespace), so you can drop the JitPack repository and depend on the plain
-coordinate:
-
-```xml
-<!-- planned: 1.0.0 on Maven Central (until then, JitPack v1.0.0 above) -->
-<dependency>
-    <groupId>io.github.lievit</groupId>
-    <artifactId>lievit-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
-</dependency>
-```
-
-```kotlin
-// planned: available from the first tagged 0.1.0 on Maven Central
-implementation("io.github.lievit:lievit-spring-boot-starter:0.1.0")
-```
-
-The Java packages stay `io.lievit.*` (the groupId is the publish namespace, not the package). The
-release machinery (signed source + javadoc jars via the `release` Maven profile) is wired but not
-yet exercised; until the first release is observed live on Central, JitPack above is the path.
+Modules are published to [Maven Central](https://central.sonatype.com) under the groupId
+**`dev.lievit`** (GitHub-org-verified namespace). The Java packages are `dev.lievit.*`
+(the groupId is the publish namespace, not the Java package root).
+Signed source + javadoc jars are produced via the `release` Maven profile.
 
 ## The category
 
@@ -328,7 +292,7 @@ Single-file is not a trade on type-safety: it is "DSL instead of JTE", both are 
 Reactive single-file type-safe components are the hard differentiator: impossible in Volt / PHP
 (not compiled). See [`docs/adr/0003`](docs/adr/0003-single-file-multi-file-dual-mode.md).
 
-The DSL lives in the `lievit-dsl` module (`import static io.lievit.dsl.H.*;`): a sealed
+The DSL lives in the `lievit-dsl` module (`import static dev.lievit.dsl.H.*;`): a sealed
 `Html` tree built by static factories (`div`, `span`, `button`, `text`, `el`), escape-by-construction
 (a `@Wire` value carrying markup renders inert; the one escape hatch is the explicit `raw(...)`), and
 wire-binding helpers (`.wireClick("increment")`, `.wireModel("name")`) that emit the `l:*` markers the
@@ -503,7 +467,7 @@ the browser*. Because lievit's wire is server-driven and typed, a fast in-proces
 over `MockMvc`) and reads typed state back. No browser, no JSON-map boilerplate, no snapshot juggling.
 
 ```java
-import static io.lievit.test.Lievit.test;
+import static dev.lievit.test.Lievit.test;
 
 @LievitTest                                  // one meta-annotation: slice + dev key + MockMvc
 class CounterComponentTest {

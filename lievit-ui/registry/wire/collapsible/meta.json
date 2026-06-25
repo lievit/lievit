@@ -8,7 +8,7 @@
     {
       "path": "wire/collapsible/CollapsibleComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/CollapsibleComponent.java",
+      "target": "dev/lievit/wire/CollapsibleComponent.java",
       "root": "java"
     },
     {

@@ -8,7 +8,7 @@
     {
       "path": "wire/alert-dialog/AlertDialogComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/AlertDialogComponent.java",
+      "target": "dev/lievit/wire/AlertDialogComponent.java",
       "root": "java"
     },
     {

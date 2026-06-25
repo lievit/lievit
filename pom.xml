@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-parent</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
@@ -39,30 +39,35 @@
     </scm>
 
     <!--
-      ADR-0008 (amended 2026-06-17): one monorepo. lievit-core is a published coordinate; the five
+      ADR-0008 (amended 2026-06-17): one monorepo. lievit-core is a published coordinate; the
       template adapters are split so an adopter drags only the engine it uses; the starter is the
       single primary dependency. The Filament-style admin (lievit-kit) is now an in-monorepo module
       on the runtime (the earlier "separate repo" posture is superseded), path-depending on the core
       and the starter.
+      NOTE (1.0.3): only the JTE adapter ships today. The thymeleaf/mustache/freemarker/raw adapters
+      were stubs (no public API); they are parked on branch `wip/template-adapters` and re-added to
+      the reactor when actually implemented, so the published release has no empty placeholder jars.
     -->
     <modules>
         <module>lievit-core</module>
         <module>lievit-dsl</module>
         <module>lievit-compiler</module>
         <module>lievit-jte</module>
-        <module>lievit-thymeleaf</module>
-        <module>lievit-mustache</module>
-        <module>lievit-freemarker</module>
-        <module>lievit-raw</module>
         <module>lievit-spring-boot-starter</module>
         <module>lievit-kit</module>
         <module>lievit-cli</module>
         <module>lievit-ui</module>
         <module>lievit-maven-plugin</module>
+        <!-- Examples are build-verification proofs (the import-poc pair proves the consume-by-import
+             distribution end-to-end), NOT published artifacts: kept out of the default reactor so the
+             Central release ships only libraries. Run them on demand:
+               mvn -f examples/golden-path-starter/pom.xml verify
+               mvn -pl examples/import-poc,examples/import-poc-kit -am -f pom.xml verify   (re-add temporarily)
         <module>examples/golden-path-starter</module>
         <module>examples/kit-crud-admin</module>
         <module>examples/import-poc</module>
         <module>examples/import-poc-kit</module>
+        -->
     </modules>
 
     <properties>
@@ -73,7 +78,7 @@
             ${revision} to the concrete value in the installed/deployed pom so consumers
             (incl. JitPack) never see the literal placeholder. See maven-ci-friendly.html.
         -->
-        <revision>1.0.2</revision>
+        <revision>1.0.3</revision>
         <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -117,57 +122,37 @@
 
             <!-- lievit reactor coordinates -->
             <dependency>
-                <groupId>io.github.lievit</groupId>
+                <groupId>dev.lievit</groupId>
                 <artifactId>lievit-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.lievit</groupId>
+                <groupId>dev.lievit</groupId>
                 <artifactId>lievit-dsl</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.lievit</groupId>
+                <groupId>dev.lievit</groupId>
                 <artifactId>lievit-compiler</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.lievit</groupId>
+                <groupId>dev.lievit</groupId>
                 <artifactId>lievit-jte</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.lievit</groupId>
-                <artifactId>lievit-thymeleaf</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.lievit</groupId>
-                <artifactId>lievit-mustache</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.lievit</groupId>
-                <artifactId>lievit-freemarker</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.lievit</groupId>
-                <artifactId>lievit-raw</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.lievit</groupId>
+                <groupId>dev.lievit</groupId>
                 <artifactId>lievit-spring-boot-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.lievit</groupId>
+                <groupId>dev.lievit</groupId>
                 <artifactId>lievit-kit</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.lievit</groupId>
+                <groupId>dev.lievit</groupId>
                 <artifactId>lievit-ui</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -295,7 +280,7 @@
                 <!--
                     Maven Central publish plugins (RFC 0026 skeleton). Versioned here, wired into
                     a build only by the `release` profile below, so the normal build / JitPack path
-                    never signs or deploys. The Central coordinate is groupId io.github.lievit (free,
+                    never signs or deploys. The Central coordinate is groupId dev.lievit (free,
                     GitHub-org-verified; Francesco does not own lievit.io). Mirrors the spring-gdpr /
                     spring-aiact sister setup.
                 -->
@@ -488,8 +473,8 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <autoPublish>false</autoPublish>
-                            <waitUntil>validated</waitUntil>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
                             <!--
                                 examples/golden-path-starter is a runnable demo, not a published
                                 library; it already carries maven.deploy.skip=true in its own pom, so

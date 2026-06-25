@@ -14,14 +14,14 @@
  *   - Native popover seam: popovertarget, popover="auto", CSS anchor positioning.
  *   - Escaping: both token channels (attrs trusted-raw via $unsafe; dataAttrs safe-escaped via
  *     Escape.htmlAttribute -- same as button.jte).
- *   - No io.lievit import statement (hard rule: template classpath is JDK + jte + icons only).
+ *   - No dev.lievit import statement (hard rule: template classpath is JDK + jte + icons only).
  *   - No inline <script> or on* handlers (strict CSP).
  *   - No bare hex colours (token-only).
  *   - Apache header + JTE doc-comment with Usage section.
  *
  * SPEC DELTA vs old surface (v-next changes):
  *   - items: was gg.jte.Content slot; now java.util.List<java.util.Map<String,String>> (inline
- *     rendered list; domain-agnostic Maps, no io.lievit record import required).
+ *     rendered list; domain-agnostic Maps, no dev.lievit record import required).
  *   - Count badge: inlined (was @template.lievit.badge composition; now self-contained <span>).
  *   - Panel role: was role="menu"; now role="region" (spec §4: non-modal browsable list).
  *   - bellAriaLabel: new param (was `label`); REQUIRED for icon-only button a11y.
@@ -69,10 +69,10 @@ describe("notification-bell.jte -- shared hygiene", () => {
     expect(src.toLowerCase()).not.toMatch(/customelement|litelement|adoptlightstyles/);
   });
 
-  test("does NOT have an @import io.lievit statement (hard rule: template classpath is JDK + jte + icons)", () => {
-    // The hard rule is no `@import io.lievit.*` LINE. The doc-comment may mention "io.lievit"
-    // in prose (e.g. "no io.lievit import is needed") -- so we match the import statement form.
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("does NOT have an @import dev.lievit statement (hard rule: template classpath is JDK + jte + icons)", () => {
+    // The hard rule is no `@import dev.lievit.*` LINE. The doc-comment may mention "dev.lievit"
+    // in prose (e.g. "no dev.lievit import is needed") -- so we match the import statement form.
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("never reaches for Font Awesome / wa-icon", () => {
@@ -108,10 +108,10 @@ describe("notification-bell.jte -- v-next API surface", () => {
     }
   });
 
-  test("items param uses java.util.List and java.util.Map (domain-agnostic, no io.lievit record)", () => {
+  test("items param uses java.util.List and java.util.Map (domain-agnostic, no dev.lievit record)", () => {
     expect(src, "items must be a java.util.List").toMatch(/java\.util\.List/);
     expect(src, "items must be a java.util.Map list").toMatch(/java\.util\.Map/);
-    expect(src, "no io.lievit import statement").not.toMatch(/@import\s+io\.lievit/);
+    expect(src, "no dev.lievit import statement").not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("size param governs the bell button height-based toolbar-aligned scale", () => {

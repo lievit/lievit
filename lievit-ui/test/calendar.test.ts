@@ -10,7 +10,7 @@
  * chip onto a day cell. This file pins (a) the registry:wire item shape + the server-purity of the
  * source, and (b) the drag enhancer's DOM behaviour against a DOM shaped exactly like the partial
  * output. The render + state transitions (grid, prev/next, view switch, event-in-cell projection,
- * debounced filter) are render-asserted on the JVM in lievit-kit (io.lievit.kit.wire.CalendarComponentIT).
+ * debounced filter) are render-asserted on the JVM in lievit-kit (dev.lievit.kit.wire.CalendarComponentIT).
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
@@ -126,7 +126,7 @@ interface SpyHandle {
 /** Build a calendar root matching the loaded calendar.jte: a cell with a draggable event chip. */
 function renderCalendar(): { root: HTMLElement; cell: HTMLElement; chip: HTMLElement } {
   const root = document.createElement("div");
-  root.setAttribute("data-lievit-component", "io.lievit.wire.CalendarComponent");
+  root.setAttribute("data-lievit-component", "dev.lievit.wire.CalendarComponent");
   root.setAttribute("data-calendar", "");
 
   const grid = document.createElement("table");

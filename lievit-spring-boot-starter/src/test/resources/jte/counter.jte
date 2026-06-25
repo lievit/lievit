@@ -1,4 +1,4 @@
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.ComponentMetadata
 @param int count
 @param String label
 @param ComponentMetadata _component

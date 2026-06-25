@@ -8,7 +8,7 @@
     {
       "path": "wire/command/CommandComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/CommandComponent.java",
+      "target": "dev/lievit/wire/CommandComponent.java",
       "root": "java"
     },
     {

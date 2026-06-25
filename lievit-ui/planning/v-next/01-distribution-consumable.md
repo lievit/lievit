@@ -10,7 +10,7 @@ the JTE primitive templates, the client JS runtime (served from inside the jar),
 types. No npm. No copy-in by default. Copy-in (the `lievit add` CLI registry) stays as the OPTIONAL
 opt-out (shadcn model, no vendor lock-in).
 
-The DEFAULT is import: `io.github.lievit:lievit-ui:<version>` and you are done. The JTE half is
+The DEFAULT is import: `dev.lievit:lievit-ui:<version>` and you are done. The JTE half is
 imported via **Path B**, PROVEN by the Phase-0 spike (below). The runtime ships as a pre-built JS
 bundle resource INSIDE the same jar (webjar-style), served by lievit's Spring integration. So the
 adopter gets templates + runtime + Java from ONE coordinate.
@@ -188,6 +188,6 @@ ship alongside.
   `sw-architecture-007`.
 - **D5 — CLOSED by D4**: there is ONE artifact, so ONE version; the jar↔npm compat-matrix question is
   retired (no npm).
-- **D7 — CLOSED by D4**: no npm scope to choose. The Maven coordinates stay `io.github.lievit:lievit-ui`
-  (the `io.lievit` namespace, org `lievit`, domain `lievit.io` — memory: lievit canonical ns is
-  `io.lievit`).
+- **D7 — CLOSED by D4**: no npm scope to choose. The Maven coordinates stay `dev.lievit:lievit-ui`
+  (the `dev.lievit` namespace, org `lievit`, domain `lievit.io` — memory: lievit canonical ns is
+  `dev.lievit`).

@@ -1,4 +1,4 @@
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.ComponentMetadata
 @import java.util.List
 @import java.util.Map
 @param String email

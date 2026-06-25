@@ -47,7 +47,7 @@ On the client, the `l:error="email"` directive renders the first message for a f
 
 ### The `FieldValidator` SPI
 
-Validation goes through one SPI (`io.lievit.component.FieldValidator`): it receives the rehydrated,
+Validation goes through one SPI (`dev.lievit.component.FieldValidator`): it receives the rehydrated,
 updated component instance and returns `Map<fieldName, [messages]>`. An empty (or null) map means
 valid; a non-empty map writes the `errors` effect and skips the action.
 

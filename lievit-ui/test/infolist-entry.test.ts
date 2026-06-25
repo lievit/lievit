@@ -28,8 +28,8 @@ describe("infolist-entry — cross-cutting invariants", () => {
     expect(src).toContain('Licensed under the Apache License, Version 2.0 (the "License").');
   });
 
-  test("does NOT import io.lievit (JTE classpath has no io.lievit on the gate)", () => {
-    expect(src).not.toContain("import io.lievit");
+  test("does NOT import dev.lievit (JTE classpath has no dev.lievit on the gate)", () => {
+    expect(src).not.toContain("import dev.lievit");
   });
 
   test("is CSP-clean: no inline <script>, no on* HTML handler", () => {

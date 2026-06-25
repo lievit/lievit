@@ -1,7 +1,7 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.wire.CommandComponent
-@import io.lievit.kit.wire.CommandComponent.Group
-@import io.lievit.kit.wire.CommandComponent.Item
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.wire.CommandComponent
+@import dev.lievit.kit.wire.CommandComponent.Group
+@import dev.lievit.kit.wire.CommandComponent.Item
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

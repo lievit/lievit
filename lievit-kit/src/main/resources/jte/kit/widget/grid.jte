@@ -1,13 +1,13 @@
-@import io.lievit.kit.DashboardWidget
-@import io.lievit.kit.StatWidget
-@import io.lievit.kit.ChartWidget
-@import io.lievit.kit.AccountWidget
-@import io.lievit.kit.ColumnSpan
+@import dev.lievit.kit.DashboardWidget
+@import dev.lievit.kit.StatWidget
+@import dev.lievit.kit.ChartWidget
+@import dev.lievit.kit.AccountWidget
+@import dev.lievit.kit.ColumnSpan
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-kit :: kit.widget.grid - lays a dashboard's io.lievit.kit.DashboardWidget list into a
+  lievit-kit :: kit.widget.grid - lays a dashboard's dev.lievit.kit.DashboardWidget list into a
   responsive grid and dispatches each widget to its per-widget render (kit.widget.stat / .chart /
   .account). This is the widget twin of kit.table: the canonical dashboard chrome, so a WidgetPage
   renders its widgets() through ONE template instead of hand-assembling a grid per page.

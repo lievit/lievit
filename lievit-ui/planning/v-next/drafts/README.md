@@ -12,15 +12,15 @@ therefore do NOT belong in the presentational validation batch / the `jte-compil
 The v-next `tabs` spec (`planning/v-next/specs/tabs.md`) is a **WIRE** component, not a
 static presentational primitive: the active tab is a server fact (`@Wire String activeTab`),
 with `activate` / `closeTab` / `addTab` actions and an HTMX panel-swap path. An agent re-forged
-the template accordingly, importing `io.lievit.wire.TabsComponent`, `io.lievit.wire.TabItem` and
-`io.lievit.component.ComponentMetadata`.
+the template accordingly, importing `dev.lievit.wire.TabsComponent`, `dev.lievit.wire.TabItem` and
+`dev.lievit.component.ComponentMetadata`.
 
 It is parked here, not in `registry/jte/`, because:
 
 1. **It needs Java backing that does not exist yet.** `TabItem` is not a class anywhere;
    the v-next `TabsComponent` (with the spec's locked properties + abstract `addTab` hook) is
    not written. The draft template references types that have no source.
-2. **It collides with the existing wire tabs.** `io.lievit.wire.TabsComponent` already exists
+2. **It collides with the existing wire tabs.** `dev.lievit.wire.TabsComponent` already exists
    (`registry/wire/tabs/`, ADR-0012 Wave 2, server-first tabs). The re-forge must reconcile with
    that component — re-forge ITS template + styling + a11y — not introduce a parallel one.
 3. **The `jte-compile` gate cannot validate it.** That gate mirrors only `registry/jte/**` +

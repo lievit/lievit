@@ -1,48 +1,30 @@
 # Getting started
 
-Build a working Counter in five minutes: install via JitPack, write a component, render it, click a
-button, watch the server re-render only the changed DOM. No JSON API, no client state store.
+Build a working Counter in five minutes: install via Maven Central, write a component, render it,
+click a button, watch the server re-render only the changed DOM. No JSON API, no client state store.
 
-## 1. Install (JitPack)
+## 1. Install (Maven Central)
 
-lievit is not on Maven Central yet. Until the first signed `0.1.0` lands there, consume it through
-[JitPack](https://jitpack.io), which builds the Java 25 reactor on demand and publishes every module
-under the coordinate `com.github.lievit.lievit:<module>`.
-
+lievit is on [Maven Central](https://central.sonatype.com) under the groupId `dev.lievit`.
 Most apps need exactly one dependency: the Spring Boot starter.
 
-**Maven** — add the JitPack repository and the starter:
+**Maven:**
 
 ```xml
-<repositories>
-    <repository>
-        <id>jitpack.io</id>
-        <url>https://jitpack.io</url>
-    </repository>
-</repositories>
-
 <dependency>
-    <groupId>com.github.lievit.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-spring-boot-starter</artifactId>
-    <version>main-SNAPSHOT</version> <!-- or pin a commit SHA for a reproducible build -->
+    <version>1.0.3</version>
 </dependency>
 ```
 
 **Gradle (Kotlin DSL):**
 
 ```kotlin
-repositories {
-    maven { url = uri("https://jitpack.io") }
-}
-
 dependencies {
-    implementation("com.github.lievit.lievit:lievit-spring-boot-starter:main-SNAPSHOT")
+    implementation("dev.lievit:lievit-spring-boot-starter:1.0.3")
 }
 ```
-
-Pin a commit SHA rather than `main-SNAPSHOT` for a reproducible build (the SHA is immutable on
-JitPack). The first build of any new ref takes a minute while JitPack compiles the reactor;
-subsequent resolves are cached.
 
 You also need a template engine. JTE is the canonical primary; the starter wires it automatically
 when `gg.jte:jte` is on the classpath. Add it:
@@ -127,7 +109,7 @@ A component with a no-arg constructor needs no `@Bean` declaration; the registry
 
 ```html
 <!-- src/main/jte/counter.jte -->
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.ComponentMetadata
 @param int count
 @param ComponentMetadata _component
 <div data-lievit-component="${_component.className()}">
@@ -159,7 +141,7 @@ lievit ships a developer-facing test harness, `Lievit.test()`, that drives the *
 (codec → registry → dispatcher → template → the HTTP edge over `MockMvc`) and reads typed state back.
 
 ```java
-import static io.lievit.test.Lievit.test;
+import static dev.lievit.test.Lievit.test;
 
 @LievitTest                                  // slice + dev key + MockMvc, one meta-annotation
 class CounterComponentTest {

@@ -14,7 +14,7 @@
  *   - A11y contract: scope on <th>, aria-sort on <th> (not inner button),
  *     aria-selected / aria-rowindex / data-row-id on <tr>.
  *   - smart-attribute pattern (null = attribute dropped, no @if in name position).
- *   - No io.lievit imports, no inline on* handlers, no nested JTE comments.
+ *   - No dev.lievit imports, no inline on* handlers, no nested JTE comments.
  *   - Token hygiene: no bare hex / rgb / oklch literals outside comment blocks.
  *   - data-slot presence and correct value per partial.
  *   - Copyright header present.
@@ -106,8 +106,8 @@ describe("table.jte -- wrapper", () => {
     expect(markup).toContain("${content}");
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no inline on* handler", () => {
@@ -178,8 +178,8 @@ describe("table/header.jte -- thead", () => {
     expect(markup).toContain("${content}");
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no inline on* handler", () => {
@@ -221,8 +221,8 @@ describe("table/body.jte -- tbody", () => {
     expect(markup).toContain("${content}");
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 });
 
@@ -264,8 +264,8 @@ describe("table/footer.jte -- tfoot", () => {
     expect(markup).toContain("${content}");
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 });
 
@@ -356,8 +356,8 @@ describe("table/row.jte -- tr", () => {
     expect(markup).not.toMatch(/\boklch\(/);
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no inline on* handler", () => {
@@ -428,8 +428,8 @@ describe("table/head.jte -- th", () => {
     expect(markup).not.toMatch(/\boklch\(/);
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no inline on* handler", () => {
@@ -489,8 +489,8 @@ describe("table/cell.jte -- td", () => {
     expect(markup).not.toMatch(/\boklch\(/);
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no inline on* handler", () => {
@@ -542,8 +542,8 @@ describe("table/caption.jte -- caption", () => {
     expect(markup).not.toMatch(/\boklch\(/);
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("has content slot", () => {

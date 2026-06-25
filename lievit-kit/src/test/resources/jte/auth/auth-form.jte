@@ -1,6 +1,6 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.auth.AuthFormView
-@import io.lievit.kit.auth.AuthPageComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.auth.AuthFormView
+@import dev.lievit.kit.auth.AuthPageComponent
 @param AuthPageComponent _instance
 @param ComponentMetadata _component
 !{AuthFormView view = _instance.view();}

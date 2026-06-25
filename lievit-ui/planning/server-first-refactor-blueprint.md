@@ -75,7 +75,7 @@ Anatomy verified against the real examples
 
 2. **JTE template** `registry/wire/<name>/<name>.jte`
    ```jte
-   @import io.lievit.component.ComponentMetadata
+   @import dev.lievit.component.ComponentMetadata
    @param <T> field
    @param ComponentMetadata _component
    <div data-lievit-component="${_component.className()}">

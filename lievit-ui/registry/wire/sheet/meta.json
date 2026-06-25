@@ -8,7 +8,7 @@
     {
       "path": "wire/sheet/SheetComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/SheetComponent.java",
+      "target": "dev/lievit/wire/SheetComponent.java",
       "root": "java"
     },
     {

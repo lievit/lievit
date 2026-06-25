@@ -1,5 +1,5 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.component.LievitChildren
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.component.LievitChildren
 @param String title
 @param ComponentMetadata _component
 <div data-lievit-component="${_component.className()}" data-title="${title}">

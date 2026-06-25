@@ -1,8 +1,8 @@
 @import java.util.Map
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.Field
-@import io.lievit.kit.ModalConfig
-@import io.lievit.kit.wire.ActionModalComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.Field
+@import dev.lievit.kit.ModalConfig
+@import dev.lievit.kit.wire.ActionModalComponent
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

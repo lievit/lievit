@@ -1,7 +1,7 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.wire.CalendarComponent
-@import io.lievit.kit.wire.CalendarComponent.Cell
-@import io.lievit.kit.wire.CalendarComponent.Event
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.wire.CalendarComponent
+@import dev.lievit.kit.wire.CalendarComponent.Cell
+@import dev.lievit.kit.wire.CalendarComponent.Event
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

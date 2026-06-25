@@ -33,7 +33,7 @@ function renderContextMenu(opts: { open?: boolean } = {}): {
   panel: HTMLElement | null;
 } {
   const root = document.createElement("div");
-  root.setAttribute("data-lievit-component", "io.lievit.wire.ContextMenuComponent");
+  root.setAttribute("data-lievit-component", "dev.lievit.wire.ContextMenuComponent");
 
   const trigger = document.createElement("div");
   trigger.setAttribute("data-context-menu-trigger", "");

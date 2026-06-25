@@ -115,7 +115,7 @@ describe("icon body map", () => {
  * its glyphs from a LIEVIT-OWNED default (the bundled Lucide set behind an IconResolver SPI), never
  * from an adopter's class. icon.jte must render with ZERO adopter classpath. This suite pins that
  * no `it.housetreespa` (or any adopter package) leaks into the icon system, and that the SPI +
- * default resolver lievit owns are in the lievit-owned io.lievit.ui package.
+ * default resolver lievit owns are in the lievit-owned dev.lievit.ui package.
  */
 describe("icon system is lievit-owned (no adopter classpath, standalone)", () => {
   const spiInterface = readFileSync(join(iconsDir, "IconResolver.java"), "utf8");
@@ -124,7 +124,7 @@ describe("icon system is lievit-owned (no adopter classpath, standalone)", () =>
   const generator = readFileSync(join(iconsDir, "generate-icon-map.mjs"), "utf8");
 
   test("icon.jte imports the lievit-owned facade, NOT an adopter class", () => {
-    expect(iconJte).toContain("@import static io.lievit.ui.LievitIcons.body");
+    expect(iconJte).toContain("@import static dev.lievit.ui.LievitIcons.body");
     expect(iconJte).toContain("$unsafe{body(name)}");
     // hard de-gest-ify assertion: no adopter package anywhere in the partial
     expect(iconJte).not.toContain("it.housetreespa");
@@ -142,14 +142,14 @@ describe("icon system is lievit-owned (no adopter classpath, standalone)", () =>
     }
   });
 
-  test("the SPI + default resolver live in the lievit-owned io.lievit.ui package", () => {
-    expect(spiInterface).toContain("package io.lievit.ui;");
+  test("the SPI + default resolver live in the lievit-owned dev.lievit.ui package", () => {
+    expect(spiInterface).toContain("package dev.lievit.ui;");
     expect(spiInterface).toMatch(/interface\s+IconResolver/);
     expect(spiInterface).toMatch(/String\s+body\(String\s+name\)/);
-    expect(facade).toContain("package io.lievit.ui;");
+    expect(facade).toContain("package dev.lievit.ui;");
     expect(facade).toMatch(/class\s+LievitIcons/);
     expect(facade).toMatch(/setResolver\s*\(/); // adopter override hook
-    expect(defaultResolver).toContain("package io.lievit.ui;");
+    expect(defaultResolver).toContain("package dev.lievit.ui;");
     expect(defaultResolver).toMatch(/class\s+LucideIconResolver\s+implements\s+IconResolver/);
   });
 
@@ -163,7 +163,7 @@ describe("icon system is lievit-owned (no adopter classpath, standalone)", () =>
 
 describe("icon.jte partial", () => {
   test("imports the static body lookup and emits it unescaped (trusted vendored svg)", () => {
-    expect(iconJte).toContain("@import static io.lievit.ui.LievitIcons.body");
+    expect(iconJte).toContain("@import static dev.lievit.ui.LievitIcons.body");
     expect(iconJte).toContain("$unsafe{body(name)}");
   });
 

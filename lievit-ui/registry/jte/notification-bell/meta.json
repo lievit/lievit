@@ -1,7 +1,7 @@
 {
   "name": "notification-bell",
   "type": "registry:jte",
-  "description": "An icon-button with an inline unread-count badge that opens a native-popover notification history panel. Icon-only bell button (aria-label embeds the count); unread count badge is inlined (self-contained, no badge partial dependency); items are List-of-Map (keys: id, variant, message, description, timestamp, read) so no io.lievit import is needed. Panel is role=region with a <ul><li> item list in natural tab order (no roving tabindex). Positions via CSS Anchor Positioning (light-dismiss + Esc built-in). Bell button follows the sm/md/lg height-based toolbar-alignment scale. Token-driven, CSP-clean, zero JS shipped.",
+  "description": "An icon-button with an inline unread-count badge that opens a native-popover notification history panel. Icon-only bell button (aria-label embeds the count); unread count badge is inlined (self-contained, no badge partial dependency); items are List-of-Map (keys: id, variant, message, description, timestamp, read) so no dev.lievit import is needed. Panel is role=region with a <ul><li> item list in natural tab order (no roving tabindex). Positions via CSS Anchor Positioning (light-dismiss + Esc built-in). Bell button follows the sm/md/lg height-based toolbar-alignment scale. Token-driven, CSP-clean, zero JS shipped.",
   "dependencies": [],
   "registryDependencies": ["tokens", "icon", "separator"],
   "files": [

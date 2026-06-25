@@ -8,7 +8,7 @@
     {
       "path": "wire/file-upload/FileUploadComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/FileUploadComponent.java",
+      "target": "dev/lievit/wire/FileUploadComponent.java",
       "root": "java"
     },
     {

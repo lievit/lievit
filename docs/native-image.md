@@ -11,7 +11,7 @@ produced by an **adopter's Spring Boot application** that depends on the lievit 
 ## Building a lievit app to native
 
 ```bash
-# in the adopter's Spring Boot app (depends on io.lievit:lievit-spring-boot-starter)
+# in the adopter's Spring Boot app (depends on dev.lievit:lievit-spring-boot-starter)
 ./mvnw -Pnative native:compile      # produces a native executable in target/
 ```
 
@@ -55,7 +55,7 @@ Two layers, the first cheap (every build), the second authoritative (CI):
    registrar and the AOT processor and assert with `RuntimeHintsPredicates` that the reflective
    surface (component declared fields/methods/constructors, the wire DTOs) is registered. If a
    future change reflects over an unhinted member, these go RED long before the native gate does.
-   Run: `./mvnw -pl lievit-spring-boot-starter test -Dtest='io.lievit.spring.native_.*'`.
+   Run: `./mvnw -pl lievit-spring-boot-starter test -Dtest='dev.lievit.spring.native_.*'`.
 2. **The native CI gate** (`.github/workflows/ci.yml`, the `native` job): `./mvnw -Pnative
    native:compile` on a real app, the authoritative proof the image builds and serves a wire call.
 

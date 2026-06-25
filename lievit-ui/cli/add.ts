@@ -28,7 +28,7 @@ export interface AddConfig {
   root: string;
   /**
    * Java source root for `registry:wire` Java classes (file.root === "java"), e.g.
-   * "src/main/java" so a target "io/lievit/wire/Collapsible.java" lands there. Defaults to
+   * "src/main/java" so a target "dev/lievit/wire/Collapsible.java" lands there. Defaults to
    * `src/main/java` when absent (a presentation-only adopter never sets it).
    */
   javaRoot?: string;

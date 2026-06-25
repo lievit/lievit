@@ -1,4 +1,4 @@
-@import static io.lievit.ui.LievitIcons.body
+@import static dev.lievit.ui.LievitIcons.body
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -19,10 +19,10 @@
   the copy-in simplicity, so inline-per-name is objectively best here.
 
   The uniform <svg> wrapper lives HERE once (sized + coloured by --lv-* tokens); the per-icon
-  inner body (paths/circles/...) comes from io.lievit.ui.LievitIcons.body(name) -- a lievit-OWNED
+  inner body (paths/circles/...) comes from dev.lievit.ui.LievitIcons.body(name) -- a lievit-OWNED
   facade over an IconResolver SPI, defaulting to the bundled, tree-shaken Lucide set
   (LucideIconResolver). The partial names NO adopter class, so it renders standalone out of the box.
-  To ship a different icon set, implement io.lievit.ui.IconResolver and call
+  To ship a different icon set, implement dev.lievit.ui.IconResolver and call
   LievitIcons.setResolver(...) once at startup; this call site never changes. The Lucide SVGs
   stroke with currentColor, so colour follows the surrounding text colour or any Tailwind `text-*`
   utility / --lv-color-* override on a wrapping element.

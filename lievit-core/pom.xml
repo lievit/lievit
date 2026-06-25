@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.github.lievit</groupId>
+        <groupId>dev.lievit</groupId>
         <artifactId>lievit-parent</artifactId>
         <version>${revision}</version>
     </parent>

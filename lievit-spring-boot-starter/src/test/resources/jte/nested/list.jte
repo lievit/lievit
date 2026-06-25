@@ -1,5 +1,5 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.component.LievitChildren
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.component.LievitChildren
 @param int rows
 @param String draft
 @param ComponentMetadata _component

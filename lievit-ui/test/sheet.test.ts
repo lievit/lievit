@@ -28,7 +28,7 @@
  *   10. The projection contract: content is owned (${content}), no native <slot>.
  *   11. CSP-clean: no inline <script>, no on*= handlers.
  *   12. Token-driven: uses --lv-* tokens, no raw hex.
- *   13. No io.lievit import.
+ *   13. No dev.lievit import.
  *   14. Apache license header.
  *   15. Focus-trap seam: data-lievit-focus-trap + data-lievit-escape-action on same element.
  *   16. footer is optional Content slot (null = absent, not an empty region).
@@ -348,12 +348,12 @@ describe("sheet.jte: token-driven (--lv-* tokens only, no raw hex)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 13. No io.lievit import
+// 13. No dev.lievit import
 // ---------------------------------------------------------------------------
 
 describe("sheet.jte: server-pure (no lievit Java class deps)", () => {
-  test("does not import io.lievit.* (PARTIAL: no Java class deps)", () => {
-    expect(jte).not.toContain("@import io.lievit");
+  test("does not import dev.lievit.* (PARTIAL: no Java class deps)", () => {
+    expect(jte).not.toContain("@import dev.lievit");
   });
 });
 

@@ -27,7 +27,7 @@ and rebuilds the exact type, recursively
 
 ## Decision
 
-lievit adopts the same tuple-with-type-tag shape, in the pure-Java core (`io.lievit.wire.synth`,
+lievit adopts the same tuple-with-type-tag shape, in the pure-Java core (`dev.lievit.wire.synth`,
 zero Spring, ADR-0007). The seam lives in the `WireDispatcher`'s dehydrate/rehydrate/update path,
 **not** in the `SnapshotCodec`: the codec stays a dumb JWT signer of a JSON-shaped map, so
 signing, expiry, and `kid` rotation are untouched.

@@ -10,7 +10,7 @@
  * navigation. This file pins (a) the registry:wire item shape + the server-purity of the source, and
  * (b) the keyboard enhancer's DOM behaviour against a DOM shaped like the partial output. The render
  * + state transitions (multiple chips + toggle, preload, create, rich labels) are render-asserted on
- * the JVM in lievit-kit (io.lievit.kit.wire.RichSelectComponentIT).
+ * the JVM in lievit-kit (dev.lievit.kit.wire.RichSelectComponentIT).
  */
 import { describe, test, expect, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
@@ -126,7 +126,7 @@ describe("rich-select registry:wire item shape", () => {
 /** Build a rich-select root matching rich-select.jte: a search input + three option rows. */
 function renderRichSelect(): { root: HTMLElement; search: HTMLElement; options: HTMLElement[] } {
   const root = document.createElement("div");
-  root.setAttribute("data-lievit-component", "io.lievit.wire.RichSelectComponent");
+  root.setAttribute("data-lievit-component", "dev.lievit.wire.RichSelectComponent");
   root.setAttribute("data-rich-select", "");
 
   const search = document.createElement("input");

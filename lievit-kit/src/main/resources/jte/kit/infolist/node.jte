@@ -1,6 +1,6 @@
 @import java.util.List
 @import java.util.Collections
-@import io.lievit.kit.schema.infolist.ResolvedNode
+@import dev.lievit.kit.schema.infolist.ResolvedNode
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

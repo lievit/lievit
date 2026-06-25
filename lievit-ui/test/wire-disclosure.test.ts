@@ -106,7 +106,7 @@ describe.each(WIRE)("lievit add $name: two-root copy-in", ({ name, className, te
     const code = run([name], registry, project, out);
     expect(code).toBe(0);
 
-    const javaDest = join(project, `src/main/java/io/lievit/wire/${className}.java`);
+    const javaDest = join(project, `src/main/java/dev/lievit/wire/${className}.java`);
     const jteDest = join(project, `src/main/jte/lievit/${template}`);
     expect(existsSync(javaDest), "Java class under the java root").toBe(true);
     expect(existsSync(jteDest), "JTE template under the jte root").toBe(true);
@@ -117,7 +117,7 @@ describe.each(WIRE)("lievit add $name: two-root copy-in", ({ name, className, te
     run([name], registry, project, out);
 
     const copiedJava = readFileSync(
-      join(project, `src/main/java/io/lievit/wire/${className}.java`),
+      join(project, `src/main/java/dev/lievit/wire/${className}.java`),
       "utf8"
     );
     const sourceJava = readFileSync(join(registryRoot, `wire/${name}/${className}.java`), "utf8");

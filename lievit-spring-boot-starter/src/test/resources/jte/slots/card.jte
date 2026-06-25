@@ -1,5 +1,5 @@
-@import io.lievit.component.LievitSlots
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.LievitSlots
+@import dev.lievit.component.ComponentMetadata
 @param ComponentMetadata _component
 !{var slots = LievitSlots.current();}
 <div data-card>

@@ -1,6 +1,6 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.example.admin.product.Product
-@import io.lievit.example.admin.product.ProductSearchComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.example.admin.product.Product
+@import dev.lievit.example.admin.product.ProductSearchComponent
 @param String term
 @param ComponentMetadata _component
 @param ProductSearchComponent _instance

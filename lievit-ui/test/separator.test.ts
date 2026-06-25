@@ -365,8 +365,8 @@ describe("separator -- token-driven styling", () => {
     expect(markup).not.toContain("bg-[var(--lv-color-border)]");
   });
 
-  test("io.lievit is never imported (JTE-compile-gate classpath rule)", () => {
-    expect(src).not.toContain("@import io.lievit");
+  test("dev.lievit is never imported (JTE-compile-gate classpath rule)", () => {
+    expect(src).not.toContain("@import dev.lievit");
   });
 });
 
@@ -421,7 +421,7 @@ describe("separator -- no JS no wire surface", () => {
     expect(markup).not.toContain("data-lievit-component");
   });
 
-  test("no @import io.lievit anywhere (presentation-only, no Java domain objects)", () => {
-    expect(src).not.toContain("@import io.lievit");
+  test("no @import dev.lievit anywhere (presentation-only, no Java domain objects)", () => {
+    expect(src).not.toContain("@import dev.lievit");
   });
 });

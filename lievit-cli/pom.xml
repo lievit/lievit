@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.github.lievit</groupId>
+        <groupId>dev.lievit</groupId>
         <artifactId>lievit-parent</artifactId>
         <version>${revision}</version>
     </parent>
@@ -39,7 +39,7 @@
             the CLI stays a thin standalone fat-jar.
         -->
         <dependency>
-            <groupId>io.github.lievit</groupId>
+            <groupId>dev.lievit</groupId>
             <artifactId>lievit-compiler</artifactId>
         </dependency>
 

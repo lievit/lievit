@@ -72,8 +72,8 @@ describe("native-select -- params & docs API", () => {
     expect(src).toContain("@@template.lievit.native-select(");
   });
 
-  test("no @import io.lievit.* in the template (JTE gate classpath: JDK + jte + icons only)", () => {
-    expect(src).not.toMatch(/@import io\.lievit\./);
+  test("no @import dev.lievit.* in the template (JTE gate classpath: JDK + jte + icons only)", () => {
+    expect(src).not.toMatch(/@import dev\.lievit\./);
   });
 });
 

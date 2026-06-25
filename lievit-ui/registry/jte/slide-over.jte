@@ -16,7 +16,7 @@
   <dialog>, opened by the trigger, closed by the close button / backdrop / Escape, no round-trip.
 
   SERVES THE KIT: this is the static presentation shell behind the kit's edge-anchored panels --
-  io.lievit.kit.SlideOver (a right-anchored detail panel; side="right") and any ModalConfig with
+  dev.lievit.kit.SlideOver (a right-anchored detail panel; side="right") and any ModalConfig with
   asSlideOver() (Filament slide-over, side defaults right, width full). The `side` left/right/top/
   bottom matches the kit/shadcn Sheet sides; data-side mirrors it for styling + testing.
 

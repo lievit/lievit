@@ -74,8 +74,8 @@ describe("spinner -- param API", () => {
     );
   });
 
-  test("does NOT import io.lievit (hard rule)", () => {
-    expect(spinnerSrc).not.toContain("@import io.lievit");
+  test("does NOT import dev.lievit (hard rule)", () => {
+    expect(spinnerSrc).not.toContain("@import dev.lievit");
   });
 
   test("does NOT import gg.jte.Content (not needed for spinner)", () => {
@@ -303,8 +303,8 @@ describe("skeleton -- param API", () => {
     expect(skeletonSrc).toContain("@import gg.jte.html.escape.Escape");
   });
 
-  test("does NOT import io.lievit", () => {
-    expect(skeletonSrc).not.toContain("@import io.lievit");
+  test("does NOT import dev.lievit", () => {
+    expect(skeletonSrc).not.toContain("@import dev.lievit");
   });
 });
 
@@ -504,8 +504,8 @@ describe("loading-section -- param API", () => {
     expect(lsSrc).toContain("@import gg.jte.html.escape.Escape");
   });
 
-  test("does NOT import io.lievit", () => {
-    expect(lsSrc).not.toContain("@import io.lievit");
+  test("does NOT import dev.lievit", () => {
+    expect(lsSrc).not.toContain("@import dev.lievit");
   });
 });
 

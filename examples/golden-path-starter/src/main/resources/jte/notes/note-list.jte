@@ -1,4 +1,4 @@
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.ComponentMetadata
 @import java.util.List
 @param List<String> notes
 @param String newNote

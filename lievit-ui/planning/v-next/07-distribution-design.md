@@ -21,7 +21,7 @@ Esistono però due risorse JTE che abilitano la soluzione: `ResourceCodeResolver
 
 ### A. Template `.jte` — doppio canale nel jar di lievit-ui
 
-Il jar `io.lievit:lievit-ui` spedisce ENTRAMBI:
+Il jar `dev.lievit:lievit-ui` spedisce ENTRAMBI:
 1. **i `.class` precompilati** (lievit gira il `jte precompile` nel SUO build, package di default `gg.jte.generated.precompiled`): il consumer in PROD usa `usePrecompiledTemplates=true` -> `createPrecompiled(ContentType.Html)` (autoconfig Spring Boot 4) li carica dal classpath **zero-config**. Funziona perché entrambi usano lo stesso package precompiled. È il path più vicino a "vero import, consumo zero-config".
 2. **i `.jte` sorgente** come risorse classpath sotto `lievit/` (es. `lievit/button.jte`): servono per il DEV-mode e per chi vuole il gate di compilazione completo nel proprio CI.
 
@@ -53,7 +53,7 @@ Il prior art (Flux UI per Laravel, Vaadin, il cascade Thymeleaf) dice che il mod
 1. **Template: precompiled-class-in-jar (M2, zero-config consumer) come primario, o l'unpack+precompile (M1, gate completo in CI consumer)?** Raccomando M2 primario + i `.jte` sorgente shippati comunque per dev/CI. (Una `CompositeCodeResolver` completa per il `precompile` plugin non esiste built-in: per il gate-in-CI serve M1.)
 2. **Runtime: restare vendorizzati (Fase 1) finché lievit è privato, o fare subito il WebJar (Fase 2)?** Il vendoring sblocca il cutover gest ORA senza pubblicare nulla; il WebJar è il "fatto bene" definitivo ma richiede il modulo Maven + il publish.
 3. **Quando lievit-ui diventa pubblico** (decide il timing di Fase 2/3 e quindi della promozione ADR).
-4. **groupId/coordinate** del jar (`io.lievit:lievit-ui`) e repo di publish (Central vs JitPack vs privato).
+4. **groupId/coordinate** del jar (`dev.lievit:lievit-ui`) e repo di publish (Central vs JitPack vs privato).
 
 Niente di tutto questo è una porta a senso unico finché lievit-ui è privato e il branch non è mergiato: si può lockare il design ora e implementare a fasi sul tuo via, esattamente come la RFC 0036 prescrive.
 

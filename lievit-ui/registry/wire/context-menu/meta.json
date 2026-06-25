@@ -8,7 +8,7 @@
     {
       "path": "wire/context-menu/ContextMenuComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/ContextMenuComponent.java",
+      "target": "dev/lievit/wire/ContextMenuComponent.java",
       "root": "java"
     },
     {
@@ -24,5 +24,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
-  "docs": "Register ContextMenuComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call) and supply the real `items` list (override the default in your copy). Render it via the wire mount / `@template.lievit.context-menu(...)`; put your right-clickable content in the owned `data-context-menu-trigger` region (NOT a slot). Call `enhanceContextMenus(runtime)` once from main.ts after `startLievit()` so a right-click opens the menu at the pointer. A selection arms `selectedKey` via $set; read it (or add server authz on a `closeAfterSelect`) in your copy. The `@LievitComponent(template=\"lievit/context-menu\")` name + the io.lievit.wire package are yours to change once copied."
+  "docs": "Register ContextMenuComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call) and supply the real `items` list (override the default in your copy). Render it via the wire mount / `@template.lievit.context-menu(...)`; put your right-clickable content in the owned `data-context-menu-trigger` region (NOT a slot). Call `enhanceContextMenus(runtime)` once from main.ts after `startLievit()` so a right-click opens the menu at the pointer. A selection arms `selectedKey` via $set; read it (or add server authz on a `closeAfterSelect`) in your copy. The `@LievitComponent(template=\"lievit/context-menu\")` name + the dev.lievit.wire package are yours to change once copied."
 }

@@ -417,7 +417,7 @@
 
       <%-- Eyedropper button: rendered only when eyedropper=true. Hidden by template when false;
            the enhancer may hide it at runtime if EyeDropper API is absent.
-           NO @template.lievit.icon() call: icon.jte imports io.lievit.* which is forbidden in partials.
+           NO @template.lievit.icon() call: icon.jte imports dev.lievit.* which is forbidden in partials.
            Inline SVG (eyedropper glyph) keeps this partial self-contained. --%>
       @if(eyedropper)
         <button

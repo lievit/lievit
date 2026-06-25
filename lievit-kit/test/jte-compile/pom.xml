@@ -19,7 +19,7 @@
   the manually added registry/icons source root: LievitIcons is now compiled into the
   lievit-ui jar and resolves from the lievit-kit transitive classpath — no source root needed.
 
-  CLASSPATH: this module depends on the BUILT lievit-kit artifact (io.github.lievit:lievit-kit:
+  CLASSPATH: this module depends on the BUILT lievit-kit artifact (dev.lievit:lievit-kit:
   1.0.0, installed by `./mvnw -pl lievit-kit -am install -DskipTests` from the reactor root,
   which run.sh does), which transitively brings lievit-ui (+ LievitIcons) + lievit-core + the starter
   + spring + jjwt. The kit view-models compile against the REAL bytecode.
@@ -68,7 +68,7 @@
       separate icon source root needed here.
     -->
     <dependency>
-      <groupId>io.github.lievit</groupId>
+      <groupId>dev.lievit</groupId>
       <artifactId>lievit-kit</artifactId>
       <version>${lievit.version}</version>
     </dependency>
@@ -105,7 +105,7 @@
 
       <!--
         STEP 1a — lievit-ui partials (lievit/**):
-        lievit-maven-plugin:stage-templates resolves ALL io.github.lievit:* compile-scope
+        lievit-maven-plugin:stage-templates resolves ALL dev.lievit:* compile-scope
         artifacts and extracts entries whose jar path starts with "lievit/" into
         target/jte-src/. Because lievit-kit now declares lievit-ui as a dependency, the
         plugin finds lievit-ui's jar in the resolved artifact set automatically — no explicit
@@ -117,7 +117,7 @@
         step (kit templates are staged in step 1b with a separate execution below).
       -->
       <plugin>
-        <groupId>io.github.lievit</groupId>
+        <groupId>dev.lievit</groupId>
         <artifactId>lievit-maven-plugin</artifactId>
         <version>${lievit.version}</version>
         <executions>

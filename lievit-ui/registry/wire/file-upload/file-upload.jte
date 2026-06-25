@@ -1,6 +1,6 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.wire.FileUploadComponent
-@import io.lievit.wire.FileUploadComponent.UploadedFile
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.wire.FileUploadComponent
+@import dev.lievit.wire.FileUploadComponent.UploadedFile
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

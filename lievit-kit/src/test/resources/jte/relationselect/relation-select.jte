@@ -1,6 +1,6 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.BelongsToField.ComboOption
-@import io.lievit.kit.relationselect.RelationSelectComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.BelongsToField.ComboOption
+@import dev.lievit.kit.relationselect.RelationSelectComponent
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

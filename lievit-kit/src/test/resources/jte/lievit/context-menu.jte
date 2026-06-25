@@ -1,6 +1,6 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.wire.ContextMenuComponent
-@import io.lievit.kit.wire.ContextMenuComponent.Entry
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.wire.ContextMenuComponent
+@import dev.lievit.kit.wire.ContextMenuComponent.Entry
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

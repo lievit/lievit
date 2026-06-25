@@ -11,7 +11,7 @@
  * What is pinned here:
  *   - Param API for accordion.jte (container) and accordion/item.jte (per-item).
  *   - PARTIAL tier invariants (no @Wire, no l:click, no List<Map> server params,
- *     no io.lievit imports, gg.jte.Content slot on both container and item).
+ *     no dev.lievit imports, gg.jte.Content slot on both container and item).
  *   - APG Accordion a11y contract via native <details>/<summary>:
  *       * <details open="${open}"> is the controlled hook (boolean smart-attr, NOT ternary).
  *       * <details name="${name}"> is the single-mode exclusivity hook (platform).
@@ -25,7 +25,7 @@
  *   - CSS file presence (accordion.css with details[open] selector).
  *   - CSP hygiene (no inline script, no on*, no <style>).
  *   - JTE template safety (no tag-name expressions, balanced @for/@if blocks, no nested
- *     JTE comments, no io.lievit import).
+ *     JTE comments, no dev.lievit import).
  *
  * The real JTE-compile + render gate lives in test/jte-compile (coordinator-run).
  * The browser-level interaction tests (keyboard, single-open group, disabled click) live
@@ -160,12 +160,12 @@ describe("accordion -- PARTIAL tier invariants", () => {
     expect(itemMarkup).not.toContain("l:click=");
   });
 
-  test("accordion.jte: no io.lievit import (JTE gate classpath has no io.lievit)", () => {
-    expect(accSrc).not.toMatch(/@import io\.lievit/);
+  test("accordion.jte: no dev.lievit import (JTE gate classpath has no dev.lievit)", () => {
+    expect(accSrc).not.toMatch(/@import dev\.lievit/);
   });
 
-  test("accordion-item.jte: no io.lievit import", () => {
-    expect(itemSrc).not.toMatch(/@import io\.lievit/);
+  test("accordion-item.jte: no dev.lievit import", () => {
+    expect(itemSrc).not.toMatch(/@import dev\.lievit/);
   });
 
   test("accordion.jte: has gg.jte.Content import and content @param (PARTIAL content slot)", () => {

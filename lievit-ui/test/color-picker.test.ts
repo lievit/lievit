@@ -6,7 +6,7 @@
  *
  * Two halves:
  *   1. Source-text golden assertions on the JTE source (param names, data-slot, ARIA shape,
- *      data-lievit-* hooks, CSP-clean invariants, no io.lievit import, swatches via param).
+ *      data-lievit-* hooks, CSP-clean invariants, no dev.lievit import, swatches via param).
  *   2. Enhancer DOM tests on a DOM shaped like the server-rendered partial (channel sync,
  *      popover open/close, format toggle, swatch application, spinbutton keys, eyedropper,
  *      confirm/cancel, focus restore).
@@ -45,8 +45,8 @@ describe("color-picker.jte -- source-text invariants", () => {
   const src = readJte("color-picker.jte");
   const markup = stripComments(src);
 
-  test("no io.lievit import (JTE gate classpath has none)", () => {
-    expect(src).not.toContain("@import io.lievit");
+  test("no dev.lievit import (JTE gate classpath has none)", () => {
+    expect(src).not.toContain("@import dev.lievit");
   });
 
   test("no nested JTE comments (would mis-parse the gate)", () => {
@@ -162,7 +162,7 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(markup).toContain('aria-label="Pick color from screen"');
   });
 
-  test("eyedropper uses inline SVG (not a template call -- would import io.lievit)", () => {
+  test("eyedropper uses inline SVG (not a template call -- would import dev.lievit)", () => {
     // The MARKUP (non-comment part) must not call @template.lievit.icon; must have an inline <svg>
     expect(markup).not.toMatch(/@template\.lievit\.icon/);
     expect(markup).toContain("<svg");

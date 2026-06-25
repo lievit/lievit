@@ -438,8 +438,8 @@ describe("label.jte -- JTE hazard compliance", () => {
     expect(src).not.toMatch(/\w+@if\(/);
   });
 
-  test("no io.lievit import (no domain imports in templates -- JTE gate classpath)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit\./);
+  test("no dev.lievit import (no domain imports in templates -- JTE gate classpath)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit\./);
   });
 
   test("JTE comments are not nested (inner --%> would close outer early)", () => {

@@ -260,8 +260,8 @@ describe("pagination -- a11y contract (APG Navigation + Breadcrumb aria-current)
 // ---------------------------------------------------------------------------
 
 describe("pagination -- wire mode vs URL mode", () => {
-  test("URL mode: uses baseUrl + ?page= + n pattern for hrefs", () => {
-    expect(src).toContain('href="${baseUrl}?page=${p}"');
+  test("URL mode: uses baseUrl + separator + page= + n pattern for hrefs", () => {
+    expect(src).toContain('href="${baseUrl}${_sep}page=${p}"');
   });
 
   test("wire mode: emits <button type='button'> elements (not <a href>)", () => {
@@ -517,8 +517,8 @@ describe("pagination -- escaping channels (XSS trust split)", () => {
     ).toEqual([]);
   });
 
-  test("no io.lievit imports (gate would fail: template is presentational only)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit imports (gate would fail: template is presentational only)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("JTE comment syntax does not nest (no --%> inside the outer comment block)", () => {

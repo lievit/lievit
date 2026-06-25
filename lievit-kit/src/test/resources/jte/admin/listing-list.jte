@@ -1,7 +1,7 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.AdminListView
-@import io.lievit.kit.Cell
-@import io.lievit.kit.hello.ListingListComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.AdminListView
+@import dev.lievit.kit.Cell
+@import dev.lievit.kit.hello.ListingListComponent
 @param ListingListComponent _instance
 @param String createUrl
 @param int page
@@ -88,7 +88,7 @@
                              server-rendered markup, stamped RAW (the Cell.View trust contract). --%>
                         <td data-admin-view-cell>$unsafe{viewCell.html()}</td>
                     @elseif(cell instanceof Cell.AvatarStack stack)
-                        <td><span data-avatar-stack data-shape="${stack.circular() ? "circular" : "square"}">@for(io.lievit.kit.AvatarStackColumn.Avatar avatar : stack.visible())@if(avatar.hasImage())<img data-avatar src="${avatar.image()}" alt="${avatar.label()}">@else<span data-avatar data-initials title="${avatar.label()}">${avatar.label()}</span>@endif@endfor@if(stack.hasOverflow())@if(stack.hasOverflowUrl())<a data-avatar-overflow href="${stack.overflowUrl()}" title="${stack.overflowTitle()}">+${stack.overflow()}</a>@else<span data-avatar-overflow title="${stack.overflowTitle()}">+${stack.overflow()}</span>@endif@endif</span></td>
+                        <td><span data-avatar-stack data-shape="${stack.circular() ? "circular" : "square"}">@for(dev.lievit.kit.AvatarStackColumn.Avatar avatar : stack.visible())@if(avatar.hasImage())<img data-avatar src="${avatar.image()}" alt="${avatar.label()}">@else<span data-avatar data-initials title="${avatar.label()}">${avatar.label()}</span>@endif@endfor@if(stack.hasOverflow())@if(stack.hasOverflowUrl())<a data-avatar-overflow href="${stack.overflowUrl()}" title="${stack.overflowTitle()}">+${stack.overflow()}</a>@else<span data-avatar-overflow title="${stack.overflowTitle()}">+${stack.overflow()}</span>@endif@endif</span></td>
                     @else
                         <td>${cell.text()}</td>
                     @endif

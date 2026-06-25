@@ -7,12 +7,12 @@
 
   Wraps the proven 3-step unpack+merge+precompile recipe (demonstrated in examples/import-poc)
   into ONE Maven plugin goal so a consumer's pom becomes:
-    1. add io.github.lievit:lievit-ui dependency
+    1. add dev.lievit:lievit-ui dependency
     2. configure this plugin (stage-templates goal)
     3. point jte-maven-plugin:precompile at the staging dir
 
   Goal: stage-templates (bound to generate-sources by default).
-  Effect: resolves the consumer's io.github.lievit:* dependencies, extracts every lievit/**
+  Effect: resolves the consumer's dev.lievit:* dependencies, extracts every lievit/**
   resource from their jars into a staging directory, then copies the consumer's own
   src/main/jte/** alongside — yielding one merged directory the jte precompile plugin
   reads as its sourceDirectory.
@@ -31,7 +31,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>io.github.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-parent</artifactId>
     <version>${revision}</version>
     <relativePath>../pom.xml</relativePath>

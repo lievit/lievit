@@ -8,7 +8,7 @@
     {
       "path": "wire/rich-select/RichSelectComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/RichSelectComponent.java",
+      "target": "dev/lievit/wire/RichSelectComponent.java",
       "root": "java"
     },
     {

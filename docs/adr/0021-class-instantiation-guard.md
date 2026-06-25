@@ -21,7 +21,7 @@ and `ChecksumFailureLimiter` are already shipped and unchanged.
 
 ## Decision
 
-lievit adds a `ClassInstantiationGuard` (`io.lievit.wire.synth`, pure Java) consulted before *any*
+lievit adds a `ClassInstantiationGuard` (`dev.lievit.wire.synth`, pure Java) consulted before *any*
 synthesizer reflectively instantiates the class named in a tuple's `t`:
 
 - **Default-deny by package prefix.** A small, hardcoded denylist of JVM gadget-prone roots

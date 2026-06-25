@@ -31,7 +31,7 @@ implementations.
 This is lievit's type-safety edge made consumable: an adopter's IDE indexes `Templates` from the
 jar, so `templates.button(..)` / `templates.badge(..)` / `templates.chip(..)` autocomplete and
 **compile-check** -- the javadoc-equivalent for the components. `TypedFacadeTest`
-(`src/test/java/io/lievit/ui/jtemodels/TypedFacadeTest.java`) resolves real components through the
+(`src/test/java/dev/lievit/ui/jtemodels/TypedFacadeTest.java`) resolves real components through the
 facade and renders them, so the typed API is **proven**, not just asserted on source text. If a
 partial's `@param` contract drifts, that test stops compiling.
 

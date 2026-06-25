@@ -1,6 +1,6 @@
-@import io.lievit.kit.GlobalSearchResults
-@import io.lievit.kit.page.KitPageView
-@import io.lievit.kit.page.KitTableView
+@import dev.lievit.kit.GlobalSearchResults
+@import dev.lievit.kit.page.KitPageView
+@import dev.lievit.kit.page.KitTableView
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
