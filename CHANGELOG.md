@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-06-25
+
+### Fixed
+
+- **`pagination` builds a valid query when `baseUrl` already has a query string.** The URL-mode page
+  links hard-coded `${baseUrl}?page=N`, so a `baseUrl` carrying filters (e.g. `/x?user=a&date=b`)
+  produced a malformed double-`?` href (`/x?user=a&date=b?page=2`), breaking pagination on any
+  filtered/sorted list. The separator is now chosen by content (`&` when `baseUrl` contains `?`, else
+  `?`), so filter-preserving pagination works. Surfaced by the gest dogfood (filtered activity table).
+
 ## [1.0.1] - 2026-06-25
 
 ### Fixed

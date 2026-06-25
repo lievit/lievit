@@ -68,7 +68,7 @@
       No roving tabindex, no trap, no enhancer needed.
 
   WIRE mode vs URL mode:
-    baseUrl set (URL mode) -> (a href="${baseUrl}?page=${n}") real links, Turbo Drive ready.
+    baseUrl set (URL mode) -> (a href="${baseUrl}${_sep}page=${n}") real links, Turbo Drive ready.
     baseUrl null (wire mode) -> (button type="button") with data-page="${n}" (SAFE int);
     the caller wires the action via pageAttrs (e.g. pageAttrs='l:click="goToPage"');
     the Java action reads dataset.page. The same template renders both.
@@ -154,6 +154,9 @@
 <%-- Computed locals                                                     --%>
 <%-- ------------------------------------------------------------------ --%>
 !{var urlMode = baseUrl != null;}
+<%-- Query separator: append page with & when baseUrl already carries a query (preserves
+     filter params), ? otherwise. Without this a baseUrl like "/x?user=a" yields "?...?page=". --%>
+!{var _sep = (baseUrl != null && baseUrl.contains("?")) ? "&" : "?";}
 !{var cp = Math.max(1, Math.min(currentPage, totalPages));}
 !{var prevDisabled = disabled || cp <= 1;}
 !{var nextDisabled = disabled || cp >= totalPages;}
@@ -235,7 +238,7 @@
       <li data-slot="pagination-item">
         @if(urlMode && !prevDisabled)
         <a
-          href="${baseUrl}?page=${cp - 1}"
+          href="${baseUrl}${_sep}page=${cp - 1}"
           aria-label="Previous page"
           data-slot="pagination-prev"
           class="${btnIdle} ${padClass}"
@@ -290,7 +293,7 @@
       <li data-slot="pagination-item">
         @if(urlMode && !disabled)
         <a
-          href="${baseUrl}?page=1"
+          href="${baseUrl}${_sep}page=1"
           aria-current="${1 == cp ? "page" : null}"
           data-slot="pagination-page"
           data-page="1"
@@ -349,7 +352,7 @@
       <li data-slot="pagination-item">
         @if(urlMode && !disabled)
         <a
-          href="${baseUrl}?page=${p}"
+          href="${baseUrl}${_sep}page=${p}"
           aria-current="${p == cp ? "page" : null}"
           data-slot="pagination-page"
           data-page="${p}"
@@ -407,7 +410,7 @@
       <li data-slot="pagination-item">
         @if(urlMode && !disabled)
         <a
-          href="${baseUrl}?page=${totalPages}"
+          href="${baseUrl}${_sep}page=${totalPages}"
           aria-current="${totalPages == cp ? "page" : null}"
           data-slot="pagination-page"
           data-page="${totalPages}"
@@ -455,7 +458,7 @@
       <li data-slot="pagination-item">
         @if(urlMode && !nextDisabled)
         <a
-          href="${baseUrl}?page=${cp + 1}"
+          href="${baseUrl}${_sep}page=${cp + 1}"
           aria-label="Next page"
           data-slot="pagination-next"
           class="${btnIdle} ${padClass}"
