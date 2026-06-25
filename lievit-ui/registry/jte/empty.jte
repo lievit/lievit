@@ -170,27 +170,33 @@
   data-slot="empty"
   data-variant="${variant}"
   data-size="${size}"
-  class="flex w-full flex-col items-center justify-center gap-[var(--lv-space-6)] rounded-[var(--lv-radius-lg)] py-[var(--lv-space-6)] text-center ${cssClass}"
+  class="flex w-full flex-col items-center justify-center gap-[var(--lv-space-6)] rounded-[var(--lv-radius-lg)] py-[var(--lv-space-10)] text-center ${cssClass}"
   style="font-family:var(--lv-font-sans);"
   $unsafe{_dataAttrsMarkup}
   $unsafe{attrs}
 >
-  <%-- Illustration: custom image slot wins, then imageUrl, then default icon. --%>
+  <%-- Illustration: custom image slot wins, then imageUrl, then default icon. The size cap
+       (_illustrationSizeClass) rides the image element; the default icon instead sits inside a
+       Filament-grade rounded-full tinted circle (the blank slate reads as a deliberate empty state,
+       not a stray glyph). --%>
   <div
     data-slot="empty-illustration"
-    class="${_illustrationSizeClass} flex shrink-0 items-center justify-center"
+    class="flex shrink-0 items-center justify-center"
     aria-hidden="${_wrapperDecorativeAriaHidden ? "true" : null}"
   >
     @if(image != null)
-      ${image}
+      <div class="${_illustrationSizeClass} flex items-center justify-center">${image}</div>
     @elseif(imageUrl != null)
       <img
         src="$unsafe{_escapedImageUrl}"
         alt="${imageAlt}"
-        class="h-full w-full object-contain"
+        class="${_illustrationSizeClass} object-contain"
       >
     @else
-      @template.lievit.icon(name = _defaultIcon, size = _iconSize, cssClass = "text-[var(--lv-color-muted-fg)]")
+      <span
+        data-slot="empty-icon-circle"
+        class="inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--lv-color-muted-bg)] p-[var(--lv-space-3)] text-[var(--lv-color-muted-fg)]"
+      >@template.lievit.icon(name = _defaultIcon, size = _iconSize, cssClass = "text-[var(--lv-color-muted-fg)]")</span>
     @endif
   </div>
 

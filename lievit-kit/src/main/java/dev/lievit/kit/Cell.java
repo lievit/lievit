@@ -26,7 +26,15 @@ import org.jspecify.annotations.Nullable;
  * without switching on the type.
  */
 public sealed interface Cell
-        permits Cell.Text, Cell.Badge, Cell.Link, Cell.Icon, Cell.Tags, Cell.AvatarStack, Cell.View {
+        permits Cell.Text,
+                Cell.Badge,
+                Cell.Link,
+                Cell.Icon,
+                Cell.DotText,
+                Cell.AvatarText,
+                Cell.Tags,
+                Cell.AvatarStack,
+                Cell.View {
 
     /**
      * @return the cell's display text: the {@link Column#cell(Object) string projection} of the
@@ -51,10 +59,81 @@ public sealed interface Cell
      * column's {@link BadgeColumn#color(java.util.function.Function) colour mapper} produced (for
      * example {@code "success"}, {@code "danger"}, {@code "green"}); empty for the neutral default.
      *
+     * <p>The optional {@link #dot()} flag adds a small leading status dot before the label (the
+     * badge partial's {@code dot=true} affordance), so a "soft" status pill can read as a tint +
+     * dot + label without the column needing a separate cell kind. Colour is never the sole signal:
+     * the {@link #text()} always states the status (WCAG 1.4.1).
+     *
      * @param text the badge text (never null)
      * @param variant the badge variant/colour token, empty for the default neutral badge
+     * @param dot whether a leading status dot renders before the label
      */
-    record Badge(String text, String variant) implements Cell {}
+    record Badge(String text, String variant, boolean dot) implements Cell {
+
+        /**
+         * Convenience constructor for a dot-less badge (the common case): same as
+         * {@code new Badge(text, variant, false)}.
+         *
+         * @param text the badge text (never null)
+         * @param variant the badge variant/colour token, empty for the default neutral badge
+         */
+        public Badge(String text, String variant) {
+            this(text, variant, false);
+        }
+    }
+
+    /**
+     * A "coloured dot + neutral text" cell (the status-dot pattern the mock uses for a Tipo column):
+     * a small filled circle tinted by {@link #color()} followed by the plain {@link #text()} label.
+     * Distinct from {@link Badge} (no pill) and from {@link Icon} (the leading mark is a coloured
+     * dot, not a glyph). Domain-agnostic: the column supplies a colour slug + label; the kind carries
+     * no business meaning. Colour is never the sole signal: the {@link #text()} states the value
+     * (WCAG 1.4.1); the dot is decorative (aria-hidden).
+     *
+     * @param text the label text (never null)
+     * @param color the dot colour: a lievit intent slug ({@code "info"}, {@code "success"},
+     *     {@code "warning"}, {@code "danger"}) resolved to {@code --lv-color-<slug>}, or empty/null
+     *     for the muted default
+     */
+    record DotText(String text, @Nullable String color) implements Cell {
+
+        /** Compact constructor: a null text becomes the empty string. */
+        public DotText {
+            text = text == null ? "" : text;
+        }
+    }
+
+    /**
+     * An "avatar chip" cell (avatar + inline name): one small avatar (image, or initials fallback)
+     * paired with a {@link #label()} on the same line. The mock's Assegnatario column. Distinct from
+     * {@link AvatarStack} (one avatar, not an overlapping stack) and from {@link Text} (carries the
+     * avatar). Domain-agnostic: the column supplies an image URL or initials + an optional colour;
+     * the kind carries no business meaning.
+     *
+     * @param label the display name beside the avatar (never null; also the avatar's accessible name)
+     * @param image the avatar image URL, or null/blank to fall back to initials
+     * @param initials explicit initials override; null derives them from {@link #label()}
+     * @param color the avatar background intent slug (e.g. {@code "primary"}), empty/null auto-hashes
+     */
+    record AvatarText(
+            String label, @Nullable String image, @Nullable String initials, @Nullable String color)
+            implements Cell {
+
+        /** Compact constructor: a null label becomes the empty string. */
+        public AvatarText {
+            label = label == null ? "" : label;
+        }
+
+        @Override
+        public String text() {
+            return label;
+        }
+
+        /** @return whether the chip renders an image (else it falls back to initials). */
+        public boolean hasImage() {
+            return image != null && !image.isBlank();
+        }
+    }
 
     /**
      * A link cell (the Filament {@code ->url(...)}): the template renders {@link #text()} inside a

@@ -131,15 +131,20 @@ describe("data-table/selection-footer.jte -- the 'N of M row(s) selected' region
   const src = read("data-table/selection-footer.jte");
   const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
 
-  test("declares the count params (selected, total) + a bulk-action slot", () => {
+  test("declares the count params (selected, total) + a label i18n seam + a bulk-action slot", () => {
     expect(src).toMatch(/@param int selected/);
     expect(src).toMatch(/@param int total/);
+    expect(src).toMatch(/@param String label/);
     expect(src).toMatch(/@param gg\.jte\.Content actions/);
   });
 
-  test("renders the shadcn count line: '{selected} of {total} {noun}(s) selected.'", () => {
+  test("renders a host-supplied localized label, else the English '{n} of {m} {noun}(s) selected.' fallback", () => {
     expect(markup).toContain('data-slot="data-table-selection-info"');
-    expect(markup).toMatch(/\$\{selected\} of \$\{total\} \$\{noun\}\(s\) selected\./);
+    // the count line is a single computed var: the localized `label` when supplied, else the
+    // legacy English plural (built from selected + total + noun) for back-compat.
+    expect(markup).toContain("${_line}");
+    expect(markup).toMatch(/label != null && !label\.isBlank\(\)/);
+    expect(markup).toMatch(/" of " \+ total \+ " " \+ noun \+ "\(s\) selected\."/);
   });
 
   test("the count is announced live (aria-live=polite) as the selection changes", () => {

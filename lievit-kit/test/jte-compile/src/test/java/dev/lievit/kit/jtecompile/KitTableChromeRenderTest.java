@@ -34,6 +34,7 @@ import dev.lievit.kit.UrlAction;
 import dev.lievit.kit.AdminAction;
 import dev.lievit.kit.DeleteAction;
 import dev.lievit.kit.FilterState;
+import dev.lievit.kit.TernaryFilter;
 import dev.lievit.kit.page.KitTableLabels;
 import dev.lievit.kit.page.KitTableView;
 import dev.lievit.kit.page.SavedViewsView;
@@ -187,12 +188,11 @@ class KitTableChromeRenderTest {
     void renders_the_filament_fidelity_header_tint_padding_and_a_loading_spinner() {
         String html = render(populatedModel());
 
-        // Filament fidelity (fi-ta-header-cell): the data-column header cells (sortable-head + the
-        // plain table.head) use a SUBTLE 35% surface tint (the bottom divider does the head/body split),
-        // comfortable px-3 padding, and a small muted-semibold label, not the prior heavy 70% band with
-        // a plain font-medium fg label. The sortable Name header carries the new tint.
-        // (The bulk select-all box still rides data-table.selection-cell, a separate lievit-ui surface
-        // outside this backflow's scope; this asserts the lightened DATA-column header.)
+        // Filament fidelity (fi-ta-header-cell): the data-column header cells (sortable-head) ride a
+        // SUBTLE 35% surface band (the bottom divider does the head/body split), comfortable px-3
+        // padding, and a STRONGER near-fg semibold label at text-sm (Filament's text-gray-950 text-sm
+        // font-semibold), not the prior faint muted-fg text-xs label. The sortable Name header carries
+        // the band + the stronger label.
         int nameHeadStart = html.indexOf("data-sort-key=\"name\"");
         assertTrue(nameHeadStart >= 0, "sortable Name header not found:\n" + html);
         String nameHead = html.substring(nameHeadStart, html.indexOf("</th>", nameHeadStart));
@@ -203,12 +203,114 @@ class KitTableChromeRenderTest {
                 nameHead.contains("color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg))"),
                 "the heavy 70% band is still on the data-column header");
         assertTrue(nameHead.contains("px-[var(--lv-space-3)]"), "data-column header px-3 padding missing");
-        // The label is now a small muted-semibold token (was plain font-medium fg).
-        assertTrue(nameHead.contains("var(--lv-color-muted-fg)"), "header label is not muted");
+        // The label is now the stronger near-fg, text-sm token (was faint muted-fg, text-xs).
+        assertTrue(nameHead.contains("var(--lv-color-fg)"), "header label did not strengthen to fg:\n" + nameHead);
+        assertTrue(nameHead.contains("text-[length:var(--lv-text-sm)]"),
+                "header label did not grow to text-sm:\n" + nameHead);
+        assertFalse(nameHead.contains("text-[length:var(--lv-text-xs)]"),
+                "header label is still the smaller text-xs:\n" + nameHead);
         // Filament fidelity (fi-ta async indicator): a l:loading.delay spinner on the results row.
         assertTrue(html.contains("data-admin-loading"), "loading spinner region missing:\n" + html);
         assertTrue(html.contains("l:loading.delay"), "l:loading.delay wire directive missing on the spinner");
         assertTrue(html.contains("data-lucide=\"loader-circle\""), "loader-circle spinner glyph missing");
+    }
+
+    @Test
+    void wraps_the_whole_chrome_in_one_elevated_card_frame() {
+        String html = render(populatedModel());
+
+        // Filament fidelity (fi-ta-ctn): the WHOLE chrome (heading -> toolbar -> bars -> table ->
+        // pagination) sits in ONE elevated card: rounded-xl, a hairline border/ring, and a soft
+        // shadow, with the inner sections divided by border-b. The kit-table root carries the card.
+        int rootIdx = html.indexOf("data-slot=\"kit-table\"");
+        assertTrue(rootIdx >= 0, "kit-table root missing:\n" + html);
+        String rootTag = html.substring(rootIdx, html.indexOf('>', rootIdx));
+        assertTrue(rootTag.contains("rounded-[var(--lv-radius-xl)]"),
+                "card frame is not rounded-xl:\n" + rootTag);
+        assertTrue(rootTag.contains("--lv-shadow-sm"), "card frame has no soft shadow token:\n" + rootTag);
+        assertTrue(rootTag.contains("border-[var(--lv-color-border)]"),
+                "card frame has no hairline ring/border:\n" + rootTag);
+
+        // The inner <table> wrapper no longer carries its OWN box (no double frame): the card is the
+        // single elevated surface now, the scroll wrapper only scrolls + divides.
+        int scrollIdx = html.indexOf("data-slot=\"kit-table-scroll\"");
+        assertTrue(scrollIdx >= 0, "kit-table-scroll missing:\n" + html);
+        String scrollTag = html.substring(scrollIdx, html.indexOf('>', scrollIdx));
+        assertFalse(scrollTag.contains("rounded-[var(--lv-radius-md)]"),
+                "inner table wrapper still rounds its own box (double frame):\n" + scrollTag);
+        assertFalse(scrollTag.contains("border border-[var(--lv-color-border)]"),
+                "inner table wrapper still carries its own border (double frame):\n" + scrollTag);
+    }
+
+    @Test
+    void unifies_the_header_band_for_select_all_and_sortable_cells() {
+        String html = render(populatedModel());
+
+        // Defect fix (#3): the whole thead reads as ONE uniform band. The select-all checkbox header
+        // cell must resolve to the SAME background token as the sortable column cells (it used to be a
+        // darker 70% band while the sortable cells were 35%, so the checkbox column read darker).
+        String band = "color-mix(in srgb, var(--lv-color-surface) 35%, var(--lv-color-bg))";
+
+        int selIdx = html.indexOf("data-slot=\"data-table-selection-head\"");
+        assertTrue(selIdx >= 0, "select-all header cell missing:\n" + html);
+        String selTh = html.substring(selIdx, html.indexOf("</th>", selIdx));
+        assertTrue(selTh.contains(band), "select-all header is not on the unified 35% band:\n" + selTh);
+        assertFalse(selTh.contains("color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg))"),
+                "select-all header is still on the heavy 70% band:\n" + selTh);
+
+        int nameIdx = html.indexOf("data-sort-key=\"name\"");
+        assertTrue(nameIdx >= 0, "sortable header cell missing:\n" + html);
+        String nameTh = html.substring(nameIdx, html.indexOf("</th>", nameIdx));
+        assertTrue(nameTh.contains(band), "sortable header is not on the unified 35% band:\n" + nameTh);
+    }
+
+    /** A resource over 5 cities whose table registers a filter, so the "Filtri" affordance renders. */
+    private static Resource<City> resourceWithFilter() {
+        Resource<City> base = resource(5);
+        return new Resource<>(base.repository()) {
+            @Override
+            public String slug() {
+                return "cities";
+            }
+
+            @Override
+            public String label() {
+                return "Cities";
+            }
+
+            @Override
+            public Table<City> table() {
+                return Table.<City>create()
+                        .id(c -> String.valueOf(c.id()))
+                        .column(TextColumn.make("Name", City::name).makeSortable().searchable())
+                        .filters(TernaryFilter.make("active"));
+            }
+        };
+    }
+
+    @Test
+    void renders_the_filters_affordance_as_a_real_button() {
+        Resource<City> resource = resourceWithFilter();
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view).withPageHref("/admin/cities?page=%d");
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        String html = render(model);
+
+        // Filament fidelity (#5): the "Filtri" affordance is a real <button> trigger (sitting in the
+        // toolbar's right cluster beside search), not a static, unclickable <div> indicator. It
+        // references the always-open inline filter panel (server-first JS-off fallback) via aria-controls.
+        int trigIdx = html.indexOf("data-admin-filters-trigger");
+        assertTrue(trigIdx >= 0, "filters trigger missing:\n" + html);
+        // Walk back to the opening tag of the element carrying the marker.
+        int tagOpen = html.lastIndexOf('<', trigIdx);
+        String trigTag = html.substring(tagOpen, html.indexOf('>', tagOpen));
+        assertTrue(trigTag.startsWith("<button"), "filters affordance is not a real <button>:\n" + trigTag);
+        assertTrue(trigTag.contains("aria-controls=\"kit-table-filters\""),
+                "filters button does not reference the inline filter panel:\n" + trigTag);
+        assertTrue(html.contains("id=\"kit-table-filters\""),
+                "the inline filter panel target id is missing:\n" + html);
     }
 
     @Test
@@ -754,5 +856,88 @@ class KitTableChromeRenderTest {
         // The signer rejects the tampered token.
         assertThrows(SortTokenException.class, () -> signer.verify(tampered),
                 "tampered token was not rejected");
+    }
+
+    // ── Filament-fidelity CELL variants (rich-cell dispatch) ──────────────────────────────────────
+
+    /** Source-renders kit/table/rich-cell.jte for ONE {@link dev.lievit.kit.Cell}. */
+    private String renderCell(dev.lievit.kit.Cell cell) {
+        StringOutput out = new StringOutput();
+        Map<String, Object> model = new HashMap<>();
+        model.put("cell", cell);
+        ENGINE.render("kit/table/rich-cell.jte", model, out);
+        return out.toString();
+    }
+
+    @Test
+    void dot_text_cell_renders_a_coloured_dot_before_neutral_text() {
+        String html = renderCell(new dev.lievit.kit.Cell.DotText("Visita", "info"));
+        // The label is plain neutral text...
+        assertTrue(html.contains("Visita"), "dot-text label missing:\n" + html);
+        // ...preceded by a small filled circle tinted with the resolved intent token.
+        assertTrue(html.contains("rounded-full"), "dot-text dot is not a circle:\n" + html);
+        assertTrue(html.contains("var(--lv-color-info)"),
+                "dot-text dot not tinted with the resolved intent token:\n" + html);
+        // Decorative: the dot is aria-hidden (text carries the meaning, WCAG 1.4.1).
+        assertTrue(html.contains("aria-hidden=\"true\""), "dot-text dot is not aria-hidden:\n" + html);
+
+        // An empty colour falls back to the muted token (no crash, still a dot).
+        String muted = renderCell(new dev.lievit.kit.Cell.DotText("Altro", ""));
+        assertTrue(muted.contains("var(--lv-color-muted-fg)"),
+                "empty-colour dot did not fall back to the muted token:\n" + muted);
+    }
+
+    @Test
+    void avatar_text_cell_renders_an_avatar_chip_with_avatar_and_label() {
+        String html = renderCell(new dev.lievit.kit.Cell.AvatarText(
+                "francesco.bilotta", null, "FB", "primary"));
+        // The label renders beside the avatar...
+        assertTrue(html.contains("francesco.bilotta"), "avatar-text label missing:\n" + html);
+        // ...and the avatar primitive renders (initials fallback, xs size, primary intent).
+        assertTrue(html.contains("data-slot=\"avatar\""), "avatar-text avatar not rendered:\n" + html);
+        assertTrue(html.contains("data-size=\"xs\""), "avatar-text avatar not xs:\n" + html);
+        assertTrue(html.contains("FB"), "avatar-text initials missing:\n" + html);
+
+        // With an image URL the avatar renders an <img>, not initials.
+        String withImg = renderCell(new dev.lievit.kit.Cell.AvatarText(
+                "Ada Lovelace", "https://example.test/ada.png", null, null));
+        assertTrue(withImg.contains("<img"), "avatar-text image variant did not render an <img>:\n" + withImg);
+    }
+
+    @Test
+    void badge_cell_can_carry_a_leading_status_dot() {
+        // A soft status pill: tint + dot + label. The dot threads through to the badge partial.
+        String html = renderCell(new dev.lievit.kit.Cell.Badge("In corso", "soft-info", true));
+        assertTrue(html.contains("lv-badge"), "badge not rendered through the partial:\n" + html);
+        assertTrue(html.contains("var(--lv-color-info-subtle)"),
+                "soft-info badge not rendered with the subtle tint:\n" + html);
+        // The leading dot (badge partial's dot=true span: a currentColor circle).
+        assertTrue(html.contains("background:currentColor"),
+                "badge leading dot missing (dot did not thread through):\n" + html);
+
+        // A dot-less badge (the default) carries NO leading dot span.
+        String noDot = renderCell(new dev.lievit.kit.Cell.Badge("Bozza", "neutral"));
+        assertFalse(noDot.contains("background:currentColor"),
+                "dot-less badge wrongly rendered a leading dot:\n" + noDot);
+    }
+
+    @Test
+    void empty_avatar_stack_renders_an_em_dash_placeholder() {
+        String html = renderCell(new dev.lievit.kit.Cell.AvatarStack(
+                java.util.List.of(), 0, true, "", "", ""));
+        assertTrue(html.contains("—"),
+                "empty avatar stack did not render the em-dash placeholder:\n" + html);
+    }
+
+    @Test
+    void populated_avatar_stack_uses_xs_avatars_and_a_tight_overlap() {
+        String html = renderCell(new dev.lievit.kit.Cell.AvatarStack(
+                java.util.List.of(
+                        new dev.lievit.kit.AvatarStackColumn.Avatar(null, "Francesco Bilotta"),
+                        new dev.lievit.kit.AvatarStackColumn.Avatar(null, "Luca Cecchetto")),
+                0, true, "", "", "Francesco Bilotta, Luca Cecchetto"));
+        // The stack uses the 24px xs avatar size and the tighter -space-x-1.5 overlap (mock parity).
+        assertTrue(html.contains("data-size=\"xs\""), "avatar stack avatars are not xs:\n" + html);
+        assertTrue(html.contains("-space-x-1.5"), "avatar stack overlap is not the tight -space-x-1.5:\n" + html);
     }
 }

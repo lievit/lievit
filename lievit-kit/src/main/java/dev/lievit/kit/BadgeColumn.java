@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
 public final class BadgeColumn<T> extends Column<T> {
 
     private @Nullable Function<String, String> colorMapper;
+    private boolean dot;
 
     /**
      * Creates a badge column.
@@ -65,6 +66,24 @@ public final class BadgeColumn<T> extends Column<T> {
     }
 
     /**
+     * Renders every badge in this column with a small leading status dot (the badge partial's
+     * {@code dot=true} affordance), e.g. for a "soft" status pill that reads as tint + dot + label.
+     *
+     * @return this column
+     */
+    public BadgeColumn<T> dot() {
+        this.dot = true;
+        return this;
+    }
+
+    /**
+     * @return whether this column's badges render a leading status dot
+     */
+    public boolean hasDot() {
+        return dot;
+    }
+
+    /**
      * Renders a {@link Cell.Badge} carrying the cell text and the {@linkplain #colorFor(Object)
      * colour mapper}'s variant (so the template stamps the badge partial's
      * {@code <span class="lv-badge lv-badge--<variant>">}). A declared
@@ -72,6 +91,6 @@ public final class BadgeColumn<T> extends Column<T> {
      */
     @Override
     public Cell cellFor(T row) {
-        return linkify(row, new Cell.Badge(cell(row), colorFor(row)));
+        return linkify(row, new Cell.Badge(cell(row), colorFor(row), dot));
     }
 }

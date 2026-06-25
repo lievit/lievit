@@ -54,12 +54,17 @@
 !{var _hoverClass = hoverable ? "hover:bg-[color-mix(in_srgb,var(--lv-color-accent)_70%,var(--lv-color-bg))] data-[state=selected]:bg-[color-mix(in_srgb,var(--lv-color-accent)_40%,var(--lv-color-bg))]" : "";}
 !{var _stripedStyle = striped ? "background-color:color-mix(in srgb, var(--lv-color-surface) 40%, var(--lv-color-bg));" : "";}
 !{var _borderStyle = bordered ? "border:1px solid var(--lv-color-border);" : "border-bottom:1px solid var(--lv-color-border);";}
+<%-- `group` so per-row actions can reveal on hover (group-hover) the way Filament's row does; a
+     selected row gets a 2px primary left-accent stripe via a `before:` pseudo (relative anchor),
+     gated by data-[state=selected] so it shows only on the selected row. The stripe is decorative;
+     the selection meaning is carried by aria-selected + data-state (never by colour alone). --%>
+!{var _selectedStripe = "relative data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-0 data-[state=selected]:before:left-0 data-[state=selected]:before:w-[2px] data-[state=selected]:before:bg-[var(--lv-color-primary)] data-[state=selected]:before:content-['']";}
 <tr
   data-slot="table-row"
   data-state="${state.isEmpty() ? null : state}"
   data-row-id="${dataRowId}"
   aria-selected="${ariaSelected}"
   aria-rowindex="${ariaRowIndex}"
-  class="transition-colors ${_hoverClass} ${cssClass}"
+  class="group transition-colors ${_hoverClass} ${_selectedStripe} ${cssClass}"
   style="${_borderStyle}${_stripedStyle}"
 >${content}</tr>

@@ -65,6 +65,8 @@
                             (display component, NOT toolbar-height aligned; architecture contract 5b).
     String variant      = "default" default | info | success | warning | destructive -- controls the
                             decorative left-border accent colour only; does not recolour the value text.
+                            "plain" drops the 3px left rail entirely (uniform 1px border, the mock's
+                            railless KPI card with a top-right icon chip + footer sparkline).
     String href         = null when set, wraps the card in an a[href] making it a navigable link;
                             the a carries aria-label derived from title + prefix + value + suffix.
     gg.jte.Content leading  = null icon / avatar / pictogram to the left of the title+value column.
@@ -143,8 +145,12 @@
 !{var _effectiveTrendLabel = trendLabel.isBlank() ? _autoTrendLabel : trendLabel;}
 <%-- linked card: full accessible name on the a element (prefix+value+suffix conveyed in text). --%>
 !{var _linkLabel = title + ": " + prefix + value + suffix;}
+<%-- left accent rail: every variant draws a 3px left border (transparent for "default"); the
+     "plain" variant drops the rail entirely for a uniform 1px border on all four sides (the mock's
+     stat cards have no left rail, just border + shadow + a top-right icon chip). --%>
+!{var _leftRail = "plain".equals(variant) ? "" : "border-left-width:3px;border-left-color:" + _accentColor + ";";}
 <%-- card shell style: token-driven, no hardcoded colours. --%>
-!{var _cardStyle = "font-family:var(--lv-font-sans);padding:" + _sizePad + ";border-radius:var(--lv-radius-lg);border:1px solid var(--lv-color-border);border-left-width:3px;border-left-color:" + _accentColor + ";background:var(--lv-color-card);color:var(--lv-color-card-fg);box-shadow:var(--lv-shadow-sm);";}
+!{var _cardStyle = "font-family:var(--lv-font-sans);padding:" + _sizePad + ";border-radius:var(--lv-radius-lg);border:1px solid var(--lv-color-border);" + _leftRail + "background:var(--lv-color-card);color:var(--lv-color-card-fg);box-shadow:var(--lv-shadow-sm);";}
 
 <%-- SAFE dynamic data-* attributes: keys allowlisted to simple identifiers ([A-Za-z][A-Za-z0-9-]*);
      values escaped via Escape.htmlAttribute. JTE's HTML parser forbids a raw @for in attribute-NAME

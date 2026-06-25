@@ -61,8 +61,11 @@
 
   Params:
     String variant           = "neutral"  shadcn: "default" | "secondary" | "destructive" |
-                                          "outline" | "ghost" | "link"; status: "neutral" |
-                                          "success" | "warning" | "danger" | "info".
+                                          "outline" | "ghost" | "link"; status (solid fill):
+                                          "neutral" | "success" | "warning" | "danger" | "info";
+                                          status (SOFT, pale tint + dark fg): "soft-success" |
+                                          "soft-warning" | "soft-danger" | "soft-info" |
+                                          "soft-neutral" (use with dot=true for the mock's status pills).
     String label             = null       the pill text (used when no content slot is supplied).
     boolean dot              = false      renders a small coloured dot before the label (same colour
                                           as the variant fg via currentColor); aria-hidden.
@@ -108,6 +111,12 @@
     case "warning"     -> "var(--lv-color-warning)";
     case "danger"      -> "var(--lv-color-danger)";
     case "info"        -> "var(--lv-color-info)";
+    // SOFT family: pale tint bg + dark same-hue fg (the mock's bg-sky-100 text-sky-700 pills).
+    case "soft-success" -> "var(--lv-color-success-subtle)";
+    case "soft-warning" -> "var(--lv-color-warning-subtle)";
+    case "soft-danger"  -> "var(--lv-color-danger-subtle)";
+    case "soft-info"    -> "var(--lv-color-info-subtle)";
+    case "soft-neutral" -> "var(--lv-color-muted-bg)";
     default            -> "var(--lv-color-muted-bg)";
   };}
 !{var fg = switch (variant) {
@@ -124,6 +133,11 @@
     case "warning"     -> "var(--lv-color-warning-fg)";
     case "danger"      -> "var(--lv-color-danger-fg)";
     case "info"        -> "var(--lv-color-info-fg)";
+    case "soft-success" -> "var(--lv-color-success-subtle-fg)";
+    case "soft-warning" -> "var(--lv-color-warning-subtle-fg)";
+    case "soft-danger"  -> "var(--lv-color-danger-subtle-fg)";
+    case "soft-info"    -> "var(--lv-color-info-subtle-fg)";
+    case "soft-neutral" -> "var(--lv-color-muted-fg)";
     default            -> "var(--lv-color-muted-fg)";
   };}
 !{var border = "outline".equals(variant) ? "var(--lv-color-border)" : "transparent";}

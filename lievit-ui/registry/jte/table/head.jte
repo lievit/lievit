@@ -41,7 +41,16 @@
 @param String scope = "col"
 @param String ariaSort = null
 @param String cssClass = ""
+@param String edge = ""
 @param gg.jte.Content content
+<%-- Filament fi-ta edge gutter: the first/last header cell gets an extra outer inset (ps-6 / pe-6)
+     so the header label aligns with the body content off the card frame. Complete static literals so
+     the Tailwind scanner keeps them; "" (interior column) adds nothing. --%>
+!{var _edgeClass = switch (edge) {
+    case "first" -> "ps-[var(--lv-space-6)]";
+    case "last"  -> "pe-[var(--lv-space-6)]";
+    default      -> "";
+  };}
 <%--
   Header cell styling:
   - Height via min-height (not fixed: a group header spanning two lines must still be readable).
@@ -54,6 +63,6 @@
   scope="${scope}"
   data-slot="table-head"
   aria-sort="${ariaSort}"
-  class="h-[var(--lv-space-9)] px-[var(--lv-space-4)] py-[var(--lv-space-2)] text-left align-middle text-[length:var(--lv-text-xs)] font-[var(--lv-font-semibold)] tracking-wide whitespace-nowrap [&:has([role=checkbox])]:pr-0 ${cssClass}"
+  class="h-[var(--lv-space-9)] px-[var(--lv-space-4)] py-[var(--lv-space-2)] text-left align-middle text-[length:var(--lv-text-xs)] font-[var(--lv-font-semibold)] tracking-wide whitespace-nowrap [&:has([role=checkbox])]:pr-0 ${_edgeClass} ${cssClass}"
   style="color:var(--lv-color-muted-fg);"
 >${content}</th>

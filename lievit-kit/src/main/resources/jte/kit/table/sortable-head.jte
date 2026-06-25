@@ -19,25 +19,33 @@
 --%>
 @param AdminListView.Header header
 @param String sortHref = ""
+@param String edge = ""
 !{var canSort = header.sortable() && sortHref != null && !sortHref.isBlank();}
 !{var ariaSort = !header.isSorted() ? null : (header.sortDirection() == SortDirection.ASC ? "ascending" : "descending");}
+<%-- Filament fi-ta edge gutter: the first/last column header gets an extra outer inset (ps-6 / pe-6)
+     so the header aligns with the body off the card frame. Complete static literals; "" adds nothing. --%>
+!{var _edgeClass = switch (edge) {
+    case "first" -> "ps-[var(--lv-space-6)]";
+    case "last"  -> "pe-[var(--lv-space-6)]";
+    default      -> "";
+  };}
 <th
   scope="col"
   data-slot="table-head"
   aria-sort="${ariaSort}"
   data-sortable="${header.sortable()}"
   data-sort-key="${header.sortKey()}"
-  <%-- Filament fidelity: header cells use a SUBTLE tint (the bottom divider does the head/body
-       separation; Filament's fi-ta-header-cell is near-transparent), px-3 padding, and a small muted
-       semibold label. Lightened from the prior heavy 70% surface band toward the Filament header look. --%>
-  class="lv-table-head h-[var(--lv-space-9)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left align-middle text-[length:var(--lv-text-xs)] font-[var(--lv-font-semibold)] tracking-wide whitespace-nowrap"
-  style="color:var(--lv-color-muted-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 35%, var(--lv-color-bg));"
+  <%-- Filament fidelity (fi-ta-header-cell): the thead rides ONE subtle 35% surface band (the
+       bottom divider does the head/body split) with a STRONG near-fg, text-sm, semibold label
+       (Filament's text-gray-950 text-sm font-semibold). The sort chevron stays muted-until-sorted. --%>
+  class="lv-table-head h-[var(--lv-space-9)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left align-middle text-[length:var(--lv-text-sm)] font-[var(--lv-font-semibold)] tracking-wide whitespace-nowrap ${_edgeClass}"
+  style="color:var(--lv-color-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 35%, var(--lv-color-bg));"
 >
   @if(canSort)
     <a
       href="${sortHref}"
       data-slot="table-sort-link"
-      class="inline-flex items-center gap-[var(--lv-space-1)] no-underline text-[var(--lv-color-muted-fg)] hover:text-[var(--lv-color-fg)]"
+      class="inline-flex items-center gap-[var(--lv-space-1)] no-underline text-[var(--lv-color-fg)] hover:text-[var(--lv-color-fg)]"
     >
       <span>${header.label()}</span>
       @if(!header.isSorted())
