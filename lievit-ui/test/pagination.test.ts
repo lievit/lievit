@@ -509,12 +509,21 @@ describe("pagination -- escaping channels (XSS trust split)", () => {
         !u.includes("attrs}") &&
         !u.includes("pageAttrs}") &&
         !u.includes("wrapperData") &&
-        !u.includes("pageDataMarkup")
+        !u.includes("pageDataMarkup") &&
+        // The Stimulus wire-wiring fragment is a SAFE channel (built via Escape.htmlAttribute,
+        // like pageDataMarkup), not a trusted-raw one; it carries data-action + action-param.
+        !u.includes("pageWireMarkup")
     );
     expect(
       nonChannel,
       `unexpected $unsafe usages beyond the two trusted channels + escaped fragments: ${nonChannel.join(", ")}`
     ).toEqual([]);
+  });
+
+  test("pageWireMarkup (Stimulus wire-wiring) is built via Escape.htmlAttribute (safe channel)", () => {
+    expect(src).toContain("pageWireMarkup");
+    // the action name is routed through the safe channel, not interpolated raw
+    expect(src).toContain("Escape.htmlAttribute(wireAction, pageWireMarkup)");
   });
 
   test("no dev.lievit imports (gate would fail: template is presentational only)", () => {
@@ -577,5 +586,55 @@ describe("pagination -- instanceId for label/input pairing", () => {
 
   test("uses instanceId in the size-switcher select id", () => {
     expect(src).toContain('instanceId + "-size"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stimulus self-wiring (lv-pagination controller) -- the conversion of pagination.ts (l:page)
+// ---------------------------------------------------------------------------
+
+describe("pagination -- Stimulus wire self-wiring (lv-pagination)", () => {
+  test("declares the pageAction param (wire action name) with null default", () => {
+    expect(src).toContain("@param String pageAction = null");
+  });
+
+  test("declares the pageNoScroll param (l:page.no-scroll equivalent) with false default", () => {
+    expect(src).toContain("@param boolean pageNoScroll = false");
+  });
+
+  test("wireAction local is non-null only in wire mode AND when pageAction is set", () => {
+    expect(src).toContain(
+      "var wireAction = (!urlMode && pageAction != null) ? pageAction : null"
+    );
+  });
+
+  test("root stamps data-controller='lv-pagination' only when wireAction is set (null-drop)", () => {
+    expect(src).toContain(
+      'data-controller="${wireAction != null ? "lv-pagination" : null}"'
+    );
+  });
+
+  test("the wire fragment binds the click to the lv-pagination#goto action", () => {
+    expect(src).toContain('data-action=\\"click->lv-pagination#goto\\"');
+  });
+
+  test("the wire fragment carries the action-param built from the (escaped) action name", () => {
+    expect(src).toContain("data-lv-pagination-action-param=");
+    expect(src).toContain("Escape.htmlAttribute(wireAction, pageWireMarkup)");
+  });
+
+  test("pageNoScroll stamps the no-scroll action param", () => {
+    expect(src).toContain('data-lv-pagination-no-scroll-param=\\"true\\"');
+  });
+
+  test("the wire fragment is emitted on the page elements via $unsafe (empty in URL mode)", () => {
+    const usages = (src.match(/\$unsafe\{pageWireMarkup\.toString\(\)\}/g) ?? []).length;
+    expect(usages, "wire fragment should ride every interactive page element").toBeGreaterThan(2);
+  });
+
+  test("the wire fragment is gated by wireAction so URL-mode pages stay uncontrolled (no data-action)", () => {
+    // The fragment is populated ONLY inside `if (wireAction != null)`, so in URL mode it stays
+    // empty -> URL pages render plain <a href> with no click->wire binding (the doctrine).
+    expect(src).toContain("if (wireAction != null) {");
   });
 });

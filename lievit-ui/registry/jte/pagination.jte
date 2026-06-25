@@ -107,6 +107,15 @@
     java.util.Map<String,String> dataAttrs = java.util.Map.of()  SAFE dynamic data-* on wrapper.
     String pageAttrs             = ""    TRUSTED raw -- extra attributes on EVERY page (a)/(button).
     java.util.Map<String,String> pageDataAttrs = java.util.Map.of()  SAFE dynamic data-* on each page element.
+    String pageAction            = null  WIRE-mode self-wiring: when set, every page (button) is
+                                         driven by the lv-pagination Stimulus controller (click ->
+                                         wire action + scroll-to-top), the morph-safe replacement of
+                                         the old l:page directive. The named action rides the wire on
+                                         the enclosing component; the server reads dataset.page from
+                                         the trigger. null = no controller wiring (caller supplies
+                                         its own wire directive via pageAttrs as before). Ignored in
+                                         URL mode (baseUrl != null): URL pages navigate, never wire.
+    boolean pageNoScroll         = false suppress the post-change scroll-to-top (l:page.no-scroll).
     gg.jte.Content ellipsisContent = null  custom ellipsis; null = default "..." span.
     gg.jte.Content prevContent   = null  custom prev arrow; null = default chevron-left icon.
     gg.jte.Content nextContent   = null  custom next arrow; null = default chevron-right icon.
@@ -143,6 +152,8 @@
 @param java.util.Map<String,String> dataAttrs = java.util.Map.of()
 @param String pageAttrs = ""
 @param java.util.Map<String,String> pageDataAttrs = java.util.Map.of()
+@param String pageAction = null
+@param boolean pageNoScroll = false
 @param gg.jte.Content ellipsisContent = null
 @param gg.jte.Content prevContent = null
 @param gg.jte.Content nextContent = null
@@ -154,6 +165,10 @@
 <%-- Computed locals                                                     --%>
 <%-- ------------------------------------------------------------------ --%>
 !{var urlMode = baseUrl != null;}
+<%-- WIRE-mode self-wiring action (lv-pagination Stimulus controller). Non-null ONLY when an action
+     is requested AND we are in wire mode; URL pages navigate via href, never the wire. Its presence
+     is the controlled marker: a page click round-trips ONLY when wireAction != null. --%>
+!{var wireAction = (!urlMode && pageAction != null) ? pageAction : null;}
 <%-- Query separator: append page with & when baseUrl already carries a query (preserves
      filter params), ? otherwise. Without this a baseUrl like "/x?user=a" yields "?...?page=". --%>
 !{var _sep = (baseUrl != null && baseUrl.contains("?")) ? "&" : "?";}
@@ -201,6 +216,20 @@
     }
   }}
 
+<%-- Safe wire-wiring fragment for each page element (lv-pagination Stimulus controller). Empty in
+     URL mode (wireAction == null) so URL pages stay plain links; in wire mode it stamps the click
+     action + the action-param + the optional no-scroll flag. The action name is author-typed but
+     still routed through Escape.htmlAttribute (the safe channel, like pageDataMarkup). --%>
+!{var pageWireMarkup = new StringOutput();}
+!{if (wireAction != null) {
+    pageWireMarkup.writeContent(" data-action=\"click->lv-pagination#goto\" data-lv-pagination-action-param=\"");
+    Escape.htmlAttribute(wireAction, pageWireMarkup);
+    pageWireMarkup.writeContent("\"");
+    if (pageNoScroll) {
+      pageWireMarkup.writeContent(" data-lv-pagination-no-scroll-param=\"true\"");
+    }
+  }}
+
 <%-- Default page-sizes when none provided by caller. --%>
 !{var effectiveSizes = (pageSizes != null) ? pageSizes : java.util.List.of(10, 20, 50, 100);}
 
@@ -211,6 +240,7 @@
   data-slot="pagination"
   data-size="${size}"
   data-disabled="${disabled ? "true" : null}"
+  data-controller="${wireAction != null ? "lv-pagination" : null}"
   class="inline-flex flex-wrap items-center gap-[var(--lv-space-4)] font-[var(--lv-font-sans)] ${cssClass}"
   $unsafe{wrapperData.toString()}
   $unsafe{attrs}
@@ -243,6 +273,7 @@
           data-slot="pagination-prev"
           class="${btnIdle} ${padClass}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >@if(prevContent != null)${prevContent}@else@template.lievit.icon(name = "chevron-left", size = "1em")@endif</a>
         @elseif(!urlMode && !prevDisabled)
@@ -253,6 +284,7 @@
           data-page="${cp - 1}"
           class="${btnIdle} ${padClass}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >@if(prevContent != null)${prevContent}@else@template.lievit.icon(name = "chevron-left", size = "1em")@endif</button>
         @elseif(urlMode && prevDisabled)
@@ -299,6 +331,7 @@
           data-page="1"
           class="${1 == cp ? btnCurrent : btnIdle}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >1</a>
         @elseif(!urlMode && !disabled)
@@ -309,6 +342,7 @@
           data-page="1"
           class="${1 == cp ? btnCurrent : btnIdle}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >1</button>
         @elseif(urlMode)
@@ -358,6 +392,7 @@
           data-page="${p}"
           class="${p == cp ? btnCurrent : btnIdle}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >${p}</a>
         @elseif(!urlMode && !disabled)
@@ -368,6 +403,7 @@
           data-page="${p}"
           class="${p == cp ? btnCurrent : btnIdle}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >${p}</button>
         @elseif(urlMode)
@@ -416,6 +452,7 @@
           data-page="${totalPages}"
           class="${totalPages == cp ? btnCurrent : btnIdle}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >${totalPages}</a>
         @elseif(!urlMode && !disabled)
@@ -426,6 +463,7 @@
           data-page="${totalPages}"
           class="${totalPages == cp ? btnCurrent : btnIdle}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >${totalPages}</button>
         @elseif(urlMode)
@@ -463,6 +501,7 @@
           data-slot="pagination-next"
           class="${btnIdle} ${padClass}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >@if(nextContent != null)${nextContent}@else@template.lievit.icon(name = "chevron-right", size = "1em")@endif</a>
         @elseif(!urlMode && !nextDisabled)
@@ -473,6 +512,7 @@
           data-page="${cp + 1}"
           class="${btnIdle} ${padClass}"
           $unsafe{pageDataMarkup.toString()}
+          $unsafe{pageWireMarkup.toString()}
           $unsafe{pageAttrs}
         >@if(nextContent != null)${nextContent}@else@template.lievit.icon(name = "chevron-right", size = "1em")@endif</button>
         @elseif(urlMode && nextDisabled)
