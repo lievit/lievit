@@ -51,6 +51,8 @@
       in borderless context).
     - Focus: no trap, no roving tabindex. Tab order = standard page sequence.
     - No live region (expand/collapse is visible in-place).
+    - Stimulus migration: nothing to convert -- ZERO client JS by design (native <details>);
+      no lv-* Stimulus controller is shipped or needed (chevron rotation is CSS, not JS).
 
   Params:
     String label                       the trigger label (the header text, HTML-escaped by JTE).

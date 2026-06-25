@@ -43,6 +43,9 @@
     - Focus: no trap, no roving tabindex, no restore -- standard page Tab sequence.
     - No live region (the expand/collapse is visible in-place; no AT announcement needed).
     - No enhancer: all keyboard + role + focus is platform-supplied.
+    - Stimulus migration: nothing to convert. This component has ZERO client JS by design (the
+      platform owns disclosure via native <details>); it ships NO lv-* Stimulus controller and
+      needs none. There is no enhancer, WeakSet, or data-*-enhanced marker to delete.
 
   Params:
     gg.jte.Content content           the accordion items (zero or more @@template.lievit.accordion-item(...)).
