@@ -113,6 +113,95 @@
               </resources>
             </configuration>
           </execution>
+
+          <!--
+            RFC 0036 stage 3: ship the client runtime (TS source + CSS) in the jar so a
+            consumer with a JS bundler (Vite, esbuild, webpack) can import and tree-shake it
+            without a separate npm install or a vendored copy-in.
+
+            Layout goal: preserve the relative import paths that already exist in the source
+            tree so a consumer can unpack the jar and get a working tree immediately.
+
+            Source layout (relative to lievit-ui/):
+              runtime/**            (entry: runtime/features/index.ts)
+              registry/jte/*.enhancer.ts
+              registry/jte/*.css
+              registry/tokens/lievit-tokens.css
+
+            Enhancers (registry/jte/*.enhancer.ts) import the runtime as:
+              import ... from "../../runtime/runtime.js"
+            That path resolves when the unpacked jar tree is:
+              lievit-runtime/
+                runtime/           <- the entire runtime/ subtree
+                registry/
+                  jte/             <- enhancers + CSS
+
+            Two build-helper executions mirror the two source roots:
+
+            (A) lievit-runtime-runtime: runtime/** -> targetPath lievit-runtime/runtime
+            (B) lievit-runtime-registry: registry/jte/*.enhancer.ts + *.css
+                + registry/tokens/lievit-tokens.css -> targetPath lievit-runtime/registry
+
+            After unpack the consumer gets:
+              lievit-runtime/runtime/features/index.ts        (entry point)
+              lievit-runtime/runtime/runtime.ts               (runtime core)
+              lievit-runtime/runtime/...
+              lievit-runtime/registry/jte/chart.enhancer.ts   (imports ../../runtime/runtime.js -> ok)
+              lievit-runtime/registry/jte/accordion.css
+              lievit-runtime/registry/tokens/lievit-tokens.css
+
+            A consumer's Vite config adds lievit-runtime/ to resolve.alias or simply
+            imports by relative path after unpacking (the lievit-maven-plugin stage-templates
+            goal stages this tree alongside the jte templates in one step).
+          -->
+          <execution>
+            <id>add-lievit-runtime-ts</id>
+            <phase>generate-resources</phase>
+            <goals><goal>add-resource</goal></goals>
+            <configuration>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/runtime</directory>
+                  <targetPath>lievit-runtime/runtime</targetPath>
+                  <filtering>false</filtering>
+                  <!-- include all TS source, vendor JS/d.ts bundles -->
+                  <includes>
+                    <include>**/*.ts</include>
+                    <include>**/*.js</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>add-lievit-runtime-registry</id>
+            <phase>generate-resources</phase>
+            <goals><goal>add-resource</goal></goals>
+            <configuration>
+              <resources>
+                <!-- enhancers + component CSS from registry/jte -->
+                <resource>
+                  <directory>${project.basedir}/registry/jte</directory>
+                  <targetPath>lievit-runtime/registry/jte</targetPath>
+                  <filtering>false</filtering>
+                  <includes>
+                    <include>**/*.enhancer.ts</include>
+                    <include>**/*.css</include>
+                  </includes>
+                </resource>
+                <!-- design tokens CSS from registry/tokens -->
+                <resource>
+                  <directory>${project.basedir}/registry/tokens</directory>
+                  <targetPath>lievit-runtime/registry/tokens</targetPath>
+                  <filtering>false</filtering>
+                  <includes>
+                    <include>lievit-tokens.css</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
 

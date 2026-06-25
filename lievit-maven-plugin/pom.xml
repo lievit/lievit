@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  lievit-maven-plugin: the DX wrapper for the RFC 0036 import recipe.
+
+  Wraps the proven 3-step unpack+merge+precompile recipe (demonstrated in examples/import-poc)
+  into ONE Maven plugin goal so a consumer's pom becomes:
+    1. add io.github.lievit:lievit-ui dependency
+    2. configure this plugin (stage-templates goal)
+    3. point jte-maven-plugin:precompile at the staging dir
+
+  Goal: stage-templates (bound to generate-sources by default).
+  Effect: resolves the consumer's io.github.lievit:* dependencies, extracts every lievit/**
+  resource from their jars into a staging directory, then copies the consumer's own
+  src/main/jte/** alongside — yielding one merged directory the jte precompile plugin
+  reads as its sourceDirectory.
+
+  The extraction is done with java.util.zip.ZipFile (no plugin API dependency on
+  maven-dependency-plugin internals): reads the resolved project artifacts (Artifact.getFile()),
+  filters entries whose name starts with "lievit/", and writes them into the staging dir
+  preserving the entry path.
+
+  requiresDependencyResolution = COMPILE so Maven resolves the dependency graph (including
+  transitive lievit-ui pulls) before execute() is called, making project.getArtifacts() reliable.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.lievit</groupId>
+    <artifactId>lievit-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>lievit-maven-plugin</artifactId>
+  <packaging>maven-plugin</packaging>
+  <name>lievit-maven-plugin</name>
+  <description>
+    Maven plugin that stages lievit-ui JTE templates for precompilation.
+    Implements the RFC 0036 import recipe (unpack + merge + stage) as a single
+    stage-templates goal, replacing the 3-plugin hand-wiring in import-poc.
+  </description>
+
+  <!--
+    Not published to Central yet (matches lievit-ui posture).
+    Flip maven.deploy.skip=false in the release profile when ready.
+  -->
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+    <!-- Maven plugin tools version — verified 2026-06-25 -->
+    <maven-plugin-tools.version>3.15.2</maven-plugin-tools.version>
+  </properties>
+
+  <dependencies>
+    <!--
+      Maven Plugin API: provides AbstractMojo, MojoExecutionException, MojoFailureException.
+      provided: the Maven runtime supplies these at plugin execution time.
+    -->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-plugin-api</artifactId>
+      <version>3.9.9</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!--
+      Maven Plugin Annotations: provides @Mojo, @Parameter, @Component.
+      provided: compile-time only; the descriptor generator reads them, they are not needed at runtime.
+    -->
+    <dependency>
+      <groupId>org.apache.maven.plugin-tools</groupId>
+      <artifactId>maven-plugin-annotations</artifactId>
+      <version>${maven-plugin-tools.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!--
+      Maven Core: provides MavenProject (org.apache.maven.project.MavenProject) and Artifact.
+      provided: Maven supplies MavenProject at runtime via its container.
+    -->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-core</artifactId>
+      <version>3.9.9</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- JUnit 5 for the Mojo unit test. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.11.4</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        maven-plugin-plugin: generates the plugin descriptor (META-INF/maven/plugin.xml)
+        by scanning @Mojo / @Parameter annotations on the Mojo classes. Also generates the
+        help mojo (helpmojo goal) so `mvn lievit:help` works out of the box.
+        Bound automatically to the maven-plugin lifecycle; we add helpmojo explicitly.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-plugin-plugin</artifactId>
+        <version>${maven-plugin-tools.version}</version>
+        <executions>
+          <execution>
+            <id>help-mojo</id>
+            <goals><goal>helpmojo</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

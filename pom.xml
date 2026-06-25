@@ -58,6 +58,7 @@
         <module>lievit-kit</module>
         <module>lievit-cli</module>
         <module>lievit-ui</module>
+        <module>lievit-maven-plugin</module>
         <module>examples/golden-path-starter</module>
         <module>examples/kit-crud-admin</module>
         <module>examples/import-poc</module>
