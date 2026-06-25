@@ -39,17 +39,24 @@
     ENHANCER_NEEDED -- submenu ArrowRight/Left: collection-nav does not yet support
     data-lievit-collection-submenu-action or ArrowRight-to-open / ArrowLeft-to-close.
 
-  POPOVER SEAM (popover-anchor.enhancer.ts):
+  POPOVER SEAM (lv-popover Stimulus controller, converted from popover-anchor.enhancer.ts):
+    - Panel carries data-controller="lv-popover" so the shared lv-popover controller owns the
+      native-popover seam: opener recording, focus-return on light-dismiss, aria-expanded mirror,
+      and the controlled/uncontrolled wire-close doctrine (via the DismissableController base).
+      Stimulus connects/disconnects the controller across the wire morph + idiomorph + Turbo Drive,
+      so there is no WeakSet/afterCall bookkeeping and no leaked listener. popover-anchor.enhancer.ts
+      stays installed for not-yet-converted overlays and SKIPS this panel (its
+      data-controller~="lv-popover" guard), so the close never fires twice while both paths coexist.
     - Panel carries popover="auto" + data-lv-opener="${triggerId}" for focus-return on close.
     - CONTROLLED/UNCONTROLLED wire-close: data-lv-wire-close="${escapeAction}" is stamped ONLY
-      when open=true (controlled). On light-dismiss the enhancer reads that attribute and calls the
+      when open=true (controlled). On light-dismiss the controller reads that attribute and calls the
       named action on the component owning the panel, syncing server open-state. In UNCONTROLLED
-      mode (open=false) the attribute is absent and the enhancer fires NO wire call -- the browser
+      mode (open=false) the attribute is absent and the controller fires NO wire call -- the browser
       owns the open state and the close is purely client-side. This is the controlled/uncontrolled
       doctrine: an uncontrolled overlay must never round-trip a "close" to a host that may have no
       such @LievitAction (that mapped to 410 UNKNOWN_COMPONENT / "page expired" on data tables).
     - In controlled mode the caller's Wire component exposes the named action (default "close",
-      override via escapeAction); the configurable name needs no enhancer patch.
+      override via escapeAction); the configurable name needs no controller patch.
 
   OVERLAY: CSS Anchor Positioning.
     - The trigger sets anchor-name; the panel sets position-anchor + position-area.
@@ -156,6 +163,7 @@
   <div
     id="${id}"
     popover="auto"
+    data-controller="lv-popover"
     open="${open}"
     data-slot="dropdown-menu-content"
     role="menu"
