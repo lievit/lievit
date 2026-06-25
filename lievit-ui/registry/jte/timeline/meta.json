@@ -1,0 +1,25 @@
+{
+  "name": "timeline",
+  "type": "registry:jte",
+  "description": "A vertical event timeline (Ant Design Timeline parity): timeline is a semantic ordered list (<ol>) of dated events; each timeline.item is an <li> laid out as [node rail][content] with a coloured dot (semantic intent primary|success|warning|danger|info|muted, or a raw colour), a downward connector line (suppressed on the last item), an optional custom dot slot (e.g. a milestone icon), and an optional label (timestamp) above the content. reverse renders newest-first via column-reverse while keeping source order for AT. The dot + connector are aria-hidden decoration. Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/timeline.jte",
+      "type": "registry:jte",
+      "target": "lievit/timeline.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/timeline/item.jte",
+      "type": "registry:jte",
+      "target": "lievit/timeline/item.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type", "radius"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the timeline + timeline/item partials to your JTE root at lievit/timeline/. Use @template.lievit.timeline(content=@`...`) as the <ol> container and @template.lievit.timeline.item(color=..., label=..., last=..., content=@`...`) for each event. color is a semantic intent or a raw colour; set last=true on the final item to drop the connector; pass a dot slot to replace the default circle with an icon. reverse=true renders newest-first. The source is yours: edit freely."
+}

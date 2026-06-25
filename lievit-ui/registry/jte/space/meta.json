@@ -1,0 +1,19 @@
+{
+  "name": "space",
+  "type": "registry:jte",
+  "description": "Set a consistent gap between a small group of inline children (Ant Design Space parity): the toolbar/button-cluster spacing primitive. Renders a flex container; direction (horizontal row / vertical column), size (none|small|middle|large mapped onto --lv-space-*, or a raw CSS length), cross-axis align, and wrap (horizontal default true). Differs from flex by intent: Space is the wrap-friendly inline cluster, Flex the general two-axis box; both compile to the same flex utilities. Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/space.jte",
+      "type": "registry:jte",
+      "target": "lievit/space.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["space"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the space partial to your JTE root at lievit/space.jte, reached as @template.lievit.space(content=@`...`). Use to space a small cluster of inline controls (buttons, tags) by a consistent gap: size=\"small|middle|large\" (token scale) or a raw length. direction=\"vertical\" stacks; align controls the cross axis; wrap (horizontal) defaults true. The source is yours: edit freely."
+}

@@ -1,0 +1,25 @@
+{
+  "name": "grid",
+  "type": "registry:jte",
+  "description": "A 24-column responsive grid system (Ant Design Row/Col parity): grid.row is a CSS-grid container (grid-template-columns:repeat(24,...)), grid.col is a cell that spans N of the 24 tracks with an optional left offset. The column math is expressed via inline grid-column styles (fully static -- no dynamic Tailwind col-span-* classes a scanner would purge). Row controls gutter (none|small|middle|large on the --lv-space-* scale, or a raw length), justify, and align. Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/grid/row.jte",
+      "type": "registry:jte",
+      "target": "lievit/grid/row.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/grid/col.jte",
+      "type": "registry:jte",
+      "target": "lievit/grid/col.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["space"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the grid row + col partials to your JTE root at lievit/grid/. Use @template.lievit.grid.row(gutter=..., content=@`...`) as the 24-column container and @template.lievit.grid.col(span=N, offset=M, content=@`...`) for each cell (span 1..24, offset 0..23). gutter=\"small|middle|large\" (token scale) or a raw length controls the column gap; justify/align control distribution. The source is yours: edit freely."
+}

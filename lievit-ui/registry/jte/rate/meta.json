@@ -1,0 +1,19 @@
+{
+  "name": "rate",
+  "type": "registry:jte",
+  "description": "A star-rating control (Ant Design Rate parity). The SELECTION is a native radio group (one sr-only radio per star, single-selection, arrow-key roving, form-submitting); the SERVER renders the painted fill from the initial value (star i active when i<=value) so the rating is correct before and without JS; the lv-rate Stimulus controller adds the live hover preview and keeps the fill in sync, painting via element.style (controller JS, not an inline handler -- CSP-clean). Stars reuse the lievit star icon. Per-star aria-label (\"N stars\") so AT announces the value; glyphs are aria-hidden; colour never the sole signal. Half-stars out of scope for this first cut. Themeable active/empty colours via data-*-value.",
+  "dependencies": ["@hotwired/stimulus"],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/rate.jte",
+      "type": "registry:jte",
+      "target": "lievit/rate.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type", "radius", "ring"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the rate partial to your JTE root at lievit/rate.jte. Use @template.lievit.rate(name=..., value=..., count=5). The lv-rate Stimulus controller ships with the lievit runtime bundle and auto-loads by filename (no registry edit). The native radio group selects + submits with no JS and the server-rendered fill is correct; the controller adds hover preview. Tune count, size, activeColor/emptyColor. The source is yours: edit freely."
+}
