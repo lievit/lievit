@@ -61,6 +61,8 @@
 <div
     data-lievit-component="${cid}"
     data-toggle-group
+    data-controller="lv-toggle-group"
+    data-action="keydown->lv-toggle-group#onKeydown"
     role="${single ? "radiogroup" : "group"}"
     class="inline-flex items-center"
     style="gap: var(--lv-space-1); font-family: var(--lv-font-sans);"
@@ -74,6 +76,7 @@
         <button
             type="button"
             data-toggle-group-item="${value}"
+            data-lv-toggle-group-target="item"
             role="${single ? "radio" : "button"}"
             aria-checked="${single ? (isSelected ? "true" : "false") : null}"
             aria-pressed="${single ? null : (isSelected ? "true" : "false")}"
