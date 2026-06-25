@@ -152,6 +152,13 @@ function hidePanel(state: HoverCardState): void {
 
 function wireWrapper(wrapper: Element): void {
   if (wiredWrappers.has(wrapper)) return;
+  // Migration guard (Stimulus conversion): a wrapper converted to the `lv-hover-card` Stimulus
+  // controller owns its own hover/focus/Esc handling. This enhancer must NOT also wire it, or the
+  // card would get two show/hide timer sets. Converted templates carry data-controller="lv-hover-card".
+  if (wrapper.matches('[data-controller~="lv-hover-card"]')) {
+    wiredWrappers.add(wrapper);
+    return;
+  }
   wiredWrappers.add(wrapper);
 
   const cardId = wrapper.getAttribute(CARD_ID_ATTR);

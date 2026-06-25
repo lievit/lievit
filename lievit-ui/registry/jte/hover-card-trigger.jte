@@ -90,6 +90,7 @@
 !{var dataAttrsMarkup = dataAttrs_.toString();}
 
 <span
+  data-controller="lv-hover-card"
   data-slot="hover-card-trigger"
   data-lv-hover-card-trigger
   data-card-id="${cardId}"
