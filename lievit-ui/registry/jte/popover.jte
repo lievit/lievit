@@ -30,7 +30,10 @@
       context-specific ARIA roles (added by the composing component) is the correct assembly.
     positioning: CSS Anchor Positioning Level 1 (anchor-name / position-anchor / position-area).
       All twelve placement positions map to CSS position-area values; no JS positioning loop.
-      NO @floating-ui/dom; NO hand-rolled pixel-offset JS.
+      NO @floating-ui/dom; NO hand-rolled pixel-offset JS. On engines without native CSS Anchor
+      Positioning (Firefox/Safari were partial in 2026) the lv-anchor Stimulus controller on the
+      panel (data-controller="lv-popover lv-anchor") lazy-loads the @oddbird polyfill once, only when
+      CSS.supports anchor checks fail; supporting browsers download nothing.
 
   A11y (APG Disclosure + native popover attribute):
     Trigger: real native button, role implicit (button); aria-expanded server-emitted from open;
@@ -221,7 +224,7 @@
 <div
   id="${panelId}"
   popover="${type}"
-  data-controller="lv-popover"
+  data-controller="lv-popover lv-anchor"
   data-slot="popover-panel"
   data-variant="${variant}"
   data-placement="${placement}"
