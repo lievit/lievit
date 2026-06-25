@@ -131,6 +131,7 @@
 !{var anchorName = "--" + id + "-anchor";}
 
 <span
+  data-controller="lv-tooltip"
   data-lievit-tooltip-wrapper
   data-lievit-tooltip-id="${id}"
   data-lievit-tooltip-delay="${delay}"

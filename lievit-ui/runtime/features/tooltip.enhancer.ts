@@ -163,6 +163,12 @@ function wireWrapper(wrapper: Element): void {
   if (wiredWrappers.has(wrapper)) return;
   wiredWrappers.add(wrapper);
 
+  // Migration guard (Stimulus conversion): a wrapper converted to the `lv-tooltip` Stimulus
+  // controller owns its own show/hide + aria wiring. This enhancer must NOT also wire it, or the
+  // listeners (and aria-describedby) would be doubled. Converted templates carry
+  // data-controller="lv-tooltip".
+  if (wrapper.matches('[data-controller~="lv-tooltip"]')) return;
+
   // Disabled: no listeners wired, bubble stays hidden.
   if (wrapper.hasAttribute(DISABLED_ATTR)) return;
 
