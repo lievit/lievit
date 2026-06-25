@@ -68,6 +68,13 @@ function fireToggle(panel: Element, newState: "open" | "closed"): void {
 function mountPopover(opts: {
   openerId?: string;
   hasAutofocus?: boolean;
+  /**
+   * When set, the panel is rendered as a wire-CONTROLLED overlay: it carries
+   * `data-lv-wire-close="<value>"`, exactly as dropdown-menu.jte / popover.jte emit it only when
+   * the open state is server-owned. When ABSENT (default) the panel is UNCONTROLLED: it carries
+   * NO close marker, so light-dismiss must fire no wire call (pure client-side close).
+   */
+  wireClose?: string;
 }): {
   runtime: LievitRuntime;
   calledActions: string[];
@@ -92,6 +99,9 @@ function mountPopover(opts: {
   const panel = document.createElement("div");
   panel.setAttribute("popover", "");
   panel.setAttribute("data-lv-opener", openerId);
+  if (opts.wireClose != null) {
+    panel.setAttribute("data-lv-wire-close", opts.wireClose);
+  }
   panel.id = "the-panel";
 
   if (opts.hasAutofocus === true) {
@@ -189,8 +199,10 @@ describe("popover-anchor.enhancer — native popover API seam", () => {
     expect(document.activeElement).toBe(autofocusEl);
   });
 
-  it("close_action_fires_on_light_dismiss — toggle closed fires close() wire action", async () => {
-    const { panel, opener, calledActions } = mountPopover({});
+  it("close_action_fires_on_light_dismiss_when_controlled: a wire-controlled panel (data-lv-wire-close) syncs the server close() on light-dismiss", async () => {
+    // CONTROLLED: the server owns the open state, so the close marker is present and the
+    // light-dismiss must round-trip to keep server state in sync.
+    const { panel, opener, calledActions } = mountPopover({ wireClose: "close" });
 
     opener.focus();
     fireToggle(panel, "open");
@@ -257,8 +269,18 @@ describe("popover-anchor.enhancer — native popover API seam", () => {
     expect(calledActions).not.toContain("close");
   });
 
-  it("fallback_to_close_when_no_data_lv_wire_close — without data-lv-wire-close the default close action fires", async () => {
-    // Existing behavior: panel with NO data-lv-wire-close fires "close".
+  // ---------------------------------------------------------------------------
+  // CONTROLLED / UNCONTROLLED doctrine: the wire close fires ONLY for a wire-controlled
+  // overlay (open state owned by the server). An uncontrolled native popover closes purely
+  // client-side and MUST NOT round-trip; firing a spurious "close" on a host with no such
+  // @LievitAction is exactly what produced the table "Colonne"/"Filtri" 410 page-expired bug.
+  // ---------------------------------------------------------------------------
+
+  it("uncontrolled_panel_fires_no_wire_call_on_close: without data-lv-wire-close the light-dismiss does NOT call the server (regression: the 410 page-expired bug)", async () => {
+    // UNCONTROLLED: no close marker on the panel (the template omits it when open=false).
+    // The native popover toggled shut must not POST any _calls; the host component may have
+    // no close() @LievitAction at all (e.g. gest's ActivityTableLievitComponent), and an
+    // unknown action maps to UNKNOWN_COMPONENT -> 410 -> a misleading "page expired" dialog.
     const { panel, opener, calledActions } = mountPopover({});
 
     opener.focus();
@@ -271,9 +293,40 @@ describe("popover-anchor.enhancer — native popover API seam", () => {
     fireToggle(panel, "closed");
 
     await new Promise((r) => setTimeout(r, 10));
-    expect(calledActions).toContain("close");
-    // Must NOT contain any other action name (pure fallback).
-    expect(calledActions.filter((a) => a !== "close")).toHaveLength(0);
+    // Zero wire calls: an uncontrolled overlay closes with no server round-trip.
+    expect(calledActions).toHaveLength(0);
+  });
+
+  it("second_close_does_not_410_when_uncontrolled: re-opening then re-closing an uncontrolled panel still fires no wire call (the 'second interaction' path)", async () => {
+    // The reported symptom is on the SECOND interaction: opening fires nothing, then the second
+    // trigger click that CLOSES the popover is what used to POST the spurious "close". Prove the
+    // whole open/close/open/close cycle stays purely client-side.
+    const { panel, opener, calledActions } = mountPopover({});
+
+    opener.focus();
+    fireToggle(panel, "open");
+    fireToggle(panel, "closed");
+    fireToggle(panel, "open");
+    fireToggle(panel, "closed");
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions).toHaveLength(0);
+  });
+
+  it("controlled_panel_fires_close_once_per_dismiss: a wire-controlled panel fires exactly one close per light-dismiss", async () => {
+    const { panel, opener, calledActions } = mountPopover({ wireClose: "close" });
+
+    opener.focus();
+    fireToggle(panel, "open");
+
+    const outside = document.createElement("button");
+    outside.textContent = "elsewhere";
+    document.body.appendChild(outside);
+    outside.focus();
+    fireToggle(panel, "closed");
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions.filter((a) => a === "close")).toHaveLength(1);
   });
 
   // ---------------------------------------------------------------------------
@@ -392,6 +445,7 @@ describe("popover-anchor.enhancer — native popover API seam", () => {
     const panel = document.createElement("div");
     panel.setAttribute("popover", "");
     panel.setAttribute("data-lv-opener", openerId);
+    panel.setAttribute("data-lv-wire-close", "close"); // controlled: server owns open state
     panel.id = "sync-panel";
     componentRoot.appendChild(panel);
     document.body.appendChild(componentRoot);

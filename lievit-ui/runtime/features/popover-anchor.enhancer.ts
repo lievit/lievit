@@ -13,9 +13,13 @@
  *    `document.activeElement` is NOT already the opener (i.e. the browser did not return focus
  *    automatically), call `opener.focus()`. Click-outside / light-dismiss is the case where the
  *    browser may NOT return focus.
- * 3. **Wire sync on light-dismiss** — on `toggle` (newState `"closed"`), call the `close()` wire
- *    action on the component that owns the panel. This keeps server state in sync when the user
- *    dismisses via click-outside (the popover closes natively without any server round-trip).
+ * 3. **Wire sync on light-dismiss (CONTROLLED overlays only)**: on `toggle` (newState
+ *    `"closed"`), if the panel carries `data-lv-wire-close="<action>"`, call that wire action on
+ *    the component that owns the panel. This keeps server state in sync when a wire-CONTROLLED
+ *    overlay is dismissed via click-outside. An UNCONTROLLED panel (no `data-lv-wire-close`) fires
+ *    NO wire call: its open state is browser-owned and the close is purely client-side. There is
+ *    deliberately NO hardcoded `"close"` fallback; firing one on an uncontrolled overlay whose
+ *    host has no matching `@LievitAction` produces a 410 UNKNOWN_COMPONENT / "page expired" dialog.
  * 4. **Autofocus delegation** — after a `toggle` open, if the panel contains an element with
  *    `data-lv-autofocus`, call `.focus()` on it (for panels that want to move focus inside, e.g. a
  *    search input in a popover dropdown, without relying on the `autofocus` attribute which has
@@ -24,10 +28,11 @@
  * Attribute protocol on the PANEL element:
  * - `popover` — native HTML attribute; makes this a popover panel
  * - `data-lv-opener="<id>"` — id of the trigger element that opens this panel
- * - `data-lv-wire-close="<actionName>"` — (ADDITIVE) wire action name to call on light-dismiss
- *   instead of the hardcoded `"close"`. When absent, falls back to `"close"` (existing behavior).
- *   dropdown-menu controlled mode can set `data-lv-wire-close="${escapeAction}"` on the panel so
- *   the enhancer calls the caller-configured action (e.g. `"toggleOpen"`) without code changes.
+ * - `data-lv-wire-close="<actionName>"`: wire action name to call on light-dismiss. PRESENT only
+ *   on wire-CONTROLLED overlays (the templates emit it solely when the open state is server-owned).
+ *   When ABSENT the overlay is uncontrolled and NO wire call fires. dropdown-menu controlled mode
+ *   sets `data-lv-wire-close="${escapeAction}"` so the enhancer calls the caller-configured action
+ *   (e.g. `"toggleOpen"`); uncontrolled mode omits the attribute entirely.
  *
  * Attribute protocol inside the panel:
  * - `data-lv-autofocus` — the element to focus after the panel opens
@@ -46,8 +51,9 @@ import type { LievitRuntime } from "../runtime.js";
 const OPENER_ATTR = "data-lv-opener";
 const AUTOFOCUS_ATTR = "data-lv-autofocus";
 /**
- * Additive: configurable light-dismiss action name. When present on the panel, overrides the
- * hardcoded `"close"` default. Falls back to `"close"` when absent (existing behavior preserved).
+ * Light-dismiss wire action name. PRESENT only on wire-CONTROLLED overlays (templates stamp it
+ * when the open state is server-owned). When ABSENT the overlay is uncontrolled and the enhancer
+ * fires NO wire call on close. There is no hardcoded default (the controlled/uncontrolled guard).
  */
 const WIRE_CLOSE_ATTR = "data-lv-wire-close";
 
@@ -108,15 +114,21 @@ function wirePanel(panel: Element, runtime: LievitRuntime): void {
         opener.setAttribute("aria-expanded", "false");
       }
 
-      // Wire sync: call the light-dismiss action on the component owning the panel.
-      // Additive: reads data-lv-wire-close from the panel for a caller-configured action name,
-      // falling back to the hardcoded "close" default (preserves all existing behavior).
+      // Wire sync: call the light-dismiss action on the component owning the panel, but ONLY for
+      // a wire-CONTROLLED overlay. Controlled/uncontrolled doctrine: the close action name is read
+      // from data-lv-wire-close, which the templates stamp ONLY when the open state is server-owned
+      // (dropdown-menu.jte / popover.jte emit it only when open/controlled). When the marker is
+      // ABSENT the overlay is UNCONTROLLED: the native popover closes purely client-side and MUST
+      // NOT round-trip. The previous hardcoded "close" fallback fired a spurious server call on
+      // every uncontrolled close; on a host with no close() @LievitAction (e.g. a data table) that
+      // maps to UNKNOWN_COMPONENT -> 410 -> a misleading "This page has expired" dialog.
       const closeAction =
         (panel as HTMLElement).dataset?.lvWireClose ??
-        panel.getAttribute(WIRE_CLOSE_ATTR) ??
-        "close";
-      const componentRoot = panel.closest("[data-lievit-component]") ?? panel;
-      runtime.callAction(componentRoot, closeAction, { trigger: panel });
+        panel.getAttribute(WIRE_CLOSE_ATTR);
+      if (closeAction != null && closeAction.length > 0) {
+        const componentRoot = panel.closest("[data-lievit-component]") ?? panel;
+        runtime.callAction(componentRoot, closeAction, { trigger: panel });
+      }
     }
   });
 }

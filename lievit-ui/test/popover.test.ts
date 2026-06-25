@@ -196,6 +196,18 @@ describe("popover.jte: CONTROLLED / UNCONTROLLED params", () => {
     // The seam does not hardcode a wire action name; the caller's owned copy adds l:click.
     expect(markup).not.toContain("l:click");
   });
+
+  test("escapeAction param is declared with a 'close' default", () => {
+    expect(jte).toContain('@param String escapeAction = "close"');
+  });
+
+  test("data-lv-wire-close is stamped on the panel ONLY when controlled (uncontrolled: null-elided)", () => {
+    // Controlled/uncontrolled doctrine: a wire-close marker on an UNCONTROLLED native popover would
+    // make light-dismiss POST a spurious "close" to a host that may have no such @LievitAction
+    // (the table "Colonne"/"Filtri" 410 page-expired bug). The marker is gated on `controlled`, so
+    // JTE elides the attribute entirely in uncontrolled mode and the enhancer fires no wire call.
+    expect(markup).toContain('data-lv-wire-close="${controlled ? escapeAction : null}"');
+  });
 });
 
 describe("popover.jte: twelve placement values -> correct position-area", () => {

@@ -29,7 +29,9 @@
     - ArrowDown / ArrowUp: roving focus between enabled items; wraps at ends.
     - Home / End: jump to first / last enabled item.
     - Enter / Space: fires the item's own l:click action (manual-activation mode).
-    - Esc: fires data-lievit-collection-escape-action on the menu root (default "close").
+    - Esc: in CONTROLLED mode (open=true) fires data-lievit-collection-escape-action on the menu
+      root (default "close") to sync server open-state; in UNCONTROLLED mode (open=false) the attr
+      is absent, so Esc closes the native popover purely client-side (no wire round-trip).
     - Tab: exits the menu, focus leaves; non-modal (no focus trap, APG Menu + WCAG SC 2.1.2).
     ENHANCER_NEEDED -- roving-mode typeahead: the current collection-nav enhancer only runs
     typeahead in aria-activedescendant mode (the `else` branch in handleTypeahead); roving mode
@@ -39,15 +41,15 @@
 
   POPOVER SEAM (popover-anchor.enhancer.ts):
     - Panel carries popover="auto" + data-lv-opener="${triggerId}" for focus-return on close.
-    - The enhancer calls "close" (hardcoded) on the component owning the panel when the native
-      popover closes. In controlled mode the Wire component must expose a "close" action (or
-      the caller overrides escapeAction and the popover-anchor contract is ENHANCER_NEEDED for
-      a configurable action-name attribute).
-    ENHANCER_NEEDED -- popover-anchor.enhancer currently fires the hardcoded "close" action
-    on light-dismiss. For controlled-mode callers whose action is named "toggleOpen" (or anything
-    else), a data-lv-wire-close="<actionName>" attribute hook is needed so the caller can
-    configure the light-dismiss action without patching the enhancer. Until then, callers in
-    controlled mode must expose a "close" action (trivially: `void close() { open = false; }`).
+    - CONTROLLED/UNCONTROLLED wire-close: data-lv-wire-close="${escapeAction}" is stamped ONLY
+      when open=true (controlled). On light-dismiss the enhancer reads that attribute and calls the
+      named action on the component owning the panel, syncing server open-state. In UNCONTROLLED
+      mode (open=false) the attribute is absent and the enhancer fires NO wire call -- the browser
+      owns the open state and the close is purely client-side. This is the controlled/uncontrolled
+      doctrine: an uncontrolled overlay must never round-trip a "close" to a host that may have no
+      such @LievitAction (that mapped to 410 UNKNOWN_COMPONENT / "page expired" on data tables).
+    - In controlled mode the caller's Wire component exposes the named action (default "close",
+      override via escapeAction); the configurable name needs no enhancer patch.
 
   OVERLAY: CSS Anchor Positioning.
     - The trigger sets anchor-name; the panel sets position-anchor + position-area.
@@ -160,12 +162,12 @@
     aria-labelledby="${triggerId}"
     aria-orientation="vertical"
     data-lv-opener="${triggerId}"
-    data-lv-wire-close="${escapeAction}"
+    data-lv-wire-close="${open ? escapeAction : null}"
     data-lievit-collection
     data-lievit-collection-roving-tabindex="true"
     data-lievit-collection-orientation="vertical"
     data-lievit-collection-wrap="true"
-    data-lievit-collection-escape-action="${escapeAction}"
+    data-lievit-collection-escape-action="${open ? escapeAction : null}"
     data-manual-activation="true"
     class="m-0 box-border min-w-[10rem] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-md)] outline-none"
     style="position-anchor:${anchorName};position-area:${positionArea};position-try-fallbacks:flip-block;margin-block:var(--lv-space-1);z-index:var(--lv-z-popover);font-family:var(--lv-font-sans);"
