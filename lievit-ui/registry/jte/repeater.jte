@@ -15,9 +15,9 @@
 
   JS-OFF: add is an explicit "Add" submit (name=`<name>__add`) and per-item remove is a submit
   (name=`<name>__remove`, value=index) that round-trip to the server, which re-renders with one more /
-  fewer card -- a working no-JS path. JS-ON the CSP-clean enhancer clones the hidden <template> item
-  to add and drops a card to remove, in place, then RE-INDEXES every field name + label inside the
-  surviving cards so the POSTed indices stay contiguous. Reorder is a deliberate FOLLOW-UP (the grip
+  fewer card -- a working no-JS path. JS-ON the CSP-clean `lv-repeater` Stimulus controller clones
+  the hidden <template> item to add and drops a card to remove, in place, then RE-INDEXES every field
+  name + label inside the surviving cards so the POSTed indices stay contiguous. Reorder is a deliberate FOLLOW-UP (the grip
   handle + data-slot are rendered now so it can be wired without re-templating).
 
   STRUCTURE (scientific decision rule): a JS-only repeater reimplements the cards + the array
@@ -69,6 +69,7 @@
 
 <fieldset
   data-slot="repeater"
+  data-controller="lv-repeater"
   data-lievit-repeater
   data-name="${name}"
   data-reorderable="${reorderable ? "true" : null}"
@@ -80,7 +81,7 @@
     <legend data-slot="repeater-label" class="p-0 text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]">${label}</legend>
   @endif
 
-  <div data-slot="repeater-items" data-repeater-items class="flex flex-col gap-[var(--lv-space-3)]">
+  <div data-slot="repeater-items" data-repeater-items data-lv-repeater-target="items" class="flex flex-col gap-[var(--lv-space-3)]">
     @for(int i = 0; i < count; i++)
       <div data-slot="repeater-item" data-repeater-item data-index="${i}" role="group" aria-label="${itemLabel} ${i + 1}" class="${cardClass}">
         <div data-slot="repeater-item-header" class="flex items-center justify-between gap-[var(--lv-space-2)]">
@@ -89,7 +90,7 @@
           @else
             <span></span>
           @endif
-          <button type="submit" data-slot="repeater-remove" data-repeater-remove name="${name}__remove" value="${i}" aria-label="Remove ${itemLabel} ${i + 1}" disabled="${disabled}" class="${iconBtnClass} hover:text-[var(--lv-color-destructive)]">@template.lievit.icon(name = "trash-2", size = "1rem")</button>
+          <button type="submit" data-slot="repeater-remove" data-repeater-remove data-action="click->lv-repeater#remove" name="${name}__remove" value="${i}" aria-label="Remove ${itemLabel} ${i + 1}" disabled="${disabled}" class="${iconBtnClass} hover:text-[var(--lv-color-destructive)]">@template.lievit.icon(name = "trash-2", size = "1rem")</button>
         </div>
         <div data-slot="repeater-item-body">
           ${itemContent}
@@ -98,8 +99,8 @@
     @endfor
   </div>
 
-  <%-- JS-on the enhancer clones this hidden template item (the `__i__` token is re-stamped on add). --%>
-  <template data-repeater-template>
+  <%-- JS-on the controller clones this hidden template item (the `__i__` token is re-stamped on add). --%>
+  <template data-repeater-template data-lv-repeater-target="template">
     <div data-slot="repeater-item" data-repeater-item data-index="__i__" role="group" aria-label="${itemLabel} __label__" class="${cardClass}">
       <div data-slot="repeater-item-header" class="flex items-center justify-between gap-[var(--lv-space-2)]">
         @if(reorderable)
@@ -107,7 +108,7 @@
         @else
           <span></span>
         @endif
-        <button type="button" data-slot="repeater-remove" data-repeater-remove aria-label="Remove ${itemLabel} __label__" class="${iconBtnClass} hover:text-[var(--lv-color-destructive)]">@template.lievit.icon(name = "trash-2", size = "1rem")</button>
+        <button type="button" data-slot="repeater-remove" data-repeater-remove data-action="click->lv-repeater#remove" aria-label="Remove ${itemLabel} __label__" class="${iconBtnClass} hover:text-[var(--lv-color-destructive)]">@template.lievit.icon(name = "trash-2", size = "1rem")</button>
       </div>
       <div data-slot="repeater-item-body">
         @if(itemTemplate != null)${itemTemplate}@else${itemContent}@endif
@@ -120,6 +121,7 @@
       type="submit"
       data-slot="repeater-add"
       data-repeater-add
+      data-action="click->lv-repeater#add"
       name="${name}__add"
       value="1"
       disabled="${disabled}"
@@ -128,5 +130,5 @@
     >@template.lievit.icon(name = "plus", size = "1rem")${addLabel}</button>
   </div>
 
-  <span data-slot="repeater-live" data-repeater-live aria-live="polite" class="sr-only"></span>
+  <span data-slot="repeater-live" data-repeater-live data-lv-repeater-target="live" aria-live="polite" class="sr-only"></span>
 </fieldset>
