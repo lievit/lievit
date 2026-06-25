@@ -20,12 +20,12 @@
  *     showSystemOption, cssClass, attrs, dataAttrs
  */
 import { describe, test, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { iconBody } from "../registry/icons/icon-bodies.js";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const src = readFileSync(join(jteDir, "theme-switcher.jte"), "utf8");
-const iconsDir = join(import.meta.dirname, "..", "registry", "icons");
 
 describe("theme-switcher -- params & docs API", () => {
   test("declares the documented param API with defaults", () => {
@@ -116,9 +116,9 @@ describe("theme-switcher -- icons & active styling", () => {
     expect(src).toContain('name = "monitor"');
   });
 
-  test("the three icons are vendored in registry/icons (the icon partial can resolve them)", () => {
+  test("the three icons resolve from lievit's bundled set (the icon partial can render them)", () => {
     for (const name of ["sun", "moon", "monitor"]) {
-      expect(existsSync(join(iconsDir, `${name}.svg`)), `missing icon: ${name}.svg`).toBe(true);
+      expect(iconBody(name), `icon does not resolve: ${name}`).toBeTruthy();
     }
   });
 

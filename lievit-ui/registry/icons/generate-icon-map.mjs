@@ -2,20 +2,21 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Build the icon body map from the vendored Lucide SVGs.
+ * Build the icon body map from the FULL Lucide source (the `lucide-static` npm package).
  *
- * THE TREE-SHAKE: only the *.svg files that live in this directory end up in the map, so an
- * adopter ships exactly the icons they vendored -- no 1700-icon blob. The map holds only the
- * INNER body of each SVG (the <path>/<circle>/... elements); the uniform <svg> wrapper lives
- * once in icon.jte, sized and coloured by --lv-* tokens. This is the per-icon (NOT sprite)
- * delivery: tree-shakeable by construction, zero JS, zero extra HTTP request, CSP-clean
- * (no <use href>), and "add an icon" = drop one .svg here + re-run this script.
+ * THE WHOLE SET IN THE JAR: every Lucide icon ends up in the map, so a consumer (e.g. gest)
+ * needs ZERO vendored SVGs and ZERO custom IconResolver -- it references any Lucide glyph by
+ * name and it resolves from the jar's bundled default. The map holds only the INNER body of
+ * each SVG (the <path>/<circle>/... elements); the uniform <svg> wrapper lives once in icon.jte,
+ * sized and coloured by --lv-* tokens. This is per-icon (NOT sprite) delivery: zero JS, zero
+ * extra HTTP request, CSP-clean (no <use href>). "Update the set" = bump lucide-static + re-run.
  *
- * Emits two consumers from the same source of truth:
- *   - LucideIconResolver.java : lievit's DEFAULT IconResolver impl (the bundled, tree-shaken
- *                               Lucide map). lievit-owned package dev.lievit.ui; the JTE partial
- *                               reaches it through the LievitIcons facade, never directly.
- *   - icon-bodies.ts          : the TS map for Lit islands that need an inline icon (light-DOM)
+ * Build-time source of truth: node_modules/lucide-static/icons/*.svg (NOT hand-copied SVGs). The
+ * generator reads them at build time and emits two consumers from the same source:
+ *   - LucideIconResolver.java : lievit's DEFAULT IconResolver impl (the bundled full Lucide map).
+ *                               lievit-owned package dev.lievit.ui; the JTE partial reaches it
+ *                               through the LievitIcons facade, never directly.
+ *   - icon-bodies.ts          : the TS map for Lit islands that need an inline icon (light-DOM).
  *
  * The hand-written SPI lives alongside and is NOT regenerated: IconResolver.java (the contract)
  * and LievitIcons.java (the static facade the partial imports + the resolver override hook).
@@ -25,8 +26,16 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+
+/* Resolve the lucide-static package root robustly (works regardless of hoisting). */
+const lucidePkgPath = require.resolve("lucide-static/package.json");
+const lucideRoot = dirname(lucidePkgPath);
+const lucideVersion = JSON.parse(readFileSync(lucidePkgPath, "utf8")).version;
+const lucideIconsDir = join(lucideRoot, "icons");
 
 /** Strip the <svg ...> wrapper, keep the inner body, and collapse whitespace to one line. */
 function innerBody(svg) {
@@ -38,53 +47,89 @@ function innerBody(svg) {
     .trim();
 }
 
-const names = readdirSync(here)
+const names = readdirSync(lucideIconsDir)
   .filter((f) => f.endsWith(".svg"))
   .map((f) => f.slice(0, -4))
   .sort();
 
 const bodies = names.map((name) => ({
   name,
-  body: innerBody(readFileSync(join(here, `${name}.svg`), "utf8")),
+  body: innerBody(readFileSync(join(lucideIconsDir, `${name}.svg`), "utf8")),
 }));
 
-/* ------------------------------- Java map ------------------------------- */
-const javaEntries = bodies
-  .map((b) => `    Map.entry(${JSON.stringify(b.name)}, ${JSON.stringify(b.body)})`)
-  .join(",\n");
+const provenance = `the full Lucide set (lucide-static v${lucideVersion}, ${bodies.length} icons)`;
+
+/* ------------------------------- Java map -------------------------------
+ * The map is built by CHUNKED `put` methods, not one giant `Map.ofEntries(...)`:
+ * javac is pathologically slow (minutes / never) on a single expression with ~2000 nested
+ * `Map.entry(...)` varargs args (quadratic flow analysis on one huge expression tree), and a
+ * single initializer method also risks the 64KB method-bytecode limit. Splitting the puts
+ * across small `pN(Map)` methods keeps every method tiny (linear, instant javac) and bounded.
+ */
+const CHUNK = 100;
+const chunks = [];
+for (let i = 0; i < bodies.length; i += CHUNK) {
+  chunks.push(bodies.slice(i, i + CHUNK));
+}
+
+const putMethods = chunks
+  .map(
+    (chunk, i) =>
+      `  private static void p${i}(Map<String, String> m) {\n` +
+      chunk
+        .map((b) => `    m.put(${JSON.stringify(b.name)}, ${JSON.stringify(b.body)});`)
+        .join("\n") +
+      `\n  }`
+  )
+  .join("\n\n");
+
+const putCalls = chunks.map((_chunk, i) => `    p${i}(m);`).join("\n");
+const capacity = Math.ceil(bodies.length / 0.75) + 1;
 
 const java = `/*
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * GENERATED by registry/icons/generate-icon-map.mjs from the vendored Lucide SVGs.
- * Do not edit by hand: add or remove a *.svg in registry/icons/ and re-run the generator.
+ * GENERATED by registry/icons/generate-icon-map.mjs from the lucide-static npm package.
+ * Do not edit by hand: bump lucide-static (package.json) and re-run the generator.
  *
  * Lucide icons (ISC, https://lucide.dev) -- see registry/icons/LICENSE-lucide.
  *
- * lievit's DEFAULT IconResolver: the bundled, tree-shaken Lucide set. Only the vendored icons
- * are present (an adopter ships exactly what they vendored). The inner SVG body lives here, the
- * uniform <svg> wrapper lives in icon.jte. The partial never names this class directly -- it goes
- * through the LievitIcons facade, which an adopter can repoint via LievitIcons.setResolver(...).
+ * lievit's DEFAULT IconResolver: ${provenance}, bundled in the jar. A consumer references
+ * any Lucide glyph by name and it resolves from here -- ZERO vendored SVGs, ZERO custom
+ * resolver. The inner SVG body lives here, the uniform <svg> wrapper lives in icon.jte. The
+ * partial never names this class directly -- it goes through the LievitIcons facade, which an
+ * adopter can repoint via LievitIcons.setResolver(...).
+ *
+ * The body map is built by chunked p0(m)..pN(m) methods (see the generator's note): one giant
+ * Map.ofEntries(...) makes javac hang on the ~2000-arg expression, so the puts are split into
+ * small methods that compile linearly and stay well under the 64KB method limit.
  */
 package dev.lievit.ui;
 
+import java.util.HashMap;
 import java.util.Map;
 
-/** lievit's default {@link IconResolver}: the bundled Lucide set, tree-shaken to the vendored SVGs. */
+/** lievit's default {@link IconResolver}: ${provenance}, bundled in the jar. */
 public final class LucideIconResolver implements IconResolver {
 
-  private static final Map<String, String> BODIES = Map.ofEntries(
-${javaEntries}
-  );
+  private static final Map<String, String> BODIES = build();
 
-  /** The inner SVG markup for {@code name}, or empty string if the icon is not vendored. */
+  private static Map<String, String> build() {
+    Map<String, String> m = new HashMap<>(${capacity});
+${putCalls}
+    return Map.copyOf(m);
+  }
+
+${putMethods}
+
+  /** The inner SVG markup for {@code name}, or empty string if the name is not a Lucide icon. */
   @Override
   public String body(String name) {
     return BODIES.getOrDefault(name, "");
   }
 
-  /** Whether {@code name} is a vendored icon. */
+  /** Whether {@code name} is a known Lucide icon. */
   @Override
   public boolean has(String name) {
     return BODIES.containsKey(name);
@@ -101,8 +146,8 @@ const ts = `/*
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * GENERATED by registry/icons/generate-icon-map.mjs from the vendored Lucide SVGs.
- * Do not edit by hand: add or remove a *.svg in registry/icons/ and re-run the generator.
+ * GENERATED by registry/icons/generate-icon-map.mjs from the lucide-static npm package.
+ * Do not edit by hand: bump lucide-static (package.json) and re-run the generator.
  *
  * Lucide icons (ISC, https://lucide.dev) -- see registry/icons/LICENSE-lucide.
  *
@@ -110,12 +155,12 @@ const ts = `/*
  * <svg> wrapper is the consumer's, sized/coloured by --lv-* tokens + currentColor.
  */
 
-/** Inner SVG body (paths/circles/...) per vendored Lucide icon name. */
+/** Inner SVG body (paths/circles/...) per Lucide icon name (${provenance}). */
 export const iconBodies: Record<string, string> = {
 ${tsEntries}
 };
 
-/** The inner SVG markup for an icon name, or "" if not vendored. */
+/** The inner SVG markup for an icon name, or "" if not a Lucide icon. */
 export function iconBody(name: string): string {
   return iconBodies[name] ?? "";
 }
@@ -125,5 +170,5 @@ writeFileSync(join(here, "LucideIconResolver.java"), java);
 writeFileSync(join(here, "icon-bodies.ts"), ts);
 
 process.stdout.write(
-  `wrote LucideIconResolver.java + icon-bodies.ts (${bodies.length} icons: ${names.join(", ")})\n`
+  `wrote LucideIconResolver.java + icon-bodies.ts (${provenance})\n`
 );

@@ -1,7 +1,7 @@
 {
   "name": "icons",
   "type": "registry:lib",
-  "description": "Lucide icon body map for Lit islands: `iconBody(name)` returns the inner SVG markup for a vendored Lucide icon, inlined into the component's own <svg> wrapper and tinted via --lv-* tokens + currentColor. A registry dependency, not a standalone component.",
+  "description": "Lucide icon body map for Lit islands: `iconBody(name)` returns the inner SVG markup for any Lucide icon (the whole set is bundled, built from lucide-static), inlined into the component's own <svg> wrapper and tinted via --lv-* tokens + currentColor. A registry dependency, not a standalone component.",
   "dependencies": [],
   "registryDependencies": [],
   "files": [

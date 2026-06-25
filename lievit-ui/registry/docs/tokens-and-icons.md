@@ -66,15 +66,17 @@ Toggle it by putting `class="dark"` or `data-theme="dark"` on `<html>`:
 
 Icons are **Lucide** (ISC, https://lucide.dev), delivered **inline-per-name** (not a sprite):
 the JTE partial renders the uniform `<svg>` wrapper styled by tokens, and the per-icon body
-comes from a generated lookup that contains **only the icons you vendored** (tree-shaken).
-This replaces Web Awesome's `<wa-icon>` -- no web component, no font, no extra request.
+comes from a generated lookup that bundles the **whole Lucide set** in the jar (built from the
+`lucide-static` npm package). A consumer names any glyph and it resolves with **zero vendored
+SVGs and zero custom resolver**. This replaces Web Awesome's `<wa-icon>` -- no web component,
+no font, no extra request.
 
 ### Why inline-per-name (not a sprite)
 
-Tree-shakeable by construction (ship only what you vendor), zero JS, zero extra HTTP request,
-CSP-clean (no `<use href>`), and "add an icon" is a one-file drop. A sprite's only edge
-(byte savings when one icon repeats many times) is marginal here and costs the copy-in
-simplicity. See the rationale comment at the top of `icon.jte`.
+Rendered server-side, so only the glyphs a page actually emits hit the wire; zero JS, zero
+extra HTTP request, CSP-clean (no `<use href>`), and naming an icon "just works" (nothing to
+vendor). A sprite's only edge (byte savings when one icon repeats many times) is marginal here
+and costs the copy-in simplicity. See the rationale comment at the top of `icon.jte`.
 
 ### Use it (JTE)
 
@@ -85,16 +87,17 @@ simplicity. See the rationale comment at the top of `icon.jte`.
 @template.icon(name = "settings", label = "Open settings")   @* labelled: role=img *@
 ```
 
-- `name` (required): a vendored Lucide icon name.
+- `name` (required): any Lucide icon name (https://lucide.dev) -- the full set is bundled.
 - `size` (default `var(--lv-icon-size)` = `1em`): width/height; the icon inherits text size.
 - `cssClass` (default `""`): extra classes; Lucide strokes with `currentColor`, so any
   `text-*` Tailwind utility or `--lv-color-*` on a wrapping element tints it.
 - `label` (default `null`): when omitted the icon is **decorative** (`aria-hidden="true"`,
   `focusable="false"`); pass a label to expose it to assistive tech (`role="img"`).
 
-The partial imports the body lookup statically:
-`@import static it.housetreespa.gest.ui.LievitIcons.body`. Adjust that package to your app
-(re-run the generator after moving `LievitIcons.java`).
+The partial imports the body lookup statically from the lievit-owned facade:
+`@import static dev.lievit.ui.LievitIcons.body`. No adopter class is involved -- it renders
+standalone from the jar. To ship a different icon set, implement `dev.lievit.ui.IconResolver`
+and call `LievitIcons.setResolver(...)` once at startup; the call site never changes.
 
 ### Use it (Lit island)
 
@@ -106,24 +109,21 @@ import { iconBody } from "../icons/icon-bodies.js";
 // inside render(): unsafeSVG(iconBody("check")) inside an <svg viewBox="0 0 24 24" ...>
 ```
 
-### Starter set
+### Available icons
 
-The vendored starter set (53 icons): chevrons (down/up/left/right + `chevrons-up-down`),
-`check` `x` `search` `menu` `plus` `minus`, arrows (up/down/left/right + `arrow-up-right`),
-`circle-check` `circle-x` `circle-alert` `circle-question-mark` `triangle-alert` `info`,
-`eye` `eye-off` `calendar` `clock` `user` `users` `settings` `trash` `trash-2` `pencil`
-`copy` `download` `upload` `external-link` `loader-circle` `ellipsis` `ellipsis-vertical`
-`funnel` `sun` `moon` `bell` `mail` `house` `file` `folder` `lock` `log-out` `log-in`
-`star` `heart` `refresh-cw`.
+The **entire Lucide set** is bundled (every name at https://lucide.dev resolves, ~2000
+glyphs). Browse the gallery, pick a name, use it -- nothing to vendor.
 
-### Add an icon
+### Update the Lucide set
 
-1. Find it at https://lucide.dev and drop its SVG into `registry/icons/<name>.svg`
-   (or copy from a Lucide checkout: `cp lucide/icons/<name>.svg registry/icons/`).
+The body maps are generated from the `lucide-static` npm package, not hand-copied SVGs. To
+move to a newer Lucide release:
+
+1. Bump `lucide-static` in `lievit-ui/package.json` and `npm install`.
 2. Regenerate the body maps:
    ```bash
    node registry/icons/generate-icon-map.mjs
    ```
-   This rewrites `LievitIcons.java` (for JTE) and `icon-bodies.ts` (for Lit) from the
-   vendored SVGs. The generator is deterministic; a test fails on drift.
-3. Use it: `@template.icon(name = "<name>")`.
+   This rewrites `LucideIconResolver.java` (the default resolver, for JTE) and `icon-bodies.ts`
+   (for Lit) from the lucide-static source. The generator is deterministic; a test fails on drift.
+3. Review the diff and commit.
