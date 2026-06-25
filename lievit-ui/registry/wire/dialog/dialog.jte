@@ -21,9 +21,13 @@
     - aria-labelledby -> the heading id when a heading is set, else aria-label="Dialog";
     - aria-describedby -> the description id when a description is set;
     - when closed the whole overlay is `hidden`, so it leaves the tab order + a11y tree.
-  Open-state is SERVER (wire); focus-trap + Escape are a tiny CSP-clean typed-TS enhancement
-  (data-lv-dialog hooks): zero open-state in the client, only the focus mechanics. Escape + the
-  backdrop dispatch the `close` action; the close button does too.
+  Open-state is SERVER (wire); focus-trap + Escape + return-focus are the lv-modal Stimulus
+  controller (data-controller="lv-modal" on the root + data-lv-modal-target="panel" on the dialog
+  panel): zero open-state in the client, only the focus mechanics. The controller reads the
+  server-owned open state from data-lv-modal-open-value (the wire morph rewrites it) and
+  activates/deactivates a FocusTrap. Escape fires the `close` action via data-lv-wire-close (present
+  only when dismissible -> a non-dismissible dialog leaves Escape inert, the must-act pattern); the
+  backdrop + close button dispatch `close` via their own l:click (the wire runtime handles those).
 
   A11y (WAI-ARIA APG Dialog/Modal): div[role=dialog][aria-modal=true] labelled by the heading +
   described by the description; closed overlay removed from the a11y tree via `hidden`.
@@ -52,8 +56,9 @@
 !{var hasDesc = description != null && !description.isEmpty();}
 <div
     data-lievit-component="${cid}"
-    data-lv-dialog
-    data-lv-dialog-dismissible="${dismissible ? "true" : "false"}"
+    data-controller="lv-modal"
+    data-lv-modal-open-value="${String.valueOf(open)}"
+    data-lv-wire-close="${dismissible ? "close" : null}"
     hidden="${!open}"
     class="fixed inset-0 flex items-center justify-center"
     style="z-index: var(--lv-z-modal, 9500); background: var(--lv-color-overlay); padding: var(--lv-space-4); font-family: var(--lv-font-sans);"
@@ -63,7 +68,6 @@
     @if(dismissible)
         <button
             type="button"
-            data-lv-dialog-backdrop
             aria-label="Close dialog"
             l:click="close"
             class="absolute inset-0 w-full h-full"
@@ -71,7 +75,7 @@
         ></button>
     @endif
     <div
-        data-lv-dialog-panel
+        data-lv-modal-target="panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="${hasHeading ? headingId : null}"
@@ -88,20 +92,17 @@
                 <div class="flex flex-col" style="gap: var(--lv-space-1);">
                     <h2
                         id="${headingId}"
-                        data-lv-dialog-title
                         style="margin: 0; font-size: var(--lv-text-lg); font-weight: 600; color: var(--lv-color-fg);"
                     >${heading}</h2>
                     @if(hasDesc)
                         <p
                             id="${descId}"
-                            data-lv-dialog-description
                             style="margin: 0; font-size: var(--lv-text-sm); color: var(--lv-color-muted); line-height: var(--lv-leading);"
                         >${description}</p>
                     @endif
                 </div>
                 <button
                     type="button"
-                    data-lv-dialog-close
                     aria-label="Close dialog"
                     l:click="close"
                     style="background: transparent; border: 0; cursor: pointer; color: var(--lv-color-muted); line-height: 1; padding: var(--lv-space-1); border-radius: var(--lv-radius-sm); flex-shrink: 0; display: inline-flex;"
