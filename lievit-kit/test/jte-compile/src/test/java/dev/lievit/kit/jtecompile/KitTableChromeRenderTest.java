@@ -857,4 +857,87 @@ class KitTableChromeRenderTest {
         assertThrows(SortTokenException.class, () -> signer.verify(tampered),
                 "tampered token was not rejected");
     }
+
+    // ── Filament-fidelity CELL variants (rich-cell dispatch) ──────────────────────────────────────
+
+    /** Source-renders kit/table/rich-cell.jte for ONE {@link dev.lievit.kit.Cell}. */
+    private String renderCell(dev.lievit.kit.Cell cell) {
+        StringOutput out = new StringOutput();
+        Map<String, Object> model = new HashMap<>();
+        model.put("cell", cell);
+        ENGINE.render("kit/table/rich-cell.jte", model, out);
+        return out.toString();
+    }
+
+    @Test
+    void dot_text_cell_renders_a_coloured_dot_before_neutral_text() {
+        String html = renderCell(new dev.lievit.kit.Cell.DotText("Visita", "info"));
+        // The label is plain neutral text...
+        assertTrue(html.contains("Visita"), "dot-text label missing:\n" + html);
+        // ...preceded by a small filled circle tinted with the resolved intent token.
+        assertTrue(html.contains("rounded-full"), "dot-text dot is not a circle:\n" + html);
+        assertTrue(html.contains("var(--lv-color-info)"),
+                "dot-text dot not tinted with the resolved intent token:\n" + html);
+        // Decorative: the dot is aria-hidden (text carries the meaning, WCAG 1.4.1).
+        assertTrue(html.contains("aria-hidden=\"true\""), "dot-text dot is not aria-hidden:\n" + html);
+
+        // An empty colour falls back to the muted token (no crash, still a dot).
+        String muted = renderCell(new dev.lievit.kit.Cell.DotText("Altro", ""));
+        assertTrue(muted.contains("var(--lv-color-muted-fg)"),
+                "empty-colour dot did not fall back to the muted token:\n" + muted);
+    }
+
+    @Test
+    void avatar_text_cell_renders_an_avatar_chip_with_avatar_and_label() {
+        String html = renderCell(new dev.lievit.kit.Cell.AvatarText(
+                "francesco.bilotta", null, "FB", "primary"));
+        // The label renders beside the avatar...
+        assertTrue(html.contains("francesco.bilotta"), "avatar-text label missing:\n" + html);
+        // ...and the avatar primitive renders (initials fallback, xs size, primary intent).
+        assertTrue(html.contains("data-slot=\"avatar\""), "avatar-text avatar not rendered:\n" + html);
+        assertTrue(html.contains("data-size=\"xs\""), "avatar-text avatar not xs:\n" + html);
+        assertTrue(html.contains("FB"), "avatar-text initials missing:\n" + html);
+
+        // With an image URL the avatar renders an <img>, not initials.
+        String withImg = renderCell(new dev.lievit.kit.Cell.AvatarText(
+                "Ada Lovelace", "https://example.test/ada.png", null, null));
+        assertTrue(withImg.contains("<img"), "avatar-text image variant did not render an <img>:\n" + withImg);
+    }
+
+    @Test
+    void badge_cell_can_carry_a_leading_status_dot() {
+        // A soft status pill: tint + dot + label. The dot threads through to the badge partial.
+        String html = renderCell(new dev.lievit.kit.Cell.Badge("In corso", "soft-info", true));
+        assertTrue(html.contains("lv-badge"), "badge not rendered through the partial:\n" + html);
+        assertTrue(html.contains("var(--lv-color-info-subtle)"),
+                "soft-info badge not rendered with the subtle tint:\n" + html);
+        // The leading dot (badge partial's dot=true span: a currentColor circle).
+        assertTrue(html.contains("background:currentColor"),
+                "badge leading dot missing (dot did not thread through):\n" + html);
+
+        // A dot-less badge (the default) carries NO leading dot span.
+        String noDot = renderCell(new dev.lievit.kit.Cell.Badge("Bozza", "neutral"));
+        assertFalse(noDot.contains("background:currentColor"),
+                "dot-less badge wrongly rendered a leading dot:\n" + noDot);
+    }
+
+    @Test
+    void empty_avatar_stack_renders_an_em_dash_placeholder() {
+        String html = renderCell(new dev.lievit.kit.Cell.AvatarStack(
+                java.util.List.of(), 0, true, "", "", ""));
+        assertTrue(html.contains("—"),
+                "empty avatar stack did not render the em-dash placeholder:\n" + html);
+    }
+
+    @Test
+    void populated_avatar_stack_uses_xs_avatars_and_a_tight_overlap() {
+        String html = renderCell(new dev.lievit.kit.Cell.AvatarStack(
+                java.util.List.of(
+                        new dev.lievit.kit.AvatarStackColumn.Avatar(null, "Francesco Bilotta"),
+                        new dev.lievit.kit.AvatarStackColumn.Avatar(null, "Luca Cecchetto")),
+                0, true, "", "", "Francesco Bilotta, Luca Cecchetto"));
+        // The stack uses the 24px xs avatar size and the tighter -space-x-1.5 overlap (mock parity).
+        assertTrue(html.contains("data-size=\"xs\""), "avatar stack avatars are not xs:\n" + html);
+        assertTrue(html.contains("-space-x-1.5"), "avatar stack overlap is not the tight -space-x-1.5:\n" + html);
+    }
 }
