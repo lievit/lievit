@@ -67,6 +67,13 @@ export function enhanceCalendars(
   const teardowns: Array<() => void> = [];
 
   for (const calendar of calendars) {
+    // Migration guard (Stimulus conversion): a calendar converted to the `lv-calendar` Stimulus
+    // controller already owns the drag-move; skipping it here keeps the two paths from both firing
+    // `moveEvent` on one drop while the fan-out coexists. Converted templates carry
+    // data-controller="lv-calendar".
+    if (calendar.matches('[data-controller~="lv-calendar"]')) {
+      continue;
+    }
     if (calendar.getAttribute(WIRED) === "true") {
       continue;
     }
