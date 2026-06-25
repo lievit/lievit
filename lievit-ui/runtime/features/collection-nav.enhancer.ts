@@ -267,6 +267,13 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
   if (activeCollections.has(root)) {
     return;
   }
+  // Migration guard (Stimulus conversion): a tablist converted to the `lv-tabs` Stimulus controller
+  // owns its own roving-tabindex keyboard handling. This enhancer must NOT also wire it, or an Arrow
+  // key would move focus twice and fire the select action twice. Converted templates carry
+  // data-controller="lv-tabs"; the enhancer keeps serving every unconverted collection root.
+  if (root.matches('[data-controller~="lv-tabs"]')) {
+    return;
+  }
   root.setAttribute(ACTIVE_ATTR, "");
 
   // The state object is mutated once below to inject the keyHandler after closure capture.
