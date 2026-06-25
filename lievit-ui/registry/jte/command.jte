@@ -6,21 +6,21 @@
 
   lievit-ui command partial -- a CONTROLLED/UNCONTROLLED modal command palette overlay.
 
-  TIER: PARTIAL + ENH (command.enhancer.ts + focus-trap.enhancer.ts + collection-nav.enhancer.ts).
+  TIER: PARTIAL + Stimulus lv-command controller (+ the still-shared collection-nav.enhancer.ts).
   No Java component, no @Wire field, no _component/_instance params. The open-state belongs to
   the CALLER's own Wire component.
 
   CONTROLLED/UNCONTROLLED doctrine:
     UNCONTROLLED (default, open=false): the overlay is entirely absent from the DOM. The caller
-    places its own trigger (e.g. a button with l:click="openPalette"). The enhancer also wires a
-    global Cmd+K / Ctrl+K shortcut on the panel (data-shortcut) while the panel is in the DOM, to
-    close it on second press. Opening from keyboard when closed is the caller's responsibility (the
-    trigger button handles it).
+    places its own trigger (e.g. a button with l:click="openPalette"). While the panel is in the
+    DOM the controller wires a global Cmd+K / Ctrl+K shortcut (data-shortcut) to close it on second
+    press. Opening from keyboard when closed is the caller's responsibility (the trigger button).
     CONTROLLED (open=true): the full overlay renders -- scrim + centered panel. The panel carries
-    data-lievit-focus-trap (traps Tab cycling, fires closeAction on Escape via focus-trap.enhancer.ts),
-    data-lievit-collection on the listbox (ArrowUp/Down/Home/End navigation via
-    collection-nav.enhancer.ts), and data-lievit-command (client-side filtering + Enter/Backspace/
-    shortcut dispatch via command.enhancer.ts).
+    data-controller="lv-command" which: traps Tab cycling + scroll-locks + returns focus (shared
+    FocusTrap), fires data-lv-wire-close on Escape and on the shortcut (shared DismissableController
+    doctrine), and does client-side filtering + Enter/Backspace dispatch. ArrowUp/Down/Home/End
+    navigation over the listbox stays with collection-nav.enhancer.ts (data-lievit-collection),
+    which keeps aria-activedescendant on the input current.
 
   STRUCTURE (WAI-ARIA APG Combobox + Listbox, aria-activedescendant model):
     - Overlay: role="presentation" scrim + panel wrapper, position:fixed, z-index:--lv-z-overlay.
@@ -38,13 +38,16 @@
     - Empty state: li[role=presentation][data-slot=empty] + nested div[role=status][aria-live=polite].
     - Items NOT in any group are rendered after the grouped blocks.
 
-  Enhancer wiring (data-attribute contract -- do NOT edit the shared enhancers):
-    data-lievit-focus-trap         on the panel -- activates trap (Tab cycling, scroll-lock).
-    data-lievit-escape-action      on the panel -- fires closeAction on Escape.
-    data-lievit-command            on the panel -- activates the command enhancer.
+  Controller + enhancer wiring (data-attribute contract):
+    data-controller="lv-command"   on the panel -- the Stimulus controller (trap + dismiss + filter
+                                   + Enter/Backspace/shortcut).
+    data-lv-wire-close             on the panel -- the close action; PRESENT => wire-CONTROLLED, so
+                                   Escape/shortcut round-trip it. ABSENT => uncontrolled (no call).
     data-shortcut                  on the panel -- global shortcut (e.g. "mod+k") to close.
     data-page                      on the panel -- current nested page name (empty = root).
-    data-lievit-collection         on the listbox -- activates collection-nav.enhancer.ts.
+    data-action on the input       -- input->lv-command#filter, keydown->lv-command#onInputKey.
+    data-lievit-collection         on the listbox -- activates collection-nav.enhancer.ts (shared,
+                                   NOT converted; do NOT edit that enhancer).
     data-lievit-collection-orientation  "vertical" -- ArrowUp/Down navigation.
     data-lievit-collection-activedescendant-target  "#${inputId}" -- names the input to update.
     data-lievit-item               on each li[role=option] -- collection item.
@@ -148,20 +151,19 @@
       style="position:absolute;inset:0;background:var(--lv-color-overlay);"
   ></div>
 
-  <%-- Panel: the modal box centered over the scrim. Focus-trap host. --%>
+  <%-- Panel: the modal box centered over the scrim. Stimulus lv-command host (trap + dismiss). --%>
   <div
       role="presentation"
       data-slot="panel"
       data-size="${size}"
+      data-controller="lv-command"
+      data-lv-wire-close="${closeAction}"
       data-shortcut="${shortcut}"
       data-page="${page}"
       data-execute-action="${executeAction}"
       data-open-page-action="${openPageAction}"
       data-back-to-root-action="${backToRootAction}"
       data-open-action="${openAction}"
-      data-lievit-focus-trap=""
-      data-lievit-escape-action="${closeAction}"
-      data-lievit-command=""
       style="position:relative;z-index:var(--lv-z-modal,1300);width:${sizeWidth};max-width:calc(100vw - 2rem);background:var(--lv-color-popover);color:var(--lv-color-popover-fg);border:1px solid var(--lv-color-border);border-radius:var(--lv-radius-lg);box-shadow:var(--lv-shadow-xl);overflow:hidden;display:flex;flex-direction:column;"
   >
     <%-- Breadcrumb: shown only when displaying a nested command page. --%>
@@ -199,6 +201,8 @@
           aria-expanded="true"
           aria-activedescendant=""
           autocomplete="off"
+          data-lv-command-target="input"
+          data-action="input->lv-command#filter keydown->lv-command#onInputKey"
           placeholder="${placeholder}"
           style="flex:1;min-width:0;border:none;background:transparent;outline:none;color:var(--lv-color-popover-fg);font:inherit;font-size:var(--lv-text-sm);"
       />
