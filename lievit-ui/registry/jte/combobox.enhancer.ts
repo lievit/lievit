@@ -84,6 +84,14 @@ function normalize(s: string): string {
 export function enhanceCombobox(root: HTMLElement): void {
   if (root.hasAttribute(ENHANCED)) return;
 
+  // Migration guard (Stimulus conversion): a root converted to the `lv-combobox` Stimulus controller
+  // owns its own behaviour. This legacy enhancer must NOT also wire it, or the input/listbox would be
+  // double-handled. Converted templates carry data-controller="lv-combobox".
+  if (root.matches('[data-controller~="lv-combobox"]')) {
+    root.setAttribute(ENHANCED, "");
+    return;
+  }
+
   const listboxQuery = root.querySelector<HTMLElement>(`[data-slot="combobox-listbox"]`);
   const inputQuery = root.querySelector<HTMLInputElement>(`[data-slot="combobox-input"]`);
   const hiddenInput = root.querySelector<HTMLInputElement>(`[data-slot="combobox-hidden"]`);
