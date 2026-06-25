@@ -10,9 +10,24 @@
   is needed and the partial carries no domain coupling.
 
   TIER: PARTIAL presentational (ADR-0012 server-first pivot). Bell opens/closes via the native
-  browser popover API -- no JS, no z-index war, light-dismiss + Esc built-in. The server renders
-  the initial unread count and item list; the toast.enhancer.ts can increment the unread badge
-  via data-unread-count after page load without a full round-trip.
+  browser popover API -- no z-index war, light-dismiss + Esc built-in, browser-owned open state.
+  The server renders the initial unread count and item list; the toast.enhancer.ts can increment
+  the unread badge via data-unread-count after page load without a full round-trip.
+
+  POPOVER SEAM (lv-popover Stimulus controller, converted from popover-anchor.enhancer.ts):
+    - The panel carries data-controller="lv-popover", so the shared lv-popover controller owns the
+      one irreducible client bit: focus-return to the bell on light-dismiss (click-outside), where
+      the browser may not restore focus on its own. Stimulus connects/disconnects the controller
+      across the wire morph + idiomorph + Turbo Drive, so there is no WeakSet/afterCall bookkeeping
+      and no leaked listener. The bell carries id="${triggerId}" and the panel data-lv-opener
+      points at it, so the controller knows which trigger to focus.
+    - UNCONTROLLED (the bell's open state is browser-owned): the panel omits data-lv-wire-close, so
+      the controller fires NO wire call on close -- the close is purely client-side. This is the
+      controlled/uncontrolled doctrine: an uncontrolled overlay must never round-trip a "close" to
+      a host that may have no such @LievitAction (that mapped to 410 UNKNOWN_COMPONENT).
+    - The legacy popover-anchor.enhancer.ts stays installed for not-yet-converted overlays and
+      SKIPS this panel via its data-controller~="lv-popover" guard, so the close never fires twice
+      while both paths coexist.
 
   STRUCTURE (scientific decision rule):
     - Inventory: Ant Design Notification hub; shadcn notification bell pattern. Original styling
@@ -24,7 +39,8 @@
       Items: native ul/li in natural tab order. No roving tabindex (spec: collection-nav
       enhancer NOT composed). No focus trap (panel is non-modal; spec: focus-trap NOT composed).
     - Popover positioning: native popover API (popover="auto") + CSS Anchor Positioning for
-      placement. Same overlay seam as dropdown-menu: no hand-rolled click-outside.
+      placement. Same overlay seam as dropdown-menu (data-controller="lv-popover"): no hand-rolled
+      click-outside, no hand-rolled focus-return bookkeeping.
     - Count badge: inlined (no @template.lievit.badge compose) so the component stays
       self-contained for flat-resolver render tests.
 
@@ -37,7 +53,9 @@
     - Item list: ul/li native semantics; no additional ARIA role needed.
     - Unread dot per item: role="img" aria-label="unread" so the read/unread state is
       announced by AT, not only seen (colour is never the sole signal).
-    - Esc closes the panel + restores focus to bell button (native popover light-dismiss).
+    - Esc closes the panel + restores focus to the bell button (native popover light-dismiss);
+      on click-outside the lv-popover controller restores focus to the bell when the browser did
+      not (data-lv-opener -> the bell id).
     - No focus trap; no auto-focus on panel open.
 
   EXTRA ATTRIBUTES -- two channels (the XSS decision rule):
@@ -86,6 +104,9 @@
 
 <%-- Anchor name for CSS Anchor Positioning: unique per bell instance via the panel id. --%>
 !{var anchorName = "--" + id + "-anchor";}
+<%-- Trigger id: the bell button. The panel's data-lv-opener points here so the lv-popover
+     Stimulus controller can return focus to the bell on light-dismiss (click-outside). --%>
+!{var triggerId = id + "-trigger";}
 !{var hasUnread = unreadCount > 0;}
 !{var badgeLabel = unreadCount > maxCount ? (maxCount + "+") : String.valueOf(unreadCount);}
 !{var effectiveBellLabel = hasUnread
@@ -123,6 +144,7 @@
        popovertarget + popover API provides toggle, light-dismiss, and Esc-close with NO JS.
        aria-label is the SOLE accessible name (icon-only); it embeds the count when non-zero. --%>
   <button
+    id="${triggerId}"
     type="button"
     data-slot="notification-bell-trigger"
     data-unread-count="${unreadCount}"
@@ -148,12 +170,20 @@
     @endif
   </button>
 
-  <%-- Notification panel: native popover (top-layer, light-dismiss + Esc, no JS).
+  <%-- Notification panel: native popover (top-layer, light-dismiss + Esc; the browser owns
+       open/close with no JS). data-controller="lv-popover" attaches the shared lv-popover
+       Stimulus controller (the conversion of popover-anchor.enhancer.ts): it owns the morph-safe
+       focus-return to the bell on light-dismiss + the controlled/uncontrolled wire-close doctrine.
+       UNCONTROLLED here (no data-lv-wire-close): the open state is browser-owned, so the close is
+       purely client-side and fires ZERO wire round-trip. The legacy popover-anchor.enhancer.ts
+       SKIPS this panel via its data-controller~="lv-popover" guard, so the close never fires twice.
        role="region" is a navigable landmark with an accessible name.
        Items are a plain ul/li list in natural tab order (no roving tabindex: spec section 4). --%>
   <div
     id="${id}"
     popover="auto"
+    data-controller="lv-popover"
+    data-lv-opener="${triggerId}"
     data-slot="notification-bell-panel"
     role="region"
     aria-label="${bellAriaLabel}"
