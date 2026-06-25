@@ -11,18 +11,23 @@
  * Zero JS by construction.
  *
  * CONTROLLED: `open` param (from the caller's @Wire boolean) + `closeAction` (wire action name).
- * When open=true: dialog visible + scrim rendered + data-lievit-focus-trap activates the shared
- * focus-trap enhancer (Tab cycle, scroll-lock, Esc fires closeAction). When open=false: hidden.
+ * When open=true: dialog visible + scrim rendered + the lv-modal Stimulus controller
+ * (data-controller + data-lv-modal-open-value + data-lv-wire-close) activates the shared FocusTrap
+ * (Tab cycle, scroll-lock, Esc fires closeAction). When open=false: hidden.
+ *
+ * This file pins the rendered-markup CONTRACT (the data-attributes the controller reads). The
+ * controller BEHAVIOUR (focus trap, Esc-close, return-focus, controlled/uncontrolled doctrine,
+ * morph-safety) is proven against the REAL Stimulus + REAL wire morph in lv-modal-controller.test.ts.
  *
  * These tests pin:
  *   1. The registry item shape (single registry:jte item, correct file target).
  *   2. The uncontrolled API: trigger, command="show-modal", commandfor, <form method="dialog">.
- *   3. The controlled API: hidden attr contract, scrim, focus-trap data-attrs, l:click closeAction.
+ *   3. The controlled API: hidden attr contract, scrim, controller data-attrs, l:click closeAction.
  *   4. The a11y contract: role=dialog, aria-modal, aria-labelledby/aria-label/aria-describedby,
- *      close button aria-label, must-act pattern (closable=false omits escape-action).
+ *      close button aria-label, must-act pattern (closable=false omits the wire-close action).
  *   5. The projection contract: content is an owned Content slot (${content}), never a <slot>.
  *   6. Server-purity + CSP-clean + token-driven + Apache-licensed.
- *   7. Focus-trap enhancer data-attribute contract (the seam alert-dialog + drawer/sheet reuse).
+ *   7. lv-modal controller data-attribute contract (the focus-mechanics seam).
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -127,14 +132,20 @@ describe("modal.jte: controlled API (server-owned open state)", () => {
     expect(markup).toContain("closable ? closeAction : null");
   });
 
-  test("data-lievit-focus-trap is set only in controlled mode (enhancer activation)", () => {
-    // isControlled ? "" : null -> present only when controlled (and enhancer activates on the container).
-    expect(markup).toContain('data-lievit-focus-trap="${isControlled ? "" : null}"');
+  test("data-controller='lv-modal' is mounted only in controlled mode (the Stimulus controller)", () => {
+    // isControlled ? "lv-modal" : null -> the focus-mechanics controller mounts only when the open
+    // state is server-owned; uncontrolled uses the browser-native <dialog> (no controller).
+    expect(markup).toContain('data-controller="${isControlled ? "lv-modal" : null}"');
   });
 
-  test("data-lievit-escape-action is set only in controlled + closable mode (must-act pattern)", () => {
-    // omitted when !closable: Esc is a no-op (the must-act pattern).
-    expect(markup).toContain('data-lievit-escape-action="${(isControlled && closable) ? closeAction : null}"');
+  test("data-lv-modal-open-value carries the server-owned open state (controlled mode)", () => {
+    // The controller reads this Stimulus value; the wire morph rewrites it on every open/close.
+    expect(markup).toContain('data-lv-modal-open-value="${isControlled ? String.valueOf(open) : null}"');
+  });
+
+  test("data-lv-wire-close is set only in controlled + closable mode (must-act pattern)", () => {
+    // omitted when !closable: Esc is inert (the must-act pattern: the controller wires no onEscape).
+    expect(markup).toContain('data-lv-wire-close="${(isControlled && closable) ? closeAction : null}"');
   });
 
   test("controlled close button fires l:click closeAction (the wire round-trip)", () => {
@@ -143,7 +154,7 @@ describe("modal.jte: controlled API (server-owned open state)", () => {
   });
 
   test("controlled + !closable: X button + scrim + Esc-action are all absent (must-act enforced)", () => {
-    // The template gates X on closable, scrim-click on closable, escape-action on closable.
+    // The template gates X on closable, scrim-click on closable, data-lv-wire-close on closable.
     // Verify all three are guarded.
     const closableGates = (markup.match(new RegExp("closable", "g")) ?? []).length;
     expect(closableGates, "closable must gate at least 3 paths (X, scrim-click, Esc)").toBeGreaterThanOrEqual(3);
@@ -264,34 +275,35 @@ describe("modal.jte: projection + server-purity + CSP-clean + token-driven + lic
 });
 
 // ---------------------------------------------------------------------------
-// 7. Focus-trap enhancer seam (the contract alert-dialog + drawer/sheet compose)
+// 7. lv-modal controller seam (the focus mechanics, behaviour proven in lv-modal-controller.test.ts)
 // ---------------------------------------------------------------------------
 
-describe("modal.jte: focus-trap enhancer data-attribute contract (composable seam)", () => {
-  test("activates trap on the <dialog> element (data-lievit-focus-trap)", () => {
-    // Presence of the attr name proves the seam is wired; value is gated on controlled mode.
-    expect(markup).toContain("data-lievit-focus-trap");
+describe("modal.jte: lv-modal controller data-attribute contract (focus mechanics seam)", () => {
+  test("mounts the controller on the <dialog> element (data-controller='lv-modal')", () => {
+    // Presence of the attr name proves the controller is wired; value is gated on controlled mode.
+    expect(markup).toContain('data-controller="${isControlled ? "lv-modal" : null}"');
   });
 
-  test("escape-action is bound on the same element as the trap (atomically paired)", () => {
-    // Both attributes on the same element so the enhancer reads them together.
+  test("open-value + wire-close are bound on the same element as the controller (one surface)", () => {
+    // All three controller attributes sit on the <dialog> so Stimulus reads them as one controller.
     const dialogChunk = markup.split("<dialog")[1] ?? "";
     const dialogAttrs = dialogChunk.slice(0, dialogChunk.indexOf(">") + 1);
-    expect(dialogAttrs).toContain("data-lievit-focus-trap");
-    expect(dialogAttrs).toContain("data-lievit-escape-action");
+    expect(dialogAttrs).toContain('data-controller="${isControlled ? "lv-modal" : null}"');
+    expect(dialogAttrs).toContain("data-lv-modal-open-value");
+    expect(dialogAttrs).toContain("data-lv-wire-close");
   });
 
   test("no hand-rolled Tab/focus/scroll logic (no JS event listeners in template markup)", () => {
-    // The enhancer owns ALL keyboard behavior. Check only the active markup, not the doc-comment,
-    // since the doc-comment may describe what the enhancer does (e.g. scroll-lock = overflow:hidden).
+    // The controller owns ALL keyboard behaviour. Check only the active markup, not the doc-comment,
+    // since the doc-comment may describe what the controller does (e.g. scroll-lock = overflow:hidden).
     expect(markup).not.toMatch(/addEventListener/);
     expect(markup).not.toMatch(/KeyboardEvent/);
     expect(markup).not.toMatch(/document\.activeElement/);
-    // No inline JS style on overflow: the enhancer sets it, not the template.
+    // No inline JS style on overflow: the FocusTrap sets it, not the template.
     expect(markup).not.toMatch(/style=[^>]*overflow\s*:/);
   });
 
-  test("seam note documents alert-dialog + drawer/sheet as composing the SAME two attributes", () => {
+  test("seam note documents alert-dialog + drawer/sheet during the conversion fan-out", () => {
     // The doc-comment must carry the seam note so the coordinator and future agents know.
     expect(jte).toContain("alert-dialog");
     expect(jte).toContain("drawer");

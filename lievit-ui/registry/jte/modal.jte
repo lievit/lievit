@@ -5,21 +5,22 @@
 
   lievit-ui modal partial -- a centred overlay dialog, headless CONTROLLED / UNCONTROLLED.
 
-  TIER: PARTIAL + ENH (focus-trap.enhancer.ts). No Java component, no @Wire field, no
-  _component/_instance params. The open-state belongs to the CALLER.
+  TIER: PARTIAL + lv-modal Stimulus controller (controlled mode only). No Java component, no
+  @Wire field, no _component/_instance params. The open-state belongs to the CALLER.
 
   CONTROLLED / UNCONTROLLED doctrine (architecture contract, "Overlay & stateful primitives"):
     UNCONTROLLED (default; closeAction = null):
       The trigger is a real <button command="show-modal" commandfor="${id}">. The browser opens
       the <dialog> as a true modal (top-layer, ::backdrop, native focus-trap, Escape). Zero JS
       required: the browser owns open/close. Close paths use <form method="dialog"> submits so
-      every close is also JS-free. The focus-trap.enhancer.ts is NOT activated (data-lievit-focus-trap
-      is omitted) because the browser's native modal already provides the trap.
+      every close is also JS-free. The lv-modal controller is NOT mounted (data-controller is
+      omitted) because the browser's native modal already provides the trap.
     CONTROLLED (closeAction set, open from the parent @Wire field):
       The caller passes open="${myForm.dialogOpen()}" and closeAction="closeDialog". When open=true
       the <dialog> is rendered with the open attribute (visible, non-modal); a scrim div covers the
-      viewport behind it; data-lievit-focus-trap activates the shared enhancer (trap + scroll-lock +
-      Esc-fires-closeAction). The X button and scrim fire l:click="${closeAction}" to drive the
+      viewport behind it; the lv-modal controller (data-controller + data-lv-modal-open-value)
+      activates the shared FocusTrap (trap + scroll-lock + Esc-fires-closeAction via
+      data-lv-wire-close). The X button and scrim fire l:click="${closeAction}" to drive the
       server round-trip that sets open=false. When open=false the <dialog> carries the hidden
       attribute (absent from the a11y tree and tab order). This is the "form that stays open on
       validation errors" case: open survives the round-trip because the PARENT @Wire owns it.
@@ -30,7 +31,7 @@
   STRUCTURE (scientific decision rule):
     - WAI-ARIA APG Dialog (Modal): https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/
     - react-aria useDialog / FocusScope interaction model: keyboard map + focus order + ARIA
-      wiring transcribed into ORIGINAL template + focus-trap.enhancer.ts (no code copied).
+      wiring transcribed into ORIGINAL template + the lv-modal controller / FocusTrap (no code copied).
     - Ant Design Modal: inventory reference for sizes (sm/md/lg/xl), closable, header/body/footer
       slots, the "must-act" non-closable mode (no code copied).
     - Styling: ORIGINAL over --lv-* OKLCH tokens; visual look inspired by Tailwind UI (no code
@@ -46,27 +47,36 @@
     - Close button: real <button type="button"> with aria-label="Close" (icon-only: accessible
       name mandatory per APG). Controlled path fires l:click="${closeAction}". Uncontrolled path
       is a <form method="dialog"><button type="submit"> (native close, no JS).
-    - Tab / Shift+Tab: in controlled mode, cycled within the panel by focus-trap.enhancer.ts;
-      in uncontrolled mode, the browser's native modal dialog trap handles cycling.
-    - Esc: controlled + closable: fires closeAction via data-lievit-escape-action on the enhancer.
-      controlled + !closable: data-lievit-escape-action is omitted; enhancer is inert on Esc
-      (the must-act pattern: Esc does nothing). Uncontrolled: the browser handles Esc natively.
-    - Scroll lock: enhancer adds overflow:hidden on body while trap is active (controlled);
+    - Tab / Shift+Tab: in controlled mode, cycled within the panel by the lv-modal controller's
+      FocusTrap; in uncontrolled mode, the browser's native modal dialog trap handles cycling.
+    - Esc: controlled + closable: fires closeAction via data-lv-wire-close (the controller's
+      DismissableController doctrine). controlled + !closable: data-lv-wire-close is omitted; the
+      controller leaves Esc inert (the must-act pattern: Esc does nothing). Uncontrolled: the
+      browser handles Esc natively.
+    - Scroll lock: the FocusTrap adds overflow:hidden on body while the trap is active (controlled);
       browser adds its own scroll lock for a native modal (uncontrolled).
-    - Focus restore: enhancer returns focus to the opener on deactivation (controlled); browser
+    - Focus restore: the FocusTrap returns focus to the opener on deactivation (controlled); browser
       restores focus on native dialog close (uncontrolled).
     - Closed state (controlled, open=false): hidden attribute on <dialog> removes it from the
       a11y tree and tab order.
 
-  Enhancer wiring (data-attribute contract -- do NOT edit focus-trap.enhancer.ts):
-    data-lievit-focus-trap       on <dialog>  -- activates trap (controlled + open only)
-    data-lievit-escape-action    on <dialog>  -- wire action name on Esc (closable only)
+  Controller wiring (CSP-clean Stimulus contract -- the lv-modal controller owns the focus mechanics):
+    data-controller="lv-modal"   on <dialog>  -- mounts the controller (controlled mode only)
+    data-lv-modal-open-value     on <dialog>  -- server-owned open state; the WIRE morph rewrites
+                                                 it and Stimulus activates/deactivates the trap
+    data-lv-wire-close           on <dialog>  -- the close action Escape fires (controlled+closable
+                                                 only); absent => must-act => Escape inert.
+  The controller composes the shared FocusTrap util (trap Tab + scroll-lock + return-focus) and the
+  shared DismissableController doctrine (Escape fires the wire close ONLY when controlled). It
+  replaced the focus-trap.enhancer.ts seam this template used; the X button + scrim keep their own
+  l:click close (the WIRE runtime handles those directly, the controller does not duplicate them).
 
-  Focus-trap seam for alert-dialog + drawer/sheet (keep clean):
-    alert-dialog: same two data-attributes on its panel; closable=false omits escape-action.
-    drawer/sheet: same contract on its panel element; the CSS positioning differs, not the
-    enhancer attributes. Do NOT add a third attribute for "modal vs non-modal": that is a
-    rendering-layout concern, never a behavior one.
+  Focus seam for alert-dialog + drawer/sheet (keep clean):
+    alert-dialog + drawer/sheet still ride the shared focus-trap.enhancer.ts during the conversion
+    fan-out (one component converted per PR); when they adopt lv-modal too they mount the same
+    data-controller="lv-modal" + data-lv-modal-open-value + data-lv-wire-close contract. Do NOT add
+    a third attribute for "modal vs non-modal": that is a rendering-layout concern, never a behavior
+    one.
 
   Params:
     String         id          = "lv-modal"  unique id per page (aria-labelledby linkage +
@@ -169,14 +179,15 @@
 
     UNCONTROLLED mode (isControlled=false):
       - No hidden attribute (browser manages show/hide via showModal()).
-      - No data-lievit-focus-trap (browser native modal trap handles Tab cycling).
-      - No data-lievit-escape-action (browser cancels on Esc natively).
+      - No data-controller (browser native modal trap handles Tab cycling).
+      - No data-lv-wire-close (browser cancels on Esc natively).
       - Panel does NOT carry fixed positioning classes (browser top-layer handles it).
 
     CONTROLLED mode (isControlled=true):
       - hidden="${!open}" (smart attr: present=hidden when false; absent when true/visible).
-      - data-lievit-focus-trap="" (enhancer activates trap + scroll-lock on mount).
-      - data-lievit-escape-action="${closeAction}" only when closable (must-act: omit when not).
+      - data-controller="lv-modal" + data-lv-modal-open-value (the controller activates/deactivates
+        the FocusTrap as the server flips open via the wire morph).
+      - data-lv-wire-close="${closeAction}" only when closable (must-act: omit when not -> Esc inert).
       - Panel needs fixed centering CSS because <dialog open> is not in the top-layer.
   --%>
   <dialog
@@ -190,8 +201,9 @@
     aria-label="${hasHeading ? null : "Dialog"}"
     aria-describedby="${hasDesc ? descId : null}"
     hidden="${isControlled && !open}"
-    data-lievit-focus-trap="${isControlled ? "" : null}"
-    data-lievit-escape-action="${(isControlled && closable) ? closeAction : null}"
+    data-controller="${isControlled ? "lv-modal" : null}"
+    data-lv-modal-open-value="${isControlled ? String.valueOf(open) : null}"
+    data-lv-wire-close="${(isControlled && closable) ? closeAction : null}"
     class="${panelClass} ${isControlled ? "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : "m-auto"}"
     style="max-width:${maxW};"
   >

@@ -28,10 +28,11 @@ import dev.lievit.Wire;
  * a client cannot turn a server-locked (non-dismissible) dialog into a dismissible one by editing
  * the snapshot payload.
  *
- * <p>Focus-trap + Escape are a CSP-clean typed-TS enhancement (the adopter's {@code lv-overlay.ts}
- * module), keyed off the rendered {@code data-lv-dialog} + {@code [hidden]} state: the open-state
- * itself stays server-owned (wire), only the focus mechanics are client. Escape and the backdrop
- * fire the {@code close} action over the wire.
+ * <p>Focus-trap + Escape + return-focus are a CSP-clean Stimulus controller (the {@code lv-modal}
+ * controller from lievit-ui's runtime), keyed off the rendered {@code data-lv-modal-open-value} the
+ * wire morph rewrites: the open-state itself stays server-owned (wire), only the focus mechanics are
+ * client. Escape fires the {@code close} action via {@code data-lv-wire-close}; the backdrop + close
+ * button fire it via their own {@code l:click}.
  *
  * <p>Copied in by {@code lievit add dialog}: the adopter OWNS this class (rename it, move the
  * package, gate {@link #open()} on a server-side condition) AND the {@code dialog.jte} template
