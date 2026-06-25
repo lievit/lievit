@@ -10,9 +10,11 @@
  * Zero JS by construction.
  *
  * CONTROLLED: `open` param (from the caller's @Wire boolean) + `closeAction` (wire action name).
- * When modal=true + open=true: panel visible + scrim rendered + data-lievit-focus-trap activates
- * the shared focus-trap enhancer (Tab cycle, scroll-lock, Esc fires closeAction). When open=false:
- * panel hidden. When modal=false: no trap, no scrim (APG non-modal dialog).
+ * When modal=true + open=true: panel visible + scrim rendered + data-controller="lv-drawer" mounts
+ * the Stimulus focus-trap controller (Tab cycle, scroll-lock, Esc fires closeAction via the
+ * controlled/uncontrolled doctrine). When open=false: panel hidden + trap dropped. When modal=false:
+ * no controller, no trap, no scrim (APG non-modal dialog). Behaviour proven in
+ * lv-drawer-controller.test.ts (real controller + real morph); this file pins the template source.
  *
  * These source-text tests pin:
  *   1. Registry item shape (single registry:jte item, correct file targets).
@@ -26,7 +28,7 @@
  *   7. Modal flag: aria-modal present only when modal=true (conditional smart-attr).
  *   8. Projection contract: content is an owned Content param (${content}), never a <slot>.
  *   9. DestroyOnClose guard: destroyOnClose/open combination controls panel presence.
- *  10. Focus-trap enhancer data-attribute contract (the seam modal + alert-dialog share).
+ *  10. lv-drawer controller data-attribute contract (data-controller + data-lv-wire-close seam).
  *  11. Server-purity + CSP-clean + token-driven + Apache-licensed.
  *  12. Consolidation note: slide-over.jte remains as the static native-dialog partial.
  */
@@ -84,10 +86,13 @@ describe("drawer registry:jte item shape", () => {
     expect(hasJava, "drawer must NOT ship a Java class (PARTIAL, not WIRE)").toBe(false);
   });
 
-  test("it declares the focus-trap enhancer as a dependency", () => {
+  test("it declares the lv-drawer Stimulus controller as a dependency (converted off the enhancer)", () => {
     const item = registry.items.find((i) => i.name === "drawer" && i.type === "registry:jte")!;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((item as any)["enhancers"]).toContain("focus-trap");
+    expect((item as any)["controllers"]).toContain("lv-drawer");
+    // The legacy shared focus-trap enhancer dependency is gone (the controller owns the mechanics).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((item as any)["enhancers"]).toBeUndefined();
   });
 });
 
@@ -152,16 +157,20 @@ describe("drawer.jte: controlled API (server-owned open state)", () => {
     expect(markup).toContain("closable ? closeAction : null");
   });
 
-  test("data-lievit-focus-trap is set only in controlled + modal=true mode", () => {
-    // trapModal = isControlled && modal; present when trapModal, null otherwise.
-    expect(markup).toContain("data-lievit-focus-trap=");
+  test("data-controller=lv-drawer is mounted only in controlled + modal=true mode", () => {
+    // trapModal = isControlled && modal; the controller mounts when trapModal, null otherwise.
+    expect(markup).toContain('data-controller="${trapModal ? "lv-drawer" : null}"');
+  });
+
+  test("data-lv-drawer-open-value carries the boolean open state (drives trap activation)", () => {
+    expect(markup).toContain("data-lv-drawer-open-value=");
     expect(markup).toContain("trapModal");
   });
 
-  test("data-lievit-escape-action is set only in controlled + modal=true + closable mode (must-act)", () => {
-    // omitted when !closable: Esc is a no-op (must-act pattern).
-    expect(markup).toContain("data-lievit-escape-action=");
-    expect(markup).toContain("trapModal && closable");
+  test("data-lv-wire-close is set only in controlled + modal=true + closable mode (must-act)", () => {
+    // omitted when !closable: the controlled/uncontrolled doctrine makes Esc a no-op (must-act).
+    expect(markup).toContain("data-lv-wire-close=");
+    expect(markup).toContain("(trapModal && closable) ? closeAction : null");
   });
 
   test("controlled close button fires l:click closeAction (the wire round-trip)", () => {
@@ -217,7 +226,7 @@ describe("drawer.jte: WAI-ARIA APG Dialog a11y contract", () => {
     expect(markup).toContain('aria-hidden="true"');
   });
 
-  test("data-modal attribute is stamped on the panel root (focus-trap enhancer reads it)", () => {
+  test("data-modal attribute is stamped on the panel root (CSS + AT info hook)", () => {
     expect(markup).toContain('data-modal="${modal}"');
   });
 });
@@ -337,16 +346,18 @@ describe("drawer.jte: destroyOnClose + open presence guard", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. Focus-trap enhancer seam (the contract modal + alert-dialog share)
+// 10. lv-drawer Stimulus controller seam (focus-mechanics live in the shared base)
 // ---------------------------------------------------------------------------
 
-describe("drawer.jte: focus-trap enhancer data-attribute contract (composable seam)", () => {
-  test("activates trap on the panel element (data-lievit-focus-trap)", () => {
-    expect(markup).toContain("data-lievit-focus-trap");
+describe("drawer.jte: lv-drawer controller data-attribute contract (behaviour proven in lv-drawer-controller.test.ts)", () => {
+  test("mounts the controller on the panel element (data-controller=lv-drawer)", () => {
+    expect(markup).toContain("data-controller=");
+    expect(markup).toContain('"lv-drawer"');
   });
 
-  test("escape-action is bound on the same element as the trap (atomically paired)", () => {
-    expect(markup).toContain("data-lievit-escape-action");
+  test("the wire-close action is bound on the same panel element as the controller (doctrine seam)", () => {
+    // data-lv-wire-close on the panel: present => controlled close fires; absent => Esc inert.
+    expect(markup).toContain("data-lv-wire-close=");
   });
 
   test("no hand-rolled Tab/focus/scroll logic in the template markup", () => {
@@ -356,12 +367,14 @@ describe("drawer.jte: focus-trap enhancer data-attribute contract (composable se
     expect(markup).not.toMatch(/style=[^>]*overflow\s*:/);
   });
 
-  test("seam note documents modal + alert-dialog as composing the SAME two attributes", () => {
-    // The doc-comment must carry the seam note so future agents know.
-    expect(jte).toContain("alert-dialog");
-    expect(jte).toContain("modal");
+  test("seam note documents the shared FocusTrap + DismissableController base (one source)", () => {
+    // The doc-comment must carry the seam note so future agents know where the mechanics live.
+    expect(jte).toContain("FocusTrap");
+    expect(jte).toContain("DismissableController");
+    expect(jte).toContain("lv-drawer");
+    // modal + alert-dialog still ride the legacy enhancer until their own conversion.
     expect(jte).toContain("data-lievit-focus-trap");
-    expect(jte).toContain("data-lievit-escape-action");
+    expect(jte).toContain("alert-dialog");
   });
 });
 
