@@ -270,8 +270,11 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
   // Migration guard (Stimulus conversion): a collection root converted to a Stimulus controller
   // owns its own keydown handling. This enhancer must NOT also wire it, or the navigation keys
   // (Arrow / Home / End / typeahead) would be double-handled (focus jumping two items per press).
-  // Converted templates carry data-controller="lv-menubar" (the first converted collection root).
-  if (root.matches('[data-controller~="lv-menubar"]')) {
+  // Each converted collection root carries its own data-controller token; the enhancer still
+  // serves the OTHER collection modes (Listbox / Menu / Tabs) on unconverted components and only
+  // skips the converted instances. Tokens so far: lv-menubar (APG Menubar), lv-navigation-menu
+  // (APG Disclosure "nav" mode). Add the token of any future converted collection root here.
+  if (root.matches('[data-controller~="lv-menubar"], [data-controller~="lv-navigation-menu"]')) {
     return;
   }
   root.setAttribute(ACTIVE_ATTR, "");
