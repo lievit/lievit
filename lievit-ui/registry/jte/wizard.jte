@@ -9,7 +9,7 @@
 
   lievit-ui wizard partial -- a multi-step form stepper (CONTROLLED headless).
 
-  TIER: PARTIAL + ENH (collection-nav.enhancer.ts, skippable mode only).
+  TIER: PARTIAL + CONTROLLER (lv-wizard Stimulus controller, skippable mode only).
   No Java component, no @Wire field, no _component/_instance params.
   The active step is server truth owned by the CALLER's @Wire int activeStep field;
   this partial is the pure presentational chrome. Each step change is a wire round-trip
@@ -32,7 +32,7 @@
           aria-current="step" -- the WAI Tutorial explicitly uses the list model).
     inventory: Ant Design Steps as feature inventory reference (linear/skippable modes, status
                variants, horizontal/vertical, number/icon/dot indicator, description line).
-    keyboard (skippable mode): APG Tabs roving-tabindex model via collection-nav.enhancer.ts.
+    keyboard (skippable mode): APG Tabs roving-tabindex model via the lv-wizard Stimulus controller.
     styling: ORIGINAL over --lv-* OKLCH tokens; look inspired by Tailwind UI step examples.
     CSP-safe: no inline script, no on* handlers; skippable navigation via l:click on step buttons.
 
@@ -53,19 +53,24 @@
     - action bar: real button elements; Prev carries native disabled when activeStep=0; Next
       absent on last step, Submit present instead.
 
-  collection-nav.enhancer.ts composition (skippable mode):
+  lv-wizard Stimulus controller composition (skippable mode):
     The step-list ol carries:
-      data-lievit-collection               -- activates the enhancer
+      data-controller="lv-wizard"          -- mounts the controller (morph-safe connect/disconnect)
+      data-action="keydown->lv-wizard#onKeydown" -- the single keydown seam (bubbles from buttons)
       data-lievit-collection-orientation   -- "horizontal" or "vertical" (matches orientation param)
       data-lievit-collection-wrap="true"   -- wraps at first/last step
-      data-lievit-collection-select-action="goTo"  -- fires goTo action on Enter/Space
-      data-lievit-collection-roving-tabindex="true" -- APG roving-tabindex model (DOM focus moves)
-      data-manual-activation="true"        -- Arrow = focus only; Enter/Space = fire goTo
+      data-lievit-collection-select-action="goTo"  -- the wire action fired on Enter/Space
+      data-lievit-collection-roving-tabindex="true" -- documents the APG roving-tabindex model
+      data-manual-activation="true"        -- documents: Arrow = focus only; Enter/Space = fire goTo
     Each reachable step button carries:
-      data-lievit-item                     -- marks it as a collection item for the enhancer
+      data-lievit-item                     -- marks it as a step in the roving order
     Unreachable steps (not in allowedSteps): aria-disabled="true"; no data-lievit-item
-    (enhancer skips aria-disabled items in navigation, and data-lievit-item is withheld).
-    In LINEAR mode: data-lievit-collection is omitted entirely (no enhancer activation).
+    (the controller skips aria-disabled items in navigation, and data-lievit-item is withheld).
+    In LINEAR mode: data-controller is omitted entirely (no roving navigation).
+    NOTE: the bare data-lievit-collection ACTIVATOR is intentionally NOT emitted -- the lv-wizard
+    controller owns this step-list, so the shared collection-nav.enhancer.ts must never also scan it
+    (an attribute selector [data-lievit-collection] matches the exact name only, NOT the
+    data-lievit-collection-* CONFIG attributes the controller reads). No skip-guard needed.
 
   Params:
     int activeStep                        the 0-based index of the currently displayed step.
@@ -206,7 +211,8 @@
     data-slot="wizard-step-list"
     role="list"
     class="${stepListFlexClass} list-none p-0 m-0"
-    data-lievit-collection="${skippable ? "" : null}"
+    data-controller="${skippable ? "lv-wizard" : null}"
+    data-action="${skippable ? "keydown->lv-wizard#onKeydown" : null}"
     data-lievit-collection-orientation="${skippable ? ("vertical".equals(orientation) ? "vertical" : "horizontal") : null}"
     data-lievit-collection-wrap="${skippable ? "true" : null}"
     data-lievit-collection-select-action="${skippable ? goToAction : null}"
