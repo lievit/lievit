@@ -216,9 +216,18 @@ const MOUNTED = "data-otp-enhanced";
  * Bind event listeners on one OTP component root. Idempotent (MOUNTED guard prevents
  * double-binding when enhanceAllInputOtp is called after a DOM swap that leaves
  * already-enhanced roots in the tree).
+ *
+ * DEPRECATED: this enhancer is superseded by the `lv-input-otp` Stimulus controller (auto-loaded
+ * via startStimulus). It is kept only so an adopter mid-migration who still calls
+ * enhanceAllInputOtp does not break; it SKIPS any root the controller already owns
+ * (`data-controller~="lv-input-otp"`) so the two never double-handle a slot. Remove this file once
+ * no adopter imports it (a dedicated cleanup PR; drop the meta.json enhancer file too).
  */
 export function enhanceInputOtp(root: HTMLElement): void {
   if (root.hasAttribute(MOUNTED)) return;
+  // The Stimulus controller owns this root: do not double-bind (the §7 coexistence guard).
+  const controllers = root.getAttribute("data-controller");
+  if (controllers != null && controllers.split(/\s+/).includes("lv-input-otp")) return;
   const slots = slotsOf(root);
   if (slots.length === 0) return;
   root.setAttribute(MOUNTED, "");

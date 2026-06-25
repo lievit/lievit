@@ -8,13 +8,16 @@
   a horizontal row of N individual digit slots (each a real single-character input) enclosed in
   a role="group" container. The assembled value lives in a hidden mirror input (name="...") so
   the code POSTs with a plain HTML form, zero round-trips mid-entry. The one irreducible client
-  behaviour (auto-advance, paste-fill, backspace-retreat, roving tabindex) lives in the colocated
-  input-otp.enhancer.ts; the server renders the truth every time.
+  behaviour (auto-advance, paste-fill, backspace-retreat, roving tabindex) lives in the
+  lv-input-otp Stimulus controller (data-controller on the root); the server renders the truth
+  every time.
 
-  TIER: PARTIAL (+ enhancer). The OTP value is NOT server state mid-entry: there is nothing for
+  TIER: PARTIAL (+ controller). The OTP value is NOT server state mid-entry: there is nothing for
   the server to decide between keystrokes, so no wire round-trip per character. The hidden mirror
-  submits the joined value with the enclosing form (zero JS at POST time). The enhancer runs only
-  for the focus choreography and optional completion callback.
+  submits the joined value with the enclosing form (zero JS at POST time). The controller runs only
+  for the focus choreography and optional completion callback; Stimulus connect/disconnect makes it
+  morph-safe (it survives the lievit wire morph + Turbo Drive with no double-init, no leaked
+  listeners), replacing the old data-otp-enhanced idempotency marker.
 
   STRUCTURE (scientific decision rule): WAI-ARIA APG Spinbutton pattern applied to a group of
   per-slot spinbuttons, following the "Date Picker Spin Buttons" example
@@ -78,8 +81,8 @@
         errorId = "otp-error", length = 6, mode = "numeric")
     @@template.lievit.input-otp(name = "pin", slots = slots, groupLabel = "PIN",
         errorId = "pin-error", length = 4, size = "lg", completeAction = "submit")
-    Import the enhancer once from your entry module:
-    import { enhanceAllInputOtp } from "lievit/input-otp.enhancer";
+    The lv-input-otp Stimulus controller auto-loads by filename when you start Stimulus once from
+    your entry module (no per-component import): startStimulus({ runtime }).
 --%>
 @param String name
 @param java.util.List<java.util.Map<String, String>> slots
@@ -130,8 +133,12 @@
   }}
 !{var rootDataAttrsMarkup = rootDataAttrs_.toString();}
 
-<%-- Component root: data-slot + data-size for test selectors and styling hooks. --%>
+<%-- Component root: data-slot + data-size for test selectors and styling hooks.
+     data-controller="lv-input-otp" mounts the Stimulus controller that owns the intra-slot focus
+     choreography (roving tabindex / auto-advance / paste-fill / backspace-retreat / completion);
+     Stimulus connect/disconnect makes it morph-safe for free -- no data-otp-enhanced marker. --%>
 <div
+  data-controller="lv-input-otp"
   data-slot="input-otp"
   data-size="${size}"
   class="inline-flex flex-col gap-[var(--lv-space-1)] font-[var(--lv-font-sans)]"
@@ -147,6 +154,7 @@
     aria-describedby="${groupDescribedBy}"
     aria-disabled="${disabled ? "true" : null}"
     data-slot="input-otp-group"
+    data-action="paste->lv-input-otp#onPaste"
     class="inline-flex items-center gap-[var(--lv-space-2)]"
   >
     @for(var slot : slots)
@@ -192,6 +200,8 @@
         tabindex="${slot.get("tabIndex")}"
         data-slot="input-otp-slot"
         data-otp-slot="${slot.get("index")}"
+        data-lv-input-otp-target="slot"
+        data-action="input->lv-input-otp#onInput keydown->lv-input-otp#onKeydown focus->lv-input-otp#onFocus"
         class="inline-flex shrink-0 items-center justify-center text-center rounded-[var(--lv-radius-md)] border bg-[var(--lv-color-input)] text-[var(--lv-color-fg)] font-[var(--lv-font-mono)] caret-[var(--lv-color-primary)] outline-none transition-[box-shadow,border-color] duration-[var(--lv-duration-fast)] placeholder:text-[var(--lv-color-muted-fg)] disabled:cursor-not-allowed disabled:opacity-[var(--lv-opacity-disabled)] ${slotDimClass} ${slotBorderClass}"
       />
     @endfor
@@ -240,13 +250,15 @@
   >${hasError ? errorMessage : ""}</div>
 
   <%-- Hidden value mirror: submits the assembled value with the enclosing form under `name`.
-       The enhancer keeps this in sync on every keystroke / paste so FormData sees the joined
-       value at submit time. aria-hidden + tabindex="-1" keep it out of the a11y tree + tab order. --%>
+       The lv-input-otp controller keeps this in sync on every keystroke / paste so FormData sees
+       the joined value at submit time. aria-hidden + tabindex="-1" keep it out of the a11y tree +
+       tab order. --%>
   <input
     type="hidden"
     name="${name}"
     value="${value}"
     data-otp-mirror
+    data-lv-input-otp-target="mirror"
     tabindex="-1"
     aria-hidden="true"
   />
