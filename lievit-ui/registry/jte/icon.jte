@@ -8,15 +8,18 @@
   DELIVERY DECISION (scientific, issue #428): inline-per-name, NOT an SVG sprite.
   Compared against MUI (font/SVG components), Radix (per-icon SVG components), shadcn
   (lucide-react, per-icon, tree-shaken) and Web Awesome (<wa-icon>, font/registry):
-    (1) tree-shakeability -- inline-per-name wins: only the icons vendored into
-        registry/icons/ exist in the body map, so an adopter ships exactly what they use.
+    (1) zero adopter vendoring -- the WHOLE Lucide set is bundled in the jar's body map
+        (generated from the lucide-static npm package at build time), so a consumer
+        references any glyph by name with ZERO vendored SVGs and ZERO custom resolver.
         A sprite ships the whole <symbol> sheet (or needs a build to assemble a per-page
         subset) and an extra request / external <use href> with its CSP+cross-doc quirks.
-    (2) ergonomics for a JTE adopter -- "add an icon" = drop a .svg in registry/icons/ and
-        re-run generate-icon-map.mjs. No sheet to maintain, no <use> id registry.
+    (2) ergonomics for a JTE adopter -- name any Lucide icon and it just renders. Nothing
+        to vendor, no sheet to maintain, no <use> id registry. (Updating to a newer Lucide
+        release = bump lucide-static in lievit-ui and re-run generate-icon-map.mjs.)
     (3) robustness -- no <use href>, no external ref, CSP-clean, zero JS.
-  The sprite's only edge (repeated-icon byte savings) is marginal in a gestionale and costs
-  the copy-in simplicity, so inline-per-name is objectively best here.
+  The body map is rendered server-side, so only the glyphs a page actually emits hit the wire;
+  the sprite's only edge (repeated-icon byte savings) is marginal in a gestionale and costs the
+  copy-in simplicity, so inline-per-name is objectively best here.
 
   The uniform <svg> wrapper lives HERE once (sized + coloured by --lv-* tokens); the per-icon
   inner body (paths/circles/...) comes from dev.lievit.ui.LievitIcons.body(name) -- a lievit-OWNED
@@ -36,8 +39,9 @@
   By default the icon is decorative: aria-hidden="true" + focusable="false". Pass a `label`
   to expose it to assistive tech (role="img" + aria-label); then it is NOT aria-hidden.
 
-  Add an icon: drop registry/icons/<name>.svg (any Lucide SVG), run
-  `node registry/icons/generate-icon-map.mjs`, commit the regenerated map.
+  Any Lucide icon name resolves out of the box (the full set is bundled). To refresh the set to
+  a newer Lucide release: bump lucide-static in lievit-ui/package.json and run
+  `node registry/icons/generate-icon-map.mjs`, then commit the regenerated map.
 --%>
 @param String name
 @param String size = "var(--lv-icon-size)"

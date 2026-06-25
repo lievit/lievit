@@ -18,12 +18,12 @@
  * touched here — they are listed in TEST_RECONCILE in the final report.
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ThemeSwitcherEnhancer } from "../registry/jte/theme-switcher.enhancer.js";
+import { iconBody } from "../registry/icons/icon-bodies.js";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
-const iconsDir = join(import.meta.dirname, "..", "registry", "icons");
 const src = readFileSync(join(jteDir, "theme-switcher.jte"), "utf8");
 
 // ---------------------------------------------------------------------------
@@ -166,9 +166,9 @@ describe("theme-switcher v-next -- icons and tokens", () => {
     expect(src).not.toContain("ariaHidden");
   });
 
-  test("icon SVGs are vendored in registry/icons", () => {
+  test("icons resolve from lievit's bundled Lucide set", () => {
     for (const name of ["sun", "moon", "monitor"]) {
-      expect(existsSync(join(iconsDir, `${name}.svg`)), `missing icon: ${name}.svg`).toBe(true);
+      expect(iconBody(name), `icon does not resolve: ${name}`).toBeTruthy();
     }
   });
 

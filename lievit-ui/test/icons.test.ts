@@ -3,29 +3,32 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
  * The Lucide icon system (issue #428). Delivery is inline-per-name (NOT a sprite): the
- * generated body map holds only the icons vendored into registry/icons/ (tree-shaken), and
- * the JTE partial renders the uniform <svg> wrapper styled by --lv-* tokens.
+ * generated body map holds the FULL Lucide set (built from the lucide-static npm package at
+ * build time), and the JTE partial renders the uniform <svg> wrapper styled by --lv-* tokens.
  *
- * This suite pins: the map is generated from the vendored SVGs and matches them; it is
- * deterministic (re-running the generator yields byte-identical output -- the drift guard);
- * the partial wrapper is token-driven, currentColor, and accessible (decorative by default,
- * labelled when a label is passed); and the starter set is present.
+ * The set is bundled WHOLE in the jar: a consumer (gest) references any Lucide glyph by name
+ * and it resolves from lievit's default resolver -- ZERO vendored SVGs, ZERO custom resolver.
+ *
+ * This suite pins: the map is generated from lucide-static and is the full set (not a tree-shaken
+ * subset); previously-missing gest names now resolve from BOTH the Java (jar) map and the TS map;
+ * it is deterministic (re-running the generator yields byte-identical output -- the drift guard);
+ * the partial wrapper is token-driven, currentColor, and accessible; and the starter set is present.
  */
 import { describe, test, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import { iconBodies, iconBody } from "../registry/icons/icon-bodies.js";
 
 const iconsDir = join(import.meta.dirname, "..", "registry", "icons");
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 
-const svgNames = readdirSync(iconsDir)
-  .filter((f) => f.endsWith(".svg"))
-  .map((f) => f.slice(0, -4))
-  .sort();
+const require = createRequire(import.meta.url);
+const lucideIconsDir = join(dirname(require.resolve("lucide-static/package.json")), "icons");
 
 const iconJte = readFileSync(join(jteDir, "icon.jte"), "utf8");
+const javaResolver = readFileSync(join(iconsDir, "LucideIconResolver.java"), "utf8");
 
 /** A representative slice of the documented starter set the partial promises. */
 const STARTER = [
@@ -54,31 +57,66 @@ const STARTER = [
   "trash",
 ];
 
-describe("icon body map", () => {
-  test("vendors a sensible starter set (40-60 icons)", () => {
-    expect(svgNames.length).toBeGreaterThanOrEqual(40);
-    expect(svgNames.length).toBeLessThanOrEqual(60);
+/*
+ * Names gest had to VENDOR before this change because lievit only bundled a 56-icon subset.
+ * They must now resolve straight from the jar map (the de-vendoring acceptance criterion). The
+ * first four are the task's explicit examples; the rest are real gest glyph names that the old
+ * 56-icon subset did not carry.
+ */
+const PREVIOUSLY_MISSING_GEST_NAMES = [
+  "file-signature",
+  "ellipsis",
+  "chart-column",
+  "triangle-alert",
+  "navigation",
+  "bug",
+  "images",
+  "folder-open",
+  "handshake",
+];
+
+describe("icon body map (full Lucide set, bundled in the jar)", () => {
+  test("bundles the WHOLE Lucide set, not a tree-shaken subset", () => {
+    // lucide-static ships ~2000 icons; assert we carry a generously-complete set, not the old ~56.
+    expect(Object.keys(iconBodies).length).toBeGreaterThanOrEqual(1500);
+  });
+
+  test("the TS map matches the lucide-static source exactly (built from it, name-for-name)", () => {
+    const sourceNames = require("node:fs")
+      .readdirSync(lucideIconsDir)
+      .filter((f: string) => f.endsWith(".svg"))
+      .map((f: string) => f.slice(0, -4))
+      .sort();
+    expect(Object.keys(iconBodies).sort()).toEqual(sourceNames);
+  });
+
+  test("previously-missing gest names now resolve from the JAR map (Java) AND the TS map", () => {
+    for (const name of PREVIOUSLY_MISSING_GEST_NAMES) {
+      // TS map (Lit islands)
+      expect(iconBody(name), `empty TS body for ${name}`).toBeTruthy();
+      // Java map (the jar / server-rendered icon.jte path) -- source-level proof the put exists
+      expect(javaResolver, `Java jar map missing m.put for ${name}`).toContain(
+        `m.put(${JSON.stringify(name)},`
+      );
+    }
   });
 
   test("ships every documented starter icon", () => {
     for (const name of STARTER) {
-      expect(svgNames, `missing vendored svg: ${name}`).toContain(name);
       expect(iconBody(name), `empty body for ${name}`).toBeTruthy();
     }
   });
 
-  test("the generated map has exactly the vendored icons (tree-shaken, no extras)", () => {
-    expect(Object.keys(iconBodies).sort()).toEqual(svgNames);
-  });
-
-  test("each body is the inner SVG markup of its vendored file (no <svg> wrapper)", () => {
-    for (const name of svgNames) {
+  test("each body is the inner SVG markup of its Lucide icon (no <svg> wrapper)", () => {
+    for (const name of Object.keys(iconBodies)) {
       const body = iconBody(name);
       expect(body, `${name} body empty`).toBeTruthy();
       // inner content only -- the wrapper lives in icon.jte
       expect(body, `${name} body leaked the <svg> wrapper`).not.toMatch(/<svg/);
       // Lucide bodies are drawing primitives
-      expect(body, `${name} has no drawing element`).toMatch(/<(path|circle|rect|line|polyline|polygon|ellipse)/);
+      expect(body, `${name} has no drawing element`).toMatch(
+        /<(path|circle|rect|line|polyline|polygon|ellipse)/
+      );
     }
   });
 
@@ -86,9 +124,8 @@ describe("icon body map", () => {
     expect(iconBody("definitely-not-an-icon")).toBe("");
   });
 
-  test("vendors the Lucide check-check (double-check) glyph for mark-all-read", () => {
+  test("carries the Lucide check-check (double-check) glyph for mark-all-read", () => {
     // the notification mark-all-read affordance wanted the double-check; it is two <path> marks.
-    expect(svgNames, "check-check svg not vendored").toContain("check-check");
     const body = iconBody("check-check");
     expect(body, "check-check body empty").toBeTruthy();
     expect(body).toContain('<path d="M18 6 7 17l-5-5" />');
@@ -105,22 +142,24 @@ describe("icon body map", () => {
       ts: readFileSync(join(iconsDir, "icon-bodies.ts"), "utf8"),
       java: readFileSync(join(iconsDir, "LucideIconResolver.java"), "utf8"),
     };
-    expect(after.ts, "icon-bodies.ts drifted from the vendored svgs").toBe(before.ts);
-    expect(after.java, "LucideIconResolver.java drifted from the vendored svgs").toBe(before.java);
+    expect(after.ts, "icon-bodies.ts drifted from the lucide-static source").toBe(before.ts);
+    expect(after.java, "LucideIconResolver.java drifted from the lucide-static source").toBe(
+      before.java
+    );
   });
 });
 
 /*
  * The de-gest-ification gate: lievit is a standalone library, so the icon component MUST resolve
- * its glyphs from a LIEVIT-OWNED default (the bundled Lucide set behind an IconResolver SPI), never
- * from an adopter's class. icon.jte must render with ZERO adopter classpath. This suite pins that
- * no `it.housetreespa` (or any adopter package) leaks into the icon system, and that the SPI +
+ * its glyphs from a LIEVIT-OWNED default (the bundled full Lucide set behind an IconResolver SPI),
+ * never from an adopter's class. icon.jte must render with ZERO adopter classpath. This suite pins
+ * that no `it.housetreespa` (or any adopter package) leaks into the icon system, and that the SPI +
  * default resolver lievit owns are in the lievit-owned dev.lievit.ui package.
  */
 describe("icon system is lievit-owned (no adopter classpath, standalone)", () => {
   const spiInterface = readFileSync(join(iconsDir, "IconResolver.java"), "utf8");
   const facade = readFileSync(join(iconsDir, "LievitIcons.java"), "utf8");
-  const defaultResolver = readFileSync(join(iconsDir, "LucideIconResolver.java"), "utf8");
+  const defaultResolver = javaResolver;
   const generator = readFileSync(join(iconsDir, "generate-icon-map.mjs"), "utf8");
 
   test("icon.jte imports the lievit-owned facade, NOT an adopter class", () => {
@@ -153,11 +192,11 @@ describe("icon system is lievit-owned (no adopter classpath, standalone)", () =>
     expect(defaultResolver).toMatch(/class\s+LucideIconResolver\s+implements\s+IconResolver/);
   });
 
-  test("the facade defaults to lievit's bundled Lucide set (renders out of the box)", () => {
+  test("the facade defaults to lievit's bundled full Lucide set (renders out of the box)", () => {
     expect(facade).toMatch(/new\s+LucideIconResolver\(\)/);
-    // every vendored icon is reachable through the default resolver's map
-    expect(defaultResolver).toContain(`Map.entry("check"`);
-    expect(defaultResolver).toContain(`Map.entry("search"`);
+    // common icons are reachable through the default resolver's map (jar path)
+    expect(defaultResolver).toContain(`m.put("check"`);
+    expect(defaultResolver).toContain(`m.put("search"`);
   });
 });
 
