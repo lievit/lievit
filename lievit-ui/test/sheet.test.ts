@@ -17,7 +17,7 @@
  * These tests pin:
  *   1.  The registry item shape (single registry:jte item, correct file target, no Java class).
  *   2.  The uncontrolled API: trigger, command="show-modal", commandfor, <form method="dialog">.
- *   3.  The controlled API: hidden attr contract, scrim, focus-trap data-attrs, l:click closeAction.
+ *   3.  The controlled API: hidden attr contract, scrim, lv-sheet controller mount, l:click closeAction.
  *   4.  The a11y contract: role=dialog, aria-modal, aria-labelledby/aria-label/aria-describedby,
  *       close button aria-label, scrim aria-hidden, must-act pattern (closable=false omits escape-action).
  *   5.  The data-slot contract: all expected slot names stamped in markup.
@@ -30,7 +30,7 @@
  *   12. Token-driven: uses --lv-* tokens, no raw hex.
  *   13. No dev.lievit import.
  *   14. Apache license header.
- *   15. Focus-trap seam: data-lievit-focus-trap + data-lievit-escape-action on same element.
+ *   15. Controller seam: data-controller=lv-sheet + data-lv-wire-close on the same <dialog>.
  *   16. footer is optional Content slot (null = absent, not an empty region).
  *   17. Must-act: closable gates X + scrim-click + Esc-action (at least 3 occurrences of "closable").
  */
@@ -132,12 +132,12 @@ describe("sheet.jte: controlled API (server-owned open state)", () => {
     expect(markup).toContain("closable ? closeAction : null");
   });
 
-  test("data-lievit-focus-trap is set only in controlled mode (enhancer activation)", () => {
-    expect(markup).toContain('data-lievit-focus-trap="${isControlled ? "" : null}"');
+  test("data-controller=lv-sheet is stamped only in controlled + open mode (Stimulus trap mount)", () => {
+    expect(markup).toContain('data-controller="${(isControlled && open) ? "lv-sheet" : null}"');
   });
 
-  test("data-lievit-escape-action is set only in controlled + closable mode (must-act pattern)", () => {
-    expect(markup).toContain('data-lievit-escape-action="${(isControlled && closable) ? closeAction : null}"');
+  test("data-lv-wire-close names the close action only in controlled + closable mode (must-act)", () => {
+    expect(markup).toContain('data-lv-wire-close="${(isControlled && closable) ? closeAction : null}"');
   });
 
   test("controlled close button fires l:click closeAction (the wire round-trip)", () => {
@@ -371,26 +371,31 @@ describe("sheet.jte: Apache license header", () => {
 // 15. Focus-trap enhancer seam
 // ---------------------------------------------------------------------------
 
-describe("sheet.jte: focus-trap enhancer data-attribute contract (composable seam)", () => {
-  test("activates trap on the <dialog> element (data-lievit-focus-trap)", () => {
-    expect(markup).toContain("data-lievit-focus-trap");
+describe("sheet.jte: lv-sheet Stimulus controller contract (CSP-clean wire seam)", () => {
+  test("mounts the controller on the <dialog> element (data-controller=lv-sheet)", () => {
+    expect(markup).toContain('data-controller="${(isControlled && open) ? "lv-sheet" : null}"');
   });
 
-  test("escape-action is bound on the same element as the trap (atomically paired)", () => {
+  test("the close action + the controller mount sit on the same <dialog> (atomically paired)", () => {
     const dialogChunk = markup.split("<dialog")[1] ?? "";
     const dialogAttrs = dialogChunk.slice(0, dialogChunk.indexOf(">") + 1);
-    expect(dialogAttrs).toContain("data-lievit-focus-trap");
-    expect(dialogAttrs).toContain("data-lievit-escape-action");
+    expect(dialogAttrs).toContain('data-controller="${(isControlled && open) ? "lv-sheet" : null}"');
+    expect(dialogAttrs).toContain('data-lv-wire-close="${(isControlled && closable) ? closeAction : null}"');
   });
 
-  test("no hand-rolled Tab/focus/scroll logic (no JS event listeners in template markup)", () => {
+  test("the sheet no longer uses the focus-trap enhancer attributes (migrated to the controller)", () => {
+    expect(markup).not.toContain("data-lievit-focus-trap");
+    expect(markup).not.toContain("data-lievit-escape-action");
+  });
+
+  test("no hand-rolled Tab/focus/scroll logic (behaviour lives in the controller, not the template)", () => {
     expect(markup).not.toMatch(/addEventListener/);
     expect(markup).not.toMatch(/KeyboardEvent/);
     expect(markup).not.toMatch(/document\.activeElement/);
     expect(markup).not.toMatch(/style=[^>]*overflow\s*:/);
   });
 
-  test("seam note documents alert-dialog + drawer/sheet as composing the SAME two attributes", () => {
+  test("seam note documents alert-dialog + drawer still on the shared focus-trap enhancer", () => {
     expect(jte).toContain("alert-dialog");
     expect(jte).toContain("drawer");
   });

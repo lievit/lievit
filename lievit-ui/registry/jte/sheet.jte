@@ -19,11 +19,13 @@
     CONTROLLED (closeAction set, open from the parent @Wire field):
       The caller passes open="${myForm.sheetOpen()}" and closeAction="closeSheet". When open=true
       the <dialog> is rendered with the open attribute (visible, non-modal); a scrim div covers the
-      viewport behind it; data-lievit-focus-trap activates the shared enhancer (trap + scroll-lock +
-      Esc-fires-closeAction). The X button and scrim fire l:click="${closeAction}" to drive the
-      server round-trip that sets open=false. When open=false the <dialog> carries the hidden
-      attribute (absent from the a11y tree and tab order). This is the "form that stays open on
-      validation errors" case: open survives the round-trip because the PARENT @Wire owns it.
+      viewport behind it; data-controller="lv-sheet" mounts the Stimulus controller (trap +
+      scroll-lock + Esc-fires-closeAction via the shared FocusTrap + DismissableController bases).
+      The X button and scrim fire l:click="${closeAction}" to drive the server round-trip that sets
+      open=false. When open=false the <dialog> carries the hidden attribute (absent from the a11y
+      tree and tab order) AND drops data-controller, so Stimulus tears the trap down (focus restored,
+      scroll unlocked). This is the "form that stays open on validation errors" case: open survives
+      the round-trip because the PARENT @Wire owns it.
   The two modes compose cleanly: pass trigger=null + a closeAction for pure controlled; pass a
   trigger + no closeAction for pure uncontrolled. Mixing both gives a dual-mode panel that can
   be opened by the trigger OR by a server fact.
@@ -46,26 +48,33 @@
     - Close button: real <button type="button"> with aria-label="Close" (icon-only: accessible
       name mandatory per APG). Controlled path fires l:click="${closeAction}". Uncontrolled path
       is a <form method="dialog"><button type="submit"> (native close, no JS).
-    - Tab / Shift+Tab: in controlled mode, cycled within the panel by focus-trap.enhancer.ts;
-      in uncontrolled mode, the browser's native modal dialog trap handles cycling.
-    - Esc: controlled + closable: fires closeAction via data-lievit-escape-action on the enhancer.
-      controlled + !closable: data-lievit-escape-action is omitted; enhancer is inert on Esc
-      (the must-act pattern: Esc does nothing). Uncontrolled: the browser handles Esc natively.
-    - Scroll lock: enhancer adds overflow:hidden on body while trap is active (controlled);
-      browser adds its own scroll lock for a native modal (uncontrolled).
-    - Focus restore: enhancer returns focus to the opener on deactivation (controlled); browser
-      restores focus on native dialog close (uncontrolled).
+    - Tab / Shift+Tab: in controlled mode, cycled within the panel by the lv-sheet Stimulus
+      controller (shared FocusTrap); in uncontrolled mode, the browser's native modal dialog trap
+      handles cycling.
+    - Esc: controlled + closable: fires closeAction via the lv-sheet controller (FocusTrap onEscape
+      -> DismissableController.dismissViaWire, gated by data-lv-wire-close).
+      controlled + !closable: data-lv-wire-close is omitted; the controller is inert on Esc
+      (the must-act pattern: Esc does nothing, ZERO wire call). Uncontrolled: the browser handles
+      Esc natively.
+    - Scroll lock: the lv-sheet controller (FocusTrap) sets overflow:hidden on body while the
+      dialog is open (controlled); browser adds its own scroll lock for a native modal (uncontrolled).
+    - Focus restore: the controller returns focus to the opener on disconnect (controlled);
+      browser restores focus on native dialog close (uncontrolled).
     - Closed state (controlled, open=false): hidden attribute on <dialog> removes it from the
       a11y tree and tab order.
 
-  Enhancer wiring (data-attribute contract -- do NOT edit focus-trap.enhancer.ts):
-    data-lievit-focus-trap       on <dialog>  -- activates trap (controlled + open only)
-    data-lievit-escape-action    on <dialog>  -- wire action name on Esc (closable only)
+  Controller wiring (Stimulus, CSP-clean -- behaviour lives in lv-sheet-controller.ts):
+    data-controller="lv-sheet"   on <dialog>  -- mounts the trap (stamped controlled + open only)
+    data-lv-wire-close           on <dialog>  -- wire close action fired on Esc (controlled +
+                                                 closable only); read by DismissableController.
+    The controller composes the shared FocusTrap (trap + scroll-lock + return-focus) so this
+    template carries NO behaviour. The sheet no longer uses focus-trap.enhancer.ts; the still-shared
+    enhancer keeps serving modal/alert-dialog/drawer (which keep data-lievit-focus-trap).
 
-  Focus-trap seam for alert-dialog + drawer/sheet (keep clean):
-    alert-dialog: same two data-attributes on its panel; closable=false omits escape-action.
-    drawer/sheet: same contract on its panel element (this file); the CSS positioning differs, not
-    the enhancer attributes. Do NOT add a third attribute for "modal vs non-modal": that is a
+  Overlay focus seam (keep clean):
+    alert-dialog + modal + drawer still use the data-lievit-focus-trap enhancer attributes on their
+    panel; sheet has migrated to the lv-sheet Stimulus controller. The CSS positioning differs per
+    edge, not the controller. Do NOT add a third attribute for "modal vs non-modal": that is a
     rendering-layout concern, never a behavior one.
 
   TOKENS_NEEDED (net-new tokens to add to lievit-tokens.css before adopters can override sizes):
@@ -226,8 +235,8 @@
     aria-describedby="${hasSubtitle ? subtitleId : null}"
     tabindex="-1"
     hidden="${isControlled && !open}"
-    data-lievit-focus-trap="${isControlled ? "" : null}"
-    data-lievit-escape-action="${(isControlled && closable) ? closeAction : null}"
+    data-controller="${(isControlled && open) ? "lv-sheet" : null}"
+    data-lv-wire-close="${(isControlled && closable) ? closeAction : null}"
     class="m-0 box-border flex max-w-none flex-col border-0 bg-[var(--lv-color-popover)] p-0 text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-xl)] ${scrollBody ? "" : "overflow-y-auto"}"
     style="${panelPos} z-index:var(--lv-z-modal);"
   >
