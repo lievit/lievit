@@ -135,6 +135,7 @@
 
 <div
   data-slot="tags-input"
+  data-controller="lv-tags-input"
   data-lievit-tags-input
   data-name="${name}"
   data-size="${size}"
@@ -172,6 +173,7 @@
         <span
           data-slot="tags-input-chip"
           data-tags-input-chip="${tag}"
+          data-action="keydown->lv-tags-input#onChipKeydown"
           role="option"
           aria-selected="true"
           tabindex="-1"
@@ -184,6 +186,7 @@
             type="submit"
             data-slot="tags-input-remove"
             data-tags-input-remove="${tag}"
+            data-action="click->lv-tags-input#onRemoveClick"
             name="${name}__remove"
             value="${tag}"
             aria-label="Remove ${tag}"
@@ -200,6 +203,7 @@
     <input
       data-slot="tags-input-field"
       data-tags-input-field
+      data-action="keydown->lv-tags-input#onFieldKeydown paste->lv-tags-input#onFieldPaste"
       type="text"
       id="${inputId}"
       placeholder="${hasTags ? null : placeholder}"
@@ -218,6 +222,7 @@
         type="button"
         data-slot="tags-input-clear-all"
         data-tags-input-clear-all
+        data-action="click->lv-tags-input#onClearAll"
         aria-label="Clear all tags"
         class="ml-auto inline-flex shrink-0 items-center justify-center rounded-[var(--lv-radius-sm)] p-[var(--lv-space-1)] text-[var(--lv-color-muted-fg)] transition-colors hover:text-[var(--lv-color-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
       ><svg aria-hidden="true" focusable="false" width="1rem" height="1rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg></button>
@@ -228,6 +233,7 @@
       type="submit"
       data-slot="tags-input-add"
       data-tags-input-add
+      data-action="click->lv-tags-input#onAddClick"
       name="${name}__add"
       value="1"
       disabled="${disabled}"
@@ -248,6 +254,7 @@
           type="button"
           data-slot="tags-input-suggestion"
           data-tags-input-suggestion="${suggestion}"
+          data-action="click->lv-tags-input#onSuggestionClick"
           disabled="${disabled}"
           class="inline-flex items-center rounded-full border border-dashed border-[var(--lv-color-border)] bg-transparent px-[var(--lv-space-2)] py-[2px] text-[length:${textSz}] text-[var(--lv-color-muted-fg)] outline-none transition-colors hover:border-[var(--lv-color-primary)] hover:text-[var(--lv-color-fg)] focus-visible:shadow-[var(--lv-ring)] disabled:cursor-not-allowed disabled:opacity-50"
           style="font-family:var(--lv-font-sans);"

@@ -4,18 +4,20 @@
  *
  * tags-input (Filament TagsInput): chips + add-input + optional suggestions; tags POST as a
  * repeated `name`. Two halves: a structural golden over the partial SOURCE (the hidden-input-per-tag
- * repeated-POST contract, the JS-off Add/remove submit fallback, a11y, v-next params), and the
- * enhancer DOM behaviour (in-place add via Enter / delimiter / Add / suggestion, remove via x,
- * Backspace pop, dedup, paste splitting, chip keyboard nav, clear-all, live region).
+ * repeated-POST contract, the JS-off Add/remove submit fallback, a11y, v-next params, the new
+ * data-controller / data-action CSP-clean wiring), and the DOM behaviour proven through the REAL
+ * Stimulus Application + the REAL lievit wire morph (no mocked $lievit, no mocked runtime): in-place
+ * add via Enter / delimiter / Add / suggestion, remove via x, Backspace pop, dedup, paste splitting,
+ * chip keyboard nav, clear-all, live region, and the morph-safety the enhancer test could not state.
  */
-import { describe, test, expect, afterEach } from "vitest";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  enhanceTagsInput,
-  enhanceAllTagsInputs,
-  normalizeTag,
-} from "../registry/jte/tags-input.enhancer.js";
+
+import { normalizeTag } from "../runtime/stimulus/controllers/lv-tags-input-controller.js";
+import { LievitRuntime } from "../runtime/runtime.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const read = (rel: string) => readFileSync(join(jteDir, rel), "utf8");
@@ -33,7 +35,7 @@ describe("tags-input.jte -- repeated-name tags field", () => {
 
   test("JS-OFF add is an explicit submit button (name=`<name>__add`)", () => {
     expect(markup).toContain('name="${name}__add"');
-    expect(markup).toContain('data-tags-input-add');
+    expect(markup).toContain("data-tags-input-add");
     expect(markup).toContain('type="submit"');
   });
 
@@ -66,6 +68,21 @@ describe("tags-input.jte -- repeated-name tags field", () => {
   test("no inline script or on* handler in the markup (CSP-clean)", () => {
     expect(markup).not.toMatch(/<script/);
     expect(markup).not.toMatch(/\son[a-z]+=/);
+  });
+
+  // Stimulus conversion: the root mounts the controller, behaviour rides data-action (CSP-clean).
+  test("the root carries data-controller=lv-tags-input", () => {
+    expect(markup).toContain('data-controller="lv-tags-input"');
+  });
+
+  test("the entry field, chips, and well controls declare data-action (no inline handlers)", () => {
+    expect(markup).toContain("keydown->lv-tags-input#onFieldKeydown");
+    expect(markup).toContain("paste->lv-tags-input#onFieldPaste");
+    expect(markup).toContain("keydown->lv-tags-input#onChipKeydown");
+    expect(markup).toContain("click->lv-tags-input#onRemoveClick");
+    expect(markup).toContain("click->lv-tags-input#onAddClick");
+    expect(markup).toContain("click->lv-tags-input#onClearAll");
+    expect(markup).toContain("click->lv-tags-input#onSuggestionClick");
   });
 
   // v-next structural assertions
@@ -109,22 +126,60 @@ describe("normalizeTag", () => {
   });
 });
 
-/** Build a DOM matching the server-rendered tags-input partial. */
+// --- DOM behaviour: REAL Stimulus + REAL runtime + REAL morph ---------------------------------
+
+/** A fetch stub recording the wire `_calls` a form-native tags-input must NEVER make. */
+function makeRuntime(): { runtime: LievitRuntime; calledActions: string[] } {
+  const calledActions: string[] = [];
+  const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const calls = body._calls as string[] | undefined;
+    if (calls) {
+      calledActions.push(...calls);
+    }
+    return new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } });
+  });
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calledActions };
+}
+
+/** Build a chip exactly as the .jte / the controller emit it (hidden input + data-action hooks). */
+function appendChip(chips: HTMLElement, tag: string): void {
+  const chip = document.createElement("span");
+  chip.setAttribute("data-slot", "tags-input-chip");
+  chip.setAttribute("data-tags-input-chip", tag);
+  chip.setAttribute("data-action", "keydown->lv-tags-input#onChipKeydown");
+  chip.setAttribute("role", "option");
+  chip.setAttribute("aria-selected", "true");
+  chip.setAttribute("tabindex", "-1");
+  chip.setAttribute("aria-label", `${tag}, press Delete or Backspace to remove`);
+  const hidden = document.createElement("input");
+  hidden.type = "hidden";
+  hidden.setAttribute("data-tags-input-value", "");
+  hidden.name = "etichette";
+  hidden.value = tag;
+  const labelEl = document.createElement("span");
+  labelEl.textContent = tag;
+  const remove = document.createElement("button");
+  remove.type = "submit";
+  remove.setAttribute("data-tags-input-remove", tag);
+  remove.setAttribute("data-action", "click->lv-tags-input#onRemoveClick");
+  chip.append(hidden, labelEl, remove);
+  chips.appendChild(chip);
+}
+
+/** Build a DOM matching the server-rendered tags-input partial (data-controller + data-action). */
 function render(
   values: string[] = [],
   suggestions: string[] = [],
-  opts: {
-    delimiter?: string;
-    size?: string;
-    clearable?: boolean;
-    disabled?: boolean;
-  } = {},
+  opts: { delimiter?: string; size?: string; clearable?: boolean; disabled?: boolean } = {},
 ): HTMLElement {
   const delimiter = opts.delimiter ?? ",";
   const size = opts.size ?? "md";
   const clearable = opts.clearable ?? false;
 
   const root = document.createElement("div");
+  root.setAttribute("data-controller", "lv-tags-input");
   root.setAttribute("data-lievit-tags-input", "");
   root.setAttribute("data-name", "etichette");
   root.setAttribute("data-delimiter", delimiter);
@@ -132,41 +187,28 @@ function render(
   if (opts.disabled) root.setAttribute("data-disabled", "true");
 
   const well = document.createElement("div");
+  well.setAttribute("data-slot", "tags-input-well");
 
   const chips = document.createElement("div");
   chips.setAttribute("data-tags-input-chips", "");
-  for (const tag of values) {
-    const chip = document.createElement("span");
-    chip.setAttribute("data-tags-input-chip", tag);
-    chip.setAttribute("role", "option");
-    chip.setAttribute("aria-selected", "true");
-    chip.setAttribute("tabindex", "-1");
-    chip.setAttribute("aria-label", `${tag}, press Delete or Backspace to remove`);
-    const hidden = document.createElement("input");
-    hidden.type = "hidden";
-    hidden.setAttribute("data-tags-input-value", "");
-    hidden.name = "etichette";
-    hidden.value = tag;
-    const labelEl = document.createElement("span");
-    labelEl.textContent = tag;
-    const remove = document.createElement("button");
-    remove.type = "submit";
-    remove.setAttribute("data-tags-input-remove", tag);
-    chip.append(hidden, labelEl, remove);
-    chips.appendChild(chip);
-  }
+  for (const tag of values) appendChip(chips, tag);
   well.appendChild(chips);
 
   const field = document.createElement("input");
   field.type = "text";
   field.name = "etichette";
   field.setAttribute("data-tags-input-field", "");
+  field.setAttribute(
+    "data-action",
+    "keydown->lv-tags-input#onFieldKeydown paste->lv-tags-input#onFieldPaste",
+  );
   well.appendChild(field);
 
   if (clearable && values.length > 0) {
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.setAttribute("data-tags-input-clear-all", "");
+    clearBtn.setAttribute("data-action", "click->lv-tags-input#onClearAll");
     clearBtn.setAttribute("aria-label", "Clear all tags");
     well.appendChild(clearBtn);
   }
@@ -174,6 +216,7 @@ function render(
   const add = document.createElement("button");
   add.type = "submit";
   add.setAttribute("data-tags-input-add", "");
+  add.setAttribute("data-action", "click->lv-tags-input#onAddClick");
   well.appendChild(add);
   root.appendChild(well);
 
@@ -183,6 +226,7 @@ function render(
       const btn = document.createElement("button");
       btn.type = "button";
       btn.setAttribute("data-tags-input-suggestion", s);
+      btn.setAttribute("data-action", "click->lv-tags-input#onSuggestionClick");
       sugRow.appendChild(btn);
     }
     root.appendChild(sugRow);
@@ -198,6 +242,19 @@ function render(
   return root;
 }
 
+/** Render + start the real Stimulus application + await its MutationObserver (controllers bound). */
+async function mount(
+  values: string[] = [],
+  suggestions: string[] = [],
+  opts: { delimiter?: string; size?: string; clearable?: boolean; disabled?: boolean } = {},
+): Promise<{ root: HTMLElement; calledActions: string[] }> {
+  const { runtime, calledActions } = makeRuntime();
+  const root = render(values, suggestions, opts);
+  startStimulus({ runtime });
+  await flushStimulus();
+  return { root, calledActions };
+}
+
 const fieldEl = (root: HTMLElement) =>
   root.querySelector<HTMLInputElement>("[data-tags-input-field]")!;
 const tagValues = (root: HTMLElement) =>
@@ -210,13 +267,13 @@ function pressKey(el: HTMLElement, key: string): void {
 }
 
 afterEach(() => {
+  stopStimulus();
   document.body.innerHTML = "";
 });
 
-describe("tags-input enhancer -- DOM behaviour", () => {
-  test("Enter adds a chip with a hidden input under the repeated name + clears the field", () => {
-    const root = render();
-    enhanceTagsInput(root);
+describe("tags-input controller -- DOM behaviour (real Stimulus + real runtime)", () => {
+  test("Enter adds a chip with a hidden input under the repeated name + clears the field", async () => {
+    const { root } = await mount();
     fieldEl(root).value = "urgente";
     pressKey(fieldEl(root), "Enter");
     expect(tagValues(root)).toEqual(["urgente"]);
@@ -224,34 +281,30 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(fieldEl(root).value).toBe("");
   });
 
-  test("comma also commits a tag", () => {
-    const root = render();
-    enhanceTagsInput(root);
+  test("comma also commits a tag", async () => {
+    const { root } = await mount();
     fieldEl(root).value = "richiamare";
     pressKey(fieldEl(root), ",");
     expect(tagValues(root)).toEqual(["richiamare"]);
   });
 
-  test("a duplicate tag is rejected and announced", () => {
-    const root = render(["urgente"]);
-    enhanceTagsInput(root);
+  test("a duplicate tag is rejected and announced", async () => {
+    const { root } = await mount(["urgente"]);
     fieldEl(root).value = "urgente";
     pressKey(fieldEl(root), "Enter");
     expect(tagValues(root)).toEqual(["urgente"]);
     expect(liveText(root)).toContain("already");
   });
 
-  test("an empty / whitespace tag is not added", () => {
-    const root = render();
-    enhanceTagsInput(root);
+  test("an empty / whitespace tag is not added", async () => {
+    const { root } = await mount();
     fieldEl(root).value = "   ";
     pressKey(fieldEl(root), "Enter");
     expect(tagValues(root)).toEqual([]);
   });
 
-  test("clicking the chip x removes the tag (and cancels its native submit)", () => {
-    const root = render(["a", "b"]);
-    enhanceTagsInput(root);
+  test("clicking the chip x removes the tag (and cancels its native submit)", async () => {
+    const { root } = await mount(["a", "b"]);
     const removeB = root.querySelector<HTMLButtonElement>('[data-tags-input-remove="b"]')!;
     const ev = new MouseEvent("click", { bubbles: true, cancelable: true });
     removeB.dispatchEvent(ev);
@@ -259,9 +312,8 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
-  test("the JS-off Add button is hidden and, if clicked, adds in place instead of submitting", () => {
-    const root = render();
-    enhanceTagsInput(root);
+  test("the JS-off Add button is hidden and, if clicked, adds in place instead of submitting", async () => {
+    const { root } = await mount();
     const add = root.querySelector<HTMLButtonElement>("[data-tags-input-add]")!;
     expect(add.hidden).toBe(true);
     fieldEl(root).value = "trattativa";
@@ -271,35 +323,21 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
-  test("Backspace on an empty field pops the last chip", () => {
-    const root = render(["x", "y"]);
-    enhanceTagsInput(root);
+  test("Backspace on an empty field pops the last chip", async () => {
+    const { root } = await mount(["x", "y"]);
     fieldEl(root).value = "";
     pressKey(fieldEl(root), "Backspace");
     expect(tagValues(root)).toEqual(["x"]);
   });
 
-  test("a suggestion click adds that tag", () => {
-    const root = render([], ["hot", "warm"]);
-    enhanceTagsInput(root);
+  test("a suggestion click adds that tag", async () => {
+    const { root } = await mount([], ["hot", "warm"]);
     root.querySelector<HTMLButtonElement>('[data-tags-input-suggestion="warm"]')!.click();
     expect(tagValues(root)).toEqual(["warm"]);
   });
 
-  test("is idempotent + enhanceAll wires every root", () => {
-    const root = render();
-    enhanceTagsInput(root);
-    enhanceTagsInput(root);
-    expect(root.hasAttribute("data-tags-input-enhanced")).toBe(true);
-    const second = render();
-    enhanceAllTagsInputs();
-    expect(second.hasAttribute("data-tags-input-enhanced")).toBe(true);
-  });
-
-  // v-next enhancer DOM behaviour tests
-  test("ArrowLeft from entry input at position 0 moves focus to last chip", () => {
-    const root = render(["a", "b", "c"]);
-    enhanceTagsInput(root);
+  test("ArrowLeft from entry input at position 0 moves focus to last chip", async () => {
+    const { root } = await mount(["a", "b", "c"]);
     const f = fieldEl(root);
     f.focus();
     f.setSelectionRange(0, 0);
@@ -308,9 +346,8 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(document.activeElement).toBe(lastChip);
   });
 
-  test("ArrowRight from last chip moves focus to entry input", () => {
-    const root = render(["a", "b"]);
-    enhanceTagsInput(root);
+  test("ArrowRight from last chip moves focus to entry input", async () => {
+    const { root } = await mount(["a", "b"]);
     const allChips = root.querySelectorAll<HTMLElement>("[data-tags-input-chip]");
     const lastChip = allChips[allChips.length - 1]!;
     lastChip.focus();
@@ -318,28 +355,34 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(document.activeElement).toBe(fieldEl(root));
   });
 
-  test("Home from chip moves focus to first chip", () => {
-    const root = render(["a", "b", "c"]);
-    enhanceTagsInput(root);
+  test("Home from chip moves focus to first chip", async () => {
+    const { root } = await mount(["a", "b", "c"]);
     const allChips = root.querySelectorAll<HTMLElement>("[data-tags-input-chip]");
-    const lastChip = allChips[2]!;
-    lastChip.focus();
-    pressKey(lastChip, "Home");
+    allChips[2].focus();
+    pressKey(allChips[2], "Home");
     expect(document.activeElement).toBe(allChips[0]);
   });
 
-  test("End from chip moves focus to entry input", () => {
-    const root = render(["a", "b"]);
-    enhanceTagsInput(root);
+  test("End from chip moves focus to entry input", async () => {
+    const { root } = await mount(["a", "b"]);
     const allChips = root.querySelectorAll<HTMLElement>("[data-tags-input-chip]");
     allChips[0].focus();
     pressKey(allChips[0], "End");
     expect(document.activeElement).toBe(fieldEl(root));
   });
 
-  test("paste with delimiter splits into multiple tags", () => {
-    const root = render();
-    enhanceTagsInput(root);
+  test("Delete on a focused chip removes it and moves focus to the next chip", async () => {
+    const { root } = await mount(["a", "b", "c"]);
+    const allChips = root.querySelectorAll<HTMLElement>("[data-tags-input-chip]");
+    allChips[0].focus();
+    pressKey(allChips[0], "Delete");
+    expect(tagValues(root)).toEqual(["b", "c"]);
+    // focus moved to what is now the first chip (the old "b")
+    expect(document.activeElement).toBe(root.querySelector('[data-tags-input-chip="b"]'));
+  });
+
+  test("paste with delimiter splits into multiple tags", async () => {
+    const { root } = await mount();
     const f = fieldEl(root);
     const pasteEvent = new ClipboardEvent("paste", {
       bubbles: true,
@@ -351,17 +394,15 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(tagValues(root)).toEqual(["london", "paris", "rome"]);
   });
 
-  test("clear-all button removes all chips", () => {
-    const root = render(["x", "y", "z"], [], { clearable: true });
-    enhanceTagsInput(root);
+  test("clear-all button removes all chips", async () => {
+    const { root } = await mount(["x", "y", "z"], [], { clearable: true });
     const clearBtn = root.querySelector<HTMLButtonElement>("[data-tags-input-clear-all]")!;
     clearBtn.click();
     expect(tagValues(root)).toEqual([]);
   });
 
-  test("live region announces Tag added and Tag removed", () => {
-    const root = render(["existing"]);
-    enhanceTagsInput(root);
+  test("live region announces Tag added and Tag removed", async () => {
+    const { root } = await mount(["existing"]);
 
     fieldEl(root).value = "newtag";
     pressKey(fieldEl(root), "Enter");
@@ -372,9 +413,8 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(liveText(root)).toBe("Tag removed: existing");
   });
 
-  test("chip built by enhancer has role=option and aria-selected=true", () => {
-    const root = render();
-    enhanceTagsInput(root);
+  test("chip built by the controller has role=option and aria-selected=true", async () => {
+    const { root } = await mount();
     fieldEl(root).value = "testtag";
     pressKey(fieldEl(root), "Enter");
     const chip = root.querySelector<HTMLElement>("[data-tags-input-chip]")!;
@@ -382,19 +422,78 @@ describe("tags-input enhancer -- DOM behaviour", () => {
     expect(chip.getAttribute("aria-selected")).toBe("true");
   });
 
-  test("Escape clears the entry input value", () => {
-    const root = render();
-    enhanceTagsInput(root);
+  test("Escape clears the entry input value", async () => {
+    const { root } = await mount();
     fieldEl(root).value = "in-progress";
     pressKey(fieldEl(root), "Escape");
     expect(fieldEl(root).value).toBe("");
   });
 
-  test("delimiter key (from data-delimiter) also commits a tag", () => {
-    const root = render([], [], { delimiter: ";" });
-    enhanceTagsInput(root);
+  test("delimiter key (from data-delimiter) also commits a tag", async () => {
+    const { root } = await mount([], [], { delimiter: ";" });
     fieldEl(root).value = "semicolontag";
     pressKey(fieldEl(root), ";");
     expect(tagValues(root)).toEqual(["semicolontag"]);
+  });
+
+  // Controlled/uncontrolled doctrine: a form-native field is purely client-side -> ZERO wire calls.
+  test("no add/remove edit ever round-trips the wire (form-native = uncontrolled by construction)", async () => {
+    const { root, calledActions } = await mount(["seed"], ["sugg"]);
+    fieldEl(root).value = "added";
+    pressKey(fieldEl(root), "Enter");
+    root.querySelector<HTMLButtonElement>('[data-tags-input-suggestion="sugg"]')!.click();
+    root
+      .querySelector<HTMLButtonElement>('[data-tags-input-remove="seed"]')!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions).toHaveLength(0);
+  });
+});
+
+describe("tags-input controller -- morph-safety (real lievit morph)", () => {
+  test("a chip the controller appended is keyboard-navigable after Stimulus binds it", async () => {
+    const { root } = await mount();
+    fieldEl(root).value = "fresh";
+    pressKey(fieldEl(root), "Enter");
+    await flushStimulus(); // let the action observer bind the new chip's data-action
+    const chip = root.querySelector<HTMLElement>("[data-tags-input-chip]")!;
+    chip.focus();
+    pressKey(chip, "Delete");
+    expect(tagValues(root)).toEqual([]);
+  });
+
+  test("after a real morph one Enter adds EXACTLY one chip (no stacked listeners)", async () => {
+    const { root } = await mount(["a"]);
+    // A real lievit wire morph replays the subtree (idiomorph); the root + its data-action survive.
+    morph(root, root.outerHTML);
+    await flushStimulus();
+
+    fieldEl(root).value = "b";
+    pressKey(fieldEl(root), "Enter");
+    expect(tagValues(root)).toEqual(["a", "b"]); // one Enter => one chip, not two
+  });
+
+  test("a tags-input removed by a morph stops handling input (disconnect tore the listeners down)", async () => {
+    const { runtime } = makeRuntime();
+    const host = document.createElement("div");
+    host.setAttribute("data-lievit-component", "com.example.Tags");
+    host.setAttribute("data-lievit-snapshot", "s1");
+    const root = render();
+    host.appendChild(root);
+    document.body.appendChild(host);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const detachedField = fieldEl(root);
+    morph(
+      host,
+      `<div data-lievit-component="com.example.Tags" data-lievit-snapshot="s2"><span>gone</span></div>`,
+    );
+    await flushStimulus();
+
+    // The detached field no longer reaches a live controller: Enter is inert (no throw, no chip).
+    detachedField.value = "ghost";
+    pressKey(detachedField, "Enter");
+    expect(root.querySelectorAll("[data-tags-input-value]")).toHaveLength(0);
   });
 });
