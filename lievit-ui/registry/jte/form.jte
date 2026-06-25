@@ -92,6 +92,7 @@
 
 <form
   data-slot="form"
+  data-controller="lv-form"
   data-form-layout="${layout}"
   id="${formId}"
   action="${action}"

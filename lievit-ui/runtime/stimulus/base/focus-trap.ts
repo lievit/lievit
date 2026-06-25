@@ -37,6 +37,32 @@ export interface FocusTrapOptions {
 const INITIAL_FOCUS_ATTR = "data-initial-focus";
 
 /**
+ * The established lievit marker on the element to focus once a surface is shown: the panel content
+ * after a popover opens, the error summary after a form's failed submit. The server stamps it; the
+ * client only honours it.
+ */
+export const AUTOFOCUS_ATTR = "data-lv-autofocus";
+
+/**
+ * Moves focus to the first `[data-lv-autofocus]` descendant of `container`, or no-op when there is
+ * none. The ONE home of the "focus the server-marked element" behaviour, shared by every surface
+ * that opts in (popover panel, form error-summary) so the lookup + the marker name live once.
+ *
+ * The whole lookup is deferred to a microtask, not just the `focus()` call, because the form's
+ * failed-submit path dispatches `lievit:validation-errors` (the focus trigger) BEFORE the morph that
+ * adds the marker (#93 effects-then-morph order): a synchronous query would miss it. A microtask runs
+ * after the synchronous effects+morph commit, so the marker is in the DOM by then. The popover's open
+ * path already has the marker present; deferring is harmless there (focus still lands next microtask).
+ *
+ * @param container the element whose subtree carries the optional autofocus target
+ */
+export function focusAutofocusTarget(container: Element): void {
+  queueMicrotask(() => {
+    container.querySelector<HTMLElement>(`[${AUTOFOCUS_ATTR}]`)?.focus();
+  });
+}
+
+/**
  * Elements that can receive keyboard focus (DOM spec + ARIA supplement). Layout-based visibility
  * (offsetWidth / getClientRects) is deliberately omitted: happy-dom / jsdom have no layout engine,
  * so a layout check would always report invisible in tests.
