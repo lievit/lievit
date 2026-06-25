@@ -41,13 +41,17 @@
 !{var fieldId = "lv-code-" + name;}
 <div
     @if(!cid.isEmpty())data-lievit-component="${cid}"@endif
+    data-controller="lv-code-editor"
+    data-lv-code-editor-language-value="${language}"
+    data-lv-code-editor-disabled-value="${disabled ? "true" : "false"}"
     data-code-editor
     data-code-editor-language="${language}"
     data-code-editor-disabled="${disabled ? "true" : "false"}"
     style="display: block; font-family: var(--lv-font-mono); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); background: var(--lv-color-surface); overflow: hidden;"
 >
-    <%-- The CodeMirror mount point; empty + hidden until the island fills it. --%>
+    <%-- The CodeMirror mount point; empty + hidden until the lv-code-editor controller fills it. --%>
     <div
+        data-lv-code-editor-target="surface"
         data-code-editor-surface
         aria-label="${label}"
         hidden
@@ -63,6 +67,7 @@
         aria-label="${label}"
         disabled="${disabled}"
         spellcheck="false"
+        data-lv-code-editor-target="input"
         data-code-editor-input
         style="display: block; width: 100%; box-sizing: border-box; border: 0; padding: var(--lv-space-3); background: var(--lv-color-surface); color: var(--lv-color-fg); font-family: var(--lv-font-mono); font-size: var(--lv-text-sm); tab-size: 2; resize: vertical; line-height: var(--lv-leading-normal); white-space: pre; overflow-wrap: normal; overflow-x: auto;"
     >${value}</textarea>
