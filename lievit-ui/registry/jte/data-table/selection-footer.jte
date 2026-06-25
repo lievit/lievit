@@ -20,6 +20,10 @@
     int     selected = 0     number of selected rows (server fact).
     int     total    = 0     number of rows in the current filtered set (server fact).
     String  noun     = "row" the singular noun ("row" -> "row(s) selected"); for a typed list pass e.g. "listing".
+                             Used ONLY by the English fallback; ignored when `label` is supplied.
+    String  label    = null  i18n seam: the fully-rendered localized count sentence (e.g.
+                             "5 di 12 attività selezionate."). Non-blank -> replaces the English line;
+                             null/blank -> the legacy "{selected} of {total} {noun}(s) selected." fallback.
     Content actions  = null  optional bulk-action slot; rendered only when selected > 0.
     String  klass    = ""    extra classes on the footer row.
 
@@ -32,8 +36,14 @@
 @param int selected = 0
 @param int total = 0
 @param String noun = "row"
+@param String label = null
 @param gg.jte.Content actions = null
 @param String klass = ""
+<%-- i18n seam: the count sentence is NOT hardcoded English. A host passes the fully-rendered,
+     localized `label` (e.g. "5 di 12 attività selezionate."); when null/blank the partial falls
+     back to the legacy English "{selected} of {total} {noun}(s) selected." for back-compat. The
+     counts stay params so a host that wants the default plural still gets the server facts. --%>
+!{var _line = (label != null && !label.isBlank()) ? label : (selected + " of " + total + " " + noun + "(s) selected.");}
 <div
   data-slot="data-table-selection-footer"
   class="flex items-center gap-[var(--lv-space-2)] py-[var(--lv-space-4)] ${klass}"
@@ -43,7 +53,7 @@
     data-slot="data-table-selection-info"
     aria-live="polite"
     class="flex-1 text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]"
-  >${selected} of ${total} ${noun}(s) selected.</div>
+  >${_line}</div>
   @if(actions != null && selected > 0)
     <div data-slot="data-table-selection-actions" class="flex items-center gap-[var(--lv-space-2)]">${actions}</div>
   @endif

@@ -105,4 +105,101 @@ class TableChromePrimitivesRenderTest {
         assertTrue(html.contains("data-lucide=\"inbox\""),
                 "default empty-state icon (inbox) missing inside the circle:\n" + html);
     }
+
+    @Test
+    void soft_badge_variants_render_a_light_tint_with_a_dark_foreground() {
+        // soft-* family: pale bg + dark fg (the mock's status pills, e.g. bg-sky-100 text-sky-700),
+        // driven by the *-subtle token pair, NOT the solid saturated fill the base variants use.
+        Map<String, Object> info = new HashMap<>();
+        info.put("variant", "soft-info");
+        info.put("label", "In corso");
+        String infoHtml = render("lievit/badge.jte", info);
+        assertTrue(infoHtml.contains("var(--lv-color-info-subtle)"),
+                "soft-info badge missing the subtle background tint:\n" + infoHtml);
+        assertTrue(infoHtml.contains("var(--lv-color-info-subtle-fg)"),
+                "soft-info badge missing the subtle foreground:\n" + infoHtml);
+
+        for (String intent : new String[] {"success", "warning", "danger"}) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("variant", "soft-" + intent);
+            m.put("label", intent);
+            String h = render("lievit/badge.jte", m);
+            assertTrue(h.contains("var(--lv-color-" + intent + "-subtle)"),
+                    "soft-" + intent + " badge missing its subtle background:\n" + h);
+            assertTrue(h.contains("var(--lv-color-" + intent + "-subtle-fg)"),
+                    "soft-" + intent + " badge missing its subtle foreground:\n" + h);
+        }
+
+        // The base solid variant is untouched (still the saturated fill, no -subtle token).
+        Map<String, Object> solid = new HashMap<>();
+        solid.put("variant", "info");
+        solid.put("label", "Solid");
+        String solidHtml = render("lievit/badge.jte", solid);
+        assertTrue(solidHtml.contains("var(--lv-color-info)") && !solidHtml.contains("-subtle"),
+                "the solid info variant must keep the saturated fill:\n" + solidHtml);
+    }
+
+    @Test
+    void soft_badge_can_carry_a_leading_dot() {
+        Map<String, Object> m = new HashMap<>();
+        m.put("variant", "soft-info");
+        m.put("label", "Programmata");
+        m.put("dot", true);
+        String html = render("lievit/badge.jte", m);
+        assertTrue(html.contains("background:currentColor"),
+                "soft badge dot=true did not render the leading dot:\n" + html);
+        assertTrue(html.contains("aria-hidden=\"true\""), "leading dot is not aria-hidden:\n" + html);
+    }
+
+    @Test
+    void stat_card_plain_variant_omits_the_left_accent_rail() {
+        Map<String, Object> plain = new HashMap<>();
+        plain.put("title", "Attività totali");
+        plain.put("value", "128");
+        plain.put("variant", "plain");
+        String plainHtml = render("lievit/stat-card.jte", plain);
+        assertFalse(plainHtml.contains("border-left-width:3px"),
+                "plain stat-card must NOT draw the 3px left accent rail:\n" + plainHtml);
+
+        // The default variant still draws the 3px rail (transparent, but present in the box model).
+        Map<String, Object> def = new HashMap<>();
+        def.put("title", "Attività totali");
+        def.put("value", "128");
+        String defHtml = render("lievit/stat-card.jte", def);
+        assertTrue(defHtml.contains("border-left-width:3px"),
+                "default stat-card lost its left rail (regression):\n" + defHtml);
+    }
+
+    @Test
+    void selection_footer_renders_a_host_supplied_localized_label() {
+        Map<String, Object> m = new HashMap<>();
+        m.put("selected", 5);
+        m.put("total", 12);
+        m.put("label", "5 di 12 attività selezionate.");
+        String html = render("lievit/data-table/selection-footer.jte", m);
+        assertTrue(html.contains("5 di 12 attività selezionate."),
+                "selection footer did not render the host-supplied label:\n" + html);
+        assertFalse(html.contains("(s) selected"),
+                "selection footer leaked the hardcoded English when a label was supplied:\n" + html);
+
+        // Back-compat: no label supplied -> the legacy English fallback still renders.
+        Map<String, Object> legacy = new HashMap<>();
+        legacy.put("selected", 1);
+        legacy.put("total", 4);
+        String legacyHtml = render("lievit/data-table/selection-footer.jte", legacy);
+        assertTrue(legacyHtml.contains("1 of 4 row(s) selected."),
+                "selection footer broke the no-label back-compat fallback:\n" + legacyHtml);
+    }
+
+    @Test
+    void selected_table_row_gets_a_left_accent_stripe_and_is_a_group() {
+        Map<String, Object> m = new HashMap<>();
+        m.put("state", "selected");
+        m.put("content", text("<td>row</td>"));
+        String html = render("lievit/table/row.jte", m);
+        // `group` so a per-row action can reveal on hover (group-hover); selected-state left stripe.
+        assertTrue(html.contains("group"), "table row is not a `group` (action reveal impossible):\n" + html);
+        assertTrue(html.contains("data-[state=selected]:before:"),
+                "selected row missing the left accent stripe (before pseudo):\n" + html);
+    }
 }

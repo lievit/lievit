@@ -138,6 +138,19 @@
   --lv-color-danger-fg: #ffffff;
   --lv-color-danger-fg: oklch(1.0000 0 0);
 
+  /* SOFT (subtle) intent pairs: pale tint bg + dark same-hue fg, for the soft-* badge / chip family
+     (the mock's light status pills, e.g. bg-sky-100 text-sky-700). Hex-only (the fallback channel);
+     a retheme overrides these to re-tint every soft pill with zero template change. */
+  --lv-color-success-subtle: #dcfce7;
+  --lv-color-success-subtle-fg: #15803d;
+  --lv-color-warning-subtle: #fef3c7;
+  --lv-color-warning-subtle-fg: #b45309;
+  --lv-color-info-subtle: #dbeafe;
+  --lv-color-info-subtle-fg: #1d4ed8;
+  --lv-color-danger-subtle: #fee2e2;
+  --lv-color-danger-subtle-fg: #b91c1c;
+  --lv-color-destructive-subtle-fg: #b91c1c;
+
   /* chart palette: a 5-step sequential ramp for data-viz (shadcn chart-1..5) */
   --lv-color-chart-1: #93c5fd;
   --lv-color-chart-1: oklch(0.8091 0.0957 251.83);
@@ -378,6 +391,17 @@
   --lv-color-danger: oklch(0.6369 0.2078 25.32);
   --lv-color-danger-fg: #fafafa;
   --lv-color-danger-fg: oklch(0.9851 0 0);
+
+  /* SOFT (subtle) intent pairs, dark mode: deep same-hue tint bg + light fg. */
+  --lv-color-success-subtle: #052e16;
+  --lv-color-success-subtle-fg: #86efac;
+  --lv-color-warning-subtle: #2d1a07;
+  --lv-color-warning-subtle-fg: #fcd34d;
+  --lv-color-info-subtle: #172554;
+  --lv-color-info-subtle-fg: #93c5fd;
+  --lv-color-danger-subtle: #2d1111;
+  --lv-color-danger-subtle-fg: #fca5a5;
+  --lv-color-destructive-subtle-fg: #fca5a5;
 
   --lv-color-chart-1: #1e3a8a;
   --lv-color-chart-1: oklch(0.3790 0.1378 265.53);
