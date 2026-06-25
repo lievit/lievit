@@ -19,7 +19,6 @@
     "test:jte-compile": "bash test/jte-compile/run.sh"
   },
   "dependencies": {
-    "@floating-ui/dom": "^1.7.6",
     "@hotwired/stimulus": "^3.2.2"
   },
   "optionalDependencies": {
