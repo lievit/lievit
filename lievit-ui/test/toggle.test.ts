@@ -361,6 +361,26 @@ describe("toggle.jte -- CSP safety", () => {
 });
 
 // ---------------------------------------------------------------------------
+// §12b Stimulus lv-toggle wiring (the conversion, CSP-clean)
+// ---------------------------------------------------------------------------
+describe("toggle.jte -- Stimulus lv-toggle wiring (CSP-clean)", () => {
+  test("button mounts data-controller=lv-toggle", () => {
+    expect(markup).toContain('data-controller="lv-toggle"');
+  });
+
+  test("click is wired via data-action (no inline handler)", () => {
+    expect(markup).toContain('data-action="click->lv-toggle#toggle"');
+  });
+
+  test("the lv-toggle hooks are declarative Stimulus strings, not an on*= handler", () => {
+    // §12 already forbids on*=; this pins that the click behaviour is the Stimulus data-action
+    // kind (re-bound across the morph) rather than an inline handler the CSP would refuse.
+    expect(markup).not.toMatch(/\son[a-z]+=/);
+    expect(markup).toMatch(/data-action="click->lv-toggle#toggle"/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §13 Documentation
 // ---------------------------------------------------------------------------
 describe("toggle.jte -- documentation", () => {
