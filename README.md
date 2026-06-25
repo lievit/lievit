@@ -10,12 +10,14 @@
 [![Java](https://img.shields.io/badge/java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/spring--boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
 
-> **Status: pre-1.0 (`0.1.0-SNAPSHOT`), build live.** The Maven reactor builds green: 14 modules
+> **Status: `1.0.0` — first stable release.** The Maven reactor builds green: 13 modules
 > (the wire runtime, the single-file DSL, the v4 compiler, five template adapters, the Spring Boot
-> starter, the admin kit, the CLI, the copy-in UI registry + client runtime), the `Lievit.test()`
-> harness, and two runnable examples. The API is still pre-1.0 and may move before a tagged
-> `0.1.0`. Not yet on Maven Central; consume it today via JitPack (see [Install](#install)). See the
-> [feature matrix](#feature-matrix) for the honest shipped-vs-roadmap split, and the
+> starter, the admin kit, the CLI, the UI component library + client runtime, and the
+> `lievit-maven-plugin` that makes the libraries consumable by import), the `Lievit.test()`
+> harness, and runnable examples. 1.0.0 is server-rendered to the core: the UI primitives are JTE
+> partials + plain-TS progressive enhancers, **no Lit / no Web Components shipped**. Consume it via
+> JitPack, pinned to the `v1.0.0` tag (see [Install](#install)); a Maven Central / lievit-domain
+> repo is coming. See the [feature matrix](#feature-matrix) for the shipped-vs-roadmap split, and the
 > [guides](docs/guide/) for task-oriented docs. Project home and canonical reference:
 > [iambilotta.com](https://iambilotta.com).
 
@@ -71,7 +73,7 @@ The one dependency most apps need is the Spring Boot starter (`lievit-spring-boo
 <dependency>
     <groupId>com.github.lievit.lievit</groupId>
     <artifactId>lievit-spring-boot-starter</artifactId>
-    <version>main-SNAPSHOT</version> <!-- or a commit SHA / tag, e.g. 06b7e36 -->
+    <version>1.0.0</version> <!-- the stable tag; or main-SNAPSHOT / a commit SHA -->
 </dependency>
 ```
 
@@ -83,12 +85,12 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.lievit.lievit:lievit-spring-boot-starter:main-SNAPSHOT")
+    implementation("com.github.lievit.lievit:lievit-spring-boot-starter:1.0.0")
 }
 ```
 
-Pin a commit SHA rather than `main-SNAPSHOT` for a reproducible build (the SHA is immutable on
-JitPack). The version follows JitPack's rules: a tag, a commit, or `<branch>-SNAPSHOT`. The first
+Pin the `1.0.0` tag (or a commit SHA) rather than `main-SNAPSHOT` for a reproducible build (both are
+immutable on JitPack). The version follows JitPack's rules: a tag, a commit, or `<branch>-SNAPSHOT`. The first
 build of any new ref takes a minute while JitPack compiles the reactor; subsequent resolves are
 cached.
 
@@ -97,7 +99,7 @@ cached.
 What is in the build today versus what the ADRs name as deliberately deferred. The deferred items are
 **roadmap, not features**: the protocol and the ADRs leave room for them without a breaking change.
 
-### Shipped (`0.1.0-SNAPSHOT`, build green)
+### Shipped (`1.0.0`, stable)
 
 | Area | What ships | Guide / ADR |
 |---|---|---|
@@ -138,11 +140,11 @@ GitHub-org-verified namespace), so you can drop the JitPack repository and depen
 coordinate:
 
 ```xml
-<!-- planned: available from the first tagged 0.1.0 on Maven Central -->
+<!-- planned: 1.0.0 on Maven Central (until then, JitPack v1.0.0 above) -->
 <dependency>
     <groupId>io.github.lievit</groupId>
     <artifactId>lievit-spring-boot-starter</artifactId>
-    <version>0.1.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 

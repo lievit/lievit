@@ -20,7 +20,7 @@
   lievit-ui jar and resolves from the lievit-kit transitive classpath — no source root needed.
 
   CLASSPATH: this module depends on the BUILT lievit-kit artifact (io.github.lievit:lievit-kit:
-  0.1.0-SNAPSHOT, installed by `./mvnw -pl lievit-kit -am install -DskipTests` from the reactor root,
+  1.0.0, installed by `./mvnw -pl lievit-kit -am install -DskipTests` from the reactor root,
   which run.sh does), which transitively brings lievit-ui (+ LievitIcons) + lievit-core + the starter
   + spring + jjwt. The kit view-models compile against the REAL bytecode.
 

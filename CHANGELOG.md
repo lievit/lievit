@@ -2,9 +2,21 @@
 
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html) once it leaves 0.x.
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-06-25
+
+First stable release. lievit is server-rendered to the core: the UI primitives are JTE partials +
+plain-TS progressive enhancers, **no Lit, no Web Components shipped** (the v-next re-forge replaced
+the early light-DOM Lit islands wholesale). The libraries are consumable **by import**: each module
+ships its `.jte` sources + client runtime in its jar, and the new `lievit-maven-plugin`
+(`stage-templates`) auto-stages every `@template.<lib>.*` namespace for the consumer's JTE precompile
+(one dependency + one plugin = the compile-gate path); copy-in (`lievit add`) stays as the opt-out.
+lievit-ui (~66 re-forged primitives, controlled/uncontrolled overlays, OKLCH token source-of-truth)
+and lievit-kit both build green and dogfood the import path end-to-end (`examples/import-poc`,
+`examples/import-poc-kit`). Semantic versioning starts here.
 
 ### Changed
 

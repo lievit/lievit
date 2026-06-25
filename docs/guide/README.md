@@ -1,7 +1,7 @@
 # lievit guide
 
 Task-oriented guides for building with lievit. They show the API **as it ships today**
-(`0.1.0-SNAPSHOT`); every snippet is drawn from the test suite or the runnable examples, so it
+(`1.0.0`); every snippet is drawn from the test suite or the runnable examples, so it
 compiles against the same code you depend on. Where a feature is on the roadmap rather than in the
 build, it is called out as such (and collected in the [roadmap](#roadmap)).
 
