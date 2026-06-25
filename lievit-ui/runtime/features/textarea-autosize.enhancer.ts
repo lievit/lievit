@@ -156,6 +156,13 @@ function updateCount(textarea: HTMLTextAreaElement): void {
  */
 export function enhanceTextareaAutosize(textarea: HTMLTextAreaElement): void {
   if (textarea.hasAttribute(ENHANCED_ATTR)) return;
+  // Migration guard (Stimulus conversion): a textarea converted to the `lv-textarea` Stimulus
+  // controller owns its own grow-to-content + count. This enhancer must NOT also wire it, or the
+  // height + count would be computed twice. Converted templates carry data-controller="lv-textarea".
+  if (textarea.matches('[data-controller~="lv-textarea"]')) {
+    textarea.setAttribute(ENHANCED_ATTR, "");
+    return;
+  }
   const hasAutosize = textarea.hasAttribute(AUTOSIZE_ATTR);
   const hasCount = textarea.hasAttribute(COUNT_FOR_ATTR);
   if (!hasAutosize && !hasCount) return;

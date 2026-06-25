@@ -300,6 +300,29 @@ describe("textarea.jte -- autosize data-hooks (spec §6)", () => {
 });
 
 // ===========================================================================
+// §6 enhance — Stimulus controller wiring (lv-textarea conversion)
+// ===========================================================================
+describe("textarea.jte -- Stimulus lv-textarea wiring (CSP-clean)", () => {
+  test("data-controller=lv-textarea is stamped ONLY when autosize OR showCount is active", () => {
+    expect(src).toContain("enhanced = autosize || showCount");
+    expect(markup).toContain('data-controller="${enhanced ? "lv-textarea" : null}"');
+  });
+
+  test("data-action wires input/morphed/mousedown/mouseup to the controller (no inline handler)", () => {
+    expect(markup).toContain("input->lv-textarea#onInput");
+    expect(markup).toContain("lievit:morphed->lv-textarea#onMorphed");
+    expect(markup).toContain("mousedown->lv-textarea#onPointerDown");
+    expect(markup).toContain("mouseup->lv-textarea#onPointerUp");
+  });
+
+  test("the data-action is null (absent) on a bare textarea (no controller, no listeners)", () => {
+    // Same `enhanced` guard gates the action attribute; JTE suppresses a null attribute.
+    expect(markup).toContain('data-action="${enhanced ?');
+    expect(markup).toContain(': null}"');
+  });
+});
+
+// ===========================================================================
 // §7 render — maxlength attribute
 // ===========================================================================
 describe("textarea.jte -- maxlength (spec §2)", () => {
