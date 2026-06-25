@@ -5,20 +5,25 @@
  * rich-select (roadmap L1) is a server-first WIRE Combobox (ADR-0012): the <lv-rich-select> Lit
  * island is gone. The catalog, the filter, the single/multiple selection, the chips, the create
  * affordance and the rich labels all live in typed Java
- * (registry/wire/rich-select/RichSelectComponent.java) rendered by JTE (rich-select.jte), with a tiny
- * CSP-clean typed-TS enhancer (rich-select.ts) for the one irreducible client bit: APG keyboard
- * navigation. This file pins (a) the registry:wire item shape + the server-purity of the source, and
- * (b) the keyboard enhancer's DOM behaviour against a DOM shaped like the partial output. The render
- * + state transitions (multiple chips + toggle, preload, create, rich labels) are render-asserted on
- * the JVM in lievit-kit (dev.lievit.kit.wire.RichSelectComponentIT).
+ * (registry/wire/rich-select/RichSelectComponent.java) rendered by JTE (rich-select.jte). The one
+ * irreducible client bit -- WAI-ARIA APG Combobox keyboard navigation -- is now the `lv-rich-select`
+ * Stimulus controller (runtime/stimulus/controllers/lv-rich-select-controller.ts), the morph-safe
+ * successor to the colocated rich-select.ts enhancer (which is retained, behind a migration guard,
+ * for non-Stimulus adopters). This file pins (a) the registry:wire item shape + the server-purity of
+ * the source, and (b) the controller's DOM behaviour against a DOM shaped like the partial output,
+ * driven by the REAL Stimulus Application + the REAL lievit wire morph (no mocked $lievit). The
+ * render + state transitions (multiple chips + toggle, preload, create, rich labels) are
+ * render-asserted on the JVM in lievit-kit (dev.lievit.kit.wire.RichSelectComponentIT).
  */
-import { describe, test, expect, afterEach } from "vitest";
+import { describe, test, it, expect, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildRegistry } from "../cli/build-registry.js";
 import { resolve } from "../cli/registry.js";
 import type { Registry } from "../cli/registry.js";
-import { enhanceRichSelects } from "../registry/wire/rich-select/rich-select.js";
+import { LievitRuntime } from "../runtime/runtime.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
 
 const registryRoot = join(import.meta.dirname, "..", "registry");
 const registry: Registry = buildRegistry(registryRoot);
@@ -95,9 +100,13 @@ describe("rich-select registry:wire item shape", () => {
     expect(jte).toContain("data-rich-select-option-avatar");
     expect(jte).toContain("data-rich-select-option-icon");
     expect(jte).toContain("data-rich-select-option-subtext");
+    // the keyboard nav is the lv-rich-select Stimulus controller, wired CSP-clean via data-action.
+    expect(jte).toContain('data-controller="lv-rich-select"');
+    expect(jte).toContain('data-action="keydown->lv-rich-select#onKeyDown"');
+    expect(jte).toContain('data-lv-rich-select-target="option"');
   });
 
-  test("the enhancer is CSP-clean: addEventListener only, no inline handler, no Lit", () => {
+  test("the legacy enhancer is CSP-clean + skips a Stimulus-controlled root", () => {
     const ts = read("wire/rich-select/rich-select.ts");
     // strip comments (the doc-comment names lit in prose to explain its absence).
     const code = ts.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
@@ -108,6 +117,9 @@ describe("rich-select registry:wire item shape", () => {
     expect(code).not.toMatch(/\bnew Function\b|\beval\(/);
     // no Lit import (the server owns the state; the client only moves the active option).
     expect(code).not.toMatch(/^import .*from "lit"/m);
+    // migration guard: a converted root (data-controller="lv-rich-select") is skipped so the
+    // controller and the legacy enhancer never double-handle the same keydown.
+    expect(code).toContain('[data-controller~="lv-rich-select"]');
   });
 
   test("resolving the wire item pulls its tokens + icon partial dependencies", () => {
@@ -120,26 +132,53 @@ describe("rich-select registry:wire item shape", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The typed-TS keyboard enhancer, against a DOM shaped like the rich-select.jte output.
+// The lv-rich-select Stimulus controller, against a DOM shaped like rich-select.jte's output,
+// driven by the REAL Stimulus Application + the REAL lievit wire morph (no mocked $lievit).
 // ---------------------------------------------------------------------------
 
+/** A real runtime backed by a fetch stub that records the wire actions the runtime POSTs. */
+function makeRuntime(): { runtime: LievitRuntime; calledActions: string[] } {
+  const calledActions: string[] = [];
+  const fetchImpl = async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const calls = body._calls as string[] | undefined;
+    if (calls) {
+      calledActions.push(...calls);
+    }
+    return new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } });
+  };
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calledActions };
+}
+
+interface Mounted {
+  root: HTMLElement;
+  search: HTMLInputElement;
+  options: HTMLElement[];
+}
+
 /** Build a rich-select root matching rich-select.jte: a search input + three option rows. */
-function renderRichSelect(): { root: HTMLElement; search: HTMLElement; options: HTMLElement[] } {
+function renderRichSelect(values: string[] = ["apple", "banana", "cherry"]): Mounted {
   const root = document.createElement("div");
   root.setAttribute("data-lievit-component", "dev.lievit.wire.RichSelectComponent");
+  root.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+  root.setAttribute("data-lievit-snapshot", "s1");
+  root.setAttribute("data-controller", "lv-rich-select");
   root.setAttribute("data-rich-select", "");
 
   const search = document.createElement("input");
   search.setAttribute("data-rich-select-search", "");
+  search.setAttribute("data-action", "keydown->lv-rich-select#onKeyDown");
   root.appendChild(search);
 
   const list = document.createElement("ul");
   list.setAttribute("role", "listbox");
   list.setAttribute("data-rich-select-listbox", "");
-  const options = ["apple", "banana", "cherry"].map((value) => {
+  const options = values.map((value) => {
     const li = document.createElement("li");
     li.setAttribute("role", "option");
     li.setAttribute("data-rich-select-option", value);
+    li.setAttribute("data-lv-rich-select-target", "option");
     li.setAttribute("aria-selected", "false");
     list.appendChild(li);
     return li;
@@ -156,18 +195,20 @@ function pressKey(search: HTMLElement, key: string): KeyboardEvent {
   return event;
 }
 
-describe("rich-select keyboard enhancer (the one irreducible client bit)", () => {
-  let teardown: () => void;
-  const runtime = { $lievit: () => null };
+const activeIndex = (options: HTMLElement[]): number =>
+  options.findIndex((o) => o.getAttribute("data-rich-select-active") === "true");
 
-  afterEach(() => {
-    teardown?.();
-    document.body.innerHTML = "";
-  });
+afterEach(() => {
+  stopStimulus();
+  document.body.innerHTML = "";
+});
 
-  test("ArrowDown moves the active option down and wraps at the end", () => {
-    const { root, search, options } = renderRichSelect();
-    teardown = enhanceRichSelects(runtime, root);
+describe("lv-rich-select controller — APG keyboard nav (real Stimulus + real runtime)", () => {
+  it("ArrowDown moves the active option down and wraps at the end", async () => {
+    const { runtime } = makeRuntime();
+    const { search, options } = renderRichSelect();
+    startStimulus({ runtime });
+    await flushStimulus();
 
     pressKey(search, "ArrowDown");
     expect(options[0].getAttribute("data-rich-select-active")).toBe("true");
@@ -180,19 +221,27 @@ describe("rich-select keyboard enhancer (the one irreducible client bit)", () =>
     expect(options[0].getAttribute("data-rich-select-active")).toBe("true");
   });
 
-  test("ArrowUp moves up and wraps to the last option from the top", () => {
+  it("ArrowUp from no active option wraps to the last; Home/End jump to the ends", async () => {
+    const { runtime } = makeRuntime();
     const { search, options } = renderRichSelect();
-    teardown = enhanceRichSelects(runtime);
+    startStimulus({ runtime });
+    await flushStimulus();
 
     pressKey(search, "ArrowUp"); // from none (-1) wraps to the last
     expect(options[2].getAttribute("data-rich-select-active")).toBe("true");
+    pressKey(search, "Home");
+    expect(activeIndex(options)).toBe(0);
+    pressKey(search, "End");
+    expect(activeIndex(options)).toBe(2);
   });
 
-  test("Enter activates the focused option by synthetically clicking it (its server l:click)", () => {
+  it("Enter activates the active option by synthetically clicking it (its server l:click)", async () => {
+    const { runtime } = makeRuntime();
     const { search, options } = renderRichSelect();
     let clicked = "";
     options[1].addEventListener("click", () => (clicked = "banana"));
-    teardown = enhanceRichSelects(runtime);
+    startStimulus({ runtime });
+    await flushStimulus();
 
     pressKey(search, "ArrowDown"); // active = apple
     pressKey(search, "ArrowDown"); // active = banana
@@ -201,15 +250,88 @@ describe("rich-select keyboard enhancer (the one irreducible client bit)", () =>
     expect(event.defaultPrevented).toBe(true);
   });
 
-  test("enhancing twice is idempotent (a re-render after a morph re-uses the same root)", () => {
-    const { root, search, options } = renderRichSelect();
-    teardown = enhanceRichSelects(runtime, root);
-    const second = enhanceRichSelects(runtime, root); // no-op: already wired
-    second();
+  it("aria-disabled options are skipped (only selectable rows navigate)", async () => {
+    const { runtime } = makeRuntime();
+    const { search, options } = renderRichSelect();
+    options[1].setAttribute("aria-disabled", "true"); // banana is disabled
+    startStimulus({ runtime });
+    await flushStimulus();
 
+    pressKey(search, "ArrowDown"); // apple
+    expect(options[0].getAttribute("data-rich-select-active")).toBe("true");
+    pressKey(search, "ArrowDown"); // skips banana -> cherry
+    expect(options[2].getAttribute("data-rich-select-active")).toBe("true");
+    expect(options[1].getAttribute("data-rich-select-active")).toBeNull();
+  });
+
+  it("issues ZERO wire calls of its own (controlled/uncontrolled doctrine: no spurious round-trip)", async () => {
+    const { runtime, calledActions } = makeRuntime();
+    const { search } = renderRichSelect();
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    pressKey(search, "ArrowDown");
+    pressKey(search, "ArrowUp");
+    pressKey(search, "Home");
+    pressKey(search, "End");
+    pressKey(search, "Enter");
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions).toHaveLength(0);
+  });
+});
+
+describe("lv-rich-select controller — morph-safety (real lievit morph)", () => {
+  it("after a real morph one ArrowDown moves exactly one step (no stacked listeners)", async () => {
+    const { runtime } = makeRuntime();
+    const { root } = renderRichSelect();
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    // A real lievit wire morph re-renders the component subtree (idiomorph). The markup is identical,
+    // so the controller must NOT be double-connected and the keydown action must stay single.
+    morph(
+      root,
+      `<div data-lievit-component="dev.lievit.wire.RichSelectComponent" data-lievit-snapshot="s2"
+            data-controller="lv-rich-select" data-rich-select>
+         <input data-rich-select-search data-action="keydown->lv-rich-select#onKeyDown" />
+         <ul role="listbox" data-rich-select-listbox>
+           <li role="option" data-rich-select-option="apple" data-lv-rich-select-target="option" aria-selected="false"></li>
+           <li role="option" data-rich-select-option="banana" data-lv-rich-select-target="option" aria-selected="false"></li>
+           <li role="option" data-rich-select-option="cherry" data-lv-rich-select-target="option" aria-selected="false"></li>
+         </ul>
+       </div>`,
+    );
+    await flushStimulus();
+
+    const search = root.querySelector<HTMLElement>("[data-rich-select-search]")!;
+    const options = Array.from(root.querySelectorAll<HTMLElement>("[data-rich-select-option]"));
     pressKey(search, "ArrowDown");
     // exactly one activation, not a double-step from two listeners.
     expect(options[0].getAttribute("data-rich-select-active")).toBe("true");
     expect(options[1].getAttribute("data-rich-select-active")).toBeNull();
+  });
+
+  it("a morph that drops the options re-resolves the target set (a key press is then a no-op)", async () => {
+    const { runtime } = makeRuntime();
+    const { root } = renderRichSelect();
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    // Morph the options out but keep the (still-controlled) search input.
+    morph(
+      root,
+      `<div data-lievit-component="dev.lievit.wire.RichSelectComponent" data-lievit-snapshot="s2"
+            data-controller="lv-rich-select" data-rich-select>
+         <input data-rich-select-search data-action="keydown->lv-rich-select#onKeyDown" />
+         <ul role="listbox" data-rich-select-listbox></ul>
+       </div>`,
+    );
+    await flushStimulus();
+
+    const search = root.querySelector<HTMLElement>("[data-rich-select-search]")!;
+    // No options -> the controller returns early; the press must not throw and nothing activates.
+    expect(() => pressKey(search, "ArrowDown")).not.toThrow();
+    expect(root.querySelector("[data-rich-select-active]")).toBeNull();
   });
 });
