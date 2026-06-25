@@ -174,6 +174,7 @@
   aria-disabled="${disabled ? "true" : null}"
   data-slot="color-picker"
   data-size="${size}"
+  data-controller="lv-color-picker"
   data-lv-color-picker
   data-lv-cp-alpha="${alpha ? "true" : null}"
   data-lv-cp-format="${format}"
@@ -184,12 +185,13 @@
   $unsafe{attrs}
 >
   <%-- Trigger button: opens the popover, shows a colored preview swatch + committed hex label.
-       aria-expanded is "false" on render; the enhancer sets it to "true" on open.
+       aria-expanded is "false" on render; the lv-color-picker controller sets it to "true" on open.
        aria-label carries the current value so AT reads the selection without opening the picker. --%>
   <button
     type="button"
     id="${baseId}-trigger"
     data-slot="trigger"
+    data-action="click->lv-color-picker#open"
     aria-expanded="false"
     aria-haspopup="dialog"
     aria-controls="${baseId}-popover"
@@ -232,6 +234,7 @@
     aria-modal="false"
     popover
     data-slot="popover"
+    data-action="keydown->lv-color-picker#onPanelKeydown focusout->lv-color-picker#onPanelFocusout"
     class="lv-cp-popover m-0 flex w-64 flex-col gap-[var(--lv-space-3)] rounded-[var(--lv-radius-lg)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] p-[var(--lv-space-3)] shadow-[var(--lv-shadow-md)] outline-none z-[var(--lv-z-popover)]"
   >
     <%-- Color preview square: live background set by the enhancer; decorative (aria-hidden). --%>
@@ -255,6 +258,7 @@
         type="text"
         id="${baseId}-hex"
         data-slot="hex-input"
+        data-action="input->lv-color-picker#onHexInput"
         value="${displayValue}"
         maxlength="7"
         aria-label="Hex color"
@@ -275,6 +279,7 @@
           type="number"
           id="${baseId}-r"
           data-slot="channel-r"
+          data-action="input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown"
           value="${initR}"
           min="0"
           max="255"
@@ -292,6 +297,7 @@
           type="number"
           id="${baseId}-g"
           data-slot="channel-g"
+          data-action="input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown"
           value="${initG}"
           min="0"
           max="255"
@@ -309,6 +315,7 @@
           type="number"
           id="${baseId}-b"
           data-slot="channel-b"
+          data-action="input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown"
           value="${initB}"
           min="0"
           max="255"
@@ -333,6 +340,7 @@
           type="number"
           id="${baseId}-h"
           data-slot="channel-h"
+          data-action="input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown"
           value="${initHi}"
           min="0"
           max="360"
@@ -351,6 +359,7 @@
           type="number"
           id="${baseId}-s"
           data-slot="channel-s"
+          data-action="input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown"
           value="${initSi}"
           min="0"
           max="100"
@@ -369,6 +378,7 @@
           type="number"
           id="${baseId}-l"
           data-slot="channel-l"
+          data-action="input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown"
           value="${initLi}"
           min="0"
           max="100"
@@ -391,6 +401,7 @@
           type="range"
           id="${baseId}-a"
           data-slot="alpha-input"
+          data-action="input->lv-color-picker#onAlphaInput"
           min="0"
           max="100"
           step="1"
@@ -411,6 +422,7 @@
       <button
         type="button"
         data-slot="format-toggle"
+        data-action="click->lv-color-picker#cycleFormat"
         aria-label="Format: ${formatLabel}"
         class="inline-flex h-[var(--lv-space-7)] items-center rounded-[var(--lv-radius-sm)] border border-[var(--lv-color-border)] bg-[var(--lv-color-secondary)] px-[var(--lv-space-2)] text-[length:var(--lv-text-xs)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] outline-none transition-colors hover:bg-[var(--lv-color-accent)] focus-visible:shadow-[var(--lv-ring)]"
       >${formatLabel}</button>
@@ -423,6 +435,7 @@
         <button
           type="button"
           data-slot="eyedropper-btn"
+          data-action="click->lv-color-picker#onEyedropper"
           aria-label="Pick color from screen"
           class="inline-flex h-[var(--lv-space-7)] w-[var(--lv-space-7)] items-center justify-center rounded-[var(--lv-radius-sm)] border border-[var(--lv-color-border)] bg-[var(--lv-color-secondary)] text-[var(--lv-color-fg)] outline-none transition-colors hover:bg-[var(--lv-color-accent)] focus-visible:shadow-[var(--lv-ring)]"
         >
@@ -453,6 +466,7 @@
           <button
             type="button"
             data-slot="swatch"
+            data-action="click->lv-color-picker#onSwatchClick"
             data-color="${swatch}"
             data-lievit-item
             aria-label="${swatch}"
@@ -480,12 +494,14 @@
       <button
         type="button"
         data-slot="cancel-btn"
+        data-action="click->lv-color-picker#cancel"
         aria-label="Cancel"
         class="inline-flex h-[var(--lv-space-8)] items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-secondary)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] outline-none transition-colors hover:bg-[var(--lv-color-accent)] focus-visible:shadow-[var(--lv-ring)]"
       >Cancel</button>
       <button
         type="button"
         data-slot="confirm-btn"
+        data-action="click->lv-color-picker#confirm"
         aria-label="Confirm color"
         class="inline-flex h-[var(--lv-space-8)] items-center rounded-[var(--lv-radius-md)] bg-[var(--lv-color-primary)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-primary-fg)] outline-none transition-colors hover:opacity-90 focus-visible:shadow-[var(--lv-ring)]"
       >OK</button>

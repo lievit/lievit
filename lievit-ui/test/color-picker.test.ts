@@ -2,32 +2,42 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * color-picker v-next -- source-text + enhancer tests.
+ * color-picker v-next -- source-text + Stimulus-controller tests (converted from the enhancer
+ * model to `lv-color-picker`).
  *
- * Two halves:
+ * Three halves:
  *   1. Source-text golden assertions on the JTE source (param names, data-slot, ARIA shape,
- *      data-lievit-* hooks, CSP-clean invariants, no dev.lievit import, swatches via param).
- *   2. Enhancer DOM tests on a DOM shaped like the server-rendered partial (channel sync,
- *      popover open/close, format toggle, swatch application, spinbutton keys, eyedropper,
- *      confirm/cancel, focus restore).
+ *      data-controller / data-action wiring, data-lievit-* hooks, CSP-clean invariants, no
+ *      dev.lievit import, swatches via param).
+ *   2. Color-math unit tests on the pure functions the controller exports.
+ *   3. Behaviour tests that drive the REAL `lv-color-picker` Stimulus controller over a DOM shaped
+ *      exactly like the server-rendered partial (data-controller + the data-action contract). No
+ *      mocked $lievit, no mocked channel math: startStimulus() runs the real Application that
+ *      auto-loads the controller by filename, flushStimulus() awaits its MutationObserver, and the
+ *      controlled/uncontrolled doctrine + morph-safety are proven through the real lievit wire morph
+ *      and a fetch-stub-backed runtime.
  *
- * The client-island fidelity lesson (CLAUDE.md): these tests run the REAL enhancer against a
- * real DOM build in happy-dom. No mocked $lievit, no mocked channel math. The channel-sync
- * and swatch-roving behaviors are exactly the kind of client logic that slips through
- * fake-substrate tests. Every assertion in the spec §7 acceptance gate is represented here.
+ * The client-island fidelity lesson (CLAUDE.md): channel sync + swatch selection are exactly the
+ * client logic that slips through fake-substrate tests, so every spec §7 acceptance branch is
+ * asserted against the real controller here.
  */
 import { describe, test, expect, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  enhanceColorPicker,
-  enhanceAllColorPickers,
   hexToRgb,
   rgbToHex,
   rgbToHsl,
   hslToRgb,
   clamp,
-} from "../registry/jte/color-picker.enhancer.js";
+} from "../runtime/stimulus/controllers/lv-color-picker-controller.js";
+import {
+  startStimulus,
+  stopStimulus,
+  flushStimulus,
+} from "../runtime/stimulus/application.js";
+import { LievitRuntime } from "../runtime/runtime.js";
+import { morph } from "../runtime/morph.js";
 
 // ---------------------------------------------------------------------------
 // Source-text helpers
@@ -38,7 +48,7 @@ const readJte = (rel: string) => readFileSync(join(jteDir, rel), "utf8");
 const stripComments = (src: string) => src.replace(/<%--[\s\S]*?--%>/g, "");
 
 // ---------------------------------------------------------------------------
-// 1. Source-text assertions (no enhancer, no DOM)
+// 1. Source-text assertions (no controller, no DOM)
 // ---------------------------------------------------------------------------
 
 describe("color-picker.jte -- source-text invariants", () => {
@@ -50,15 +60,12 @@ describe("color-picker.jte -- source-text invariants", () => {
   });
 
   test("no nested JTE comments (would mis-parse the gate)", () => {
-    // After stripping the outer doc-comment, no --%> should remain inside a <%-- block.
-    // Simplest proxy: count opening and closing JTE comment delimiters are balanced.
     const opens = (src.match(/<%--/g) ?? []).length;
     const closes = (src.match(/--%>/g) ?? []).length;
     expect(opens).toBe(closes);
   });
 
   test("no @if(...) inside an attribute name position (smart attributes only)", () => {
-    // JTE hard rule: @if inside attribute-name position => parse error.
     expect(markup).not.toMatch(/\s@if\([^)]+\)[a-z-]+=["']/);
   });
 
@@ -66,8 +73,12 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(markup).not.toMatch(/<\$\{/);
   });
 
-  test("root carries the mount hook for the enhancer", () => {
+  test("root carries the mount hook for the controller", () => {
     expect(markup).toContain("data-lv-color-picker");
+  });
+
+  test("root carries the Stimulus controller identifier", () => {
+    expect(markup).toContain('data-controller="lv-color-picker"');
   });
 
   test("data-slot on root is color-picker", () => {
@@ -78,11 +89,12 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(markup).toContain('data-size="${size}"');
   });
 
-  test("trigger button has aria-expanded, aria-haspopup, aria-controls, aria-label", () => {
+  test("trigger button has aria-expanded, aria-haspopup, aria-controls, aria-label + open action", () => {
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain('aria-haspopup="dialog"');
     expect(markup).toContain('aria-controls="${baseId}-popover"');
     expect(markup).toContain("Pick color:");
+    expect(markup).toContain('data-action="click->lv-color-picker#open"');
   });
 
   test("native input is aria-hidden + tabindex=-1 (not in tab order)", () => {
@@ -92,20 +104,23 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(markup).toContain('name="${name}"');
   });
 
-  test("popover panel has role=dialog aria-modal=false and the popover attribute", () => {
+  test("popover panel has role=dialog aria-modal=false, the popover attribute, and the dismiss actions", () => {
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain('aria-modal="false"');
     expect(markup).toContain("popover");
     expect(markup).toContain('data-slot="popover"');
+    expect(markup).toContain("keydown->lv-color-picker#onPanelKeydown");
+    expect(markup).toContain("focusout->lv-color-picker#onPanelFocusout");
   });
 
-  test("hex-input has aria-label and aria-describedby", () => {
+  test("hex-input has aria-label, aria-describedby, and the input sync action", () => {
     expect(markup).toContain('data-slot="hex-input"');
     expect(markup).toContain('aria-label="Hex color"');
     expect(markup).toContain("aria-describedby");
+    expect(markup).toContain('data-action="input->lv-color-picker#onHexInput"');
   });
 
-  test("channel inputs have aria-label, aria-valuemin, aria-valuemax, aria-valuenow", () => {
+  test("channel inputs have aria-label/min/max/now + the input+keydown actions", () => {
     expect(markup).toContain('data-slot="channel-r"');
     expect(markup).toContain('data-slot="channel-g"');
     expect(markup).toContain('data-slot="channel-b"');
@@ -121,17 +136,23 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(markup).toContain("aria-valuemin");
     expect(markup).toContain("aria-valuemax");
     expect(markup).toContain("aria-valuenow");
+    expect(markup).toContain(
+      'data-action="input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown"',
+    );
+    // exactly the six channels carry the channel action
+    expect((markup.match(/input->lv-color-picker#onChannelInput/g) ?? []).length).toBe(6);
   });
 
-  test("alpha input is conditional on alpha param and has role-appropriate attributes", () => {
+  test("alpha input is conditional on alpha param, has role-appropriate attributes + the alpha action", () => {
     expect(markup).toContain("@if(alpha)");
     expect(markup).toContain('data-slot="alpha-input"');
     expect(markup).toContain('aria-label="Alpha"');
     expect(markup).toContain('aria-valuemax="100"');
     expect(markup).toContain("aria-valuetext");
+    expect(markup).toContain('data-action="input->lv-color-picker#onAlphaInput"');
   });
 
-  test("swatch grid has role=toolbar + collection-nav data attributes", () => {
+  test("swatch grid has role=toolbar + collection-nav data attributes (roving stays with collection-nav)", () => {
     expect(markup).toContain('role="toolbar"');
     expect(markup).toContain('aria-label="Color presets"');
     expect(markup).toContain('data-slot="swatches"');
@@ -142,13 +163,14 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(markup).toContain('data-manual-activation="true"');
   });
 
-  test("swatch buttons have aria-label, aria-pressed, tabindex, data-color", () => {
+  test("swatch buttons have aria-label, aria-pressed, tabindex, data-color + the swatch action", () => {
     expect(markup).toContain('data-slot="swatch"');
-    expect(markup).toContain('data-lievit-item');
+    expect(markup).toContain("data-lievit-item");
     expect(markup).toContain("aria-label=");
     expect(markup).toContain("aria-pressed=");
     expect(markup).toContain("data-color=");
     expect(markup).toContain("tabindex=");
+    expect(markup).toContain('data-action="click->lv-color-picker#onSwatchClick"');
   });
 
   test("swatches are conditional on the swatches List param (never hardcoded)", () => {
@@ -156,28 +178,31 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(src).toMatch(/@param java\.util\.List<String> swatches/);
   });
 
-  test("eyedropper button is conditional on eyedropper param", () => {
+  test("eyedropper button is conditional on eyedropper param + carries its action", () => {
     expect(markup).toContain("@if(eyedropper)");
     expect(markup).toContain('data-slot="eyedropper-btn"');
     expect(markup).toContain('aria-label="Pick color from screen"');
+    expect(markup).toContain('data-action="click->lv-color-picker#onEyedropper"');
   });
 
   test("eyedropper uses inline SVG (not a template call -- would import dev.lievit)", () => {
-    // The MARKUP (non-comment part) must not call @template.lievit.icon; must have an inline <svg>
     expect(markup).not.toMatch(/@template\.lievit\.icon/);
     expect(markup).toContain("<svg");
   });
 
-  test("format-toggle button has aria-label with the current format", () => {
+  test("format-toggle button has aria-label with the current format + the cycle action", () => {
     expect(markup).toContain('data-slot="format-toggle"');
     expect(markup).toContain("Format:");
+    expect(markup).toContain('data-action="click->lv-color-picker#cycleFormat"');
   });
 
-  test("confirm + cancel buttons have aria-label", () => {
+  test("confirm + cancel buttons have aria-label + their actions", () => {
     expect(markup).toContain('data-slot="confirm-btn"');
     expect(markup).toContain('data-slot="cancel-btn"');
     expect(markup).toContain('aria-label="Confirm color"');
     expect(markup).toContain('aria-label="Cancel"');
+    expect(markup).toContain('data-action="click->lv-color-picker#confirm"');
+    expect(markup).toContain('data-action="click->lv-color-picker#cancel"');
   });
 
   test("live region is always in the DOM (not JS-injected, respects CSP)", () => {
@@ -187,13 +212,12 @@ describe("color-picker.jte -- source-text invariants", () => {
     expect(markup).toContain('data-slot="live-region"');
   });
 
-  test("no inline <script> or on* handlers (CSP-clean)", () => {
+  test("no inline <script> or on* handlers (CSP-clean; behaviour lives in the controller)", () => {
     expect(markup).not.toMatch(/<script/);
     expect(markup).not.toMatch(/\son[a-z]+=/);
   });
 
   test("swatch background via style= (the one permitted inline-style use for color values)", () => {
-    // The CSS property value channel is permitted; the on*= handler channel is not.
     expect(markup).toContain("background-color:${swatch}");
   });
 
@@ -220,7 +244,7 @@ describe("color-picker.jte -- source-text invariants", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Color math unit tests (pure functions)
+// 2. Color math unit tests (pure functions exported by the controller)
 // ---------------------------------------------------------------------------
 
 describe("color math utilities", () => {
@@ -279,7 +303,6 @@ describe("color math utilities", () => {
     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
     const rgb2 = hslToRgb(hsl.h, hsl.s, hsl.l);
     const hex2 = rgbToHex(rgb2.r, rgb2.g, rgb2.b);
-    // Allow ±1 rounding on each channel
     const r1 = hexToRgb(hex)!;
     const r2 = hexToRgb(hex2)!;
     expect(Math.abs(r1.r - r2.r)).toBeLessThanOrEqual(2);
@@ -289,8 +312,11 @@ describe("color math utilities", () => {
 });
 
 // ---------------------------------------------------------------------------
-// DOM builder helpers
+// DOM builder helpers -- emit the partial's markup INCLUDING data-controller + data-action
 // ---------------------------------------------------------------------------
+
+const CHANNEL_ACTION =
+  "input->lv-color-picker#onChannelInput keydown->lv-color-picker#onChannelKeydown";
 
 function buildPickerDom(opts: {
   value?: string;
@@ -302,6 +328,7 @@ function buildPickerDom(opts: {
   disabled?: boolean;
   size?: string;
   name?: string;
+  appendTo?: ParentNode;
 } = {}): HTMLElement {
   const {
     value = "#3b82f6",
@@ -313,6 +340,7 @@ function buildPickerDom(opts: {
     disabled = false,
     size = "md",
     name = "color",
+    appendTo = document.body,
   } = opts;
 
   const root = document.createElement("div");
@@ -320,6 +348,7 @@ function buildPickerDom(opts: {
   root.setAttribute("aria-label", "Color picker");
   root.setAttribute("data-slot", "color-picker");
   root.setAttribute("data-size", size);
+  root.setAttribute("data-controller", "lv-color-picker");
   root.setAttribute("data-lv-color-picker", "");
   root.setAttribute("data-lv-cp-format", format);
   if (alpha) root.setAttribute("data-lv-cp-alpha", "true");
@@ -331,17 +360,16 @@ function buildPickerDom(opts: {
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.setAttribute("data-slot", "trigger");
+  trigger.setAttribute("data-action", "click->lv-color-picker#open");
   trigger.setAttribute("aria-expanded", "false");
   trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute("aria-controls", "test-popover");
   trigger.setAttribute("aria-label", `Pick color: ${value}`);
   if (disabled) trigger.disabled = true;
-  // Swatch span inside trigger
   const swatchSpan = document.createElement("span");
   swatchSpan.setAttribute("aria-hidden", "true");
   swatchSpan.style.backgroundColor = value;
   trigger.appendChild(swatchSpan);
-  // Text span inside trigger
   const textSpan = document.createElement("span");
   textSpan.className = "font-mono";
   textSpan.textContent = value;
@@ -364,6 +392,10 @@ function buildPickerDom(opts: {
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "false");
   panel.setAttribute("data-slot", "popover");
+  panel.setAttribute(
+    "data-action",
+    "keydown->lv-color-picker#onPanelKeydown focusout->lv-color-picker#onPanelFocusout",
+  );
   panel.setAttribute("popover", "");
 
   // Color preview
@@ -380,6 +412,7 @@ function buildPickerDom(opts: {
   const hexInput = document.createElement("input");
   hexInput.type = "text";
   hexInput.setAttribute("data-slot", "hex-input");
+  hexInput.setAttribute("data-action", "input->lv-color-picker#onHexInput");
   hexInput.setAttribute("aria-label", "Hex color");
   hexInput.value = value;
   const hexHint = document.createElement("span");
@@ -402,6 +435,7 @@ function buildPickerDom(opts: {
     const inp = document.createElement("input");
     inp.type = "number";
     inp.setAttribute("data-slot", slot);
+    inp.setAttribute("data-action", CHANNEL_ACTION);
     inp.setAttribute("aria-label", label);
     inp.setAttribute("aria-valuemin", "0");
     inp.setAttribute("aria-valuemax", String(max));
@@ -425,6 +459,7 @@ function buildPickerDom(opts: {
     const inp = document.createElement("input");
     inp.type = "number";
     inp.setAttribute("data-slot", sl);
+    inp.setAttribute("data-action", CHANNEL_ACTION);
     inp.setAttribute("aria-label", label);
     inp.setAttribute("aria-valuemin", "0");
     inp.setAttribute("aria-valuemax", String(max));
@@ -443,6 +478,7 @@ function buildPickerDom(opts: {
     const alphaInp = document.createElement("input");
     alphaInp.type = "range";
     alphaInp.setAttribute("data-slot", "alpha-input");
+    alphaInp.setAttribute("data-action", "input->lv-color-picker#onAlphaInput");
     alphaInp.setAttribute("aria-label", "Alpha");
     alphaInp.setAttribute("aria-valuemin", "0");
     alphaInp.setAttribute("aria-valuemax", "100");
@@ -460,6 +496,7 @@ function buildPickerDom(opts: {
   const fmtBtn = document.createElement("button");
   fmtBtn.type = "button";
   fmtBtn.setAttribute("data-slot", "format-toggle");
+  fmtBtn.setAttribute("data-action", "click->lv-color-picker#cycleFormat");
   const labels: Record<string, string> = { hex: "Hex", rgb: "RGB", hsl: "HSL" };
   fmtBtn.setAttribute("aria-label", `Format: ${labels[format] ?? "Hex"}`);
   fmtBtn.textContent = labels[format] ?? "Hex";
@@ -469,6 +506,7 @@ function buildPickerDom(opts: {
     const eyeBtn = document.createElement("button");
     eyeBtn.type = "button";
     eyeBtn.setAttribute("data-slot", "eyedropper-btn");
+    eyeBtn.setAttribute("data-action", "click->lv-color-picker#onEyedropper");
     eyeBtn.setAttribute("aria-label", "Pick color from screen");
     fmtRow.appendChild(eyeBtn);
   }
@@ -490,6 +528,7 @@ function buildPickerDom(opts: {
       const swBtn = document.createElement("button");
       swBtn.type = "button";
       swBtn.setAttribute("data-slot", "swatch");
+      swBtn.setAttribute("data-action", "click->lv-color-picker#onSwatchClick");
       swBtn.setAttribute("data-color", sw);
       swBtn.setAttribute("data-lievit-item", "");
       swBtn.setAttribute("aria-label", sw);
@@ -517,11 +556,13 @@ function buildPickerDom(opts: {
   const cancelBtn = document.createElement("button");
   cancelBtn.type = "button";
   cancelBtn.setAttribute("data-slot", "cancel-btn");
+  cancelBtn.setAttribute("data-action", "click->lv-color-picker#cancel");
   cancelBtn.setAttribute("aria-label", "Cancel");
   cancelBtn.textContent = "Cancel";
   const confirmBtn = document.createElement("button");
   confirmBtn.type = "button";
   confirmBtn.setAttribute("data-slot", "confirm-btn");
+  confirmBtn.setAttribute("data-action", "click->lv-color-picker#confirm");
   confirmBtn.setAttribute("aria-label", "Confirm color");
   confirmBtn.textContent = "OK";
   actions.appendChild(cancelBtn);
@@ -530,20 +571,23 @@ function buildPickerDom(opts: {
 
   root.appendChild(panel);
 
-  // Stub popover API on the panel (happy-dom may not implement it)
-  let popoverOpen = false;
+  // Stub the native popover API (happy-dom may not implement it).
+  installPopoverStub(panel);
+
+  appendTo.appendChild(root);
+  return root;
+}
+
+/** Stub showPopover/hidePopover on a panel: track open state via the data-open attribute. */
+function installPopoverStub(panel: HTMLElement): void {
   Object.defineProperty(panel, "showPopover", {
-    value: () => { popoverOpen = true; panel.setAttribute("data-open", "true"); },
+    value: () => { panel.setAttribute("data-open", "true"); },
     configurable: true,
   });
   Object.defineProperty(panel, "hidePopover", {
-    value: () => { popoverOpen = false; panel.removeAttribute("data-open"); },
+    value: () => { panel.removeAttribute("data-open"); },
     configurable: true,
   });
-  Object.defineProperty(panel, "_isOpen", { get: () => popoverOpen, configurable: true });
-
-  document.body.appendChild(root);
-  return root;
 }
 
 function getSlot<T extends HTMLElement = HTMLElement>(root: Element, name: string): T {
@@ -560,42 +604,62 @@ function fireKeydown(el: HTMLElement, key: string): void {
   el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 }
 
+/** Start the real Stimulus Application (auto-loads lv-color-picker) and await its observer. */
+async function connect(runtime?: LievitRuntime): Promise<void> {
+  startStimulus(runtime != null ? { runtime } : {});
+  await flushStimulus();
+}
+
+/** A real runtime backed by a fetch stub that records the wire actions it is asked to POST. */
+function makeRuntime(): { runtime: LievitRuntime; calledActions: string[] } {
+  const calledActions: string[] = [];
+  const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const calls = body._calls as string[] | undefined;
+    if (calls) calledActions.push(...calls);
+    return new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } });
+  });
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calledActions };
+}
+
 afterEach(() => {
+  stopStimulus();
   document.body.innerHTML = "";
   vi.restoreAllMocks();
+  const win = window as unknown as Record<string, unknown>;
+  delete win["EyeDropper"];
 });
 
 // ---------------------------------------------------------------------------
-// 3. Render assertions
+// 3. Render / initial state (real controller)
 // ---------------------------------------------------------------------------
 
-describe("color-picker enhancer -- render / initial state", () => {
-  test("trigger aria-label contains current value", () => {
+describe("color-picker controller -- render / initial state", () => {
+  test("trigger aria-label contains current value", async () => {
     const root = buildPickerDom({ value: "#3b82f6" });
-    enhanceColorPicker(root);
-    const trigger = getSlot(root, "trigger");
-    expect(trigger.getAttribute("aria-label")).toBe("Pick color: #3b82f6");
+    await connect();
+    expect(getSlot(root, "trigger").getAttribute("aria-label")).toBe("Pick color: #3b82f6");
   });
 
-  test("native input is aria-hidden, tabindex=-1, carries name", () => {
+  test("native input is aria-hidden, tabindex=-1, carries name", async () => {
     const root = buildPickerDom({ name: "bg" });
-    enhanceColorPicker(root);
+    await connect();
     const native = getSlot<HTMLInputElement>(root, "native-input");
     expect(native.getAttribute("aria-hidden")).toBe("true");
     expect(native.tabIndex).toBe(-1);
     expect(native.name).toBe("bg");
   });
 
-  test("popover closed by default (data-open not set)", () => {
+  test("popover closed by default (data-open not set)", async () => {
     const root = buildPickerDom();
-    enhanceColorPicker(root);
-    const panel = getSlot(root, "popover");
-    expect(panel.hasAttribute("data-open")).toBe(false);
+    await connect();
+    expect(getSlot(root, "popover").hasAttribute("data-open")).toBe(false);
   });
 
-  test("data-size on root matches size param", () => {
+  test("data-size on root matches size param", async () => {
     const root = buildPickerDom({ size: "lg" });
-    enhanceColorPicker(root);
+    await connect();
     expect(root.getAttribute("data-size")).toBe("lg");
   });
 
@@ -604,28 +668,27 @@ describe("color-picker enhancer -- render / initial state", () => {
     expect(root.getAttribute("data-slot")).toBe("color-picker");
   });
 
-  test("alpha row absent when alpha=false", () => {
+  test("alpha row absent when alpha=false", async () => {
     const root = buildPickerDom({ alpha: false });
-    enhanceColorPicker(root);
+    await connect();
     expect(root.querySelector('[data-slot="alpha-input"]')).toBeNull();
   });
 
-  test("alpha row present when alpha=true with aria-valuemax=100", () => {
+  test("alpha row present when alpha=true with aria-valuemax=100", async () => {
     const root = buildPickerDom({ alpha: true, alphaValue: 75 });
-    enhanceColorPicker(root);
-    const inp = getSlot<HTMLInputElement>(root, "alpha-input");
-    expect(inp.getAttribute("aria-valuemax")).toBe("100");
+    await connect();
+    expect(getSlot<HTMLInputElement>(root, "alpha-input").getAttribute("aria-valuemax")).toBe("100");
   });
 
-  test("eyedropper button absent when eyedropper=false", () => {
+  test("eyedropper button absent when eyedropper=false", async () => {
     const root = buildPickerDom({ eyedropper: false });
-    enhanceColorPicker(root);
+    await connect();
     expect(root.querySelector('[data-slot="eyedropper-btn"]')).toBeNull();
   });
 
-  test("swatches render: two swatches with correct aria-label, aria-pressed, tabindex", () => {
+  test("swatches render: two swatches with correct aria-label, aria-pressed, tabindex", async () => {
     const root = buildPickerDom({ value: "#ff0000", swatches: ["#ff0000", "#00ff00"] });
-    enhanceColorPicker(root);
+    await connect();
     const swatches = Array.from(root.querySelectorAll('[data-slot="swatch"]'));
     expect(swatches).toHaveLength(2);
     expect(swatches[0].getAttribute("aria-label")).toBe("#ff0000");
@@ -636,47 +699,41 @@ describe("color-picker enhancer -- render / initial state", () => {
     expect((swatches[1] as HTMLElement).tabIndex).toBe(-1);
   });
 
-  test("disabled: trigger has disabled attribute; root has aria-disabled=true", () => {
+  test("disabled: trigger has disabled attribute; root has aria-disabled=true", async () => {
     const root = buildPickerDom({ disabled: true });
-    enhanceColorPicker(root);
+    await connect();
     expect(root.getAttribute("aria-disabled")).toBe("true");
-    const trigger = getSlot<HTMLButtonElement>(root, "trigger");
-    expect(trigger.disabled).toBe(true);
+    expect(getSlot<HTMLButtonElement>(root, "trigger").disabled).toBe(true);
   });
 
-  test("disabled: clicking trigger does not open the popover", () => {
+  test("disabled: clicking trigger does not open the popover", async () => {
     const root = buildPickerDom({ disabled: true });
-    enhanceColorPicker(root);
-    const trigger = getSlot<HTMLButtonElement>(root, "trigger");
-    trigger.click();
-    const panel = getSlot(root, "popover");
-    expect(panel.hasAttribute("data-open")).toBe(false);
+    await connect();
+    getSlot<HTMLButtonElement>(root, "trigger").click();
+    expect(getSlot(root, "popover").hasAttribute("data-open")).toBe(false);
   });
 
-  test("idempotent: enhancing twice does not duplicate listeners", () => {
-    const root = buildPickerDom();
-    enhanceColorPicker(root);
-    enhanceColorPicker(root);
-    expect(root.getAttribute("data-lv-cp-enhanced")).toBe("");
-  });
-
-  test("enhanceAllColorPickers wires every root in scope", () => {
-    const root1 = buildPickerDom();
-    const root2 = buildPickerDom();
-    enhanceAllColorPickers();
-    expect(root1.hasAttribute("data-lv-cp-enhanced")).toBe(true);
-    expect(root2.hasAttribute("data-lv-cp-enhanced")).toBe(true);
+  test("connect() wires every root on the page (one Application, all roots)", async () => {
+    const root1 = buildPickerDom({ value: "#000000" });
+    const root2 = buildPickerDom({ value: "#ffffff" });
+    await connect();
+    // Each root has its own live controller. (Opening root2 light-dismisses root1 via focusout,
+    // which is correct, so assert each picker responds at the moment it is opened.)
+    getSlot<HTMLButtonElement>(root1, "trigger").click();
+    expect(getSlot(root1, "popover").hasAttribute("data-open")).toBe(true);
+    getSlot<HTMLButtonElement>(root2, "trigger").click();
+    expect(getSlot(root2, "popover").hasAttribute("data-open")).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 4. Channel sync (REAL enhancer, no mock)
+// 4. Channel sync (real controller)
 // ---------------------------------------------------------------------------
 
-describe("color-picker enhancer -- channel sync", () => {
-  test("hex -> RGB sync: #ff8000 -> R=255, G=128, B=0", () => {
+describe("color-picker controller -- channel sync", () => {
+  test("hex -> RGB sync: #ff8000 -> R=255, G=128, B=0", async () => {
     const root = buildPickerDom({ value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
     hexInp.value = "#ff8000";
     fireInput(hexInp);
@@ -685,19 +742,18 @@ describe("color-picker enhancer -- channel sync", () => {
     expect(getSlot<HTMLInputElement>(root, "channel-b").value).toBe("0");
   });
 
-  test("hex -> RGB sync: preview square background-color updated", () => {
+  test("hex -> RGB sync: preview square background-color updated", async () => {
     const root = buildPickerDom({ value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
     hexInp.value = "#ff8000";
     fireInput(hexInp);
-    const preview = getSlot(root, "color-preview") as HTMLElement;
-    expect(preview.style.backgroundColor).toBeTruthy();
+    expect((getSlot(root, "color-preview") as HTMLElement).style.backgroundColor).toBeTruthy();
   });
 
-  test("RGB -> hex sync: R=255, G=0, B=0 -> #ff0000", () => {
+  test("RGB -> hex sync: R=255, G=0, B=0 -> #ff0000", async () => {
     const root = buildPickerDom({ format: "rgb", value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     const r = getSlot<HTMLInputElement>(root, "channel-r");
     const g = getSlot<HTMLInputElement>(root, "channel-g");
     const b = getSlot<HTMLInputElement>(root, "channel-b");
@@ -706,9 +762,9 @@ describe("color-picker enhancer -- channel sync", () => {
     expect(getSlot<HTMLInputElement>(root, "hex-input").value).toBe("#ff0000");
   });
 
-  test("HSL -> hex sync: H=240, S=100, L=50 -> #0000ff (blue)", () => {
+  test("HSL -> hex sync: H=240, S=100, L=50 -> #0000ff (blue)", async () => {
     const root = buildPickerDom({ format: "hsl", value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLInputElement>(root, "channel-h").value = "240";
     getSlot<HTMLInputElement>(root, "channel-s").value = "100";
     const lInp = getSlot<HTMLInputElement>(root, "channel-l");
@@ -717,29 +773,28 @@ describe("color-picker enhancer -- channel sync", () => {
     expect(getSlot<HTMLInputElement>(root, "hex-input").value).toBe("#0000ff");
   });
 
-  test("out-of-range clamping: R=300 is clamped to 255", () => {
+  test("out-of-range clamping: R=300 is clamped to 255", async () => {
     const root = buildPickerDom({ format: "rgb", value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     const r = getSlot<HTMLInputElement>(root, "channel-r");
     r.value = "300";
     fireInput(r);
     expect(getSlot<HTMLInputElement>(root, "channel-r").value).toBe("255");
   });
 
-  test("invalid hex: ignored; channels not updated to garbage", () => {
+  test("invalid hex: ignored; channels not updated to garbage", async () => {
     const root = buildPickerDom({ value: "#ff8000" });
-    enhanceColorPicker(root);
+    await connect();
     const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
     const rBefore = getSlot<HTMLInputElement>(root, "channel-r").value;
     hexInp.value = "#zzzzzz";
     fireInput(hexInp);
-    // Channel values must not change to garbage
     expect(getSlot<HTMLInputElement>(root, "channel-r").value).toBe(rBefore);
   });
 
-  test("alpha aria-valuenow + aria-valuetext updated on input", () => {
+  test("alpha aria-valuenow + aria-valuetext updated on input", async () => {
     const root = buildPickerDom({ alpha: true, alphaValue: 100 });
-    enhanceColorPicker(root);
+    await connect();
     const alphaInp = getSlot<HTMLInputElement>(root, "alpha-input");
     alphaInp.value = "50";
     fireInput(alphaInp);
@@ -749,28 +804,27 @@ describe("color-picker enhancer -- channel sync", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. Popover open / close + focus management
+// 5. Popover open / close + confirm / cancel
 // ---------------------------------------------------------------------------
 
-describe("color-picker enhancer -- popover open/close", () => {
-  test("trigger click opens the popover (data-open set)", () => {
+describe("color-picker controller -- popover open/close", () => {
+  test("trigger click opens the popover (data-open set)", async () => {
     const root = buildPickerDom();
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
-    const panel = getSlot(root, "popover");
-    expect(panel.hasAttribute("data-open")).toBe(true);
+    expect(getSlot(root, "popover").hasAttribute("data-open")).toBe(true);
   });
 
-  test("trigger aria-expanded='true' when open", () => {
+  test("trigger aria-expanded='true' when open", async () => {
     const root = buildPickerDom();
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
     expect(getSlot<HTMLButtonElement>(root, "trigger").getAttribute("aria-expanded")).toBe("true");
   });
 
-  test("Esc closes the popover and restores focus to trigger", () => {
+  test("Esc closes the popover", async () => {
     const root = buildPickerDom();
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
     const panel = getSlot(root, "popover");
     expect(panel.hasAttribute("data-open")).toBe(true);
@@ -778,17 +832,38 @@ describe("color-picker enhancer -- popover open/close", () => {
     expect(panel.hasAttribute("data-open")).toBe(false);
   });
 
-  test("cancel button closes the popover", () => {
+  test("focusout to outside the panel closes the popover", async () => {
     const root = buildPickerDom();
-    enhanceColorPicker(root);
+    await connect();
+    getSlot<HTMLButtonElement>(root, "trigger").click();
+    const panel = getSlot(root, "popover");
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    panel.dispatchEvent(new FocusEvent("focusout", { relatedTarget: outside, bubbles: true }));
+    expect(panel.hasAttribute("data-open")).toBe(false);
+  });
+
+  test("focusout to another element INSIDE the panel keeps it open", async () => {
+    const root = buildPickerDom();
+    await connect();
+    getSlot<HTMLButtonElement>(root, "trigger").click();
+    const panel = getSlot(root, "popover");
+    const inside = getSlot(root, "hex-input");
+    panel.dispatchEvent(new FocusEvent("focusout", { relatedTarget: inside, bubbles: true }));
+    expect(panel.hasAttribute("data-open")).toBe(true);
+  });
+
+  test("cancel button closes the popover", async () => {
+    const root = buildPickerDom();
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
     getSlot<HTMLButtonElement>(root, "cancel-btn").click();
     expect(getSlot(root, "popover").hasAttribute("data-open")).toBe(false);
   });
 
-  test("confirm button closes the popover and updates native input", () => {
+  test("confirm button closes the popover and updates native input", async () => {
     const root = buildPickerDom({ value: "#3b82f6" });
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
     const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
     hexInp.value = "#abcdef";
@@ -798,9 +873,9 @@ describe("color-picker enhancer -- popover open/close", () => {
     expect(getSlot<HTMLInputElement>(root, "native-input").value).toBe("#abcdef");
   });
 
-  test("confirm fires input+change events on the native input", () => {
+  test("confirm fires input+change events on the native input exactly once", async () => {
     const root = buildPickerDom({ value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
     let inputCount = 0, changeCount = 0;
     getSlot<HTMLInputElement>(root, "native-input").addEventListener("input", () => inputCount++);
@@ -810,24 +885,21 @@ describe("color-picker enhancer -- popover open/close", () => {
     expect(changeCount).toBe(1);
   });
 
-  test("cancel restores original value without confirming", () => {
+  test("cancel restores original value without confirming", async () => {
     const root = buildPickerDom({ value: "#3b82f6" });
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
     const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
     hexInp.value = "#ff0000";
     fireInput(hexInp);
-    // Cancel
     getSlot<HTMLButtonElement>(root, "cancel-btn").click();
-    // Hex input should revert
     expect(getSlot<HTMLInputElement>(root, "hex-input").value).toBe("#3b82f6");
-    // Native input unchanged
     expect(getSlot<HTMLInputElement>(root, "native-input").value).toBe("#3b82f6");
   });
 
-  test("trigger aria-label updated after confirm with new hex", () => {
+  test("trigger aria-label updated after confirm with new hex", async () => {
     const root = buildPickerDom({ value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "trigger").click();
     const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
     hexInp.value = "#abcdef";
@@ -841,28 +913,26 @@ describe("color-picker enhancer -- popover open/close", () => {
 // 6. Swatch application
 // ---------------------------------------------------------------------------
 
-describe("color-picker enhancer -- swatch application", () => {
-  test("clicking a swatch applies color to hex input without confirming native input", () => {
+describe("color-picker controller -- swatch application", () => {
+  test("clicking a swatch applies color to hex input without confirming native input", async () => {
     const root = buildPickerDom({ value: "#000000", swatches: ["#ff6b6b", "#00ff00"] });
-    enhanceColorPicker(root);
+    await connect();
     const swatches = Array.from(root.querySelectorAll<HTMLElement>('[data-slot="swatch"]'));
     swatches[0].click();
-    // Hex input updated
     expect(getSlot<HTMLInputElement>(root, "hex-input").value).toBe("#ff6b6b");
-    // Native input NOT updated (confirm not pressed)
     expect(getSlot<HTMLInputElement>(root, "native-input").value).toBe("#000000");
   });
 
-  test("swatch click updates live region with announcement", () => {
+  test("swatch click updates live region with announcement", async () => {
     const root = buildPickerDom({ value: "#000000", swatches: ["#ff6b6b"] });
-    enhanceColorPicker(root);
+    await connect();
     root.querySelector<HTMLElement>('[data-slot="swatch"]')!.click();
     expect(getSlot(root, "live-region").textContent).toBe("Color set to #ff6b6b");
   });
 
-  test("swatch click updates aria-pressed: applied swatch gets true, others false", () => {
+  test("swatch click updates aria-pressed: applied swatch gets true, others false", async () => {
     const root = buildPickerDom({ value: "#000000", swatches: ["#ff6b6b", "#00ff00"] });
-    enhanceColorPicker(root);
+    await connect();
     const swatches = Array.from(root.querySelectorAll('[data-slot="swatch"]'));
     (swatches[0] as HTMLElement).click();
     expect(swatches[0].getAttribute("aria-pressed")).toBe("true");
@@ -874,55 +944,55 @@ describe("color-picker enhancer -- swatch application", () => {
 // 7. Spinbutton keyboard (APG Spinbutton Home/End/PageUp/PageDown)
 // ---------------------------------------------------------------------------
 
-describe("color-picker enhancer -- spinbutton keyboard", () => {
-  test("Home on R channel sets value to 0 (min)", () => {
+describe("color-picker controller -- spinbutton keyboard", () => {
+  test("Home on R channel sets value to 0 (min)", async () => {
     const root = buildPickerDom({ format: "rgb", value: "#ff0000" });
-    enhanceColorPicker(root);
+    await connect();
     const r = getSlot<HTMLInputElement>(root, "channel-r");
     r.value = "200";
     fireKeydown(r, "Home");
     expect(r.value).toBe("0");
   });
 
-  test("End on R channel sets value to 255 (max)", () => {
+  test("End on R channel sets value to 255 (max)", async () => {
     const root = buildPickerDom({ format: "rgb", value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     const r = getSlot<HTMLInputElement>(root, "channel-r");
     r.value = "50";
     fireKeydown(r, "End");
     expect(r.value).toBe("255");
   });
 
-  test("PageUp on H spinbutton increments by 10", () => {
+  test("PageUp on H spinbutton increments by 10", async () => {
     const root = buildPickerDom({ format: "hsl", value: "#3b82f6" });
-    enhanceColorPicker(root);
+    await connect();
     const h = getSlot<HTMLInputElement>(root, "channel-h");
     h.value = "20";
     fireKeydown(h, "PageUp");
     expect(h.value).toBe("30");
   });
 
-  test("PageDown on H spinbutton decrements by 10", () => {
+  test("PageDown on H spinbutton decrements by 10", async () => {
     const root = buildPickerDom({ format: "hsl", value: "#3b82f6" });
-    enhanceColorPicker(root);
+    await connect();
     const h = getSlot<HTMLInputElement>(root, "channel-h");
     h.value = "20";
     fireKeydown(h, "PageDown");
     expect(h.value).toBe("10");
   });
 
-  test("PageUp clamps at max", () => {
+  test("PageUp clamps at max", async () => {
     const root = buildPickerDom({ format: "rgb", value: "#ff0000" });
-    enhanceColorPicker(root);
+    await connect();
     const r = getSlot<HTMLInputElement>(root, "channel-r");
     r.value = "250";
     fireKeydown(r, "PageUp");
     expect(parseInt(r.value, 10)).toBeLessThanOrEqual(255);
   });
 
-  test("PageDown clamps at min (0)", () => {
+  test("PageDown clamps at min (0)", async () => {
     const root = buildPickerDom({ format: "rgb", value: "#000000" });
-    enhanceColorPicker(root);
+    await connect();
     const r = getSlot<HTMLInputElement>(root, "channel-r");
     r.value = "5";
     fireKeydown(r, "PageDown");
@@ -934,10 +1004,10 @@ describe("color-picker enhancer -- spinbutton keyboard", () => {
 // 8. Format toggle
 // ---------------------------------------------------------------------------
 
-describe("color-picker enhancer -- format toggle", () => {
-  test("clicking format-toggle cycles hex -> rgb -> hsl -> hex (aria-label)", () => {
+describe("color-picker controller -- format toggle", () => {
+  test("clicking format-toggle cycles hex -> rgb -> hsl -> hex (aria-label)", async () => {
     const root = buildPickerDom({ format: "hex" });
-    enhanceColorPicker(root);
+    await connect();
     const btn = getSlot<HTMLButtonElement>(root, "format-toggle");
     btn.click();
     expect(btn.getAttribute("aria-label")).toBe("Format: RGB");
@@ -947,9 +1017,9 @@ describe("color-picker enhancer -- format toggle", () => {
     expect(btn.getAttribute("aria-label")).toBe("Format: Hex");
   });
 
-  test("format toggle hides inactive groups and shows the active one", () => {
+  test("format toggle hides inactive groups and shows the active one", async () => {
     const root = buildPickerDom({ format: "hex" });
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "format-toggle").click(); // now rgb
     expect(getSlot(root, "rgb-group").hasAttribute("hidden")).toBe(false);
     expect(getSlot(root, "hex-group").hasAttribute("hidden")).toBe(true);
@@ -961,19 +1031,18 @@ describe("color-picker enhancer -- format toggle", () => {
 // 9. Eyedropper
 // ---------------------------------------------------------------------------
 
-describe("color-picker enhancer -- eyedropper", () => {
-  test("eyedropper absent when eyedropper=false", () => {
+describe("color-picker controller -- eyedropper", () => {
+  test("eyedropper absent when eyedropper=false", async () => {
     const root = buildPickerDom({ eyedropper: false });
-    enhanceColorPicker(root);
+    await connect();
     expect(root.querySelector('[data-slot="eyedropper-btn"]')).toBeNull();
   });
 
-  test("eyedropper graceful degradation: no EyeDropper API -> aria-disabled + title", () => {
+  test("eyedropper graceful degradation: no EyeDropper API -> aria-disabled + title", async () => {
     const root = buildPickerDom({ eyedropper: true });
-    // Ensure EyeDropper is not defined
     const win = window as unknown as Record<string, unknown>;
     delete win["EyeDropper"];
-    enhanceColorPicker(root);
+    await connect();
     const btn = getSlot(root, "eyedropper-btn");
     expect(btn.getAttribute("aria-disabled")).toBe("true");
     expect(btn.getAttribute("title")).toBe("Not supported in this browser");
@@ -981,14 +1050,12 @@ describe("color-picker enhancer -- eyedropper", () => {
 
   test("eyedropper applies color when EyeDropper API is present", async () => {
     const root = buildPickerDom({ eyedropper: true, value: "#000000" });
-    // Mock EyeDropper API
     const win = window as unknown as Record<string, unknown>;
     win["EyeDropper"] = class {
       open() { return Promise.resolve({ sRGBHex: "#123456" }); }
     };
-    enhanceColorPicker(root);
+    await connect();
     getSlot<HTMLButtonElement>(root, "eyedropper-btn").click();
-    // Wait for the promise to resolve
     await new Promise((r) => setTimeout(r, 10));
     expect(getSlot<HTMLInputElement>(root, "hex-input").value).toBe("#123456");
     delete win["EyeDropper"];
@@ -996,16 +1063,85 @@ describe("color-picker enhancer -- eyedropper", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. XSS / escaping
+// 10. Controlled/uncontrolled doctrine (real runtime + fetch stub) — a color
+//     picker is ALWAYS uncontrolled: its value rides the native input + the form,
+//     NEVER a wire round-trip. Every close path must POST zero `_calls`.
+// ---------------------------------------------------------------------------
+
+describe("color-picker controller -- uncontrolled: zero wire calls (the 410 doctrine)", () => {
+  test("open + edit + confirm + cancel + Esc fire NO /lievit/<id>/call", async () => {
+    const { runtime, calledActions } = makeRuntime();
+    const root = buildPickerDom({ value: "#000000" });
+    await connect(runtime);
+
+    getSlot<HTMLButtonElement>(root, "trigger").click();        // open
+    const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
+    hexInp.value = "#abcdef";
+    fireInput(hexInp);                                          // edit
+    getSlot<HTMLButtonElement>(root, "confirm-btn").click();    // confirm + close
+    getSlot<HTMLButtonElement>(root, "trigger").click();        // open again
+    fireKeydown(getSlot(root, "popover"), "Escape");            // Esc cancel + close
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Morph-safety (real lievit wire morph): the controller reconnects without
+//     stacking listeners, and a removed picker fires nothing.
+// ---------------------------------------------------------------------------
+
+describe("color-picker controller -- morph-safety (real lievit morph)", () => {
+  test("after a real morph one confirm still fires the native input EXACTLY once (no stacked listeners)", async () => {
+    const root = buildPickerDom({ value: "#000000" });
+    await connect();
+
+    // A real wire morph re-renders the subtree (idiomorph). Same markup => Stimulus must NOT
+    // double-connect; the confirm handler must stay single.
+    morph(root, root.outerHTML);
+    await flushStimulus();
+    installPopoverStub(getSlot<HTMLElement>(root, "popover")); // re-stub the (re-rendered) panel
+
+    getSlot<HTMLButtonElement>(root, "trigger").click();
+    const hexInp = getSlot<HTMLInputElement>(root, "hex-input");
+    hexInp.value = "#abcdef";
+    fireInput(hexInp);
+
+    let inputCount = 0;
+    getSlot<HTMLInputElement>(root, "native-input").addEventListener("input", () => inputCount++);
+    getSlot<HTMLButtonElement>(root, "confirm-btn").click();
+    expect(inputCount).toBe(1);
+  });
+
+  test("a picker removed by a morph stops responding (disconnect tears the listeners down)", async () => {
+    const wrapper = document.createElement("div");
+    document.body.appendChild(wrapper);
+    const root = buildPickerDom({ value: "#000000", appendTo: wrapper });
+    await connect();
+
+    const trigger = getSlot<HTMLButtonElement>(root, "trigger");
+    const panel = getSlot(root, "popover");
+
+    // Morph the picker out of the tree.
+    morph(wrapper, "<div><span>gone</span></div>");
+    await flushStimulus();
+
+    // The detached trigger's click must no longer reach a live controller => popover never opens.
+    trigger.click();
+    expect(panel.hasAttribute("data-open")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12. XSS / escaping (source-text assertions)
 // ---------------------------------------------------------------------------
 
 describe("color-picker.jte -- XSS escaping (source-text assertions)", () => {
   const markup = stripComments(readJte("color-picker.jte"));
 
   test("swatch data-color goes through ${swatch} JTE escaping (not $unsafe)", () => {
-    // The data-color attribute must use ${swatch} (JTE-escaped), not $unsafe
     expect(markup).toContain('data-color="${swatch}"');
-    // Must NOT use $unsafe for data-color
     expect(markup).not.toMatch(/\$unsafe\{swatch\}/);
   });
 
