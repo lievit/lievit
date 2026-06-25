@@ -184,6 +184,12 @@ describe("dropdown-menu -- native popover seam", () => {
     expect(menuMarkup).toContain('data-lv-opener="${triggerId}"');
   });
 
+  test("panel carries data-controller='lv-popover' (Stimulus conversion of the popover seam)", () => {
+    // The popover seam is now owned by the shared lv-popover Stimulus controller; the legacy
+    // popover-anchor.enhancer.ts skips this panel via its data-controller~="lv-popover" guard.
+    expect(menuMarkup).toContain('data-controller="lv-popover"');
+  });
+
   test("panel uses id param as its element id (popovertarget link target)", () => {
     expect(menuMarkup).toContain('id="${id}"');
   });
