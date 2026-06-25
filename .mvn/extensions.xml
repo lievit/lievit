@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extensions xmlns="http://maven.apache.org/EXTENSIONS/1.0.0"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://maven.apache.org/EXTENSIONS/1.0.0 https://maven.apache.org/xsd/core-extensions-1.0.0.xsd">
+    <!--
+        Apache Maven Build Cache Extension (local build cache, no remote).
+        Hashes each module's inputs; on a clean source tree the second ./mvnw install
+        skips all previously-built modules and replays outputs from ~/.m2/build-cache/.
+        Docs: https://maven.apache.org/extensions/maven-build-cache-extension/
+        Config: .mvn/maven-build-cache-config.xml (local-only, SHA-256)
+    -->
+    <extension>
+        <groupId>org.apache.maven.extensions</groupId>
+        <artifactId>maven-build-cache-extension</artifactId>
+        <version>1.2.3</version>
+    </extension>
+</extensions>
