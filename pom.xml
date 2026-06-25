@@ -62,6 +62,7 @@
         <module>examples/golden-path-starter</module>
         <module>examples/kit-crud-admin</module>
         <module>examples/import-poc</module>
+        <module>examples/import-poc-kit</module>
     </modules>
 
     <properties>

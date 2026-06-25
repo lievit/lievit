@@ -6,23 +6,31 @@
  *
  * What this does (replacing the 3-plugin hand-wiring in import-poc):
  *   1. Walk the consumer's resolved compile-scope artifacts.
- *   2. For each artifact whose groupId is "io.github.lievit" and whose jar contains
- *      resources under "lievit/" (the JTE template tree), extract those entries into
- *      the staging directory preserving the lievit/... path.
+ *   2. For each artifact whose groupId is "io.github.lievit", open its jar and extract
+ *      every *.jte entry into the staging directory, preserving the top-level namespace
+ *      directory (e.g. lievit/button.jte -> jte-src/lievit/button.jte,
+ *      kit/table.jte -> jte-src/kit/table.jte). Non-.jte resources (lievit-runtime/**,
+ *      .class files, META-INF, etc.) are naturally excluded by the .jte suffix filter.
  *   3. Copy the consumer's own JTE sources (consumerJteSourceDirectory) alongside,
  *      preserving their relative paths.
  *
  * After execute() the stagingDirectory contains:
  *   lievit/button.jte, lievit/badge.jte, ...   (from lievit-ui jar)
+ *   kit/table.jte, kit/widget/stat.jte, ...    (from lievit-kit jar)
  *   poc.jte, my-feature.jte, ...               (from consumer's src/main/jte/)
  *
  * The consumer then points jte-maven-plugin:precompile's sourceDirectory at stagingDirectory —
- * one merged tree, one precompile run, correct @template.lievit.* resolution.
+ * one merged tree, one precompile run, correct @template.lievit.* and @template.kit.* resolution.
  *
- * Extraction uses java.util.zip.ZipFile (JDK stdlib, no extra dep). The lievit jar resource
- * prefix is hard-wired to "lievit/" because that is the canonical targetPath set in
- * lievit-ui/pom.xml (add-jte-resources execution). If other lievit-ui-shaped jars ship
- * resources under "lievit/" they are picked up automatically.
+ * Extraction uses java.util.zip.ZipFile (JDK stdlib, no extra dep). The .jte suffix filter is
+ * the canonical selector: every lievit module ships its templates as *.jte in the jar, under a
+ * top-level namespace directory matching the @template.* call prefix. No hard-wired prefix list
+ * is needed — the filter is "ends with .jte".
+ *
+ * An optional <namespaces> config param lets the consumer restrict extraction to specific
+ * top-level namespace directories (e.g. <namespace>lievit</namespace>). When omitted (default),
+ * all *.jte entries from every io.github.lievit:* jar are extracted (best DX: add deps + plugin,
+ * get everything).
  */
 package io.lievit.maven;
 
@@ -33,6 +41,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -47,12 +56,18 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 
 /**
- * Stages lievit-ui JTE templates for precompilation.
+ * Stages lievit JTE templates from all {@code io.github.lievit:*} dependency jars for
+ * precompilation.
  *
- * <p>Resolves every {@code io.github.lievit:*} compile-scope artifact, extracts the {@code
- * lievit/**} resources from their jars into {@code stagingDirectory}, then copies the consumer's
- * own JTE sources alongside. The result is one merged directory that the {@code
- * jte-maven-plugin:precompile} goal reads as its {@code sourceDirectory}.
+ * <p>Resolves every {@code io.github.lievit:*} compile-scope artifact, extracts every {@code
+ * *.jte} entry from their jars into {@code stagingDirectory} preserving the namespace path (e.g.
+ * {@code lievit/button.jte}, {@code kit/table.jte}), then copies the consumer's own JTE sources
+ * alongside. The result is one merged directory that the {@code jte-maven-plugin:precompile} goal
+ * reads as its {@code sourceDirectory}.
+ *
+ * <p>Namespace detection is automatic by default: every {@code *.jte} entry from every {@code
+ * io.github.lievit:*} jar is staged, preserving its top-level directory (the JTE namespace). The
+ * optional {@code <namespaces>} parameter restricts extraction to specific top-level directories.
  *
  * <p>Minimal consumer pom (instead of three hand-wired plugins):
  *
@@ -76,10 +91,7 @@ import org.apache.maven.project.MavenProject;
     threadSafe = true)
 public class StageTemplatesMojo extends AbstractMojo {
 
-  /** Prefix inside the lievit-ui jar that contains the JTE template resources. */
-  private static final String LIEVIT_JTE_PREFIX = "lievit/";
-
-  /** GroupId of lievit artifacts whose jars are scanned for lievit/** resources. */
+  /** GroupId of lievit artifacts whose jars are scanned for *.jte resources. */
   private static final String LIEVIT_GROUP_ID = "io.github.lievit";
 
   // ---- injected by Maven ---------------------------------------------------------------
@@ -114,6 +126,24 @@ public class StageTemplatesMojo extends AbstractMojo {
   private File consumerJteSourceDirectory;
 
   /**
+   * Optional list of top-level namespace directories to extract from lievit jars. When empty or
+   * omitted, ALL {@code *.jte} entries from every {@code io.github.lievit:*} jar are extracted
+   * (auto-detect mode — the recommended default: add the dep, get the templates). When specified,
+   * only entries whose first path segment matches one of the listed names are extracted (e.g.
+   * {@code <namespace>lievit</namespace>} extracts only {@code lievit/*.jte}).
+   *
+   * <p>Example (explicit namespaces):
+   * <pre>{@code
+   * <namespaces>
+   *   <namespace>lievit</namespace>
+   *   <namespace>kit</namespace>
+   * </namespaces>
+   * }</pre>
+   */
+  @Parameter
+  private List<String> namespaces;
+
+  /**
    * Whether to skip the goal entirely.
    *
    * <p>Default: {@code false}.
@@ -138,7 +168,15 @@ public class StageTemplatesMojo extends AbstractMojo {
           "Cannot create staging directory: " + staging, e);
     }
 
-    // Step 1: extract lievit/** JTE resources from every io.github.lievit:* artifact.
+    // Resolve the effective namespace filter (null/empty = accept all *.jte).
+    boolean filterByNamespace = namespaces != null && !namespaces.isEmpty();
+    if (filterByNamespace) {
+      getLog().info("lievit:stage-templates: namespace filter active: " + namespaces);
+    } else {
+      getLog().info("lievit:stage-templates: namespace filter: auto (all *.jte from lievit jars)");
+    }
+
+    // Step 1: extract *.jte resources from every io.github.lievit:* artifact.
     Set<Artifact> artifacts = project.getArtifacts();
     if (artifacts == null || artifacts.isEmpty()) {
       getLog().warn(
@@ -159,20 +197,21 @@ public class StageTemplatesMojo extends AbstractMojo {
                 + " has no local file (not yet resolved?), skipping.");
         continue;
       }
-      int extracted = extractLievitJteResources(jarFile, staging, artifact.getId());
+      int extracted = extractJteResources(jarFile, staging, artifact.getId(), filterByNamespace);
       extractedTotal += extracted;
       getLog().info(
           "lievit:stage-templates: extracted "
               + extracted
-              + " lievit/** entries from "
+              + " *.jte entries from "
               + artifact.getId());
     }
     if (extractedTotal == 0) {
       getLog().warn(
-          "lievit:stage-templates: no lievit/** entries extracted. "
-              + "Check that io.github.lievit:lievit-ui is on the compile classpath.");
+          "lievit:stage-templates: no *.jte entries extracted. "
+              + "Check that at least one io.github.lievit:* artifact with JTE templates "
+              + "is on the compile classpath.");
     } else {
-      getLog().info("lievit:stage-templates: " + extractedTotal + " lievit/** entries staged.");
+      getLog().info("lievit:stage-templates: " + extractedTotal + " *.jte entries staged.");
     }
 
     // Step 2: copy consumer's own JTE sources into the staging dir alongside lievit/.
@@ -197,13 +236,21 @@ public class StageTemplatesMojo extends AbstractMojo {
   }
 
   /**
-   * Extracts all entries whose name starts with {@value #LIEVIT_JTE_PREFIX} from {@code jarFile}
-   * into {@code staging}, preserving the entry path (so {@code lievit/button.jte} lands as
-   * {@code staging/lievit/button.jte}).
+   * Extracts all {@code *.jte} entries from {@code jarFile} into {@code staging}, preserving the
+   * entry path (so {@code lievit/button.jte} lands as {@code staging/lievit/button.jte} and {@code
+   * kit/table.jte} lands as {@code staging/kit/table.jte}).
+   *
+   * <p>When {@code filterByNamespace} is {@code true}, only entries whose first path segment
+   * matches one of the configured {@link #namespaces} are extracted. When {@code false}, every
+   * {@code *.jte} entry in the jar is extracted regardless of its top-level directory.
+   *
+   * <p>Non-{@code .jte} entries (class files, META-INF, TS sources under {@code lievit-runtime/},
+   * etc.) are always excluded by the {@code .jte} suffix check.
    *
    * @return the number of entries written
    */
-  private int extractLievitJteResources(File jarFile, Path staging, String artifactId)
+  private int extractJteResources(
+      File jarFile, Path staging, String artifactId, boolean filterByNamespace)
       throws MojoExecutionException {
     int count = 0;
     try (ZipFile zip = new ZipFile(jarFile)) {
@@ -214,8 +261,17 @@ public class StageTemplatesMojo extends AbstractMojo {
           continue;
         }
         String name = entry.getName();
-        if (!name.startsWith(LIEVIT_JTE_PREFIX)) {
+        // Only stage JTE template sources; skip class files, TS, CSS, META-INF, etc.
+        if (!name.endsWith(".jte")) {
           continue;
+        }
+        // Optional namespace filter: check the first path segment against the configured list.
+        if (filterByNamespace) {
+          int slash = name.indexOf('/');
+          String topLevel = slash >= 0 ? name.substring(0, slash) : name;
+          if (!namespaces.contains(topLevel)) {
+            continue;
+          }
         }
         Path target = staging.resolve(name);
         // Zip-slip guard: the resolved path must stay inside the staging root.
@@ -236,7 +292,7 @@ public class StageTemplatesMojo extends AbstractMojo {
       }
     } catch (IOException e) {
       throw new MojoExecutionException(
-          "Failed to extract lievit/** resources from " + jarFile, e);
+          "Failed to extract *.jte resources from " + jarFile, e);
     }
     return count;
   }

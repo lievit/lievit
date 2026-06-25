@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  import-poc-kit: full two-jar import chain proof (RFC 0036 full-chain).
+
+  Proves the complete external-import chain gest will use:
+    consumer imports BOTH lievit-ui AND lievit-kit jars
+    -> ONE lievit-maven-plugin:stage-templates execution stages lievit/ AND kit/ namespaces
+    -> ONE jte-maven-plugin:precompile pass builds the merged tree
+    -> a kit template that composes a lievit-ui primitive compiles and renders correctly.
+
+  Specifically:
+    poc-kit.jte calls @template.kit.widget.stat (kit jar)
+    which calls @template.lievit.stat-card + @template.lievit.icon (lievit-ui jar)
+
+  The lievit-maven-plugin:stage-templates goal extracts *.jte from BOTH jars automatically
+  (namespace auto-detection: no hard-wired prefix list needed).
+
+  NOT a published artifact: runnable example only.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.lievit</groupId>
+    <artifactId>lievit-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>import-poc-kit</artifactId>
+  <name>lievit-kit import-poc-kit (RFC 0036 full-chain proof)</name>
+  <description>
+    Proof-of-concept that lievit-ui AND lievit-kit are jointly consumable by Maven import.
+    Demonstrates the canonical two-jar lievit-maven-plugin:stage-templates recipe:
+    one plugin execution stages both lievit/ (from lievit-ui) and kit/ (from lievit-kit)
+    into a single merged jte-src tree. A consumer template (poc-kit.jte) calls
+    @template.kit.widget.stat which itself calls @template.lievit.stat-card, proving
+    kit->lievit composition compiles and renders from imported jars.
+    RFC 0036 full-chain proof. Not a published artifact.
+  </description>
+
+  <properties>
+    <maven.install.skip>true</maven.install.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <!--
+      lievit-ui: delivers lievit/*.jte templates + icon SPI classes.
+      Declared explicitly (also a transitive of lievit-kit) to make the dual-jar
+      dependency intent visible and to prove the consumer pom mirrors the gest topology.
+    -->
+    <dependency>
+      <groupId>io.github.lievit</groupId>
+      <artifactId>lievit-ui</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!--
+      lievit-kit: delivers kit/*.jte templates + io.lievit.kit.* model classes (StatWidget, etc.).
+      Transitively brings lievit-ui (already declared above) + Spring context + validation.
+    -->
+    <dependency>
+      <groupId>io.github.lievit</groupId>
+      <artifactId>lievit-kit</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- JUnit 5 for the render assertion. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.11.4</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        STEP 1: lievit-maven-plugin:stage-templates (phase: generate-sources)
+        Resolves io.github.lievit:* artifacts and extracts ALL *.jte entries from their jars
+        into target/jte-src/, preserving namespace paths:
+          - lievit-ui jar: lievit/button.jte, lievit/stat-card.jte, lievit/icon.jte, ...
+          - lievit-kit jar: kit/widget/stat.jte, kit/table.jte, ...
+        No namespace filter needed: the default auto-detection extracts everything.
+        Then copies src/main/jte/ (poc-kit.jte) alongside.
+      -->
+      <plugin>
+        <groupId>io.github.lievit</groupId>
+        <artifactId>lievit-maven-plugin</artifactId>
+        <version>${project.version}</version>
+        <executions>
+          <execution>
+            <id>stage-lievit-and-kit-templates</id>
+            <goals><goal>stage-templates</goal></goals>
+            <!--
+              stagingDirectory default is ${project.build.directory}/jte-src — matches
+              the sourceDirectory we give to jte-maven-plugin below, no override needed.
+              consumerJteSourceDirectory default is ${project.basedir}/src/main/jte — correct.
+              namespaces: omitted => auto-detect all *.jte from every lievit jar (best DX).
+            -->
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        STEP 2: jte-maven-plugin:precompile (phase: process-classes)
+        Reads target/jte-src/ (the merged lievit/ + kit/ + consumer tree) and compiles
+        every .jte to a .class under gg.jte.generated.precompiled in target/classes.
+        The test then calls TemplateEngine.createPrecompiled(ContentType.Html) to render.
+      -->
+      <plugin>
+        <groupId>gg.jte</groupId>
+        <artifactId>jte-maven-plugin</artifactId>
+        <version>${jte.version}</version>
+        <configuration>
+          <sourceDirectory>${project.build.directory}/jte-src</sourceDirectory>
+          <targetDirectory>${project.build.outputDirectory}</targetDirectory>
+          <contentType>Html</contentType>
+        </configuration>
+        <executions>
+          <execution>
+            <id>precompile-merged-templates</id>
+            <phase>process-classes</phase>
+            <goals><goal>precompile</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
