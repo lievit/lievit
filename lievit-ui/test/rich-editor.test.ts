@@ -3,26 +3,34 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
  * rich-editor is a server-first WIRE rich-text field (Filament RichEditor parity): a plain
- * <textarea name=...> is the posted form control JS-off; a CSP-clean island enhances it into a
- * TipTap editor whose HTML is written back into the same textarea. This pins (a) the registry:wire
- * item shape, (b) the JS-off server-first fallback markup IS a real form control + the template is
- * server-pure (no inline script/slot), (c) the island is CSP-clean, and (d) the island's pure
- * orchestration (writeback fires input, toolbar drives commands + aria-pressed) against a fake
- * editor handle.
+ * <textarea name=...> is the posted form control JS-off; the `lv-rich-editor` Stimulus controller
+ * (runtime/stimulus/controllers/lv-rich-editor-controller.ts) progressively enhances it into a
+ * TipTap editor whose HTML is written back into the same textarea. It is the morph-safe successor to
+ * the colocated rich-editor.ts enhancer (retained, behind a migration guard, for non-Stimulus
+ * adopters). The TipTap engine is an ADOPTER dependency injected once via setRichEditorFactory().
+ *
+ * This file pins (a) the registry:wire item shape, (b) the JS-off server-first fallback markup IS a
+ * real form control + the template is server-pure (no inline script/slot) + carries the
+ * data-controller / data-action contract, (c) the legacy enhancer is CSP-clean + skips a converted
+ * root, and (d) the controller's DOM behaviour against a DOM shaped like the partial output, driven
+ * by the REAL Stimulus Application + the REAL lievit wire morph (no mocked $lievit, no mocked
+ * editor: a fake EditorHandle stands in for TipTap, a fetch stub captures the wire round-trips so
+ * the "zero wire calls" doctrine is proven, not assumed).
  */
-import { describe, test, expect, afterEach } from "vitest";
+import { describe, test, it, expect, afterEach, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildRegistry } from "../cli/build-registry.js";
 import { resolve } from "../cli/registry.js";
 import type { Registry } from "../cli/registry.js";
+import { LievitRuntime } from "../runtime/runtime.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
 import {
-  enhanceRichEditors,
-  wireToolbar,
-  syncPressed,
-  writeBack,
+  setRichEditorFactory,
   type EditorHandle,
-} from "../registry/wire/rich-editor/rich-editor.js";
+  type EditorFactory,
+} from "../runtime/stimulus/controllers/lv-rich-editor-controller.js";
 
 const registryRoot = join(import.meta.dirname, "..", "registry");
 const registry: Registry = buildRegistry(registryRoot);
@@ -85,9 +93,19 @@ describe("rich-editor server-first template", () => {
       expect(markup).toContain(`data-rich-editor-cmd="${cmd}"`);
     }
   });
+
+  test("the editor is the lv-rich-editor Stimulus controller, wired CSP-clean via data-action + targets", () => {
+    const jteSrc = jte();
+    expect(jteSrc).toContain('data-controller="lv-rich-editor"');
+    expect(jteSrc).toContain('data-action="click->lv-rich-editor#runCommand"');
+    expect(jteSrc).toContain('data-lv-rich-editor-target="input"');
+    expect(jteSrc).toContain('data-lv-rich-editor-target="surface"');
+    expect(jteSrc).toContain('data-lv-rich-editor-target="toolbar"');
+    expect(jteSrc).toContain('data-lv-rich-editor-target="command"');
+  });
 });
 
-describe("rich-editor island CSP + behaviour", () => {
+describe("rich-editor legacy enhancer (retained for non-Stimulus adopters)", () => {
   test("the island is CSP-clean: no eval/new Function, no Lit import", () => {
     const ts = read("wire/rich-editor/rich-editor.ts");
     const code = ts.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
@@ -95,45 +113,107 @@ describe("rich-editor island CSP + behaviour", () => {
     expect(code).not.toMatch(/^import .*from "lit"/m);
     expect(code).toContain("addEventListener");
   });
+
+  test("it skips a Stimulus-controlled root so the controller and enhancer never double-build", () => {
+    const ts = read("wire/rich-editor/rich-editor.ts");
+    const code = ts.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    expect(code).toContain('[data-controller~="lv-rich-editor"]');
+  });
 });
 
 // ---------------------------------------------------------------------------
-// The island orchestration against a fake editor handle (no real TipTap).
+// The lv-rich-editor Stimulus controller, against a DOM shaped like rich-editor.jte's output,
+// driven by the REAL Stimulus Application + the REAL lievit wire morph (no mocked $lievit).
+// The TipTap engine is a fake EditorHandle injected via setRichEditorFactory().
 // ---------------------------------------------------------------------------
 
-/** A fake editor handle recording commands; isActive returns true for whatever was last commanded. */
-function fakeEditor(): EditorHandle & { last: string | null } {
-  const state = { last: null as string | null };
-  return {
-    last: null,
-    command(name) {
-      state.last = name;
-      this.last = name;
-    },
-    isActive(name) {
-      return state.last === name;
-    },
-    destroy() {},
+/** A real runtime backed by a fetch stub that records the wire actions the runtime POSTs. */
+function makeRuntime(): { runtime: LievitRuntime; calledActions: string[] } {
+  const calledActions: string[] = [];
+  const fetchImpl = async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const calls = body._calls as string[] | undefined;
+    if (calls) {
+      calledActions.push(...calls);
+    }
+    return new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } });
   };
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calledActions };
 }
 
-/** Build a rich-editor root matching the partial: toolbar + surface + textarea. */
-function renderRoot(): {
+/** A fake editor handle recording commands; isActive returns true for whatever was last commanded. */
+function fakeEditor(): EditorHandle & { last: string | null; destroyed: number } {
+  const handle = {
+    last: null as string | null,
+    destroyed: 0,
+    command(name: string) {
+      handle.last = name;
+    },
+    isActive(name: string) {
+      return handle.last === name;
+    },
+    destroy() {
+      handle.destroyed += 1;
+    },
+  };
+  return handle;
+}
+
+interface Built {
+  built: number;
+  seeded: string[];
+  pushers: Array<(html: string) => void>;
+  editors: ReturnType<typeof fakeEditor>[];
+}
+
+/** A factory that records every build (seed content + the onUpdate pusher + the editor handle). */
+function recordingFactory(): { factory: EditorFactory; rec: Built } {
+  const rec: Built = { built: 0, seeded: [], pushers: [], editors: [] };
+  const factory: EditorFactory = ({ content, onUpdate }) => {
+    rec.built += 1;
+    rec.seeded.push(content);
+    rec.pushers.push(onUpdate);
+    const e = fakeEditor();
+    rec.editors.push(e);
+    return e;
+  };
+  return { factory, rec };
+}
+
+interface Mounted {
+  container: HTMLElement;
   root: HTMLElement;
   toolbar: HTMLElement;
   surface: HTMLElement;
   textarea: HTMLTextAreaElement;
-} {
+}
+
+/** Build a rich-editor root matching rich-editor.jte's output: toolbar + surface + textarea. */
+function renderRoot(opts: { disabled?: boolean; value?: string } = {}): Mounted {
+  const container = document.createElement("div");
+
   const root = document.createElement("div");
+  root.setAttribute("data-lievit-component", "dev.lievit.wire.RichEditorComponent");
+  root.setAttribute("data-lievit-id", `cid-${Math.random().toString(36).slice(2)}`);
+  root.setAttribute("data-lievit-snapshot", "s1");
+  root.setAttribute("data-controller", "lv-rich-editor");
   root.setAttribute("data-rich-editor", "");
+  root.setAttribute("data-rich-editor-disabled", opts.disabled === true ? "true" : "false");
 
   const toolbar = document.createElement("div");
   toolbar.setAttribute("data-rich-editor-toolbar", "");
+  toolbar.setAttribute("data-lv-rich-editor-target", "toolbar");
   toolbar.hidden = true;
-  for (const cmd of ["bold", "italic"]) {
+  for (const [cmd, arg] of [["bold"], ["italic"], ["heading", "2"]] as [string, string?][]) {
     const b = document.createElement("button");
     b.type = "button";
     b.setAttribute("data-rich-editor-cmd", cmd);
+    if (arg != null) {
+      b.setAttribute("data-rich-editor-arg", arg);
+    }
+    b.setAttribute("data-lv-rich-editor-target", "command");
+    b.setAttribute("data-action", "click->lv-rich-editor#runCommand");
     b.setAttribute("aria-pressed", "false");
     toolbar.appendChild(b);
   }
@@ -141,37 +221,43 @@ function renderRoot(): {
 
   const surface = document.createElement("div");
   surface.setAttribute("data-rich-editor-surface", "");
+  surface.setAttribute("data-lv-rich-editor-target", "surface");
   surface.hidden = true;
   root.appendChild(surface);
 
   const textarea = document.createElement("textarea");
   textarea.setAttribute("data-rich-editor-input", "");
+  textarea.setAttribute("data-lv-rich-editor-target", "input");
   textarea.name = "body";
-  textarea.value = "<p>seed</p>";
+  textarea.value = opts.value ?? "<p>seed</p>";
   root.appendChild(textarea);
 
-  document.body.appendChild(root);
-  return { root, toolbar, surface, textarea };
+  container.appendChild(root);
+  document.body.appendChild(container);
+  return { container, root, toolbar, surface, textarea };
 }
 
-describe("rich-editor island wiring", () => {
-  let teardown: () => void;
-  afterEach(() => {
-    teardown?.();
-    document.body.innerHTML = "";
-  });
+beforeEach(() => {
+  document.body.innerHTML = "";
+});
 
-  test("enhancing seeds the editor from the textarea, reveals surface + toolbar, hides textarea", () => {
-    const { root, toolbar, surface, textarea } = renderRoot();
-    let seeded = "";
-    teardown = enhanceRichEditors({
-      root,
-      factory: ({ content }) => {
-        seeded = content;
-        return fakeEditor();
-      },
-    });
-    expect(seeded).toBe("<p>seed</p>");
+afterEach(() => {
+  stopStimulus();
+  setRichEditorFactory(null);
+  document.body.innerHTML = "";
+});
+
+describe("lv-rich-editor controller — enhancement (real Stimulus + real runtime)", () => {
+  it("seeds the editor from the textarea, reveals surface + toolbar, hides the textarea", async () => {
+    const { runtime } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
+    const { surface, toolbar, textarea } = renderRoot();
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    expect(rec.built).toBe(1);
+    expect(rec.seeded[0]).toBe("<p>seed</p>");
     expect(surface.hidden).toBe(false);
     expect(toolbar.hidden).toBe(false);
     // the textarea stays in the DOM + the form (it is still the posted control), just hidden.
@@ -179,83 +265,139 @@ describe("rich-editor island wiring", () => {
     expect(textarea.getAttribute("aria-hidden")).toBe("true");
   });
 
-  test("writeBack sets the textarea value and dispatches a native input event", () => {
+  it("with no factory published the textarea stays the editor (server-first fallback)", async () => {
+    const { runtime } = makeRuntime();
+    // setRichEditorFactory NOT called.
+    const { surface, toolbar, textarea } = renderRoot();
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    expect(surface.hidden).toBe(true);
+    expect(toolbar.hidden).toBe(true);
+    expect(textarea.hasAttribute("aria-hidden")).toBe(false);
+  });
+
+  it("a disabled root is left as the plain textarea (no editor built)", async () => {
+    const { runtime } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
+    const { surface } = renderRoot({ disabled: true });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    expect(rec.built).toBe(0);
+    expect(surface.hidden).toBe(true);
+  });
+
+  it("the editor's onUpdate writes back to the textarea + fires a native input (idempotent)", async () => {
+    const { runtime } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
     const { textarea } = renderRoot();
+    startStimulus({ runtime });
+    await flushStimulus();
+
     let fired = 0;
     textarea.addEventListener("input", () => (fired += 1));
-    writeBack(textarea, "<p>changed</p>");
-    expect(textarea.value).toBe("<p>changed</p>");
-    expect(fired).toBe(1);
-    // idempotent: same value does not re-fire.
-    writeBack(textarea, "<p>changed</p>");
-    expect(fired).toBe(1);
-    teardown = () => {};
-  });
-
-  test("the editor's onUpdate writes back to the textarea (the form keeps the field)", () => {
-    const { root, textarea } = renderRoot();
-    let push: (html: string) => void = () => {};
-    teardown = enhanceRichEditors({
-      root,
-      factory: ({ onUpdate }) => {
-        push = onUpdate;
-        return fakeEditor();
-      },
-    });
-    push("<p>typed</p>");
+    rec.pushers[0]("<p>typed</p>");
     expect(textarea.value).toBe("<p>typed</p>");
+    expect(fired).toBe(1);
+    // idempotent: the same value does not re-fire.
+    rec.pushers[0]("<p>typed</p>");
+    expect(fired).toBe(1);
   });
+});
 
-  test("toolbar clicks run the matching command and reflect active state into aria-pressed", () => {
+describe("lv-rich-editor controller — toolbar commands", () => {
+  it("a toolbar click runs the matching command and reflects active state into aria-pressed", async () => {
+    const { runtime } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
     const { toolbar } = renderRoot();
-    const editor = fakeEditor();
-    const remove = wireToolbar(toolbar, editor);
+    startStimulus({ runtime });
+    await flushStimulus();
+
     const boldBtn = toolbar.querySelector<HTMLButtonElement>('[data-rich-editor-cmd="bold"]')!;
     boldBtn.click();
-    expect(editor.last).toBe("bold");
+    expect(rec.editors[0].last).toBe("bold");
     expect(boldBtn.getAttribute("aria-pressed")).toBe("true");
-    remove();
-    teardown = () => {};
+    // the other buttons reflect not-active.
+    expect(
+      toolbar.querySelector('[data-rich-editor-cmd="italic"]')!.getAttribute("aria-pressed"),
+    ).toBe("false");
   });
 
-  test("syncPressed reflects each button against the editor", () => {
+  it("the heading button passes its data-rich-editor-arg to the command", async () => {
+    const { runtime } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
     const { toolbar } = renderRoot();
-    const editor = fakeEditor();
-    editor.command("italic");
-    syncPressed(
-      Array.from(toolbar.querySelectorAll<HTMLButtonElement>("[data-rich-editor-cmd]")),
-      editor,
-    );
-    expect(toolbar.querySelector('[data-rich-editor-cmd="italic"]')!.getAttribute("aria-pressed")).toBe("true");
-    expect(toolbar.querySelector('[data-rich-editor-cmd="bold"]')!.getAttribute("aria-pressed")).toBe("false");
-    teardown = () => {};
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const headingBtn = toolbar.querySelector<HTMLButtonElement>('[data-rich-editor-cmd="heading"]')!;
+    headingBtn.click();
+    expect(rec.editors[0].last).toBe("heading");
+    expect(headingBtn.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("lv-rich-editor controller — controlled/uncontrolled doctrine (zero wire calls)", () => {
+  it("never round-trips the wire on enhance, writeback, or a toolbar command", async () => {
+    const { runtime, calledActions } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
+    const { toolbar } = renderRoot();
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    rec.pushers[0]("<p>typed</p>"); // writeback fires a native input, NOT a wire call
+    toolbar.querySelector<HTMLButtonElement>('[data-rich-editor-cmd="bold"]')!.click();
+
+    await new Promise((r) => setTimeout(r, 10));
+    // the rich-editor owns NO server open-state: it issues zero /lievit/<id>/call (the 410 bug class
+    // is structurally absent -- there is no close action to fire).
+    expect(calledActions).toHaveLength(0);
+  });
+});
+
+describe("lv-rich-editor controller — morph-safety (real lievit morph)", () => {
+  it("after a real morph one click still fires exactly one command (no rebuild, no stacked listeners)", async () => {
+    const { runtime } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
+    const { root, container } = renderRoot();
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(rec.built).toBe(1);
+
+    // A real wire morph re-renders the component subtree (idiomorph). The root markup is identical,
+    // so Stimulus keeps the single live controller (element+identifier dedupe): no second editor is
+    // built and the data-action stays single.
+    morph(container, `<div>${root.outerHTML}</div>`);
+    await flushStimulus();
+    expect(rec.built).toBe(1);
+
+    const boldBtn = container.querySelector<HTMLButtonElement>('[data-rich-editor-cmd="bold"]')!;
+    boldBtn.click();
+    // exactly one editor exists; it recorded the single command.
+    expect(rec.editors).toHaveLength(1);
+    expect(rec.editors[0].last).toBe("bold");
   });
 
-  test("a disabled root is left as the plain textarea (no editor built)", () => {
-    const { root } = renderRoot();
-    root.setAttribute("data-rich-editor-disabled", "true");
-    let built = 0;
-    teardown = enhanceRichEditors({
-      root,
-      factory: () => {
-        built += 1;
-        return fakeEditor();
-      },
-    });
-    expect(built).toBe(0);
-  });
+  it("a root removed by a morph tears the editor down (disconnect destroys it)", async () => {
+    const { runtime } = makeRuntime();
+    const { factory, rec } = recordingFactory();
+    setRichEditorFactory(factory);
+    const { container } = renderRoot();
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(rec.built).toBe(1);
 
-  test("enhancing twice is idempotent (a morph re-scan does not double-build)", () => {
-    const { root } = renderRoot();
-    let built = 0;
-    teardown = enhanceRichEditors({
-      root,
-      factory: () => {
-        built += 1;
-        return fakeEditor();
-      },
-    });
-    enhanceRichEditors({ root, factory: () => fakeEditor() })();
-    expect(built).toBe(1);
+    // Morph the rich-editor root out of the tree.
+    morph(container, `<div><span>gone</span></div>`);
+    await flushStimulus();
+
+    expect(rec.editors[0].destroyed).toBe(1);
   });
 });

@@ -88,6 +88,14 @@ export function enhanceRichEditors(options: RichEditorOptions): () => void {
     if (el.getAttribute(WIRED) === "true") {
       continue;
     }
+    // Migration guard (Stimulus conversion): a root converted to the `lv-rich-editor` Stimulus
+    // controller owns its own editor build. This legacy enhancer must NOT also enhance it, or the
+    // surface would mount two editors. Converted templates carry data-controller="lv-rich-editor";
+    // mark it wired and skip.
+    if (el.matches('[data-controller~="lv-rich-editor"]')) {
+      el.setAttribute(WIRED, "true");
+      continue;
+    }
     if (el.getAttribute("data-rich-editor-disabled") === "true") {
       continue;
     }
