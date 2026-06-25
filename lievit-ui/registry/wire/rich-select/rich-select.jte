@@ -79,7 +79,11 @@
 !{var selectedLabel = _instance.selectedLabel();}
 !{List<Option> chips = _instance.selectedOptions();}
 !{List<Option> options = _instance.visibleOptions();}
-<div data-lievit-component="${cid}" data-rich-select data-multiple="${multiple ? "true" : "false"}" data-preload="${preload ? "true" : "false"}" style="position: relative; display: block; font-family: var(--lv-font-sans);">
+<%-- data-controller="lv-rich-select" mounts the Stimulus controller (the morph-safe successor to
+     the colocated rich-select.ts enhancer) that owns the APG Combobox keyboard navigation. The
+     legacy enhancer is retained for non-Stimulus adopters and SKIPS any
+     [data-controller~="lv-rich-select"] root, so there is no double-handling. --%>
+<div data-lievit-component="${cid}" data-controller="lv-rich-select" data-rich-select data-multiple="${multiple ? "true" : "false"}" data-preload="${preload ? "true" : "false"}" style="position: relative; display: block; font-family: var(--lv-font-sans);">
     <button
         type="button"
         id="${triggerId}"
@@ -138,6 +142,7 @@
                 value="${query}"
                 l:model.debounce.250ms="query"
                 data-rich-select-search
+                data-action="keydown->lv-rich-select#onKeyDown"
                 style="width: 100%; font-family: var(--lv-font-sans); font-size: var(--lv-text-sm); color: var(--lv-color-fg); background: var(--lv-color-bg); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); padding: var(--lv-space-1) var(--lv-space-2); box-sizing: border-box;"
             />
         </div>
@@ -159,6 +164,7 @@
                     aria-selected="${isSelected ? "true" : "false"}"
                     aria-disabled="${opt.disabled() ? "true" : "false"}"
                     data-rich-select-option="${opt.value()}"
+                    data-lv-rich-select-target="option"
                     l:click="${selectable ? pickAction : null}"
                     style="display: flex; align-items: flex-start; gap: var(--lv-space-2); font-size: var(--lv-text-sm); color: var(--lv-color-fg); padding: var(--lv-space-2) var(--lv-space-3); cursor: ${opt.disabled() ? "not-allowed" : "pointer"}; opacity: ${opt.disabled() ? "0.5" : "1"}; font-weight: ${isSelected ? "600" : "400"};"
                 >
@@ -189,6 +195,7 @@
                     role="option"
                     aria-selected="false"
                     data-rich-select-create="${_instance.createCandidate()}"
+                    data-lv-rich-select-target="option"
                     l:click="$set('createValue', '${_instance.createCandidate()}')"
                     style="display: flex; align-items: center; gap: var(--lv-space-2); font-size: var(--lv-text-sm); color: var(--lv-color-primary); padding: var(--lv-space-2) var(--lv-space-3); cursor: pointer;"
                 >

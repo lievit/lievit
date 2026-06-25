@@ -71,6 +71,14 @@ export function enhanceRichSelects(
     if (el.getAttribute(WIRED) === "true") {
       continue;
     }
+    // Migration guard (Stimulus conversion): a root converted to the `lv-rich-select` Stimulus
+    // controller owns its own keyboard navigation. This legacy enhancer must NOT also wire it, or
+    // the search input's keydown would be double-handled. Converted templates carry
+    // data-controller="lv-rich-select"; mark it wired and skip.
+    if (el.matches('[data-controller~="lv-rich-select"]')) {
+      el.setAttribute(WIRED, "true");
+      continue;
+    }
     el.setAttribute(WIRED, "true");
     teardowns.push(wireRichSelect(el));
   }
