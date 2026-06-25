@@ -8,16 +8,16 @@
   lievit-ui scroll-area partial -- a scrollable viewport with optional overlay scrollbar rails.
 
   TIER (planning two-tier model): ENHANCER. When overlay=false this is a purely static partial
-  (a div with overflow + optional ARIA), zero JS. When overlay=true the runtime enhancer
-  (`data-lievit-scroll-area`) sizes and positions custom overlay rails that replace the native
-  scrollbar, syncing thumb size/position via scroll and ResizeObserver. The CSP constraint
-  (no inline script, no on* handler) is met in both modes: the enhancer is discovered via a
-  data attribute, not an event handler.
+  (a div with overflow + optional ARIA), zero JS. When overlay=true the Stimulus controller
+  (`data-controller="lv-scroll-area"`) sizes and positions custom overlay rails that replace the
+  native scrollbar, syncing thumb size/position via scroll and ResizeObserver. The CSP constraint
+  (no inline script, no on* handler) is met in both modes: behaviour lives in the controller,
+  wired via data-controller + data-action descriptors, never an inline event handler.
 
   STRUCTURE (scientific decision rule): shadcn/Radix ship a JS scrollbar that papers over native
   scrollbar inconsistency. For overlay=false we use the STANDARDISED `overflow-*` properties
   (zero JS, CSP-clean, keyboard-scrollable). For overlay=true we render custom div rails driven
-  by the enhancer (pointer drag, ResizeObserver sync, aria-valuenow updates), matching the
+  by the controller (pointer drag, ResizeObserver sync, aria-valuenow updates), matching the
   shadcn API surface (type/hideDelay). Both modes expose the same data-slot anatomy so CSS
   selectors work uniformly.
 
@@ -30,13 +30,13 @@
     "hover"  -- rail visible when the pointer is over the scroll area or it is actively scrolling.
     "always" -- rail always visible.
     "scroll" -- rail visible only while scrolling (fades on stop, after hideDelay ms).
-  The CSS in scroll-area.css drives visibility via these data attributes; the enhancer sets them.
+  The CSS in scroll-area.css drives visibility via these data attributes; the controller sets them.
   When overlay=false none of these attributes are rendered (native scrollbar is visible).
 
   A11y: the viewport carries tabindex="0" (keyboard-scrollable) and conditionally role="region"
   + aria-label / aria-labelledby when a label is provided (named scrollable landmark). Each
   overlay rail carries role="scrollbar" + aria-controls + aria-orientation + aria-valuenow (the
-  enhancer keeps aria-valuenow live); without them the custom rail would be decorative and AT
+  controller keeps aria-valuenow live); without them the custom rail would be decorative and AT
   users would depend solely on the keyboard-scrollable viewport. The platform's own scrollbar is
   suppressed via the lv-scrollbar-hide class (scroll-area.css: scrollbar-width:none +
   ::-webkit-scrollbar{display:none}) only when overlay=true.
@@ -131,7 +131,7 @@
   data-orientation="${orientation}"
   data-type="${overlay ? type : null}"
   data-hide-delay="${overlay ? String.valueOf(hideDelay) : null}"
-  data-lievit-scroll-area="${overlay ? "" : null}"
+  data-controller="${overlay ? "lv-scroll-area" : null}"
   class="lv-scroll-area relative${cssClass.isBlank() ? "" : " " + cssClass}"
   style="${rootStyle}"
   $unsafe{dataAttrsMarkup}
@@ -144,6 +144,8 @@
     role="${hasLabel ? "region" : null}"
     aria-label="${ariaLabel}"
     aria-labelledby="${ariaLabelledBy}"
+    data-lv-scroll-area-target="${overlay ? "viewport" : null}"
+    data-action="${overlay ? "scroll->lv-scroll-area#scrolled" : null}"
     class="h-full w-full rounded-[inherit] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] ${overflowClass}${vpHeightClass}${vpWidthClass}${scrollbarHideClass}${viewportCssClass.isBlank() ? "" : " " + viewportCssClass}"
   >${content}</div>
 
@@ -159,10 +161,13 @@
     aria-valuemax="100"
     aria-label="Vertical scrollbar"
     tabindex="-1"
+    data-lv-scroll-area-target="verticalRail"
     class="lv-scrollbar-rail lv-scrollbar-rail--vertical absolute right-0 top-0 flex h-full w-2.5 touch-none select-none flex-col p-px"
   >
     <div
       data-slot="scroll-area-thumb"
+      data-lv-scroll-area-target="verticalThumb"
+      data-action="pointerdown->lv-scroll-area#dragStartVertical pointermove->lv-scroll-area#dragMoveVertical pointerup->lv-scroll-area#dragEndVertical pointercancel->lv-scroll-area#dragEndVertical"
       class="lv-scrollbar-thumb relative flex-1 rounded-full bg-[var(--lv-color-border)]"
     ></div>
   </div>
@@ -180,10 +185,13 @@
     aria-valuemax="100"
     aria-label="Horizontal scrollbar"
     tabindex="-1"
+    data-lv-scroll-area-target="horizontalRail"
     class="lv-scrollbar-rail lv-scrollbar-rail--horizontal absolute bottom-0 left-0 flex h-2.5 w-full touch-none select-none flex-row p-px"
   >
     <div
       data-slot="scroll-area-thumb"
+      data-lv-scroll-area-target="horizontalThumb"
+      data-action="pointerdown->lv-scroll-area#dragStartHorizontal pointermove->lv-scroll-area#dragMoveHorizontal pointerup->lv-scroll-area#dragEndHorizontal pointercancel->lv-scroll-area#dragEndHorizontal"
       class="lv-scrollbar-thumb relative flex-1 rounded-full bg-[var(--lv-color-border)]"
     ></div>
   </div>

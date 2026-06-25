@@ -16,8 +16,8 @@
  *      excessive at 1000; 10 is the structural intent; add --lv-z-scrollbar:10 to tokens when
  *      the coordinator reconciles).
  *   3. Overlay rail visibility: driven by [data-type] + [data-scrolling] + [data-pointer-over]
- *      attributes set by the scroll-area.enhancer.ts. The JTE template sets data-type only when
- *      overlay=true, so these rules have no effect in native-scrollbar mode.
+ *      attributes set by the lv-scroll-area Stimulus controller. The JTE template sets data-type
+ *      only when overlay=true, so these rules have no effect in native-scrollbar mode.
  *   4. Overlay thumb color: references --lv-color-border for the default state and
  *      --lv-color-border-hover for the active/drag state (closest existing tokens; TOKENS_NEEDED:
  *      --lv-color-scrollbar-thumb, --lv-color-scrollbar-thumb-active, --lv-color-scrollbar-track).
@@ -63,7 +63,7 @@
  *   scroll  -- rail visible only while scrolling [data-scrolling]; hides after hideDelay.
  *
  * Base: rails are hidden (opacity:0) unless a rule below makes them visible.
- * The enhancer toggles [data-scrolling] and [data-pointer-over] on the root.
+ * The controller toggles [data-scrolling] and [data-pointer-over] on the root.
  * -------------------------------------------------------------------------*/
 
 /* Base: hidden for hover + scroll policies */
@@ -103,6 +103,6 @@
 }
 
 .lv-scrollbar-thumb:hover,
-[data-lievit-scroll-area] .lv-scrollbar-thumb[data-dragging] {
+[data-controller~="lv-scroll-area"] .lv-scrollbar-thumb[data-dragging] {
   background-color: var(--lv-color-border-hover);
 }
