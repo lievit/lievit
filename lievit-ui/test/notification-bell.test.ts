@@ -239,6 +239,41 @@ describe("notification-bell.jte -- panel structure a11y", () => {
 });
 
 // ---------------------------------------------------------------------------
+// lv-popover Stimulus seam (conversion of popover-anchor.enhancer.ts).
+//
+// The notification-bell is a native popover (trigger + panel). Its one irreducible client bit --
+// focus-return to the bell on light-dismiss -- is now owned by the shared lv-popover Stimulus
+// controller (no duplicated focus/dismiss logic; the controlled/uncontrolled doctrine lives once
+// in DismissableController). Behaviour is proven through the real controller + real morph in
+// test/lv-notification-bell-controller.test.ts; this block pins the template-side contract.
+// ---------------------------------------------------------------------------
+describe("notification-bell.jte -- lv-popover Stimulus seam", () => {
+  test("the bell trigger carries a stable id the panel can point its opener at", () => {
+    // triggerId = id + "-trigger"; the button id is what data-lv-opener resolves for focus-return.
+    expect(src, "must derive a triggerId from the panel id").toMatch(/triggerId\s*=\s*id\s*\+\s*"-trigger"/);
+    expect(src, "the bell button must carry id=${triggerId}").toMatch(/id="\$\{triggerId\}"/);
+  });
+
+  test("panel carries data-controller='lv-popover' (the shared converted popover seam)", () => {
+    // The popover seam is owned by the shared lv-popover Stimulus controller; the legacy
+    // popover-anchor.enhancer.ts skips this panel via its data-controller~="lv-popover" guard.
+    expect(src, "panel must attach the lv-popover controller").toContain('data-controller="lv-popover"');
+  });
+
+  test("panel carries data-lv-opener pointing at the bell trigger (focus-return target)", () => {
+    expect(src, "panel must declare its opener").toMatch(/data-lv-opener="\$\{triggerId\}"/);
+  });
+
+  test("panel is UNCONTROLLED: no data-lv-wire-close (browser-owned open, zero wire round-trip)", () => {
+    // The controlled/uncontrolled doctrine (wire-410 fix): an uncontrolled overlay must NEVER stamp
+    // a close action. The bell's open state is browser-owned, so the marker must be absent. Match
+    // the ATTRIBUTE-emission form (data-lv-wire-close="...") — the doc-comment legitimately names
+    // the attribute in prose, so a bare substring check would false-positive on the documentation.
+    expect(src, "uncontrolled bell must NOT emit a data-lv-wire-close attribute").not.toMatch(/data-lv-wire-close="/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Item list rendering.
 // ---------------------------------------------------------------------------
 describe("notification-bell.jte -- item list", () => {
