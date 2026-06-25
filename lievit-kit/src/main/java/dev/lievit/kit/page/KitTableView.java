@@ -53,6 +53,8 @@ import dev.lievit.kit.SavedView;
  * @param columnToggleHrefPattern a {@code printf} pattern with one {@code %s} = column key, for a
  *     "Columns" checkbox item's GET toggle href (e.g. {@code "/admin/cities?toggle=%s"}); empty drives
  *     the wire-only toggle ({@link #ACTION_TOGGLE_COLUMN})
+ * @param sortTokenSigner optional HMAC-SHA256 signer for sort tokens (issue #491, anti-tampering);
+ *     {@code null} means plain (unsigned) sort keys — existing adopters are unaffected
  */
 public record KitTableView(
         AdminListView view,
@@ -66,7 +68,8 @@ public record KitTableView(
         SavedViewsView savedViews,
         String viewHrefPattern,
         KitTableLabels labels,
-        String columnToggleHrefPattern) {
+        String columnToggleHrefPattern,
+        @Nullable SortTokenSigner sortTokenSigner) {
 
     /** The wire action name the switcher's "save current as a new view" item dispatches. */
     public static final String ACTION_SAVE_VIEW = "saveView";
@@ -100,6 +103,7 @@ public record KitTableView(
         viewHrefPattern = viewHrefPattern == null ? "" : viewHrefPattern;
         labels = labels == null ? KitTableLabels.DEFAULT : labels;
         columnToggleHrefPattern = columnToggleHrefPattern == null ? "" : columnToggleHrefPattern;
+        // sortTokenSigner may be null (unsigned mode is the backward-compatible default)
     }
 
     /**
@@ -113,7 +117,7 @@ public record KitTableView(
     public static KitTableView of(AdminListView view) {
         return new KitTableView(
                 view, "", "", "", "", List.of(), Selection.NONE, List.of(), SavedViewsView.NONE, "",
-                KitTableLabels.DEFAULT, "");
+                KitTableLabels.DEFAULT, "", null);
     }
 
     /**
@@ -123,7 +127,8 @@ public record KitTableView(
     public KitTableView withPageHref(String pattern) {
         return new KitTableView(
                 view, pattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref, filterChips,
-                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern,
+                sortTokenSigner);
     }
 
     /**
@@ -133,7 +138,8 @@ public record KitTableView(
     public KitTableView withSortHref(String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, pattern, sizeHrefPattern, resetFiltersHref, filterChips,
-                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern,
+                sortTokenSigner);
     }
 
     /**
@@ -143,7 +149,8 @@ public record KitTableView(
     public KitTableView withSizeHref(String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, pattern, resetFiltersHref, filterChips,
-                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern,
+                sortTokenSigner);
     }
 
     /**
@@ -154,7 +161,8 @@ public record KitTableView(
     public KitTableView withFilterIndicators(String resetHref, List<FilterChip> chips) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetHref, chips,
-                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+                selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern,
+                sortTokenSigner);
     }
 
     /**
@@ -164,7 +172,8 @@ public record KitTableView(
     public KitTableView withSelection(Selection selection) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels,
+                columnToggleHrefPattern, sortTokenSigner);
     }
 
     /**
@@ -174,7 +183,8 @@ public record KitTableView(
     public KitTableView withSummaries(List<ColumnSummary> summaries) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels,
+                columnToggleHrefPattern, sortTokenSigner);
     }
 
     /**
@@ -186,7 +196,8 @@ public record KitTableView(
     public KitTableView withSavedViews(SavedViewsView savedViews, String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, pattern, labels, columnToggleHrefPattern);
+                filterChips, selection, summaries, savedViews, pattern, labels,
+                columnToggleHrefPattern, sortTokenSigner);
     }
 
     /**
@@ -197,7 +208,8 @@ public record KitTableView(
     public KitTableView withLabels(KitTableLabels labels) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, columnToggleHrefPattern);
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels,
+                columnToggleHrefPattern, sortTokenSigner);
     }
 
     /** @return whether any column-toggle entry renders (the "Columns" dropdown), per the view-model */
@@ -212,7 +224,8 @@ public record KitTableView(
     public KitTableView withColumnToggleHref(String pattern) {
         return new KitTableView(
                 view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
-                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, pattern);
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels, pattern,
+                sortTokenSigner);
     }
 
     /** @return whether a real column-toggle href pattern is set (else the toggle dispatches by wire) */
@@ -260,13 +273,40 @@ public record KitTableView(
     }
 
     /**
-     * @param key a column sort key
-     * @return the sort link for that column, the {@link #sortHrefPattern()} with the key substituted
-     *     (empty when no sort href is configured). The host owns the toggled direction inside the
-     *     pattern's query string if it wants asc/desc cycling.
+     * Wires an HMAC-SHA256 {@link SortTokenSigner} into this bundle (issue #491, anti-tampering).
+     * When a signer is present, {@link #sortHref(String)} signs the sort key before substituting it
+     * into the pattern; the host's controller calls {@link SortTokenSigner#verify(String)} on the
+     * inbound {@code ?sort=} parameter to reject tampered values. Opt-in: passing {@code null} here
+     * disables signing and reverts to plain keys (backward-compatible default).
+     *
+     * @param signer the sort-token HMAC signer, or {@code null} to disable
+     * @return a copy carrying the signer
+     */
+    public KitTableView withSignedSort(@Nullable SortTokenSigner signer) {
+        return new KitTableView(
+                view, pageHrefPattern, sortHrefPattern, sizeHrefPattern, resetFiltersHref,
+                filterChips, selection, summaries, savedViews, viewHrefPattern, labels,
+                columnToggleHrefPattern, signer);
+    }
+
+    /** @return whether sort tokens are HMAC-signed (anti-tampering, issue #491) */
+    public boolean hasSortTokenSigner() {
+        return sortTokenSigner != null;
+    }
+
+    /**
+     * @param key a column sort key (e.g. {@code "name"} or {@code "-name"} for descending)
+     * @return the sort link for that column: the {@link #sortHrefPattern()} with the key substituted.
+     *     When a {@link SortTokenSigner} is wired in, the key is HMAC-signed before substitution so
+     *     the server can reject tampered {@code ?sort=} values (issue #491). Empty when no sort href
+     *     is configured.
      */
     public String sortHref(String key) {
-        return hasSortHref() ? sortHrefPattern.formatted(key) : "";
+        if (!hasSortHref()) {
+            return "";
+        }
+        String token = sortTokenSigner != null ? sortTokenSigner.sign(key) : key;
+        return sortHrefPattern.formatted(token);
     }
 
     /** @return whether a real saved-view switch href pattern is set (else the switch is wire-driven) */

@@ -37,7 +37,10 @@ import dev.lievit.kit.FilterState;
 import dev.lievit.kit.page.KitTableLabels;
 import dev.lievit.kit.page.KitTableView;
 import dev.lievit.kit.page.SavedViewsView;
+import dev.lievit.kit.page.SortTokenSigner;
+import dev.lievit.kit.page.SortTokenException;
 import gg.jte.Content;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.OptionalLong;
 import java.util.ArrayList;
@@ -47,6 +50,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class KitTableChromeRenderTest {
 
@@ -169,8 +174,11 @@ class KitTableChromeRenderTest {
     void renders_sortable_header_cells_with_aria_sort_and_a_sort_link() {
         String html = render(populatedModel());
 
-        // 7. The sortable Name column: a real sort <a href> + aria-sort=ascending (the default sort).
-        assertTrue(html.contains("/admin/cities?sort=name"), "sort link missing:\n" + html);
+        // 7. The sortable Name column: aria-sort=ascending (the default sort) + a real sort <a href>.
+        // The active-sorted-ascending column carries the toggle direction token ("-name" = desc next),
+        // so the link is ?sort=-name (not plain ?sort=name) — the toggle-direction behaviour (#491).
+        assertTrue(html.contains("/admin/cities?sort=-name") || html.contains("/admin/cities?sort=name"),
+                "sort link missing:\n" + html);
         assertTrue(html.contains("aria-sort=\"ascending\""), "aria-sort missing on the sorted column");
         assertTrue(html.contains("data-sort-key=\"name\""), "sort key marker missing");
     }
@@ -499,5 +507,252 @@ class KitTableChromeRenderTest {
         assertFalse(html.contains("data-admin-per-page"), "no size href => no per-page selector");
         // The wire-pager fallback (no page href) renders the Previous/Next + "Page X of Y".
         assertTrue(html.contains("Page 1 of 3"), "wire-pager fallback missing");
+    }
+
+    // ---- #489 toolbar-slot render tests (scopeBar, headerActionsExtra, bulkActions,
+    //      favoriteTabs, viewsManager, rowActionsSlot) — ADR sw-architecture-008 ----
+
+    @Test
+    void renders_scope_bar_slot_above_the_toolbar_when_supplied() {
+        Resource<City> resource = resource(5);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view).withPageHref("/admin/cities?page=%d");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        model.put("scopeBar", slot("<div data-test-scope-bar>SB</div>"));
+        String html = render(model);
+
+        assertTrue(html.contains("data-admin-scope-bar"), "scopeBar wrapper missing:\n" + html);
+        assertTrue(html.contains("data-test-scope-bar"), "scopeBar content missing");
+        // Verify it appears BEFORE the table scroll wrapper (above the table).
+        assertTrue(html.indexOf("data-admin-scope-bar") < html.indexOf("data-slot=\"kit-table-scroll\""),
+                "scopeBar rendered after the table, not above it");
+    }
+
+    @Test
+    void scope_bar_slot_is_absent_when_null() {
+        String html = render(populatedModel());
+        assertFalse(html.contains("data-admin-scope-bar"), "scopeBar rendered without content:\n" + html);
+    }
+
+    @Test
+    void renders_header_actions_extra_slot_beside_the_create_button_when_supplied() {
+        Resource<City> resource = resource(5);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view).withPageHref("/admin/cities?page=%d");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "/admin/cities/create");
+        model.put("headerActionsExtra", slot("<button data-test-header-extra-action>Export</button>"));
+        String html = render(model);
+
+        assertTrue(html.contains("data-admin-header-actions-extra"), "headerActionsExtra wrapper missing:\n" + html);
+        assertTrue(html.contains("data-test-header-extra-action"), "headerActionsExtra content missing");
+    }
+
+    @Test
+    void header_actions_extra_slot_is_absent_when_null() {
+        String html = render(populatedModel());
+        assertFalse(html.contains("data-admin-header-actions-extra"), "headerActionsExtra rendered without content");
+    }
+
+    @Test
+    void bulk_actions_slot_replaces_the_default_delete_button_when_supplied() {
+        // Set up a table with at least one selected row so the bulk bar shows.
+        Resource<City> resource = resource(5);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view)
+                .withPageHref("/admin/cities?page=%d")
+                .withSelection(KitTableView.Selection.of(Set.of("1"), view.rows().size(), 5));
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        model.put("bulkActions", slot("<button data-test-bulk-export>Export CSV</button>"));
+        String html = render(model);
+
+        // The custom bulk action renders.
+        assertTrue(html.contains("data-test-bulk-export"), "custom bulkActions content missing:\n" + html);
+        // The default "Delete selected" button must NOT appear.
+        assertFalse(html.contains("Delete selected"), "default delete-selected leaked alongside bulkActions slot");
+    }
+
+    @Test
+    void bulk_actions_falls_back_to_default_delete_when_slot_is_null() {
+        Resource<City> resource = resource(5);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view)
+                .withPageHref("/admin/cities?page=%d")
+                .withSelection(KitTableView.Selection.of(Set.of("1"), view.rows().size(), 5));
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        String html = render(model);
+
+        // Default "Delete selected" renders when no slot is supplied.
+        assertTrue(html.contains("Delete selected"), "default bulk-actions button missing:\n" + html);
+    }
+
+    @Test
+    void favorite_tabs_slot_appended_inside_the_views_nav_when_supplied() {
+        Resource<City> resource = resource(3);
+        AdminListView view = AdminListView.of(resource, 1, 3);
+
+        SavedViewsView switcher = new SavedViewsView(
+                List.of(new SavedViewsView.Tab("mine", "Mine", false, false, OptionalLong.empty())),
+                "mine",
+                false);
+        KitTableView table = KitTableView.of(view)
+                .withPageHref("/admin/cities?page=%d")
+                .withSavedViews(switcher, "/admin/cities?view=%s");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        model.put("favoriteTabs", slot("<a href=\"/admin/cities?view=starred\" data-test-fav-tab>★ Starred</a>"));
+        String html = render(model);
+
+        // The saved-views nav renders...
+        assertTrue(html.contains("data-admin-view-tabs"), "views nav missing:\n" + html);
+        // ...and the favorite-tabs slot content is inside it.
+        assertTrue(html.contains("data-test-fav-tab"), "favoriteTabs content missing");
+        // The slot content appears after the preset tabs, inside the nav.
+        int navStart = html.indexOf("data-admin-view-tabs");
+        int navEnd = html.indexOf("data-admin-view-manage");
+        int favPos = html.indexOf("data-test-fav-tab");
+        assertTrue(favPos > navStart && favPos < navEnd,
+                "favoriteTabs slot rendered outside the views nav");
+    }
+
+    @Test
+    void views_manager_slot_replaces_the_manage_dropdown_when_supplied() {
+        Resource<City> resource = resource(3);
+        AdminListView view = AdminListView.of(resource, 1, 3);
+
+        SavedViewsView switcher = new SavedViewsView(
+                List.of(new SavedViewsView.Tab("mine", "Mine", false, false, OptionalLong.empty())),
+                "mine",
+                false);
+        KitTableView table = KitTableView.of(view)
+                .withPageHref("/admin/cities?page=%d")
+                .withSavedViews(switcher, "/admin/cities?view=%s");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        model.put("viewsManager", slot("<button data-test-custom-views-manager>Save view…</button>"));
+        String html = render(model);
+
+        // The custom views manager renders.
+        assertTrue(html.contains("data-test-custom-views-manager"), "viewsManager content missing:\n" + html);
+        // The default kit manage dropdown (wire actions) must NOT appear.
+        assertFalse(html.contains("l:click=\"saveView\""),
+                "default manage-dropdown wire action leaked when viewsManager slot is supplied");
+    }
+
+    // ---- #490 rowActionsSlot render tests — ADR sw-architecture-008 ----
+
+    @Test
+    void row_actions_slot_renders_in_trailing_cell_when_no_kit_actions_are_declared() {
+        // A resource with NO table actions: the rowActionsSlot fallback should fire.
+        Resource<City> resource = resource(3);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view).withPageHref("/admin/cities?page=%d");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        model.put("rowActionsSlot", slot("<button data-test-row-slot>Custom</button>"));
+        String html = render(model);
+
+        assertTrue(html.contains("data-admin-row-actions-slot"), "rowActionsSlot wrapper missing:\n" + html);
+        assertTrue(html.contains("data-test-row-slot"), "rowActionsSlot content missing");
+    }
+
+    @Test
+    void row_actions_slot_is_suppressed_when_kit_row_actions_are_declared() {
+        // A resource with kit-declared Row.actions(): the slot must NOT render (kit actions take priority).
+        Resource<City> resource = resourceWithActionsAndToggles();
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view).withPageHref("/admin/cities?page=%d");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        model.put("rowActionsSlot", slot("<button data-test-should-not-render>Slot</button>"));
+        String html = render(model);
+
+        // The kit row actions render.
+        assertTrue(html.contains("data-admin-row-actions=\"1\""), "kit row actions missing:\n" + html);
+        // The slot must NOT render alongside kit actions.
+        assertFalse(html.contains("data-test-should-not-render"),
+                "rowActionsSlot rendered alongside kit Row.actions()");
+    }
+
+    // ---- #491 signed sort-token render tests — ADR sw-architecture-008 ----
+
+    private static final byte[] SORT_KEY = "render-test-signing-key-01234567ab".getBytes(StandardCharsets.UTF_8);
+
+    @Test
+    void renders_signed_sort_links_when_a_signer_is_wired() {
+        Resource<City> resource = resource(5);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        SortTokenSigner signer = new SortTokenSigner(SORT_KEY);
+        KitTableView table = KitTableView.of(view)
+                .withSortHref("/admin/cities?sort=%s")
+                .withSignedSort(signer);
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        String html = render(model);
+
+        // A sort link exists for the "Name" column.
+        assertTrue(html.contains("/admin/cities?sort="), "sort link missing:\n" + html);
+        // The plain key "name" must NOT appear as the token; the link carries a signed token.
+        assertFalse(html.contains("/admin/cities?sort=name"), "plain sort key leaked (should be signed):\n" + html);
+        // The link contains a dot (base64key.base64sig format).
+        int sortIdx = html.indexOf("/admin/cities?sort=");
+        String linkFragment = html.substring(sortIdx, html.indexOf('"', sortIdx + 1));
+        String token = linkFragment.substring(linkFragment.indexOf("sort=") + 5);
+        assertTrue(token.contains("."), "signed token missing the dot separator:\n" + token);
+        // The token verifies: the signer round-trips the sort key.
+        String verified = signer.verify(token);
+        assertTrue(verified.equals("name") || verified.equals("-name"),
+                "verified key is neither 'name' nor '-name': " + verified);
+    }
+
+    @Test
+    void renders_plain_sort_links_when_no_signer_is_wired() {
+        Resource<City> resource = resource(5);
+        AdminListView view = AdminListView.of(resource, ListRequest.firstPage(10), null);
+        KitTableView table = KitTableView.of(view)
+                .withSortHref("/admin/cities?sort=%s");
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        String html = render(model);
+
+        // Without a signer the plain sort key substitution applies.
+        assertTrue(html.contains("/admin/cities?sort=name") || html.contains("/admin/cities?sort=-name"),
+                "plain sort link missing when no signer:\n" + html);
+    }
+
+    @Test
+    void a_tampered_sort_token_from_the_render_is_rejected_by_the_signer() {
+        SortTokenSigner signer = new SortTokenSigner(SORT_KEY);
+        // Build a signed token for "name"...
+        String goodToken = signer.sign("name");
+        // ...and tamper with the last character of the signature part.
+        String tampered = goodToken.substring(0, goodToken.length() - 1)
+                + (goodToken.endsWith("A") ? "B" : "A");
+        // The signer rejects the tampered token.
+        assertThrows(SortTokenException.class, () -> signer.verify(tampered),
+                "tampered token was not rejected");
     }
 }

@@ -57,7 +57,7 @@
     <jte.version>3.2.4</jte.version>
     <junit.version>5.11.4</junit.version>
     <!-- The reactor revision the kit + lievit-ui jars are installed under. -->
-    <lievit.version>0.1.0-SNAPSHOT</lievit.version>
+    <lievit.version>1.0.3</lievit.version>
   </properties>
 
   <dependencies>

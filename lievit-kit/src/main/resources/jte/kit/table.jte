@@ -35,16 +35,40 @@
     13 empty state                                   -> empty partial
     14 rich cells (Text/Badge/Link/Icon/Tags/...)    -> kit.table.rich-cell
 
-  Params:
+  Params (additive; all new params default to null — existing adopters are unaffected):
     table     - the KitTableView render bundle (the AdminListView + render-time URL/selection facts).
     createUrl - the "New" create href (Filament's create header action); "" hides the create button.
     columnManager - host-supplied column-visibility items (one dropdown-menu.item per toggleable
                     column); null falls back to the AUTO-rendered "Columns" dropdown built from the
                     view-model's toggleable columns (view.columnToggles()), shown only when the table
                     has any toggleable column. Pass a non-null Content to override the items entirely.
-    headerExtra - OPTIONAL chrome slot beside the heading (Filament publish-views): null renders nothing.
-    toolbarEnd  - OPTIONAL chrome slot at the end of the filter/toolbar row: null renders nothing.
-    aboveTable  - OPTIONAL chrome slot between the toolbar and the table: null renders nothing.
+    headerExtra - OPTIONAL slot beside the heading (Filament publish-views): null renders nothing.
+    headerActionsExtra - OPTIONAL slot inside the header-actions cluster (beside the create button,
+                    e.g. CSV export); null renders nothing.  [#489, ADR sw-architecture-008]
+    scopeBar    - OPTIONAL slot above the filter toolbar that constrains the visible row set (e.g. a
+                    toggle group "All / Active / Archived", a colleague picker); null renders nothing.
+                    [#489, ADR sw-architecture-008]
+    toolbarEnd  - OPTIONAL slot at the end of the filter/toolbar row (e.g. an advanced-search
+                    popover trigger); null renders nothing.
+    aboveTable  - OPTIONAL slot between the toolbar and the table (e.g. active-filter chips from an
+                    alternative filter UI); null renders nothing.
+    favoriteTabs - OPTIONAL slot appended inside the saved-views tab nav (e.g. user-starred views
+                    promoted to the tab strip, Filament Advanced Tables v3); null renders nothing.
+                    [#489, ADR sw-architecture-008]
+    viewsManager - OPTIONAL slot that REPLACES the kit's default saved-views manage dropdown (for
+                    adopters that need a custom Save/manage modal); null falls back to the kit default.
+                    [#489, ADR sw-architecture-008]
+    bulkActions - OPTIONAL slot inside the selection-footer that REPLACES the default "Delete
+                    selected" button; null falls back to the default.  [#489, ADR sw-architecture-008]
+    rowActionsSlot - OPTIONAL per-row fallback slot: rendered in the trailing actions cell when a row
+                    carries NO kit-declared Row.actions(); lets adopters inject custom row chrome
+                    (e.g. a stateful arm/confirm sequence) without forking the template.
+                    [#490, ADR sw-architecture-008]
+
+  Sort-token anti-tampering (#491, ADR sw-architecture-008): when table.hasSortTokenSigner() is
+  true, the sortable-column links carry HMAC-signed tokens instead of plain keys; the host's
+  controller calls SortTokenSigner.verify() to reject tampered ?sort= values. Opt-in; existing
+  adopters pass no signer and continue to receive plain links.
 
   i18n: every chrome string comes from table.labels() (a KitTableLabels value object); the host maps
   its own MessageSource into it. KitTableLabels.DEFAULT carries the English copy, so a host that
@@ -54,8 +78,14 @@
 @param String createUrl = ""
 @param gg.jte.Content columnManager = null
 @param gg.jte.Content headerExtra = null
+@param gg.jte.Content headerActionsExtra = null
+@param gg.jte.Content scopeBar = null
 @param gg.jte.Content toolbarEnd = null
 @param gg.jte.Content aboveTable = null
+@param gg.jte.Content favoriteTabs = null
+@param gg.jte.Content viewsManager = null
+@param gg.jte.Content bulkActions = null
+@param gg.jte.Content rowActionsSlot = null
 !{AdminListView view = table.view();}
 !{KitTableLabels labels = table.labels();}
 !{AdminListView.Controls controls = view.controls();}
@@ -90,8 +120,18 @@
         @template.lievit.button(variant = "primary", size = "sm", href = createUrl,
           dataAttrs = java.util.Map.of("admin-create", "true"), content = @`${labels.newRecord()}`)
       @endif
+      <%-- #489 slot: extra header actions beside the create button (e.g. CSV export, ADR sw-architecture-008). --%>
+      @if(headerActionsExtra != null)
+        <div data-admin-header-actions-extra class="flex items-center gap-[var(--lv-space-2)]">${headerActionsExtra}</div>
+      @endif
     </div>
   </div>
+
+  <%-- #489 slot: scope bar above the filter toolbar (e.g. toggle group "All / Active / Archived",
+       colleague picker); scopes WHAT the table reads (ADR sw-architecture-008). --%>
+  @if(scopeBar != null)
+    <div data-admin-scope-bar class="py-[var(--lv-space-2)]">${scopeBar}</div>
+  @endif
 
   <%-- 15. Saved-views switcher: the Salesforce list-view tab strip / Filament advanced-table tabs.
        Each tab is a real GET <a href> (?view=<id>, JS-off) with an optional count badge + a pinned
@@ -135,24 +175,34 @@
               @endfor
             `)
         @endif
+        <%-- #489 slot: user-starred views promoted into the tab strip (Filament Advanced Tables v3
+             favourites-as-tabs); rendered after preset tabs so they blend in. ADR sw-architecture-008. --%>
+        @if(favoriteTabs != null)${favoriteTabs}@endif
       </nav>
       <div data-admin-view-manage class="flex items-center gap-[var(--lv-space-1)]">
         @if(savedViews.dirty())
           <span data-admin-view-dirty class="text-[length:var(--lv-text-xs)] text-[var(--lv-color-muted-fg)]">${labels.unsavedChanges()}</span>
         @endif
-        @template.lievit.dropdown-menu(
-          id = "kit-views-manage",
-          trigger = @`@template.lievit.icon(name = "plus", size = "1rem") <span>${labels.saveViewTrigger()}</span>`,
-          content = @`
-            <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SAVE_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.saveView()}</button>
-            <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_UPDATE_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.updateView()}</button>
-            <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SET_DEFAULT_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.setDefaultView()}</button>
-            <button type="button" role="menuitem" data-slot="dropdown-menu-item" data-variant="destructive" l:click="${KitTableView.ACTION_DELETE_VIEW}"
-              class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-destructive)]">${labels.deleteView()}</button>
-          `)
+        <%-- #489 slot: viewsManager REPLACES the kit's default manage dropdown when supplied (e.g. a
+             custom Save-view modal trigger); null falls back to the kit's four wire actions.
+             ADR sw-architecture-008. --%>
+        @if(viewsManager != null)
+          ${viewsManager}
+        @else
+          @template.lievit.dropdown-menu(
+            id = "kit-views-manage",
+            trigger = @`@template.lievit.icon(name = "plus", size = "1rem") <span>${labels.saveViewTrigger()}</span>`,
+            content = @`
+              <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SAVE_VIEW}"
+                class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.saveView()}</button>
+              <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_UPDATE_VIEW}"
+                class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.updateView()}</button>
+              <button type="button" role="menuitem" data-slot="dropdown-menu-item" l:click="${KitTableView.ACTION_SET_DEFAULT_VIEW}"
+                class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-fg)]">${labels.setDefaultView()}</button>
+              <button type="button" role="menuitem" data-slot="dropdown-menu-item" data-variant="destructive" l:click="${KitTableView.ACTION_DELETE_VIEW}"
+                class="flex w-full items-center gap-[var(--lv-space-2)] border-0 bg-transparent px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-left text-[var(--lv-color-destructive)]">${labels.deleteView()}</button>
+            `)
+        @endif
       </div>
     </div>
   @endif
@@ -276,7 +326,13 @@
               checked = selection.allSelected(), indeterminate = selection.someSelected(), model = "selectAll")
           @endif
           @for(AdminListView.Header header : view.headerCells())
-            @template.kit.table.sortable-head(header = header, sortHref = table.sortHref(header.sortKey()))
+            <%-- #491 signed sort-token: the sort link carries an HMAC-signed token when the host
+                 wires a SortTokenSigner; a re-click on the active sort column carries the negated key
+                 ("-key") to toggle asc→desc, signed with the same key so the server verifies both
+                 directions. Unsigned mode (no signer) is the backward-compatible default.
+                 ADR sw-architecture-008. --%>
+            !{var _rawSortKey = (header.isSorted() && header.sortDirection() == dev.lievit.kit.SortDirection.ASC) ? "-" + header.sortKey() : header.sortKey();}
+            @template.kit.table.sortable-head(header = header, sortHref = table.sortHref(_rawSortKey))
           @endfor
           @template.lievit.table.head(content = @`${labels.actions()}`)
         </tr>
@@ -303,11 +359,13 @@
               @for(Cell cell : row.cells())
                 @template.lievit.table.cell(content = @`@template.kit.table.rich-cell(cell = cell)`)
               @endfor
-              <%-- Trailing actions cell: the generic per-row actions resolved on the view-model
-                   (Filament Table->actions), one button each (a real <a href> link action or an
-                   l:click wire action, the button partial owns the root tag so there is no
-                   different-root-per-branch gotcha here). When a row has no actions we fall back to
-                   the legacy single Edit link so existing hosts keep their row affordance. --%>
+              <%-- Trailing actions cell: preference order (Filament Table->actions, #490):
+                   1. GENERIC kit Row.actions() — per-record static actions declared on the Resource.
+                   2. #490 rowActionsSlot — host-supplied per-row fallback for stateful or custom
+                      actions (e.g. arm/confirm, that cannot be expressed as static Row.actions()).
+                      Rendered once per row; the host receives no context param (use the surrounding
+                      template or a child component for per-row state). ADR sw-architecture-008.
+                   3. Kit fallback: the legacy single Edit link so hosts without actions keep a link. --%>
               @template.lievit.table.cell(content = @`
                 @if(row.hasActions())
                   <div data-admin-row-actions="${row.id()}" class="flex items-center gap-[var(--lv-space-1)]">
@@ -328,6 +386,8 @@
                       @endif
                     @endfor
                   </div>
+                @elseif(rowActionsSlot != null)
+                  <div data-admin-row-actions-slot="${row.id()}" class="flex items-center gap-[var(--lv-space-1)]">${rowActionsSlot}</div>
                 @else
                   <a href="${createUrl}" data-admin-row-action="${row.id()}" class="text-[var(--lv-color-primary)] hover:underline">${labels.edit()}</a>
                 @endif
@@ -351,12 +411,18 @@
     </table>
   </div>
 
-  <%-- 6. Bulk-action bar: "N of M row(s) selected" + the bulk actions (shown when a row is selected). --%>
+  <%-- 6. Bulk-action bar: "N of M row(s) selected" + the bulk actions (shown when a row is selected).
+       #489 slot: bulkActions REPLACES the default "Delete selected" button when supplied.
+       ADR sw-architecture-008. --%>
   @if(selection.enabled())
     @template.lievit.data-table.selection-footer(selected = selection.selectedCount(),
       total = (int) selection.total(),
       actions = selection.hasSelection() ? @`
-        @template.lievit.button(variant = "destructive", size = "sm", wireClick = "deleteSelected", content = @`${labels.deleteSelected()}`)
+        @if(bulkActions != null)
+          ${bulkActions}
+        @else
+          @template.lievit.button(variant = "destructive", size = "sm", wireClick = "deleteSelected", content = @`${labels.deleteSelected()}`)
+        @endif
       ` : null)
   @endif
 

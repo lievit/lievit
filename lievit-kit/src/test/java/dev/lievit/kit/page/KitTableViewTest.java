@@ -5,9 +5,11 @@
 package dev.lievit.kit.page;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.lievit.kit.AdminListView;
 import dev.lievit.kit.ColumnSummary;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -183,5 +185,113 @@ class KitTableViewTest {
 
         assertThat(pagination.firstShown()).isZero();
         assertThat(pagination.lastShown()).isZero();
+    }
+
+    // ---- #491 signed sort-token tests (SortTokenSigner + KitTableView.withSignedSort) ----
+
+    private static final byte[] TEST_KEY =
+            "test-sort-signing-key-0123456789ab".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * @spec.given a bundle without a sort signer and a sort-href pattern
+     * @spec.when  sortHref is called with a column key
+     * @spec.then  the link carries the plain key (unsigned, backward-compatible)
+     */
+    @Test
+    void sort_href_is_unsigned_when_no_signer_is_wired() {
+        KitTableView table = KitTableView.of(viewOf(1, 10, 0)).withSortHref("/admin?sort=%s");
+
+        assertThat(table.hasSortTokenSigner()).isFalse();
+        // Plain key, no dot-separated HMAC suffix.
+        assertThat(table.sortHref("name")).isEqualTo("/admin?sort=name");
+    }
+
+    /**
+     * @spec.given a bundle wired with a SortTokenSigner and a sort-href pattern
+     * @spec.when  sortHref is called with a column key
+     * @spec.then  the link carries a signed token (base64key.base64sig), not the plain key
+     */
+    @Test
+    void sort_href_is_hmac_signed_when_a_signer_is_wired() {
+        SortTokenSigner signer = new SortTokenSigner(TEST_KEY);
+        KitTableView table = KitTableView.of(viewOf(1, 10, 0))
+                .withSortHref("/admin?sort=%s")
+                .withSignedSort(signer);
+
+        assertThat(table.hasSortTokenSigner()).isTrue();
+        String href = table.sortHref("name");
+        // The token is not the plain key.
+        assertThat(href).isNotEqualTo("/admin?sort=name");
+        // The token portion is base64key.base64sig (two dot-separated parts after "sort=").
+        String token = href.substring(href.indexOf("sort=") + 5);
+        assertThat(token).contains(".");
+        // The signer can round-trip: verify recovers the original key.
+        assertThat(signer.verify(token)).isEqualTo("name");
+    }
+
+    /**
+     * @spec.given a signed sort-href token for a descending sort direction
+     * @spec.when  the token is verified
+     * @spec.then  the negated key ("-name") is recovered intact, encoding the intended direction
+     */
+    @Test
+    void descending_sort_key_survives_the_sign_verify_round_trip() {
+        SortTokenSigner signer = new SortTokenSigner(TEST_KEY);
+        KitTableView table = KitTableView.of(viewOf(1, 10, 0))
+                .withSortHref("/admin?sort=%s")
+                .withSignedSort(signer);
+
+        String href = table.sortHref("-name");
+        String token = href.substring(href.indexOf("sort=") + 5);
+        // The "-" prefix (descending direction) round-trips cleanly.
+        assertThat(signer.verify(token)).isEqualTo("-name");
+    }
+
+    /**
+     * @spec.given a tampered sort token (the signature portion modified)
+     * @spec.when  SortTokenSigner.verify is called
+     * @spec.then  a SortTokenException is thrown (the sort param is rejected)
+     */
+    @Test
+    void a_tampered_sort_token_is_rejected_with_an_exception() {
+        SortTokenSigner signer = new SortTokenSigner(TEST_KEY);
+        String good = signer.sign("name");
+        // Tamper: flip the last character of the signature.
+        String tampered = good.substring(0, good.length() - 1) + (good.endsWith("A") ? "B" : "A");
+
+        assertThatThrownBy(() -> signer.verify(tampered))
+                .isInstanceOf(SortTokenException.class)
+                .hasMessageContaining("mismatch");
+    }
+
+    /**
+     * @spec.given a key shorter than SortTokenSigner.MIN_KEY_BYTES
+     * @spec.when  a SortTokenSigner is constructed with that key
+     * @spec.then  an IllegalArgumentException is thrown at construction time, not silently accepted
+     */
+    @Test
+    void a_short_signing_key_is_rejected_at_construction() {
+        byte[] tooShort = "short".getBytes(StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> new SortTokenSigner(tooShort))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least");
+    }
+
+    /**
+     * @spec.given a bundle wired with a signer, then re-wired with null
+     * @spec.when  sortHref is called after removing the signer
+     * @spec.then  the link reverts to the plain (unsigned) key
+     */
+    @Test
+    void removing_the_signer_reverts_to_unsigned_links() {
+        SortTokenSigner signer = new SortTokenSigner(TEST_KEY);
+        KitTableView table = KitTableView.of(viewOf(1, 10, 0))
+                .withSortHref("/admin?sort=%s")
+                .withSignedSort(signer)
+                .withSignedSort(null);
+
+        assertThat(table.hasSortTokenSigner()).isFalse();
+        assertThat(table.sortHref("name")).isEqualTo("/admin?sort=name");
     }
 }
