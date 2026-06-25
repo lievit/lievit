@@ -1,0 +1,25 @@
+{
+  "name": "float-button",
+  "type": "registry:jte",
+  "description": "A floating action button / FAB (Ant Design FloatButton parity): a fixed circular (or square) action affordance pinned to a screen corner. Server-first polymorphism -- a non-blank href renders a real <a> (navigation), a blank href a <button> (a wire action wired via attrs, e.g. a lievit @click directive). The glyph reuses the lievit icon primitive; type primary|default, shape circle|square, position bottom-right|bottom-left|top-right|top-left, an optional badge slot (count/dot). float-button.group pins a vertical/horizontal stack of FABs (children rendered floating=false so the group owns positioning). A11y: real button/anchor + a REQUIRED aria-label (icon-only). Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/float-button.jte",
+      "type": "registry:jte",
+      "target": "lievit/float-button.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/float-button/group.jte",
+      "type": "registry:jte",
+      "target": "lievit/float-button/group.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "shadow", "ring", "type"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the float-button + float-button/group partials to your JTE root at lievit/float-button/. @template.lievit.float-button(icon=..., label=..., type=..., attrs=\"...wire @click...\") for a single FAB (label is REQUIRED for the accessible name), or @template.lievit.float-button.group(content=@`...`) to stack several (set floating=false on the nested buttons). position pins the corner. Requires the icon primitive. The source is yours: edit freely."
+}

@@ -1,0 +1,19 @@
+{
+  "name": "input-number",
+  "type": "registry:jte",
+  "description": "A numeric stepper input (Ant Design InputNumber parity). The VALUE is a native <input inputmode=numeric> (server-rendered, form-submitted, l:model-bindable); the +/- buttons, bound clamping, ArrowUp/Down stepping, and at-bounds button disabling are added by the lv-input-number Stimulus controller. Progressive enhancement: with JS off the input is still editable + submittable. min/max are OPTIONAL (omit for unbounded; the controller reads hasMinValue/hasMaxValue, no sentinel); step + precision tune the arithmetic. Step buttons reuse the lievit icon primitive (minus/plus). Sizes sm|md|lg follow the form-control height scale. CSP-clean (behaviour in the controller module; data-action/data-*-value are plain strings).",
+  "dependencies": ["@hotwired/stimulus"],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/input-number.jte",
+      "type": "registry:jte",
+      "target": "lievit/input-number.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "ring"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the input-number partial to your JTE root at lievit/input-number.jte. Use @template.lievit.input-number(name=..., value=..., min=..., max=..., step=..., precision=...). The lv-input-number Stimulus controller ships with the lievit runtime bundle and auto-loads by filename (no registry edit). min/max are optional (unbounded when omitted). The native input carries the value and submits with no JS; the controller adds the stepper UX. The source is yours: edit freely."
+}

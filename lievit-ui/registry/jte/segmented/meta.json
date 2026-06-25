@@ -1,0 +1,19 @@
+{
+  "name": "segmented",
+  "type": "registry:jte",
+  "description": "A single-select segmented control (Ant Design Segmented parity): a recessed track with one raised pill marking the selected option. lievit's toggle-buttons/toggle-group only approximate the look; this is the dedicated primitive, built the CSP-clean native way -- one sr-only radio per option + a visible <label> segment, peer-checked raising the selected segment to the popover surface with a small shadow (shadcn visual language, not Ant's). Single-select by construction (radio group); use toggle-buttons for multi-select. Options arrive as a typed ordered Map (key submitted, value visible). Sizes sm|md|lg; block stretches full width. A11y: <fieldset role=radiogroup> with native radios (platform roving + single-selection). Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/segmented.jte",
+      "type": "registry:jte",
+      "target": "lievit/segmented.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "radius", "type", "shadow", "ring"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the segmented partial to your JTE root at lievit/segmented.jte, reached as @template.lievit.segmented(name=..., value=..., options=...). Pass an ordered Map of key->label; value selects the active key. size=sm|md|lg, block=true stretches full width. Single-select only (native radio group, arrow-key roving for free); use toggle-buttons for multi-select. The source is yours: edit freely."
+}

@@ -1,0 +1,31 @@
+{
+  "name": "typography",
+  "type": "registry:jte",
+  "description": "A consistent text-style system (Ant Design Typography parity): typography.title renders a semantic <h1>..<h5> by level with a colour intent; typography.text renders inline text mapping each emphasis flag to the correct semantic element (strong-><strong>, italic-><em>, delete-><del>, underline-><u>, mark-><mark>, code-><code>, keyboard-><kbd>) plus secondary/success/warning/danger colour intents; typography.paragraph renders a <p> with the body ramp and an optional line clamp (1..6 rows) for ellipsis truncation. Real semantic elements (heading levels, del/mark/code/kbd) so document outline + AT navigation are correct; colour is never the sole signal. Server-first PARTIAL, zero JS, CSP-clean. Complements lievit label + link.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/typography/title.jte",
+      "type": "registry:jte",
+      "target": "lievit/typography/title.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/typography/text.jte",
+      "type": "registry:jte",
+      "target": "lievit/typography/text.jte",
+      "root": "jte"
+    },
+    {
+      "path": "jte/typography/paragraph.jte",
+      "type": "registry:jte",
+      "target": "lievit/typography/paragraph.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "type", "space", "radius", "opacity"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the typography family (title + text + paragraph) to your JTE root at lievit/typography/. @template.lievit.typography.title(level=1..5, type=..., content=@`...`) for headings; @template.lievit.typography.text(strong|italic|underline|delete|mark|code|keyboard, type=..., content=@`...`) for inline text mapped to semantic elements; @template.lievit.typography.paragraph(type=..., clamp=0..6, content=@`...`) for body copy with optional line-clamp. The source is yours: edit freely."
+}

@@ -1,0 +1,19 @@
+{
+  "name": "watermark",
+  "type": "registry:jte",
+  "description": "A repeating text watermark over content (Ant Design Watermark parity). Ant draws the mark to a <canvas> in JS and tiles it as a background image -- forbidden by the strict CSP. This CSP-clean equivalent renders the mark as REAL tiled DOM: a wrapper positions the children and an aria-hidden overlay tiles the text as a flex-wrap of rotated <span>s (count repeats), pointer-events:none (never intercepts clicks) and user-select:none (cannot be copied). No canvas, no data-URI, no script. Params: text, count, rotate, opacity, color, gap. The mark text is author-typed (HTML-escaped). Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/watermark.jte",
+      "type": "registry:jte",
+      "target": "lievit/watermark.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the watermark partial to your JTE root at lievit/watermark.jte, reached as @template.lievit.watermark(text=..., content=@`...`). Wraps content with a repeating, rotated, low-opacity text overlay that is aria-hidden, non-interactive (pointer-events:none) and unselectable. Tune count (number of tiled repeats), rotate, opacity, color, gap. CSP-clean (no canvas, no script). The source is yours: edit freely."
+}

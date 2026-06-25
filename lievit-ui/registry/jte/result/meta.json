@@ -1,0 +1,19 @@
+{
+  "name": "result",
+  "type": "registry:jte",
+  "description": "A status / result page (Ant Design Result parity): a centred feedback block for an operation outcome or HTTP status (success|error|info|warning|403|404|500). The status drives a token-tinted lucide glyph (reusing the lievit icon primitive -- one icon system, shadcn visual language not Ant artwork) + a colour intent; title + subTitle carry the message; an `extra` content slot holds recovery actions (buttons/links) and a `content` slot holds extra detail. Rendered as a <section role=status aria-live=polite> so a result morphed into a live region is announced; the glyph is aria-hidden (colour never the sole signal). Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens", "icon"],
+  "files": [
+    {
+      "path": "jte/result.jte",
+      "type": "registry:jte",
+      "target": "lievit/result.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["color", "space", "type"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the result partial to your JTE root at lievit/result.jte, reached as @template.lievit.result(status=..., title=..., subTitle=..., extra=@`...`). status picks the glyph + colour: success|error|info|warning|403|404|500. Put recovery actions (buttons/links) in the extra slot and any extra detail in content. Requires the icon primitive. The source is yours: edit freely."
+}

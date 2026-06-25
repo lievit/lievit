@@ -1,0 +1,19 @@
+{
+  "name": "flex",
+  "type": "registry:jte",
+  "description": "A flexbox layout primitive (Ant Design Flex parity). Renders a <div> with token-driven flexbox utilities derived from typed params: vertical (column), justify (start|end|center|between|around|evenly), align (start|end|center|baseline|stretch), gap (none|small|middle|large mapped onto the --lv-space-* scale, or a raw CSS length used verbatim), wrap, inline. Packages the common flex cluster behind a typed API while still compiling to plain Tailwind utilities -- zero new runtime. Server-first PARTIAL, zero JS, CSP-clean.",
+  "dependencies": [],
+  "registryDependencies": ["tokens"],
+  "files": [
+    {
+      "path": "jte/flex.jte",
+      "type": "registry:jte",
+      "target": "lievit/flex.jte",
+      "root": "jte"
+    }
+  ],
+  "tokens": ["space"],
+  "enhancer": null,
+  "css": null,
+  "docs": "Copies the flex partial to your JTE root at lievit/flex.jte, reached as @template.lievit.flex(content=@`...`). Lay out a cluster of children with vertical=true for a column, justify/align for the two axes, gap=\"small|middle|large\" (token scale) or a raw length like \"12px\". wrap=true allows multi-line; inline=true uses inline-flex. The source is yours: edit freely."
+}
