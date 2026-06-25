@@ -119,9 +119,11 @@
   }}
 !{var _dataAttrsMarkup = _dataAttrs_.toString();}
 
-<%-- Shared root data-* attributes: the enhancer reads all of these on mount.
+<%-- Shared root data-* attributes: the lv-theme-switcher Stimulus controller reads all of these on
+     connect (data-lievit-enhancer is kept for the legacy enhancer path during coexistence).
      Emitted as a string so they can be shared across the two structural branches. --%>
 !{var _commonDataAttrs = " data-slot=\"theme-switcher\""
+    + " data-controller=\"lv-theme-switcher\""
     + " data-lievit-enhancer=\"theme-switcher\""
     + " data-variant=\"" + variant + "\""
     + " data-size=\"" + size + "\""
@@ -177,6 +179,7 @@
 <button
   type="button"
   $unsafe{_commonDataAttrs}
+  data-action="click->lv-theme-switcher#cycle"
   aria-pressed="false"
   aria-label="${_initialLabel}"
   class="${_singleBtnClass} ${cssClass}"
@@ -197,6 +200,7 @@
   role="toolbar"
   aria-label="Theme"
   $unsafe{_commonDataAttrs}
+  data-action="keydown->lv-theme-switcher#handleKey"
   class="inline-flex items-stretch rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] shadow-[var(--lv-shadow-xs)] ${cssClass}"
   style="height:${_h};font-family:var(--lv-font-sans);font-size:${_textSize};display:none;"
   $unsafe{_dataAttrsMarkup}
@@ -206,6 +210,7 @@
   <button
     type="button"
     data-theme-option="light"
+    data-action="click->lv-theme-switcher#select"
     aria-label="${labelLight}"
     aria-pressed="false"
     tabindex="-1"
@@ -218,6 +223,7 @@
   <button
     type="button"
     data-theme-option="dark"
+    data-action="click->lv-theme-switcher#select"
     aria-label="${labelDark}"
     aria-pressed="false"
     tabindex="-1"
@@ -231,6 +237,7 @@
   <button
     type="button"
     data-theme-option="system"
+    data-action="click->lv-theme-switcher#select"
     aria-label="${labelSystem}"
     aria-pressed="false"
     tabindex="-1"
