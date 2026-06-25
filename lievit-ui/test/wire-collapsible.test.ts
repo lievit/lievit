@@ -54,18 +54,23 @@ describe("registry:wire item shape", () => {
     expect(jte.content).toContain("@param");
   });
 
-  test("the wire template is server-pure: no <slot>, no inline <script>, l:click action", () => {
+  test("the wire template is server-pure: no <slot>, no inline <script>, CSP-clean toggle", () => {
     const item = registry.items.find((i) => i.name === "collapsible")!;
     const jte = item.files.find((f) => f.target.endsWith(".jte"))!.content ?? "";
     // the whole reason for the pivot: no native <slot> (inert in light DOM), no inline script.
     const markup = jte.replace(/<%--[\s\S]*?--%>/g, "");
     expect(markup).not.toMatch(/<slot[\s>]/);
     expect(markup).not.toMatch(/<script/i);
-    // it fires the server action and renders an OWNED body region (server-rendered), not a <slot>:
-    // the wire runtime renders the template with only @Wire fields + _component, so the body is
-    // owned markup the adopter edits, never a call-time JTE Content slot.
-    expect(jte).toContain('l:click="toggle"');
+    // the trigger click is owned by the lv-collapsible Stimulus controller (data-action, CSP-clean)
+    // and routed through the controlled/uncontrolled doctrine: this WIRE template is CONTROLLED, so
+    // it stamps data-lv-wire-toggle="toggle" => the click rides the wire + the server re-renders.
+    // The OWNED body region (server-rendered, not a <slot>) is the adopter's editing seam.
+    expect(jte).toContain('data-action="click->lv-collapsible#toggle"');
+    expect(jte).toContain('data-lv-wire-toggle="toggle"');
+    expect(jte).toContain('data-controller="lv-collapsible"');
     expect(jte).toContain("data-collapsible-region");
+    // the old core l:click directive is gone (Stimulus owns the click now).
+    expect(jte).not.toContain('l:click="toggle"');
   });
 
   test("the wire Java holds the state in @Wire fields + a @LievitAction toggle", () => {

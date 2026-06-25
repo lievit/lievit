@@ -7,8 +7,12 @@
   state lives server-side in CollapsibleComponent (ADR-0012). Pairs with
   registry/wire/collapsible/CollapsibleComponent.java.
 
-  TIER: WIRE. The open/closed state is server state (a @Wire boolean); the trigger fires the
-  `toggle` action over the wire and the server re-renders this template, the client morphs it.
+  TIER: WIRE. The open/closed state is server state (a @Wire boolean). The trigger click is owned
+  by the `lv-collapsible` Stimulus controller (data-action, CSP-clean, no inline script) which
+  routes it through the controlled/uncontrolled doctrine: this WIRE template is CONTROLLED (it
+  stamps `data-lv-wire-toggle="toggle"`), so the click rides the wire, the server flips the @Wire
+  boolean + re-renders this template, and the client morphs it. A standalone (non-wire) include
+  that omits `data-lv-wire-toggle` is UNCONTROLLED and flips purely client-side (no round-trip).
   No <slot> (the light-DOM slot bug). The wire runtime renders this template with ONLY the
   component's @Wire fields + _component + _instance (JteTemplateAdapter), so the panel body is
   NOT a JTE Content slot supplied at call time: it is OWNED markup inside this region. The
@@ -46,7 +50,12 @@
 !{var cid = _component.className();}
 !{var triggerId = "lv-collapsible-trigger";}
 !{var panelId = "lv-collapsible-panel";}
-<div data-lievit-component="${cid}" class="block" style="font-family: var(--lv-font-sans);">
+<div data-lievit-component="${cid}" class="block" style="font-family: var(--lv-font-sans);"
+     data-controller="lv-collapsible"
+     data-slot="collapsible"
+     data-state="${open ? "open" : "closed"}"
+     data-lv-wire-toggle="toggle"
+     data-lv-collapsible-disabled-value="${disabled ? "true" : "false"}">
     <button
         type="button"
         id="${triggerId}"
@@ -54,11 +63,13 @@
         style="gap: var(--lv-space-3); padding: var(--lv-space-2) var(--lv-space-3); background: var(--lv-color-bg); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); font-size: var(--lv-text-sm); font-weight: 500; color: var(--lv-color-fg); cursor: ${disabled ? "not-allowed" : "pointer"}; opacity: ${disabled ? "0.5" : "1"};"
         aria-expanded="${open ? "true" : "false"}"
         aria-controls="${panelId}"
-        l:click="toggle"
+        data-action="click->lv-collapsible#toggle"
+        data-lv-collapsible-target="trigger"
+        data-slot="collapsible-trigger"
         data-collapsible-trigger
     >
         <span data-collapsible-label>${label}</span>
-        <span aria-hidden="true" style="color: var(--lv-color-muted); flex-shrink: 0; display: inline-flex; transition: transform 0.2s ease; transform: rotate(${open ? "180" : "0"}deg);">
+        <span aria-hidden="true" data-lv-collapsible-target="chevron" style="color: var(--lv-color-muted); flex-shrink: 0; display: inline-flex; transition: transform 0.2s ease; transform: rotate(${open ? "180" : "0"}deg);">
             @template.icon(name = "chevron-down", size = "1rem")
         </span>
     </button>
@@ -67,6 +78,8 @@
         role="region"
         aria-labelledby="${triggerId}"
         hidden="${!open}"
+        data-lv-collapsible-target="region"
+        data-slot="collapsible-content"
         data-collapsible-region
         style="padding: var(--lv-space-3); font-size: var(--lv-text-base); color: var(--lv-color-fg); line-height: var(--lv-leading);"
     >
