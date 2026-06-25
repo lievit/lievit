@@ -51,6 +51,7 @@
       type="submit"
       data-slot="builder-remove"
       data-builder-remove
+      data-action="click->lv-builder#remove"
       name="${name}__remove"
       value="${index}"
       aria-label="Remove ${heading} ${index + 1}"

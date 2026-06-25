@@ -70,6 +70,7 @@
 
 <fieldset
   data-slot="builder"
+  data-controller="lv-builder"
   data-lievit-builder
   data-name="${name}"
   data-disabled="${disabled ? "true" : null}"
@@ -80,14 +81,14 @@
     <legend data-slot="builder-label" class="p-0 text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]">${label}</legend>
   @endif
 
-  <div data-slot="builder-blocks" data-builder-blocks class="flex flex-col gap-[var(--lv-space-3)]">
+  <div data-slot="builder-blocks" data-builder-blocks data-lv-builder-target="blocks" class="flex flex-col gap-[var(--lv-space-3)]">
     @if(blocksContent != null)
       ${blocksContent}
     @endif
   </div>
 
   <%-- JS-on the enhancer reads these per-type templates and clones the one matching the add menu. --%>
-  <div data-slot="builder-templates" data-builder-templates hidden>
+  <div data-slot="builder-templates" data-builder-templates data-lv-builder-target="templates" hidden>
     @if(templates != null)
       ${templates}
     @endif
@@ -101,6 +102,7 @@
           type="submit"
           data-slot="builder-add"
           data-builder-add="${type.getKey()}"
+          data-action="click->lv-builder#add"
           name="${name}__addblock"
           value="${type.getKey()}"
           aria-label="${addLabel}: ${type.getValue()}"
@@ -112,5 +114,5 @@
     </div>
   @endif
 
-  <span data-slot="builder-live" data-builder-live aria-live="polite" class="sr-only"></span>
+  <span data-slot="builder-live" data-builder-live data-lv-builder-target="live" aria-live="polite" class="sr-only"></span>
 </fieldset>
