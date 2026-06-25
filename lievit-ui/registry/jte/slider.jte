@@ -6,14 +6,16 @@
 
   lievit-ui slider partial -- APG Slider on a platform native input[type=range].
   Single-thumb default; dual-thumb range mode (rangeMode=true); horizontal or vertical.
-  Marks, value tooltip, disabled, aria-invalid. The enhancer handles the cases the native
-  element does not cover: range clamp, --slider-pct sync, tooltip text update.
+  Marks, value tooltip, disabled, aria-invalid. The lv-slider Stimulus controller handles the
+  cases the native element does not cover: range clamp, --slider-pct sync, tooltip text update.
 
-  TIER: PARTIAL + ENH (slider.enhancer.ts). The native range input carries role=slider,
-  aria-valuemin/max/now, and the full APG keyboard map (Arrow/Home/End/PageUp-Down) for
-  free; no JS keyboard handler is needed. The enhancer's job is purely the irreducible
-  client bits: real-time --slider-pct updates on drag/key, range-mode clamp + ARIA
-  constraint sync, tooltip visibility toggling.
+  TIER: PARTIAL + CONTROLLER (data-controller="lv-slider",
+  runtime/stimulus/controllers/lv-slider-controller.ts). The native range input carries
+  role=slider, aria-valuemin/max/now, and the full APG keyboard map (Arrow/Home/End/PageUp-Down)
+  for free; no JS keyboard handler is needed. The controller's job is purely the irreducible
+  client bits, all declared as data-action on the native inputs (CSP-clean, morph-safe): real-time
+  --slider-pct updates on drag/key, range-mode clamp + ARIA constraint sync, tooltip visibility
+  toggling. UNCONTROLLED: a slider never round-trips the wire on a drag tick.
 
   STRUCTURE (scientific decision rule): APG Slider (https://www.w3.org/WAI/ARIA/apg/
   patterns/slider/) for single-thumb; APG Slider (Multi-Thumb) (https://www.w3.org/WAI/
@@ -22,7 +24,7 @@
   div[role=slider]. The styled overlay (track rail + fill + thumb overlay + tooltip +
   marks) is aria-hidden="true" throughout. The initial fill percentage (--slider-pct)
   is computed server-side and set as an inline CSS custom property on the root; the
-  enhancer keeps it in sync on every interaction without a round-trip.
+  lv-slider controller keeps it in sync on every interaction without a round-trip.
   Inventory reference: Ant Design Slider (range mode, marks, tooltip, vertical,
   disabled) -- no code copied, original generation.
 
@@ -41,7 +43,7 @@
     Keyboard: Arrow/Home/End/PageUp-Down supplied by the platform for all thumbs.
       Enhancer only adds: range clamp on input event + aria-valuemin/max attribute sync.
     Focus: platform Tab focus on each native input. No trap. No roving tabindex.
-      Tab order low-thumb -> high-thumb is constant; enhancer never re-sorts DOM.
+      Tab order low-thumb -> high-thumb is constant; controller never re-sorts DOM.
     Styled overlay: aria-hidden="true" on every visual-only element (thumb div, track
       fill, tooltip, mark row). The overlay carries no role and no interactive ARIA.
     Disabled: native `disabled` on input[type=range]; overlay gets pointer-events-none.
@@ -126,7 +128,7 @@
 !{var pctLow = (int) Math.round(((valueLow - min) / range_) * 100);}
 !{var pctHigh = (int) Math.round(((valueHigh - min) / range_) * 100);}
 
-<%-- Tooltip visibility class: always=opacity-100, hover=opacity-0 (enhancer shows on hover),
+<%-- Tooltip visibility class: always=opacity-100, hover=opacity-0 (controller shows on hover),
      never=opacity-0 sr-only (hidden from layout; still in DOM for a11y backup). --%>
 !{var tooltipVisClass = "always".equals(showTooltip) ? "opacity-100" : "opacity-0";}
 !{var tooltipSrClass = "never".equals(showTooltip) ? " pointer-events-none select-none" : "";}
@@ -167,17 +169,18 @@
 !{var dataAttrsMarkup = dataAttrs_.toString();}
 
 <%-- Root wrapper: data-slot, data-size, data-orientation, data-range, --slider-pct.
-     data-lievit-enhancer="slider" triggers the slider.enhancer.ts lifecycle hook.
+     data-controller="lv-slider" connects the Stimulus controller; data-tooltip carries the
+     hover/always/never policy the controller reads before toggling tooltip visibility.
      --slider-pct drives the fill width/height and the thumb translate via CSS.
      data-tooltip-formatter / data-tooltip-formatter-low / data-tooltip-formatter-high
-     carry the formatter template to the enhancer (raw strings -- author-controlled,
-     never DB-derived without explicit sanitization by the calling template). --%>
+     carry the formatter template (raw strings -- author-controlled, never DB-derived
+     without explicit sanitization by the calling template). --%>
 <div
   data-slot="slider"
   data-size="${size}"
   data-orientation="${orientation}"
   data-range="${rangeMode ? "true" : "false"}"
-  data-lievit-enhancer="slider"
+  data-controller="lv-slider"
   data-tooltip="${showTooltip}"
   data-tooltip-formatter="${tooltipFormatter}"
   data-tooltip-formatter-low="${tooltipFormatterLow}"
@@ -195,7 +198,7 @@
     style="${isVertical ? "width:var(--slider-track-thickness);height:100%;" : "height:var(--slider-track-thickness);width:100%;"}"
   >
     <%-- Track fill: coloured region between min and thumb (single) or between the two thumbs
-         (range). Width/height driven by CSS --slider-pct; updated by the enhancer on drag. --%>
+         (range). Width/height driven by CSS --slider-pct; updated by the controller on drag. --%>
     <div
       data-slot="slider-fill"
       aria-hidden="true"
@@ -217,6 +220,9 @@
     <%-- LOW THUMB --%>
     <input
       data-slot="slider-input-low"
+      data-lv-slider-target="inputLow"
+      data-lv-slider-thumb-param="low"
+      data-action="input->lv-slider#onInputLow mouseover->lv-slider#showTip mouseout->lv-slider#hideTip focusin->lv-slider#showTip focusout->lv-slider#hideTip"
       type="range"
       name="${name != null ? name + "Low" : null}"
       value="${valueLow}"
@@ -233,6 +239,9 @@
     <%-- HIGH THUMB --%>
     <input
       data-slot="slider-input-high"
+      data-lv-slider-target="inputHigh"
+      data-lv-slider-thumb-param="high"
+      data-action="input->lv-slider#onInputHigh mouseover->lv-slider#showTip mouseout->lv-slider#hideTip focusin->lv-slider#showTip focusout->lv-slider#hideTip"
       type="range"
       name="${name != null ? name + "High" : null}"
       value="${valueHigh}"
@@ -249,6 +258,8 @@
   @else
     <input
       data-slot="slider-input"
+      data-lv-slider-target="input"
+      data-action="input->lv-slider#onInput change->lv-slider#onChange mouseover->lv-slider#showTip mouseout->lv-slider#hideTip focusin->lv-slider#showTip focusout->lv-slider#hideTip"
       type="range"
       name="${name}"
       value="${value}"
@@ -294,6 +305,7 @@
     <div
       data-slot="slider-tooltip"
       data-thumb="low"
+      data-lv-slider-target="tooltipLow"
       aria-hidden="true"
       class="pointer-events-none absolute z-[3] rounded-[var(--lv-radius-full)] bg-[var(--lv-color-popover)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] font-[var(--lv-font-medium)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-sm)] transition-opacity duration-[var(--lv-duration-fast)] ${tooltipVisClass}${tooltipSrClass}"
       style="font-family:var(--lv-font-sans);${isVertical
@@ -303,6 +315,7 @@
     <div
       data-slot="slider-tooltip"
       data-thumb="high"
+      data-lv-slider-target="tooltipHigh"
       aria-hidden="true"
       class="pointer-events-none absolute z-[3] rounded-[var(--lv-radius-full)] bg-[var(--lv-color-popover)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] font-[var(--lv-font-medium)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-sm)] transition-opacity duration-[var(--lv-duration-fast)] ${tooltipVisClass}${tooltipSrClass}"
       style="font-family:var(--lv-font-sans);${isVertical
@@ -322,6 +335,7 @@
     <%-- Single tooltip. Always in DOM regardless of showTooltip; CSS opacity controls visibility. --%>
     <div
       data-slot="slider-tooltip"
+      data-lv-slider-target="tooltip"
       aria-hidden="true"
       class="pointer-events-none absolute z-[3] rounded-[var(--lv-radius-full)] bg-[var(--lv-color-popover)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] font-[var(--lv-font-medium)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-sm)] transition-opacity duration-[var(--lv-duration-fast)] ${tooltipVisClass}${tooltipSrClass}"
       style="font-family:var(--lv-font-sans);${isVertical

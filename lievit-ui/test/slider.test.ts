@@ -11,8 +11,10 @@
  * NO DOM render here (no JTE compiler in the Node package).
  * The JTE-compile real-compiler gate covers runtime rendering (test/jte-compile/).
  *
- * The enhancer (slider.enhancer.ts) behavior is covered by the enhancer section below,
- * using happy-dom + a hand-assembled DOM (matching what the JTE template produces).
+ * The lv-slider Stimulus controller behaviour is covered by the controller section below, driving
+ * the REAL @hotwired/stimulus Application (startStimulus auto-loads the controller by filename) over
+ * a DOM built exactly as slider.jte emits it (data-controller + data-action + data-*-target +
+ * data-lv-slider-thumb-param), plus the REAL lievit wire morph for morph-safety. No mocked runtime.
  *
  * A11y assertions (axe-rule proxies): each test that maps to an axe rule is annotated.
  *   slider-name         -> aria-label or aria-labelledby on the native input
@@ -21,10 +23,13 @@
  *   aria-valid-attr     -> aria-valuemin <= aria-valuenow <= aria-valuemax (range mode)
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
+import { describe, test, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { installSlider } from "../runtime/features/slider.enhancer.js";
+import { LievitRuntime } from "../runtime/runtime.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
+import LvSliderController from "../runtime/stimulus/controllers/lv-slider-controller.js";
 
 // ---------------------------------------------------------------------------
 // JTE source helpers
@@ -94,8 +99,22 @@ describe("slider.jte -- basic structure", () => {
     expect(markup).toContain('data-range="${rangeMode ? "true" : "false"}"');
   });
 
-  test("root carries data-lievit-enhancer=slider (enhancer discovery hook)", () => {
-    expect(markup).toContain('data-lievit-enhancer="slider"');
+  test("root carries data-controller=lv-slider (Stimulus controller hook, replaces the enhancer)", () => {
+    expect(markup).toContain('data-controller="lv-slider"');
+    // The old discovery hook must be gone (the controller, not the enhancer, owns this component).
+    expect(markup, "the enhancer discovery hook must be removed").not.toContain(
+      'data-lievit-enhancer="slider"',
+    );
+  });
+
+  test("single-thumb input wires the controller via data-action + data-lv-slider-target (CSP-clean)", () => {
+    // Behaviour is declared on the native input as data-action (no inline handler), so Stimulus
+    // re-binds it across the wire morph automatically.
+    expect(markup).toContain('data-lv-slider-target="input"');
+    expect(markup).toContain("input->lv-slider#onInput");
+    expect(markup).toContain("change->lv-slider#onChange");
+    expect(markup).toContain("mouseover->lv-slider#showTip");
+    expect(markup).toContain("focusout->lv-slider#hideTip");
   });
 
   test("single-thumb: one native input[type=range] with data-slot=slider-input", () => {
@@ -180,6 +199,16 @@ describe("slider.jte -- range mode (rangeMode=true)", () => {
   test("range mode renders TWO native inputs: data-slot=slider-input-low and slider-input-high", () => {
     expect(markup).toContain('data-slot="slider-input-low"');
     expect(markup).toContain('data-slot="slider-input-high"');
+  });
+
+  test("each range input wires its own controller action + thumb param (low/high resolution)", () => {
+    expect(markup).toContain('data-lv-slider-target="inputLow"');
+    expect(markup).toContain('data-lv-slider-target="inputHigh"');
+    expect(markup).toContain("input->lv-slider#onInputLow");
+    expect(markup).toContain("input->lv-slider#onInputHigh");
+    // Action params carry which tooltip a hover event targets (CSP-clean plain strings).
+    expect(markup).toContain('data-lv-slider-thumb-param="low"');
+    expect(markup).toContain('data-lv-slider-thumb-param="high"');
   });
 
   test("low input max is valueHigh (APG multithumb: low thumb upper bound = current high value)", () => {
@@ -403,12 +432,22 @@ describe("slider.jte -- vertical orientation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §7 enhancer — slider.enhancer.ts behavior (happy-dom, real DOM, no JTE compile)
+// §7 controller — lv-slider Stimulus controller (real Application, real DOM, real morph)
 // ---------------------------------------------------------------------------
 
+const SINGLE_ACTIONS =
+  "input->lv-slider#onInput change->lv-slider#onChange " +
+  "mouseover->lv-slider#showTip mouseout->lv-slider#hideTip " +
+  "focusin->lv-slider#showTip focusout->lv-slider#hideTip";
+const RANGE_ACTIONS = (verb: "onInputLow" | "onInputHigh"): string =>
+  `input->lv-slider#${verb} mouseover->lv-slider#showTip mouseout->lv-slider#hideTip ` +
+  "focusin->lv-slider#showTip focusout->lv-slider#hideTip";
+
 /**
- * Build a minimal DOM matching what slider.jte produces for single-thumb mode.
- * We do NOT use a JTE compiler here; instead we hand-assemble the key elements.
+ * Build a single-thumb slider root EXACTLY as slider.jte emits it: data-controller="lv-slider" on
+ * the root, the native input carrying data-lv-slider-target="input" + the data-action descriptors,
+ * the tooltip carrying data-lv-slider-target="tooltip". No mocked runtime: the real Stimulus
+ * Application (started by startStimulus) connects the real controller to this DOM.
  */
 function buildSingleThumbRoot(opts: {
   value?: number;
@@ -417,25 +456,21 @@ function buildSingleThumbRoot(opts: {
   step?: number;
   showTooltip?: string;
   disabled?: boolean;
-}): HTMLElement {
-  const {
-    value = 50,
-    min = 0,
-    max = 100,
-    step = 1,
-    showTooltip = "hover",
-    disabled = false,
-  } = opts;
+} = {}): HTMLElement {
+  const { value = 50, min = 0, max = 100, step = 1, showTooltip = "hover", disabled = false } = opts;
 
   const root = document.createElement("div");
-  root.dataset["lievitEnhancer"] = "slider";
-  root.dataset["range"] = "false";
-  root.dataset["tooltip"] = showTooltip;
+  root.setAttribute("data-slot", "slider");
+  root.setAttribute("data-range", "false");
+  root.setAttribute("data-tooltip", showTooltip);
+  root.setAttribute("data-controller", "lv-slider");
   root.style.setProperty("--slider-pct", `${value}%`);
 
   const input = document.createElement("input");
   input.type = "range";
-  input.dataset["slot"] = "slider-input";
+  input.setAttribute("data-slot", "slider-input");
+  input.setAttribute("data-lv-slider-target", "input");
+  input.setAttribute("data-action", SINGLE_ACTIONS);
   input.min = String(min);
   input.max = String(max);
   input.step = String(step);
@@ -444,7 +479,8 @@ function buildSingleThumbRoot(opts: {
   root.appendChild(input);
 
   const tooltip = document.createElement("div");
-  tooltip.dataset["slot"] = "slider-tooltip";
+  tooltip.setAttribute("data-slot", "slider-tooltip");
+  tooltip.setAttribute("data-lv-slider-target", "tooltip");
   tooltip.setAttribute("aria-hidden", "true");
   tooltip.className = "opacity-0";
   tooltip.textContent = String(value);
@@ -454,34 +490,30 @@ function buildSingleThumbRoot(opts: {
   return root;
 }
 
-/**
- * Build a minimal DOM for range mode.
- */
+/** Build a range (dual-thumb) slider root exactly as slider.jte emits it. */
 function buildRangeRoot(opts: {
   valueLow?: number;
   valueHigh?: number;
   min?: number;
   max?: number;
   showTooltip?: string;
-}): HTMLElement {
-  const {
-    valueLow = 20,
-    valueHigh = 80,
-    min = 0,
-    max = 100,
-    showTooltip = "hover",
-  } = opts;
+} = {}): HTMLElement {
+  const { valueLow = 20, valueHigh = 80, min = 0, max = 100, showTooltip = "hover" } = opts;
 
   const root = document.createElement("div");
-  root.dataset["lievitEnhancer"] = "slider";
-  root.dataset["range"] = "true";
-  root.dataset["tooltip"] = showTooltip;
+  root.setAttribute("data-slot", "slider");
+  root.setAttribute("data-range", "true");
+  root.setAttribute("data-tooltip", showTooltip);
+  root.setAttribute("data-controller", "lv-slider");
   root.style.setProperty("--slider-pct", `${valueLow}%`);
   root.style.setProperty("--slider-pct-high", `${valueHigh}%`);
 
   const inputLow = document.createElement("input");
   inputLow.type = "range";
-  inputLow.dataset["slot"] = "slider-input-low";
+  inputLow.setAttribute("data-slot", "slider-input-low");
+  inputLow.setAttribute("data-lv-slider-target", "inputLow");
+  inputLow.setAttribute("data-lv-slider-thumb-param", "low");
+  inputLow.setAttribute("data-action", RANGE_ACTIONS("onInputLow"));
   inputLow.min = String(min);
   inputLow.max = String(valueHigh);
   inputLow.valueAsNumber = valueLow;
@@ -490,7 +522,10 @@ function buildRangeRoot(opts: {
 
   const inputHigh = document.createElement("input");
   inputHigh.type = "range";
-  inputHigh.dataset["slot"] = "slider-input-high";
+  inputHigh.setAttribute("data-slot", "slider-input-high");
+  inputHigh.setAttribute("data-lv-slider-target", "inputHigh");
+  inputHigh.setAttribute("data-lv-slider-thumb-param", "high");
+  inputHigh.setAttribute("data-action", RANGE_ACTIONS("onInputHigh"));
   inputHigh.min = String(valueLow);
   inputHigh.max = String(max);
   inputHigh.valueAsNumber = valueHigh;
@@ -498,16 +533,18 @@ function buildRangeRoot(opts: {
   root.appendChild(inputHigh);
 
   const tooltipLow = document.createElement("div");
-  tooltipLow.dataset["slot"] = "slider-tooltip";
-  tooltipLow.dataset["thumb"] = "low";
+  tooltipLow.setAttribute("data-slot", "slider-tooltip");
+  tooltipLow.setAttribute("data-thumb", "low");
+  tooltipLow.setAttribute("data-lv-slider-target", "tooltipLow");
   tooltipLow.setAttribute("aria-hidden", "true");
   tooltipLow.className = "opacity-0";
   tooltipLow.textContent = String(valueLow);
   root.appendChild(tooltipLow);
 
   const tooltipHigh = document.createElement("div");
-  tooltipHigh.dataset["slot"] = "slider-tooltip";
-  tooltipHigh.dataset["thumb"] = "high";
+  tooltipHigh.setAttribute("data-slot", "slider-tooltip");
+  tooltipHigh.setAttribute("data-thumb", "high");
+  tooltipHigh.setAttribute("data-lv-slider-target", "tooltipHigh");
   tooltipHigh.setAttribute("aria-hidden", "true");
   tooltipHigh.className = "opacity-0";
   tooltipHigh.textContent = String(valueHigh);
@@ -517,76 +554,59 @@ function buildRangeRoot(opts: {
   return root;
 }
 
-interface SliderPlugin {
-  onComponentInit?: (ctx: { root: Element }) => void;
-  afterCall?: (outcome: { root: Element }) => void;
+/** A wire-capturing runtime: every action the controller would POST lands in `calls`. */
+function makeRuntime(): { runtime: LievitRuntime; calls: string[] } {
+  const calls: string[] = [];
+  const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const c = body._calls as string[] | undefined;
+    if (c) calls.push(...c);
+    return new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } });
+  });
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calls };
 }
 
-/** Minimal stub runtime that supports the `use()` hook protocol. */
-function stubRuntime(): {
-  runtime: Parameters<typeof installSlider>[0];
-  triggerInit: (root: HTMLElement) => void;
-} {
-  const plugins: SliderPlugin[] = [];
+beforeEach(() => {
+  document.body.innerHTML = "";
+});
 
-  const runtime = {
-    use(plugin: SliderPlugin) {
-      plugins.push(plugin);
-      return () => { /* unsubscribe */ };
-    },
-  } as unknown as Parameters<typeof installSlider>[0];
+afterEach(() => {
+  stopStimulus();
+  vi.restoreAllMocks();
+  document.body.innerHTML = "";
+});
 
-  const triggerInit = (root: HTMLElement) => {
-    for (const p of plugins) {
-      p.onComponentInit?.({ root });
-    }
-  };
-
-  return { runtime, triggerInit };
-}
-
-describe("slider.enhancer.ts -- single-thumb drag updates --slider-pct", () => {
-  let root: HTMLElement;
-
-  beforeEach(() => {
-    root = buildSingleThumbRoot({ value: 50, min: 0, max: 100 });
-  });
-
-  afterEach(() => {
-    root.remove();
-  });
-
-  test("drag (input event) updates --slider-pct on root", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+describe("lv-slider controller -- single-thumb (real Stimulus Application)", () => {
+  test("drag (input event) updates --slider-pct on the root", async () => {
+    const root = buildSingleThumbRoot({ value: 50, min: 0, max: 100 });
+    startStimulus({});
+    await flushStimulus();
 
     const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
     input.valueAsNumber = 75;
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
-    const pct = root.style.getPropertyValue("--slider-pct");
-    expect(pct).toBe("75%");
+    expect(root.style.getPropertyValue("--slider-pct")).toBe("75%");
   });
 
-  test("tooltip text updates on input event", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("tooltip text updates on input event", async () => {
+    const root = buildSingleThumbRoot({ value: 50 });
+    startStimulus({});
+    await flushStimulus();
 
     const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
     const tooltip = root.querySelector<HTMLElement>('[data-slot="slider-tooltip"]')!;
-
     input.valueAsNumber = 33;
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(tooltip.textContent).toBe("33");
   });
 
-  test("tooltip toggles opacity-100 on mouseover/focusin when showTooltip=hover", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("tooltip toggles opacity-100 on mouseover/mouseout when showTooltip=hover", async () => {
+    const root = buildSingleThumbRoot({ showTooltip: "hover" });
+    startStimulus({});
+    await flushStimulus();
 
     const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
     const tooltip = root.querySelector<HTMLElement>('[data-slot="slider-tooltip"]')!;
@@ -598,10 +618,10 @@ describe("slider.enhancer.ts -- single-thumb drag updates --slider-pct", () => {
     expect(tooltip.classList.contains("opacity-100")).toBe(false);
   });
 
-  test("focusin shows tooltip, focusout hides tooltip (keyboard accessibility)", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("focusin shows tooltip, focusout hides tooltip (keyboard accessibility)", async () => {
+    const root = buildSingleThumbRoot({ showTooltip: "hover" });
+    startStimulus({});
+    await flushStimulus();
 
     const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
     const tooltip = root.querySelector<HTMLElement>('[data-slot="slider-tooltip"]')!;
@@ -613,13 +633,27 @@ describe("slider.enhancer.ts -- single-thumb drag updates --slider-pct", () => {
     expect(tooltip.classList.contains("opacity-100")).toBe(false);
   });
 
-  test("pct computation: value at min yields 0%, value at max yields 100%", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("showTooltip=always: hover events never hide the always-visible tooltip", async () => {
+    // The old enhancer attached hover listeners ONLY in hover mode; the controller preserves this
+    // by guarding on data-tooltip. An `always` tooltip must not be toggled off on mouseout.
+    const root = buildSingleThumbRoot({ showTooltip: "always" });
+    startStimulus({});
+    await flushStimulus();
 
     const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
+    const tooltip = root.querySelector<HTMLElement>('[data-slot="slider-tooltip"]')!;
+    tooltip.classList.add("opacity-100"); // always-mode render state
 
+    input.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+    expect(tooltip.classList.contains("opacity-100")).toBe(true);
+  });
+
+  test("pct computation: value at min yields 0%, value at max yields 100%", async () => {
+    const root = buildSingleThumbRoot({ value: 50, min: 0, max: 100 });
+    startStimulus({});
+    await flushStimulus();
+
+    const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
     input.valueAsNumber = 0;
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(root.style.getPropertyValue("--slider-pct")).toBe("0%");
@@ -629,47 +663,34 @@ describe("slider.enhancer.ts -- single-thumb drag updates --slider-pct", () => {
     expect(root.style.getPropertyValue("--slider-pct")).toBe("100%");
   });
 
-  test("plain form hidden input sync: change event copies value to hidden input", () => {
-    // Wrap root in a form with a hidden input carrying the same name.
+  test("plain form hidden input sync: change event copies value to hidden input", async () => {
+    const root = buildSingleThumbRoot({ value: 10 });
     const form = document.createElement("form");
     const hidden = document.createElement("input");
     hidden.type = "hidden";
     hidden.name = "price";
+    document.body.appendChild(form);
     form.appendChild(root);
     form.appendChild(hidden);
-    document.body.appendChild(form);
 
     const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
     input.name = "price";
 
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+    startStimulus({});
+    await flushStimulus();
 
     input.valueAsNumber = 42;
     input.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(hidden.value).toBe("42");
-
-    form.remove();
   });
 });
 
-describe("slider.enhancer.ts -- range mode", () => {
-  let root: HTMLElement;
-
-  beforeEach(() => {
-    root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
-  });
-
-  afterEach(() => {
-    root.remove();
-  });
-
-  test("input event on low thumb updates --slider-pct", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+describe("lv-slider controller -- range mode (real Stimulus Application)", () => {
+  test("input event on low thumb updates --slider-pct", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
+    startStimulus({});
+    await flushStimulus();
 
     const inputLow = root.querySelector<HTMLInputElement>('[data-slot="slider-input-low"]')!;
     inputLow.valueAsNumber = 30;
@@ -678,10 +699,10 @@ describe("slider.enhancer.ts -- range mode", () => {
     expect(root.style.getPropertyValue("--slider-pct")).toBe("30%");
   });
 
-  test("input event on high thumb updates --slider-pct-high", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("input event on high thumb updates --slider-pct-high", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
+    startStimulus({});
+    await flushStimulus();
 
     const inputHigh = root.querySelector<HTMLInputElement>('[data-slot="slider-input-high"]')!;
     inputHigh.valueAsNumber = 70;
@@ -690,72 +711,62 @@ describe("slider.enhancer.ts -- range mode", () => {
     expect(root.style.getPropertyValue("--slider-pct-high")).toBe("70%");
   });
 
-  test("low thumb cannot exceed high: clamp on input event", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("low thumb cannot exceed high: clamp on input event", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
+    startStimulus({});
+    await flushStimulus();
 
     const inputLow = root.querySelector<HTMLInputElement>('[data-slot="slider-input-low"]')!;
     const inputHigh = root.querySelector<HTMLInputElement>('[data-slot="slider-input-high"]')!;
-
-    // Push low thumb above high value.
     inputLow.valueAsNumber = 90; // > 80 (high)
     inputLow.dispatchEvent(new Event("input", { bubbles: true }));
 
-    // After clamp, low must not exceed high.
     expect(inputLow.valueAsNumber).toBeLessThanOrEqual(inputHigh.valueAsNumber);
   });
 
-  test("high thumb cannot go below low: clamp on input event", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("high thumb cannot go below low: clamp on input event", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
+    startStimulus({});
+    await flushStimulus();
 
     const inputLow = root.querySelector<HTMLInputElement>('[data-slot="slider-input-low"]')!;
     const inputHigh = root.querySelector<HTMLInputElement>('[data-slot="slider-input-high"]')!;
-
-    // Push high thumb below low value.
     inputHigh.valueAsNumber = 10; // < 20 (low)
     inputHigh.dispatchEvent(new Event("input", { bubbles: true }));
 
-    // After clamp, high must not be below low.
     expect(inputHigh.valueAsNumber).toBeGreaterThanOrEqual(inputLow.valueAsNumber);
   });
 
-  test("after low thumb input: aria-valuemax on low input = current high value (APG constraint)", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("after low thumb input: aria-valuemax on low input = current high value (APG constraint)", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
+    startStimulus({});
+    await flushStimulus();
 
     const inputLow = root.querySelector<HTMLInputElement>('[data-slot="slider-input-low"]')!;
     const inputHigh = root.querySelector<HTMLInputElement>('[data-slot="slider-input-high"]')!;
-
     inputLow.valueAsNumber = 30;
     inputLow.dispatchEvent(new Event("input", { bubbles: true }));
 
-    // aria-valuemax on low = current high value (80 unchanged).
     expect(inputLow.getAttribute("aria-valuemax")).toBe(String(inputHigh.valueAsNumber));
   });
 
-  test("after high thumb input: aria-valuemin on high input = current low value (APG constraint)", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("after high thumb input: aria-valuemin on high input = current low value (APG constraint)", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
+    startStimulus({});
+    await flushStimulus();
 
     const inputLow = root.querySelector<HTMLInputElement>('[data-slot="slider-input-low"]')!;
     const inputHigh = root.querySelector<HTMLInputElement>('[data-slot="slider-input-high"]')!;
-
     inputHigh.valueAsNumber = 70;
     inputHigh.dispatchEvent(new Event("input", { bubbles: true }));
 
-    // aria-valuemin on high = current low value (20 unchanged).
     expect(inputHigh.getAttribute("aria-valuemin")).toBe(String(inputLow.valueAsNumber));
   });
 
-  test("range mode tooltip text updates independently for low and high thumbs", () => {
-    const { runtime, triggerInit } = stubRuntime();
-    installSlider(runtime);
-    triggerInit(root);
+  test("range mode tooltip text updates independently for low and high thumbs", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
+    startStimulus({});
+    await flushStimulus();
 
     const inputLow = root.querySelector<HTMLInputElement>('[data-slot="slider-input-low"]')!;
     const inputHigh = root.querySelector<HTMLInputElement>('[data-slot="slider-input-high"]')!;
@@ -771,11 +782,89 @@ describe("slider.enhancer.ts -- range mode", () => {
     expect(tooltipHigh.textContent).toBe("65");
   });
 
+  test("hover targets the right thumb tooltip via the data-lv-slider-thumb-param", async () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80, showTooltip: "hover" });
+    startStimulus({});
+    await flushStimulus();
+
+    const inputLow = root.querySelector<HTMLInputElement>('[data-slot="slider-input-low"]')!;
+    const tooltipLow = root.querySelector<HTMLElement>('[data-slot="slider-tooltip"][data-thumb="low"]')!;
+    const tooltipHigh = root.querySelector<HTMLElement>('[data-slot="slider-tooltip"][data-thumb="high"]')!;
+
+    inputLow.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    expect(tooltipLow.classList.contains("opacity-100")).toBe(true);
+    expect(tooltipHigh.classList.contains("opacity-100"), "only the hovered thumb's tooltip shows").toBe(false);
+  });
+
   test("DOM tab order is constant: low input appears before high input (APG multithumb invariant)", () => {
+    const root = buildRangeRoot({ valueLow: 20, valueHigh: 80 });
     const inputs = root.querySelectorAll<HTMLInputElement>("input[type=range]");
     expect(inputs.length).toBe(2);
-    expect((inputs[0] as HTMLElement).dataset["slot"]).toBe("slider-input-low");
-    expect((inputs[1] as HTMLElement).dataset["slot"]).toBe("slider-input-high");
+    expect(inputs[0]!.dataset["slot"]).toBe("slider-input-low");
+    expect(inputs[1]!.dataset["slot"]).toBe("slider-input-high");
+  });
+});
+
+describe("lv-slider controller -- uncontrolled doctrine (no wire round-trip)", () => {
+  it("a full drag + change cycle fires ZERO wire calls (a slider is pure client cosmetic)", async () => {
+    const { runtime, calls } = makeRuntime();
+    const root = buildSingleThumbRoot({ value: 40 });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
+    input.valueAsNumber = 60;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("lv-slider controller -- morph-safety (real lievit morph)", () => {
+  it("after a real morph one input event still updates --slider-pct EXACTLY once (no stacked listeners)", async () => {
+    const root = buildSingleThumbRoot({ value: 50 });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    container.appendChild(root);
+
+    startStimulus({});
+    await flushStimulus();
+
+    // A real lievit wire morph re-renders the subtree (idiomorph). The slider element is preserved,
+    // so the controller must NOT double-connect and the input action must stay single.
+    const onInputSpy = vi.spyOn(LvSliderController.prototype, "onInput");
+    morph(container, container.outerHTML);
+    await flushStimulus();
+
+    const input = container.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
+    input.valueAsNumber = 80;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(onInputSpy).toHaveBeenCalledTimes(1);
+    const morphedRoot = container.querySelector<HTMLElement>('[data-slot="slider"]')!;
+    expect(morphedRoot.style.getPropertyValue("--slider-pct")).toBe("80%");
+  });
+
+  it("a slider removed by a morph fires nothing (disconnect tore the action binding down)", async () => {
+    const root = buildSingleThumbRoot({ value: 50 });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    container.appendChild(root);
+
+    startStimulus({});
+    await flushStimulus();
+
+    const input = root.querySelector<HTMLInputElement>('[data-slot="slider-input"]')!;
+    const onInputSpy = vi.spyOn(LvSliderController.prototype, "onInput");
+
+    morph(container, "<div><span>gone</span></div>");
+    await flushStimulus();
+
+    input.valueAsNumber = 90;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(onInputSpy).not.toHaveBeenCalled();
   });
 });
 
