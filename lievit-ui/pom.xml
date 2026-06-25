@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  lievit-ui Maven module (RFC 0036 stage 2).
+
+  This pom makes lievit-ui a Maven artifact: io.github.lievit:lievit-ui.
+  The jar carries two things the JTE distribution design requires (07-distribution-design.md):
+    (a) the .jte sources from registry/jte/** staged under lievit/ in the jar classpath
+        (so lievit/button.jte -> @template.lievit.button in the consumer build).
+    (b) the compiled LievitIcons + IconResolver + LucideIconResolver classes from
+        registry/icons (package io.lievit.ui), so a consumer gets the icon SPI via the
+        dependency, not via a separate filesystem source root.
+
+  The existing npm/vitest/JTE-compile tooling is UNTOUCHED: this pom is additive.
+  No JS build is wired here (the runtime bundle is the WebJar, a later phase per the design doc).
+
+  Test: the lievit-ui/test/jte-compile harness is NOT wired into this module; it stands alone
+  (fs-sibling layout, run separately). The import-poc example exercises the jar path.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.lievit</groupId>
+    <artifactId>lievit-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>lievit-ui</artifactId>
+  <name>lievit-ui (component registry, jar distribution)</name>
+  <description>
+    lievit-ui component registry as a Maven jar. Delivers the JTE component partials as classpath
+    resources under lievit/** (consumable via the unpack+merge+precompile recipe) and the compiled
+    icon SPI (LievitIcons / IconResolver / LucideIconResolver, package io.lievit.ui).
+    RFC 0036 stage 2 — distribution design documented in lievit-ui/planning/v-next/07-distribution-design.md.
+  </description>
+
+  <!--
+    Not published to Central yet (lievit-ui is still private). Skip install/deploy in the
+    default build; the release profile can be opted into explicitly when the time comes.
+  -->
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <!--
+      gg.jte.Content is referenced in @param signatures of the component templates (e.g.
+      button.jte: @param gg.jte.Content content). The consumers's jte precompile javac needs
+      it on the classpath. By declaring it here as a compile-scoped dep, the jar's pom
+      propagates it automatically to the consumer via Maven dependency resolution.
+    -->
+    <dependency>
+      <groupId>gg.jte</groupId>
+      <artifactId>jte</artifactId>
+      <version>${jte.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!--
+      The Java sources for lievit-ui live ONLY in registry/icons (the icon SPI: LievitIcons,
+      IconResolver, LucideIconResolver). There is no conventional src/main/java: use
+      build-helper-maven-plugin to wire the non-standard source root, then compile them
+      normally with maven-compiler-plugin.
+    -->
+
+    <plugins>
+      <!--
+        Wire registry/icons as the Java source root for this module.
+        build-helper-maven-plugin add-source runs at generate-sources (before compile).
+        Compiles into target/classes so the .class files land in the jar.
+      -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-icons-source-root</id>
+            <phase>generate-sources</phase>
+            <goals><goal>add-source</goal></goals>
+            <configuration>
+              <sources>
+                <source>${project.basedir}/registry/icons</source>
+              </sources>
+            </configuration>
+          </execution>
+          <!--
+            Wire registry/jte as a resource directory with targetPath=lievit so the .jte files
+            land in the jar as lievit/button.jte, lievit/badge.jte, lievit/blocks/auth.jte, etc.
+            This is the source path the consumer's unpack step extracts and stages under lievit/.
+          -->
+          <execution>
+            <id>add-jte-resources</id>
+            <phase>generate-resources</phase>
+            <goals><goal>add-resource</goal></goals>
+            <configuration>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/registry/jte</directory>
+                  <targetPath>lievit</targetPath>
+                  <filtering>false</filtering>
+                  <includes>
+                    <include>**/*.jte</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

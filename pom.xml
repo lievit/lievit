@@ -57,8 +57,10 @@
         <module>lievit-spring-boot-starter</module>
         <module>lievit-kit</module>
         <module>lievit-cli</module>
+        <module>lievit-ui</module>
         <module>examples/golden-path-starter</module>
         <module>examples/kit-crud-admin</module>
+        <module>examples/import-poc</module>
     </modules>
 
     <properties>

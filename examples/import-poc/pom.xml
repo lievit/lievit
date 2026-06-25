@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 Francesco Bilotta
+  Licensed under the Apache License, Version 2.0 (the "License").
+
+  import-poc: proof-of-concept that lievit-ui is consumable BY IMPORT (from a jar).
+
+  This module proves the RFC 0036 import path end-to-end with STOCK Maven tools — no custom
+  plugin, no JTE fork. It is the reference implementation of the "gate-in-CI" consumer recipe
+  documented in 07-distribution-design.md (M1: unpack+merge+precompile).
+
+  RECIPE (canonical artifact — copy this into any consumer build):
+
+    1. maven-dependency-plugin:unpack (@generate-sources)
+       Extracts the .jte sources from io.github.lievit:lievit-ui jar (resource path lievit/**)
+       into ${project.build.directory}/jte-src/lievit/.
+       The consumer's own templates live in src/main/jte/ (any layout); they are staged into
+       the SAME merged dir in step 2.
+
+    2. maven-resources-plugin:copy-resources (@process-sources)
+       Copies the consumer's own src/main/jte/** into ${project.build.directory}/jte-src/.
+       Together with step 1, target/jte-src/ now contains:
+         lievit/button.jte, lievit/badge.jte, ...   (from the lievit-ui jar)
+         poc.jte                                    (this consumer's own template)
+       @template.lievit.button references resolve because lievit/ is a sibling of poc.jte
+       under the ONE sourceDirectory the jte plugin sees.
+
+    3. jte-maven-plugin precompile (@process-classes)
+       Reads target/jte-src/ (the merged tree), compiles EVERY .jte to a .class under
+       gg.jte.generated.precompiled in target/classes. The plugin CLEANS its targetDirectory
+       per execution, so merge-then-single-precompile is mandatory (never two executions
+       into the same target). The consumer's test then calls
+       TemplateEngine.createPrecompiled(ContentType.Html) which loads the classes from the
+       test classpath: no sourceDirectory needed at runtime.
+
+  The test (ButtonImportTest) renders poc.jte via the precompiled TemplateEngine and asserts
+  the button markup (data-slot="button", the label) appears in the output — proof that
+  @template.lievit.button resolved from the IMPORTED jar and compiled + rendered correctly.
+
+  NOT a published artifact: runnable example only.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.lievit</groupId>
+    <artifactId>lievit-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>import-poc</artifactId>
+  <name>lievit-ui import-poc (RFC 0036 end-to-end proof)</name>
+  <description>
+    Proof-of-concept that lievit-ui is consumable by Maven import (from a jar).
+    Demonstrates the canonical unpack+merge+precompile recipe end-to-end.
+    Not a published artifact.
+  </description>
+
+  <properties>
+    <maven.install.skip>true</maven.install.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <!--
+      The lievit-ui jar: delivers .jte sources at lievit/** in the jar classpath
+      and the compiled LievitIcons / IconResolver / LucideIconResolver classes.
+      Transitively brings gg.jte:jte (needed for gg.jte.Content in @param signatures
+      and for TemplateEngine.createPrecompiled at runtime).
+    -->
+    <dependency>
+      <groupId>io.github.lievit</groupId>
+      <artifactId>lievit-ui</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- JUnit 5 for the render assertion. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.11.4</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        STEP 1: unpack the .jte sources from the lievit-ui jar into target/jte-src/lievit/.
+        The jar ships them at resource path lievit/** (see lievit-ui/pom.xml add-jte-resources
+        execution). Unpacking extracts e.g. lievit/button.jte, lievit/badge.jte, etc. into
+        target/jte-src/lievit/button.jte, target/jte-src/lievit/badge.jte.
+        Phase: generate-sources (before process-sources so step 2 can add consumer templates).
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.8.0</version>
+        <executions>
+          <execution>
+            <id>unpack-lievit-ui-jte</id>
+            <phase>generate-sources</phase>
+            <goals><goal>unpack</goal></goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>io.github.lievit</groupId>
+                  <artifactId>lievit-ui</artifactId>
+                  <version>${project.version}</version>
+                  <type>jar</type>
+                  <overWrite>true</overWrite>
+                  <outputDirectory>${project.build.directory}/jte-src</outputDirectory>
+                  <includes>lievit/**</includes>
+                </artifactItem>
+              </artifactItems>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        STEP 2: copy the consumer's own templates (src/main/jte/**) into target/jte-src/
+        alongside the already-unpacked lievit/** directory. After this step the merged
+        source tree contains both the lievit primitives and the consumer's own templates
+        under one root — exactly what the jte plugin's single sourceDirectory expects.
+        Phase: process-sources (after generate-sources where the unpack ran).
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>merge-consumer-templates</id>
+            <phase>process-sources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/jte-src</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/src/main/jte</directory>
+                  <filtering>false</filtering>
+                  <includes>
+                    <include>**/*.jte</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        STEP 3: precompile ALL .jte in target/jte-src/ (merged tree) to .class files
+        under gg.jte.generated.precompiled in target/classes. This is a single execution:
+        the jte precompile goal CLEANS its targetDirectory per run, so running it twice
+        into the same target would lose the first set. Merge first (steps 1+2), then
+        precompile once here.
+        Phase: process-classes (after compile, so javac already compiled LievitIcons etc.
+        from the lievit-ui dependency; the precompile javac can resolve them on the classpath).
+      -->
+      <plugin>
+        <groupId>gg.jte</groupId>
+        <artifactId>jte-maven-plugin</artifactId>
+        <version>${jte.version}</version>
+        <configuration>
+          <sourceDirectory>${project.build.directory}/jte-src</sourceDirectory>
+          <!--
+            targetDirectory: where the precompile goal writes the compiled .class files.
+            Must be the output classes directory so they land on the test classpath for
+            TemplateEngine.createPrecompiled(). The precompile goal requires this explicitly
+            (no default), unlike the generate goal.
+          -->
+          <targetDirectory>${project.build.outputDirectory}</targetDirectory>
+          <contentType>Html</contentType>
+        </configuration>
+        <executions>
+          <execution>
+            <id>precompile-merged-templates</id>
+            <phase>process-classes</phase>
+            <goals><goal>precompile</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
