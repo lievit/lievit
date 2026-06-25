@@ -9,8 +9,15 @@
 
   TIER: PARTIAL presentational. The pressed state is a server fact (data down): the controller
   renders `pressed`, the click is wired by the consuming WIRE template via wireClick / attrs.
-  No client state. The morph patches aria-pressed on re-render; CSS [aria-pressed="true"] drives
-  the visual automatically.
+  The morph patches aria-pressed on re-render; CSS [aria-pressed="true"] drives the visual
+  automatically.
+
+  STIMULUS (controlled/uncontrolled doctrine): the button mounts data-controller="lv-toggle"
+  with data-action="click->lv-toggle#toggle" (CSP-clean strings, no inline handler). CONTROLLED =
+  a non-blank wireClick emits l:click; the runtime rides the click to the wire, the server flips
+  `pressed`, the morph reconciles aria-pressed -- the controller defers (no-op, no second call).
+  UNCONTROLLED = no wireClick / no l:click: the controller flips aria-pressed + data-pressed purely
+  client-side with ZERO wire round-trip. See runtime/stimulus/controllers/lv-toggle-controller.ts.
 
   STRUCTURE (scientific decision rule): a real native <button> with aria-pressed is the WAI-ARIA
   APG Button Toggle Button variant (https://www.w3.org/WAI/ARIA/apg/patterns/button/).
@@ -115,6 +122,8 @@
 <button
   type="button"
   data-slot="toggle"
+  data-controller="lv-toggle"
+  data-action="click->lv-toggle#toggle"
   data-variant="${variant}"
   data-size="${size}"
   data-pressed="${pressed ? "true" : "false"}"
