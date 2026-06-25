@@ -145,8 +145,11 @@
      role="menubar" is the landmark for the APG Menubar pattern.
      aria-orientation="horizontal" is required: the APG mandates it for menubars (vertical is the
      default when omitted, so explicit "horizontal" is load-bearing for AT behaviour).
-     data-lievit-collection activates collection-nav for Left/Right Arrow roving across top-level
-     triggers (horizontal orientation, roving-tabindex model, wrap, manual-activation).
+     data-controller="lv-menubar" drives the horizontal roving-tabindex keyboard model (Left/Right
+     Arrow across top-level triggers, Home/End, typeahead, ArrowDown opens a submenu) as a Stimulus
+     controller, morph-safe via connect/disconnect. The data-lievit-collection* attributes remain
+     as the declarative contract the controller reads (orientation, wrap); the legacy collection-nav
+     enhancer SKIPS any root carrying data-controller="lv-menubar" so the keydown is handled once.
      data-size is the hook for adopter CSS or Tailwind variant overrides. --%>
 <nav
   id="${id}"
@@ -155,6 +158,7 @@
   aria-orientation="horizontal"
   data-slot="menubar"
   data-size="${size}"
+  data-controller="lv-menubar"
   data-lievit-collection
   data-lievit-collection-roving-tabindex="true"
   data-lievit-collection-orientation="horizontal"

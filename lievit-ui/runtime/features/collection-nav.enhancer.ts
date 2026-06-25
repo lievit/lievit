@@ -267,6 +267,13 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
   if (activeCollections.has(root)) {
     return;
   }
+  // Migration guard (Stimulus conversion): a collection root converted to a Stimulus controller
+  // owns its own keydown handling. This enhancer must NOT also wire it, or the navigation keys
+  // (Arrow / Home / End / typeahead) would be double-handled (focus jumping two items per press).
+  // Converted templates carry data-controller="lv-menubar" (the first converted collection root).
+  if (root.matches('[data-controller~="lv-menubar"]')) {
+    return;
+  }
   root.setAttribute(ACTIVE_ATTR, "");
 
   // The state object is mutated once below to inject the keyHandler after closure capture.
