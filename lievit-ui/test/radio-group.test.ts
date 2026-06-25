@@ -2,39 +2,36 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * lievit-ui radio-group -- full structural + keyboard + enhancer tests.
+ * lievit-ui radio-group -- full structural + keyboard + controller tests.
  *
  * Two test layers:
  *
- * LAYER 1 -- Source-text assertions on radio-group.jte (no JTE compiler in the Node
- * harness). Asserts every param, data-slot, ARIA attribute, size/variant/layout data
- * attribute, escaping channels, and structural contract from the spec. This is the
- * same methodology as switch.test.ts and tabs.test.ts.
+ * LAYER 1 -- Source-text assertions on radio-group.jte (no JTE compiler in the Node harness) +
+ * the controller source contract. Asserts every param, data-slot, ARIA attribute, size/variant/
+ * layout data attribute, escaping channels, the Stimulus wiring (data-controller / data-action /
+ * data-lv-radio-group-target), and that the roving keyboard logic lives in the controller. The
+ * real-compiler proof is the jte-compile smoke; this is the same methodology as switch/tabs/sidebar.
  *
- * Options arrive as parallel lists (optionIds, optionLabels, optionDescriptions,
- * optionDisabled) -- the established parallel-list pattern (see command.jte, data-table.jte).
- * This keeps the JTE compile-gate classpath to JDK + jte + icons only, matching all other
- * partials in the registry.
+ * Options arrive as parallel lists (optionIds, optionLabels, optionDescriptions, optionDisabled) --
+ * the established parallel-list pattern (see command.jte, data-table.jte). This keeps the JTE
+ * compile-gate classpath to JDK + jte + icons only, matching all other partials.
  *
- * The axe-core contract is enforced by asserting the exact ARIA attributes the named
- * axe rules check (no axe-core dependency here):
- *   - radiogroup           -> role="radiogroup" present
- *   - aria-allowed-attr    -> aria-checked on role="radio" only
- *   - aria-required-attr   -> aria-checked always emitted (not conditional)
- *   - aria-valid-attr-value-> aria-checked is exactly "true" or "false"
- *   - label / fieldset     -> fieldset + legend in native variant
- *
- * LAYER 2 -- Keyboard / focus tests using the REAL radio-group.enhancer.ts and a REAL
- * LievitRuntime in happy-dom (no mocked $lievit). Matches the spec S7 keyboard test
- * requirements: arrow-key movement, aria-checked sync, wrapping, disabled-skip,
- * lievit:radio-change dispatch, Space activation, Enter no-op.
+ * LAYER 2 -- Keyboard / focus tests using the REAL `lv-radio-group` Stimulus controller (auto-loaded
+ * by filename) over a REAL @hotwired/stimulus Application + the REAL lievit wire morph in happy-dom
+ * (no mocked $lievit, no mocked runtime: a fetch stub captures the actual `_calls` the runtime would
+ * POST). The conversion of the old radio-group.enhancer.ts: Stimulus owns connect/disconnect, so the
+ * morph-safety (re-bind after the wire morph) and idempotency are intrinsic -- the WeakSet/afterCall
+ * bookkeeping is gone. Matches the APG keyboard requirements: arrow movement, aria-checked sync,
+ * wrapping, disabled-skip, lievit:radio-change dispatch, Space activation, Enter no-op -- plus the
+ * morph-safety proof and the controlled/uncontrolled doctrine (ZERO wire calls from the controller).
  */
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { LievitRuntime } from "../runtime/runtime.js";
-import { installRadioGroup } from "../registry/jte/radio-group.enhancer.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
 
 // ---------------------------------------------------------------------------
 // Source-text helpers
@@ -44,6 +41,11 @@ const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const src = readFileSync(join(jteDir, "radio-group.jte"), "utf8");
 /** Strip JTE doc-comment blocks so assertions never match doc prose. */
 const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
+
+const controllerSrc = readFileSync(
+  join(jteDir, "..", "..", "runtime", "stimulus", "controllers", "lv-radio-group-controller.ts"),
+  "utf8",
+);
 
 // ---------------------------------------------------------------------------
 // LAYER 1 -- JTE source-text assertions
@@ -113,8 +115,13 @@ describe("radio-group.jte -- data-slot and ARIA structure (custom variant, PATH 
     expect(markup).toContain('data-slot="radio-group"');
   });
 
-  test("root carries data-lievit-enhancer=radio-group (enhancer mount signal)", () => {
-    expect(markup).toContain('data-lievit-enhancer="radio-group"');
+  test("root wires the lv-radio-group Stimulus controller via data-controller + keydown data-action (CSP-clean)", () => {
+    // The roving-tabindex behaviour moved from radio-group.enhancer.ts to the lv-radio-group
+    // Stimulus controller. The template declares the wiring as CSP-clean attributes (no on* handler).
+    expect(markup).toContain('data-controller="lv-radio-group"');
+    expect(markup).toContain('data-action="keydown->lv-radio-group#onKeydown"');
+    // The old enhancer mount signal is gone (converted, not double-wired).
+    expect(markup).not.toContain('data-lievit-enhancer="radio-group"');
   });
 
   test("root carries data-variant, data-size, data-layout for styling hooks and tests", () => {
@@ -139,6 +146,10 @@ describe("radio-group.jte -- data-slot and ARIA structure (custom variant, PATH 
   test("options carry role=radio and data-slot=radio-option [axe: aria-allowed-attr]", () => {
     expect(markup).toContain('role="radio"');
     expect(markup).toContain('data-slot="radio-option"');
+  });
+
+  test("each option is a Stimulus target (data-lv-radio-group-target=option) reached in DOM order", () => {
+    expect(markup).toContain('data-lv-radio-group-target="option"');
   });
 
   test("aria-checked is always emitted as 'true' or 'false' on each option [axe: aria-required-attr]", () => {
@@ -217,9 +228,10 @@ describe("radio-group.jte -- native variant (PATH B, nativeInputs=true)", () => 
     expect(markup).toContain('id="${_nativeDescId}"');
   });
 
-  test("fieldset does NOT carry data-lievit-enhancer (native needs no enhancer)", () => {
+  test("fieldset does NOT carry a Stimulus controller (native needs none)", () => {
     const fieldsetIdx = markup.indexOf("<fieldset");
     const fieldsetBlock = markup.slice(fieldsetIdx, fieldsetIdx + 500);
+    expect(fieldsetBlock).not.toContain("data-controller");
     expect(fieldsetBlock).not.toContain("data-lievit-enhancer");
   });
 });
@@ -303,7 +315,7 @@ describe("radio-group.jte -- CSP safety", () => {
     expect(markup).not.toMatch(/<script/);
   });
 
-  test("no inline on* event handler attribute", () => {
+  test("no inline on* event handler attribute (data-action is CSP-clean, not an on* handler)", () => {
     expect(markup).not.toMatch(/\son[a-zA-Z]+=["']/);
   });
 
@@ -327,25 +339,63 @@ describe("radio-group.jte -- layout and label-id auto-derivation", () => {
   });
 });
 
+describe("radio-group -- controller source contract (the converted enhancer)", () => {
+  test("the roving + APG keyboard logic lives in the lv-radio-group Stimulus controller", () => {
+    expect(controllerSrc).toContain("export default class LvRadioGroupController");
+    expect(controllerSrc).toContain('static targets = ["option"]');
+    expect(controllerSrc).toMatch(/ArrowDown|ArrowRight/);
+    expect(controllerSrc).toMatch(/ArrowUp|ArrowLeft/);
+    expect(controllerSrc).toContain("lievit:radio-change");
+    // shadcn / a11y namespace preserved: role/aria hooks, never data-lv-* for the option facts.
+    expect(controllerSrc).toContain("aria-checked");
+    expect(controllerSrc).toContain("aria-disabled");
+  });
+
+  test("controlled/uncontrolled doctrine: the controller never reaches the wire bridge", () => {
+    // radio-group rides the wire ONLY via the runtime's l:change delegation on the dispatched
+    // `change`; the controller itself issues ZERO /lievit/<id>/call, so it must not touch the bridge
+    // and must not extend DismissableController (which carries the close round-trip).
+    expect(controllerSrc).not.toContain("callWire");
+    // does not EXTEND the dismissable base nor IMPORT it (prose may name it to explain why not).
+    expect(controllerSrc).not.toMatch(/extends\s+DismissableController/);
+    expect(controllerSrc).not.toMatch(/import[\s\S]*?DismissableController/);
+    expect(controllerSrc).not.toMatch(/from\s+["'][^"']*bridge/);
+    // it extends the plain Stimulus Controller (no wire seam).
+    expect(controllerSrc).toMatch(/extends\s+Controller<HTMLElement>/);
+  });
+});
+
 // ---------------------------------------------------------------------------
-// LAYER 2 -- Real enhancer tests (happy-dom + LievitRuntime)
+// LAYER 2 -- Real controller tests (happy-dom + real Stimulus Application + real morph)
 // ---------------------------------------------------------------------------
 
-/**
- * Build a radiogroup element with role="radio" option divs and a real LievitRuntime.
- * Mirrors what radio-group.jte emits server-side for the custom (PATH A) variant.
- */
-function buildRadioGroup(opts: {
-  options: Array<{ id: string; label: string; checked?: boolean; disabled?: boolean }>;
-  groupDisabled?: boolean;
-}): {
+interface BuiltGroup {
   runtime: LievitRuntime;
   root: HTMLElement;
+  componentRoot: HTMLElement;
   optionEls: HTMLElement[];
-  dispatchedEvents: Array<CustomEvent>;
-} {
+  dispatchedEvents: CustomEvent[];
+  /** Wire actions the runtime POSTed (must stay empty: the controller never round-trips). */
+  calls: string[];
+}
+
+/**
+ * Build a component root + a `data-controller="lv-radio-group"` radiogroup exactly as
+ * radio-group.jte emits it for the custom (PATH A) variant, then start the real Stimulus
+ * Application (which auto-loads lv-radio-group by filename) over a real LievitRuntime with a
+ * fetch stub, and await the MutationObserver.
+ *
+ * No tabindex is preset on the options: the controller's connect() establishes the roving
+ * tabindex from the server-rendered aria-checked / aria-disabled facts (the conversion of the
+ * enhancer's mount-time sync), so the initial-roving tests prove the controller's work.
+ */
+async function buildRadioGroup(opts: {
+  options: Array<{ id: string; label: string; checked?: boolean; disabled?: boolean }>;
+  groupDisabled?: boolean;
+}): Promise<BuiltGroup> {
   document.body.innerHTML = "";
-  const dispatchedEvents: Array<CustomEvent> = [];
+  const dispatchedEvents: CustomEvent[] = [];
+  const calls: string[] = [];
 
   const componentRoot = document.createElement("div");
   componentRoot.setAttribute("data-lievit-component", "com.example.TestComponent");
@@ -355,7 +405,8 @@ function buildRadioGroup(opts: {
   const root = document.createElement("div");
   root.setAttribute("role", "radiogroup");
   root.setAttribute("id", "rg-test");
-  root.setAttribute("data-lievit-enhancer", "radio-group");
+  root.setAttribute("data-controller", "lv-radio-group");
+  root.setAttribute("data-action", "keydown->lv-radio-group#onKeydown");
   if (opts.groupDisabled === true) {
     root.setAttribute("aria-disabled", "true");
   }
@@ -364,63 +415,52 @@ function buildRadioGroup(opts: {
   });
 
   const optionEls: HTMLElement[] = [];
-  let hasChecked = false;
   for (const opt of opts.options) {
     const div = document.createElement("div");
     div.setAttribute("role", "radio");
     div.setAttribute("id", `rg-test-${opt.id}`);
+    div.setAttribute("data-lv-radio-group-target", "option");
     div.setAttribute("data-value", opt.id);
     div.setAttribute("aria-checked", opt.checked ? "true" : "false");
-    if (opt.checked) {
-      hasChecked = true;
-    }
     const isOptDisabled = opt.disabled === true || opts.groupDisabled === true;
     div.setAttribute("aria-disabled", isOptDisabled ? "true" : "false");
-    div.tabIndex = -1;
     div.textContent = opt.label;
     root.appendChild(div);
     optionEls.push(div);
   }
 
-  // Set initial roving tabindex (mirrors what server-rendered JTE emits).
-  if (!hasChecked && optionEls.length > 0) {
-    const firstEnabled = optionEls.find((o) => o.getAttribute("aria-disabled") !== "true");
-    if (firstEnabled != null) {
-      firstEnabled.tabIndex = 0;
-    }
-  } else {
-    for (const el of optionEls) {
-      if (el.getAttribute("aria-checked") === "true") {
-        el.tabIndex = 0;
-      }
-    }
-  }
-
   componentRoot.appendChild(root);
   document.body.appendChild(componentRoot);
 
-  const runtime = new LievitRuntime({
-    fetchImpl: async () =>
-      new Response("<div></div>", {
-        status: 200,
-        headers: { "Lievit-Snapshot": "s2" },
-      }),
-  });
-  installRadioGroup(runtime);
-  runtime.start();
+  const fetchImpl = async (_url: unknown, init?: RequestInit): Promise<Response> => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const c = body._calls as string[] | undefined;
+    if (c) {
+      calls.push(...c);
+    }
+    return new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } });
+  };
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  startStimulus({ runtime });
+  await flushStimulus();
 
-  return { runtime, root, optionEls, dispatchedEvents };
+  return { runtime, root, componentRoot, optionEls, dispatchedEvents, calls };
 }
 
 function fireKey(el: HTMLElement, key: string): void {
   el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 }
 
-// -- tabindex initialization on mount
+afterEach(() => {
+  stopStimulus();
+  document.body.innerHTML = "";
+});
 
-describe("radio-group.enhancer -- tabindex initialization on mount", () => {
-  test("renders_tabindex_zero_on_checked_option: checked option gets tabindex=0 on mount", () => {
-    const { optionEls } = buildRadioGroup({
+// -- tabindex initialization on connect (the converted enhancer's mount sync)
+
+describe("lv-radio-group controller -- tabindex initialization on connect", () => {
+  test("renders_tabindex_zero_on_checked_option: checked option gets tabindex=0 on connect", async () => {
+    const { optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A" },
         { id: "b", label: "B", checked: true },
@@ -432,8 +472,8 @@ describe("radio-group.enhancer -- tabindex initialization on mount", () => {
     expect(optionEls[2].tabIndex).toBe(-1);
   });
 
-  test("renders_tabindex_zero_on_first_option_when_none_checked: first non-disabled gets tabindex=0", () => {
-    const { optionEls } = buildRadioGroup({
+  test("renders_tabindex_zero_on_first_option_when_none_checked: first non-disabled gets tabindex=0", async () => {
+    const { optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A" },
         { id: "b", label: "B" },
@@ -445,8 +485,8 @@ describe("radio-group.enhancer -- tabindex initialization on mount", () => {
     expect(optionEls[2].tabIndex).toBe(-1);
   });
 
-  test("disabled_option_excluded_from_tabindex_zero: first non-disabled holds tabindex=0", () => {
-    const { optionEls } = buildRadioGroup({
+  test("disabled_option_excluded_from_tabindex_zero: first non-disabled holds tabindex=0", async () => {
+    const { optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", disabled: true },
         { id: "b", label: "B" },
@@ -460,9 +500,9 @@ describe("radio-group.enhancer -- tabindex initialization on mount", () => {
 
 // -- ArrowDown / ArrowRight navigation
 
-describe("radio-group.enhancer -- ArrowDown / ArrowRight navigation", () => {
-  test("arrow_down_moves_focus_to_next_option", () => {
-    const { root, optionEls } = buildRadioGroup({
+describe("lv-radio-group controller -- ArrowDown / ArrowRight navigation", () => {
+  test("arrow_down_moves_focus_to_next_option", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -474,8 +514,8 @@ describe("radio-group.enhancer -- ArrowDown / ArrowRight navigation", () => {
     expect(document.activeElement).toBe(optionEls[1]);
   });
 
-  test("arrow_down_checks_next_option and unchecks previous", () => {
-    const { root, optionEls } = buildRadioGroup({
+  test("arrow_down_checks_next_option and unchecks previous", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -488,8 +528,8 @@ describe("radio-group.enhancer -- ArrowDown / ArrowRight navigation", () => {
     expect(optionEls[0].getAttribute("aria-checked")).toBe("false");
   });
 
-  test("arrow_down_wraps_to_first_from_last", () => {
-    const { root, optionEls } = buildRadioGroup({
+  test("arrow_down_wraps_to_first_from_last", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A" },
         { id: "b", label: "B" },
@@ -503,8 +543,8 @@ describe("radio-group.enhancer -- ArrowDown / ArrowRight navigation", () => {
     expect(optionEls[2].getAttribute("aria-checked")).toBe("false");
   });
 
-  test("arrow_right_behaves_like_arrow_down", () => {
-    const { root, optionEls } = buildRadioGroup({
+  test("arrow_right_behaves_like_arrow_down", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -520,9 +560,9 @@ describe("radio-group.enhancer -- ArrowDown / ArrowRight navigation", () => {
 
 // -- ArrowUp / ArrowLeft navigation
 
-describe("radio-group.enhancer -- ArrowUp / ArrowLeft navigation", () => {
-  test("arrow_up_moves_focus_to_previous_option", () => {
-    const { root, optionEls } = buildRadioGroup({
+describe("lv-radio-group controller -- ArrowUp / ArrowLeft navigation", () => {
+  test("arrow_up_moves_focus_to_previous_option", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A" },
         { id: "b", label: "B", checked: true },
@@ -534,8 +574,8 @@ describe("radio-group.enhancer -- ArrowUp / ArrowLeft navigation", () => {
     expect(document.activeElement).toBe(optionEls[0]);
   });
 
-  test("arrow_up_wraps_to_last_from_first", () => {
-    const { root, optionEls } = buildRadioGroup({
+  test("arrow_up_wraps_to_last_from_first", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -549,8 +589,8 @@ describe("radio-group.enhancer -- ArrowUp / ArrowLeft navigation", () => {
     expect(optionEls[0].getAttribute("aria-checked")).toBe("false");
   });
 
-  test("arrow_left_behaves_like_arrow_up", () => {
-    const { root, optionEls } = buildRadioGroup({
+  test("arrow_left_behaves_like_arrow_up", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A" },
         { id: "b", label: "B", checked: true },
@@ -566,9 +606,9 @@ describe("radio-group.enhancer -- ArrowUp / ArrowLeft navigation", () => {
 
 // -- Space key
 
-describe("radio-group.enhancer -- Space key", () => {
-  test("space_checks_unchecked_focused_option", () => {
-    const { root, optionEls } = buildRadioGroup({
+describe("lv-radio-group controller -- Space key", () => {
+  test("space_checks_unchecked_focused_option", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -579,8 +619,8 @@ describe("radio-group.enhancer -- Space key", () => {
     expect(optionEls[1].getAttribute("aria-checked")).toBe("true");
   });
 
-  test("space_no_op_on_already_checked_option: no event fired", () => {
-    const { root, optionEls, dispatchedEvents } = buildRadioGroup({
+  test("space_no_op_on_already_checked_option: no event fired", async () => {
+    const { root, optionEls, dispatchedEvents } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -595,9 +635,9 @@ describe("radio-group.enhancer -- Space key", () => {
 
 // -- Enter key (APG: no action)
 
-describe("radio-group.enhancer -- Enter key (no-op per APG)", () => {
-  test("enter_has_no_action: no aria-checked change, no event fired", () => {
-    const { root, optionEls, dispatchedEvents } = buildRadioGroup({
+describe("lv-radio-group controller -- Enter key (no-op per APG)", () => {
+  test("enter_has_no_action: no aria-checked change, no event fired", async () => {
+    const { root, optionEls, dispatchedEvents } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -613,9 +653,9 @@ describe("radio-group.enhancer -- Enter key (no-op per APG)", () => {
 
 // -- Disabled option skipping
 
-describe("radio-group.enhancer -- disabled option skipping", () => {
-  test("arrow_skips_disabled_option: ArrowDown from a skips disabled b and lands on c", () => {
-    const { root, optionEls } = buildRadioGroup({
+describe("lv-radio-group controller -- disabled option skipping", () => {
+  test("arrow_skips_disabled_option: ArrowDown from a skips disabled b and lands on c", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B", disabled: true },
@@ -629,8 +669,8 @@ describe("radio-group.enhancer -- disabled option skipping", () => {
     expect(optionEls[1].getAttribute("aria-checked")).toBe("false");
   });
 
-  test("arrow_skips_disabled_option: ArrowUp from c skips disabled b and lands on a", () => {
-    const { root, optionEls } = buildRadioGroup({
+  test("arrow_skips_disabled_option: ArrowUp from c skips disabled b and lands on a", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A" },
         { id: "b", label: "B", disabled: true },
@@ -644,11 +684,11 @@ describe("radio-group.enhancer -- disabled option skipping", () => {
   });
 });
 
-// -- lievit:radio-change event dispatch
+// -- lievit:radio-change + DOM change event dispatch
 
-describe("radio-group.enhancer -- lievit:radio-change event", () => {
-  test("arrow_nav_dispatches_lievit_radio_change_event with detail.value === nextOptionId", () => {
-    const { root, optionEls, dispatchedEvents } = buildRadioGroup({
+describe("lv-radio-group controller -- change announcements", () => {
+  test("arrow_nav_dispatches_lievit_radio_change_event with detail.value === nextOptionId", async () => {
+    const { root, optionEls, dispatchedEvents } = await buildRadioGroup({
       options: [
         { id: "alpha", label: "Alpha", checked: true },
         { id: "beta", label: "Beta" },
@@ -658,10 +698,11 @@ describe("radio-group.enhancer -- lievit:radio-change event", () => {
     fireKey(root, "ArrowDown");
     expect(dispatchedEvents).toHaveLength(1);
     expect(dispatchedEvents[0].detail.value).toBe("beta");
+    expect(dispatchedEvents[0].detail.name).toBe("test");
   });
 
-  test("space_on_unchecked_option dispatches lievit:radio-change", () => {
-    const { root, optionEls, dispatchedEvents } = buildRadioGroup({
+  test("space_on_unchecked_option dispatches lievit:radio-change", async () => {
+    const { root, optionEls, dispatchedEvents } = await buildRadioGroup({
       options: [
         { id: "x", label: "X", checked: true },
         { id: "y", label: "Y" },
@@ -672,13 +713,29 @@ describe("radio-group.enhancer -- lievit:radio-change event", () => {
     expect(dispatchedEvents).toHaveLength(1);
     expect(dispatchedEvents[0].detail.value).toBe("y");
   });
+
+  test("selection_also_dispatches_a_bubbling_DOM_change_event (for <form> + l:change delegation)", async () => {
+    const { root, optionEls } = await buildRadioGroup({
+      options: [
+        { id: "a", label: "A", checked: true },
+        { id: "b", label: "B" },
+      ],
+    });
+    let changeFired = 0;
+    root.addEventListener("change", () => {
+      changeFired += 1;
+    });
+    optionEls[0].focus();
+    fireKey(root, "ArrowDown");
+    expect(changeFired).toBe(1);
+  });
 });
 
 // -- Roving tabindex maintenance after navigation
 
-describe("radio-group.enhancer -- roving tabindex maintained after navigation", () => {
-  test("roving_tabindex_maintained_after_arrow_nav: moved-to option gets tabindex=0, others -1", () => {
-    const { root, optionEls } = buildRadioGroup({
+describe("lv-radio-group controller -- roving tabindex maintained after navigation", () => {
+  test("roving_tabindex_maintained_after_arrow_nav: moved-to option gets tabindex=0, others -1", async () => {
+    const { root, optionEls } = await buildRadioGroup({
       options: [
         { id: "a", label: "A", checked: true },
         { id: "b", label: "B" },
@@ -690,6 +747,79 @@ describe("radio-group.enhancer -- roving tabindex maintained after navigation", 
     expect(optionEls[1].tabIndex).toBe(0);
     expect(optionEls[0].tabIndex).toBe(-1);
     expect(optionEls[2].tabIndex).toBe(-1);
+  });
+});
+
+// -- Controlled / uncontrolled doctrine: the controller never round-trips the wire
+
+describe("lv-radio-group controller -- controlled/uncontrolled doctrine (ZERO wire calls)", () => {
+  test("a selection announces change locally but issues no /lievit/<id>/call from the controller", async () => {
+    const { root, optionEls, dispatchedEvents, calls } = await buildRadioGroup({
+      options: [
+        { id: "a", label: "A", checked: true },
+        { id: "b", label: "B" },
+      ],
+    });
+    optionEls[0].focus();
+    fireKey(root, "ArrowDown");
+    // give any (wrongful) wire round-trip time to land in the fetch stub.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(optionEls[1].getAttribute("aria-checked")).toBe("true");
+    expect(dispatchedEvents).toHaveLength(1); // the local change announcement
+    // The controller itself never calls the wire; any wire ride would be the runtime's l:change on
+    // the dispatched `change` (not wired in this DOM). Zero calls => the doctrine is honoured.
+    expect(calls).toHaveLength(0);
+  });
+});
+
+// -- Morph-safety (real lievit morph: the round-2 listener-stacking bug class is impossible)
+
+describe("lv-radio-group controller -- morph-safety (real lievit morph)", () => {
+  test("after a real morph one ArrowDown advances exactly one step (no stacked listeners)", async () => {
+    const { componentRoot } = await buildRadioGroup({
+      options: [
+        { id: "a", label: "A", checked: true },
+        { id: "b", label: "B" },
+        { id: "c", label: "C" },
+      ],
+    });
+
+    // A real lievit wire morph re-renders the component subtree (idiomorph). The markup is identical,
+    // so the controller must NOT be double-connected and the keydown action stays single.
+    morph(componentRoot, componentRoot.outerHTML);
+    await flushStimulus();
+
+    const root = componentRoot.querySelector<HTMLElement>('[role="radiogroup"]')!;
+    const options = Array.from(root.querySelectorAll<HTMLElement>('[role="radio"]'));
+    options[0].focus();
+    fireKey(root, "ArrowDown");
+
+    // A stacked second listener would advance twice (a -> b -> c) and land on c.
+    expect(options[1].getAttribute("aria-checked")).toBe("true");
+    expect(options[2].getAttribute("aria-checked")).toBe("false");
+    expect(document.activeElement).toBe(options[1]);
+  });
+
+  test("a radiogroup removed by a morph stops responding (disconnect tore the keydown down)", async () => {
+    const { componentRoot, root, optionEls } = await buildRadioGroup({
+      options: [
+        { id: "a", label: "A", checked: true },
+        { id: "b", label: "B" },
+      ],
+    });
+
+    // Morph the radiogroup out of the tree.
+    morph(
+      componentRoot,
+      `<div data-lievit-component="com.example.TestComponent" data-lievit-snapshot="s2"><span>gone</span></div>`,
+    );
+    await flushStimulus();
+
+    // The detached node's keydown must no longer reach a live controller -> no aria-checked change.
+    optionEls[0].focus();
+    fireKey(root, "ArrowDown");
+    expect(optionEls[0].getAttribute("aria-checked")).toBe("true");
+    expect(optionEls[1].getAttribute("aria-checked")).toBe("false");
   });
 });
 
