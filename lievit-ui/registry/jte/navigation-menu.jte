@@ -4,12 +4,14 @@
 
   navigation-menu partial -- <nav> landmark with top-level items that reveal rich panels via
   native [popover] + the shared popover-anchor.enhancer.ts (UNCONTROLLED, no server round-trip
-  just to open/close). Keyboard supplement (Esc, arrow keys, typeahead) via collection-nav.enhancer.ts.
+  just to open/close). Keyboard supplement (Esc, arrow keys, typeahead) via the
+  lv-navigation-menu Stimulus controller (data-controller on the <nav>).
 
   TIER: PARTIAL + ENH (ADR-0012, v-next). The disclosure open/close is UNCONTROLLED:
     - Native `[popover]` closes on Esc + light-dismiss natively (browser built-in).
     - popover-anchor.enhancer.ts wires opener recording + focus return on close.
-    - collection-nav.enhancer.ts adds supplemental arrow-key navigation + typeahead.
+    - the lv-navigation-menu Stimulus controller adds supplemental arrow-key navigation + typeahead
+      (APG Disclosure Navigation "nav" mode: focus moves, tabindex stays 0 on every item).
   No WIRE component; no server round-trip to open/close. This is the `navigation-menu-static`
   tier described in the spec, promoted to the primary v-next API because the UNCONTROLLED path
   is the correct default (APG Disclosure Navigation).
@@ -31,7 +33,7 @@
     - Panel <div id="panel-<id>">: hidden when closed (removed from Tab order); visible when open.
     - Badge <span>: aria-hidden="true" (decorative).
     - Icons: aria-hidden="true" (decorative, including chevron on trigger).
-    - collection-nav.enhancer.ts supplies: Esc close + optional arrow-key supplement + typeahead.
+    - lv-navigation-menu controller supplies: Esc (optional escape action) + arrow-key supplement + typeahead.
     - popover-anchor.enhancer.ts supplies: opener recording + focus return on light-dismiss.
     - No focus-trap: panels are non-modal.
 
@@ -51,12 +53,14 @@
   the visual open/close works, but aria-expanded lags the native popover state. Flag:
   ENHANCER_NEEDED: popover-anchor -- toggle aria-expanded on opener trigger on popover toggle event.
 
-  ENHANCER_NEEDED (see report): collection-nav.enhancer.ts "nav" mode: real DOM focus moves on
-  arrow keys, but NO roving tabindex (all items keep tabindex="0"). The current enhancer only has
-  roving-tabindex (Tabs, sets tabindex=-1 on non-focused) and aria-activedescendant (Listbox/Menu,
-  focus stays on root). A third mode is needed where arrow keys call element.focus() but leave
-  tabindex=0 on all items. Until then, the collection-nav data-attrs are wired for the roving-tabindex
-  mode with data-manual-activation="true" as the closest working approximation.
+  KEYBOARD NAV ("nav" mode): real DOM focus moves on arrow keys, but NO roving tabindex (all items
+  keep tabindex="0") -- the APG Disclosure Navigation supplemental pattern (arrow keys call
+  element.focus(); tabindex and aria-activedescendant are never touched). This is owned by the
+  lv-navigation-menu Stimulus controller. The data-lievit-collection* attributes below remain the
+  config surface the controller reads (orientation, wrap, optional escape action); the old shared
+  collection-nav.enhancer.ts (which still serves the Listbox/Menu/Tabs modes for other components)
+  SKIPS this <nav> via its data-controller~="lv-navigation-menu" guard, so the keystroke is handled
+  exactly once.
 
   Params:
     gg.jte.Content content      the <li> items -- compose from navigation-menu/link (leaf)
@@ -103,6 +107,8 @@
   data-variant="${orientation}"
   data-size="${size}"
   aria-label="${label}"
+  data-controller="lv-navigation-menu"
+  data-action="keydown->lv-navigation-menu#onKeydown"
   data-lievit-collection
   data-lievit-collection-orientation="${orientation}"
   data-lievit-collection-wrap="true"

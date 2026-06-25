@@ -267,6 +267,14 @@ function activateCollection(root: Element, runtime: LievitRuntime): void {
   if (activeCollections.has(root)) {
     return;
   }
+  // Migration guard (Stimulus conversion): a navigation-menu converted to the lv-navigation-menu
+  // Stimulus controller owns its own keydown handling (the APG Disclosure "nav" mode). This shared
+  // enhancer must NOT also wire it, or every arrow key / typeahead would be handled twice. The
+  // enhancer still serves the OTHER collection modes (Listbox / Menu / Tabs) on unconverted
+  // components; only this instance is skipped. Converted templates carry the data-controller token.
+  if (root.matches('[data-controller~="lv-navigation-menu"]')) {
+    return;
+  }
   root.setAttribute(ACTIVE_ATTR, "");
 
   // The state object is mutated once below to inject the keyHandler after closure capture.

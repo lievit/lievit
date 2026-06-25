@@ -142,6 +142,15 @@ describe("navigation-menu.jte shell structure", () => {
     expect(src).not.toContain('data-lievit-collection-roving-tabindex="true"');
   });
 
+  test("Stimulus wiring: data-controller=lv-navigation-menu + keydown action on <nav>", () => {
+    // v-next: the keyboard supplement (APG Disclosure "nav" mode) is owned by the
+    // lv-navigation-menu Stimulus controller, bound declaratively (CSP-clean) on the <nav>. The
+    // shared collection-nav enhancer skips this instance via its data-controller guard.
+    const src = markup(SHELL);
+    expect(src).toContain('data-controller="lv-navigation-menu"');
+    expect(src).toContain('data-action="keydown->lv-navigation-menu#onKeydown"');
+  });
+
   test("no dev.lievit import in shell (JTE-compile-classpath safe)", () => {
     expect(read(SHELL)).not.toMatch(/@import/);
   });
