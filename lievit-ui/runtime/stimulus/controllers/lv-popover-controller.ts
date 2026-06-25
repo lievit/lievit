@@ -30,9 +30,9 @@
  */
 
 import { DismissableController } from "../base/dismissable-controller.js";
+import { focusAutofocusTarget } from "../base/focus-trap.js";
 
 const OPENER_ATTR = "data-lv-opener";
-const AUTOFOCUS_ATTR = "data-lv-autofocus";
 
 export default class LvPopoverController extends DismissableController<HTMLElement> {
   /** The opener recorded when the panel last opened (for focus-return on close). */
@@ -79,11 +79,8 @@ export default class LvPopoverController extends DismissableController<HTMLEleme
         opener.setAttribute("aria-expanded", "true");
       }
     }
-    const autofocusTarget = this.element.querySelector<HTMLElement>(`[${AUTOFOCUS_ATTR}]`);
-    if (autofocusTarget != null) {
-      // Defer so the popover is fully shown before focus moves.
-      queueMicrotask(() => autofocusTarget.focus());
-    }
+    // Move focus to the panel's `[data-lv-autofocus]` once it is shown (shared helper, deferred).
+    focusAutofocusTarget(this.element);
   }
 
   private onClose(): void {

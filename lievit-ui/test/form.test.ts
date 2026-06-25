@@ -140,6 +140,10 @@ describe("form.jte -- form root attributes", () => {
     expect(markup).toContain('data-slot="form"');
   });
 
+  test("data-controller=lv-form on root (Stimulus focus-on-error controller)", () => {
+    expect(markup).toContain('data-controller="lv-form"');
+  });
+
   test("data-form-layout on root (v-next layout propagation)", () => {
     expect(markup).toContain('data-form-layout="${layout}"');
   });
