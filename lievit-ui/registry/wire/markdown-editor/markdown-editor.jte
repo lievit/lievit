@@ -39,27 +39,31 @@
 !{var cid = _component == null ? "" : _component.className();}
 !{var fieldId = "lv-md-" + name;}
 !{var previewId = "lv-md-preview-" + name;}
+<%-- Behaviour is the lv-markdown-editor Stimulus controller (CSP-clean data-controller/data-action,
+     never an inline <script> / on*= handler). JS-off the textarea below is still the posted field. --%>
 <div
     @if(!cid.isEmpty())data-lievit-component="${cid}"@endif
+    data-controller="lv-markdown-editor"
     data-markdown-editor
     data-markdown-editor-disabled="${disabled ? "true" : "false"}"
     style="display: block; font-family: var(--lv-font-sans); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); background: var(--lv-color-surface); overflow: hidden;"
 >
     <div
         data-markdown-editor-toolbar
+        data-lv-markdown-editor-target="toolbar"
         role="toolbar"
         aria-label="Markdown formatting"
         hidden
         style="display: flex; flex-wrap: wrap; gap: var(--lv-space-1); padding: var(--lv-space-2); border-bottom: 1px solid var(--lv-color-border); background: var(--lv-color-bg);"
     >
-        <button type="button" data-markdown-cmd="bold" aria-label="Bold" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-weight: var(--lv-font-bold);">B</button>
-        <button type="button" data-markdown-cmd="italic" aria-label="Italic" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-style: italic;">I</button>
-        <button type="button" data-markdown-cmd="heading" aria-label="Heading" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">H</button>
-        <button type="button" data-markdown-cmd="link" aria-label="Link" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&#128279;</button>
-        <button type="button" data-markdown-cmd="code" aria-label="Inline code" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-family: var(--lv-font-mono);">&lt;&gt;</button>
-        <button type="button" data-markdown-cmd="quote" aria-label="Quote" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&rdquo;</button>
-        <button type="button" data-markdown-cmd="ul" aria-label="Bullet list" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&bull;</button>
-        <button type="button" data-markdown-preview-toggle aria-label="Toggle preview" aria-pressed="false" style="margin-left: auto; height: 2rem; padding: 0 var(--lv-space-2); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-size: var(--lv-text-sm);">Preview</button>
+        <button type="button" data-markdown-cmd="bold" data-action="click->lv-markdown-editor#command" aria-label="Bold" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-weight: var(--lv-font-bold);">B</button>
+        <button type="button" data-markdown-cmd="italic" data-action="click->lv-markdown-editor#command" aria-label="Italic" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-style: italic;">I</button>
+        <button type="button" data-markdown-cmd="heading" data-action="click->lv-markdown-editor#command" aria-label="Heading" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">H</button>
+        <button type="button" data-markdown-cmd="link" data-action="click->lv-markdown-editor#command" aria-label="Link" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&#128279;</button>
+        <button type="button" data-markdown-cmd="code" data-action="click->lv-markdown-editor#command" aria-label="Inline code" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-family: var(--lv-font-mono);">&lt;&gt;</button>
+        <button type="button" data-markdown-cmd="quote" data-action="click->lv-markdown-editor#command" aria-label="Quote" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&rdquo;</button>
+        <button type="button" data-markdown-cmd="ul" data-action="click->lv-markdown-editor#command" aria-label="Bullet list" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&bull;</button>
+        <button type="button" data-markdown-preview-toggle data-lv-markdown-editor-target="toggle" data-action="click->lv-markdown-editor#togglePreview" aria-label="Toggle preview" aria-pressed="false" style="margin-left: auto; height: 2rem; padding: 0 var(--lv-space-2); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-size: var(--lv-text-sm);">Preview</button>
     </div>
 
     <div data-markdown-editor-panes style="display: flex; align-items: stretch;">
@@ -71,11 +75,14 @@
             aria-label="${label}"
             disabled="${disabled}"
             data-markdown-editor-input
+            data-lv-markdown-editor-target="input"
+            data-action="input->lv-markdown-editor#refresh"
             style="display: block; flex: 1 1 0; min-width: 0; box-sizing: border-box; border: 0; padding: var(--lv-space-3); background: var(--lv-color-surface); color: var(--lv-color-fg); font-family: var(--lv-font-mono); font-size: var(--lv-text-sm); resize: vertical; line-height: var(--lv-leading-normal);"
         >${value}</textarea>
         <div
             id="${previewId}"
             data-markdown-editor-preview
+            data-lv-markdown-editor-target="preview"
             aria-label="Preview"
             aria-live="polite"
             hidden
