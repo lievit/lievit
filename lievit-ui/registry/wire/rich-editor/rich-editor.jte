@@ -42,32 +42,42 @@
 @param ComponentMetadata _component = null
 !{var cid = _component == null ? "" : _component.className();}
 !{var fieldId = "lv-rich-" + name;}
+<%-- data-controller="lv-rich-editor" mounts the Stimulus controller (the morph-safe successor to
+     the colocated rich-editor.ts enhancer) that builds the TipTap editor over the textarea. The
+     adopter publishes its pinned TipTap build once via setRichEditorFactory(); with no factory (or
+     JS off) the <textarea> stays the editor. The legacy enhancer is retained for non-Stimulus
+     adopters and SKIPS any [data-controller~="lv-rich-editor"] root, so there is no double-build.
+     The data-rich-editor-* hooks stay (the legacy enhancer + the migration guard speak them). --%>
 <div
     @if(!cid.isEmpty())data-lievit-component="${cid}"@endif
+    data-controller="lv-rich-editor"
     data-rich-editor
     data-rich-editor-disabled="${disabled ? "true" : "false"}"
     style="display: block; font-family: var(--lv-font-sans); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); background: var(--lv-color-surface); overflow: hidden;"
 >
-    <%-- Toolbar: hidden until the island reveals it (JS-off never sees a dead toolbar). --%>
+    <%-- Toolbar: hidden until the controller reveals it (JS-off never sees a dead toolbar).
+         Each button drives a command via data-action (CSP-clean, morph-safe -- never an inline handler). --%>
     <div
         data-rich-editor-toolbar
+        data-lv-rich-editor-target="toolbar"
         role="toolbar"
         aria-label="Formatting"
         hidden
         style="display: flex; flex-wrap: wrap; gap: var(--lv-space-1); padding: var(--lv-space-2); border-bottom: 1px solid var(--lv-color-border); background: var(--lv-color-bg);"
     >
-        <button type="button" data-rich-editor-cmd="bold" aria-label="Bold" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-weight: var(--lv-font-bold);">B</button>
-        <button type="button" data-rich-editor-cmd="italic" aria-label="Italic" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-style: italic;">I</button>
-        <button type="button" data-rich-editor-cmd="strike" aria-label="Strikethrough" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; text-decoration: line-through;">S</button>
-        <button type="button" data-rich-editor-cmd="heading" data-rich-editor-arg="2" aria-label="Heading" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">H</button>
-        <button type="button" data-rich-editor-cmd="bulletList" aria-label="Bullet list" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&bull;</button>
-        <button type="button" data-rich-editor-cmd="orderedList" aria-label="Numbered list" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">1.</button>
-        <button type="button" data-rich-editor-cmd="blockquote" aria-label="Quote" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&rdquo;</button>
+        <button type="button" data-rich-editor-cmd="bold" data-lv-rich-editor-target="command" data-action="click->lv-rich-editor#runCommand" aria-label="Bold" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-weight: var(--lv-font-bold);">B</button>
+        <button type="button" data-rich-editor-cmd="italic" data-lv-rich-editor-target="command" data-action="click->lv-rich-editor#runCommand" aria-label="Italic" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; font-style: italic;">I</button>
+        <button type="button" data-rich-editor-cmd="strike" data-lv-rich-editor-target="command" data-action="click->lv-rich-editor#runCommand" aria-label="Strikethrough" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer; text-decoration: line-through;">S</button>
+        <button type="button" data-rich-editor-cmd="heading" data-rich-editor-arg="2" data-lv-rich-editor-target="command" data-action="click->lv-rich-editor#runCommand" aria-label="Heading" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">H</button>
+        <button type="button" data-rich-editor-cmd="bulletList" data-lv-rich-editor-target="command" data-action="click->lv-rich-editor#runCommand" aria-label="Bullet list" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&bull;</button>
+        <button type="button" data-rich-editor-cmd="orderedList" data-lv-rich-editor-target="command" data-action="click->lv-rich-editor#runCommand" aria-label="Numbered list" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">1.</button>
+        <button type="button" data-rich-editor-cmd="blockquote" data-lv-rich-editor-target="command" data-action="click->lv-rich-editor#runCommand" aria-label="Quote" aria-pressed="false" style="min-width: 2rem; height: 2rem; border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-sm); background: var(--lv-color-surface); color: var(--lv-color-fg); cursor: pointer;">&rdquo;</button>
     </div>
 
-    <%-- The mount point for the TipTap editor; empty + hidden until the island fills it. --%>
+    <%-- The mount point for the TipTap editor; empty + hidden until the controller fills it. --%>
     <div
         data-rich-editor-surface
+        data-lv-rich-editor-target="surface"
         aria-label="${label}"
         hidden
         style="min-height: 8rem; padding: var(--lv-space-3); color: var(--lv-color-fg); line-height: var(--lv-leading-normal);"
@@ -82,6 +92,7 @@
         aria-label="${label}"
         disabled="${disabled}"
         data-rich-editor-input
+        data-lv-rich-editor-target="input"
         style="display: block; width: 100%; box-sizing: border-box; border: 0; padding: var(--lv-space-3); background: var(--lv-color-surface); color: var(--lv-color-fg); font-family: var(--lv-font-sans); font-size: var(--lv-text-sm); resize: vertical;"
     >${value}</textarea>
 </div>
