@@ -2,21 +2,25 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Tests for the re-forged tabs primitive (v-next: headless controlled/uncontrolled PARTIAL).
+ * Tests for the tabs primitive (v-next: headless controlled/uncontrolled PARTIAL) after the
+ * Stimulus conversion of its interactive behaviour.
  *
  * LAYER SPLIT:
  *   1. Source-text assertions (no JTE compiler in the Node harness): assert on the @param API,
  *      the data-slot set, WAI-ARIA roles, roving tabindex, aria-selected, aria-controls /
- *      aria-labelledby pairing, token-driven styling, CSP-safety, escaping contracts,
- *      collection-nav wiring. These are "spec holds in the source" tests.
- *   2. Runtime assertions (real LievitRuntime + installCollectionNav + happy-dom DOM): assert
- *      roving-tabindex keyboard navigation and automatic/manual activation using the collection-nav
- *      tests infra (mirrors the buildRovingCollection helper pattern from
- *      collection-nav.enhancer.test.ts). The JTE-compile + real-render gate lives in
- *      test/jte-compile/ (coordinator-run per-wave; not executed here).
+ *      aria-labelledby pairing, token-driven styling, CSP-safety, escaping contracts, and the
+ *      Stimulus wiring (data-controller="lv-tabs"). These are "spec holds in the source" tests.
+ *   2. Runtime assertions (REAL @hotwired/stimulus Application + the REAL lv-tabs controller +
+ *      happy-dom DOM): assert roving-tabindex keyboard navigation, automatic/manual activation,
+ *      the controlled/uncontrolled wire doctrine, and morph-safety. The keyboard behaviour used to
+ *      live in collection-nav.enhancer.ts (roving-tabindex mode); it now lives in
+ *      runtime/stimulus/controllers/lv-tabs-controller.ts and the enhancer SKIPS a tablist that
+ *      carries data-controller="lv-tabs" (the migration guard). These tests therefore drive the
+ *      controller through startStimulus(), NOT installCollectionNav.
  *
- * CLIENT-ISLAND FIDELITY NOTE: the runtime tests use a REAL LievitRuntime + installCollectionNav,
- * not a mocked $lievit, per the client-island-fidelity lesson in gest CLAUDE.md.
+ * CLIENT-ISLAND FIDELITY NOTE: the runtime tests use a REAL Stimulus Application + the REAL lievit
+ * wire morph (a fetch stub captures the actual `_calls` the runtime POSTs), not a mocked $lievit,
+ * per the client-island-fidelity lesson in gest CLAUDE.md and the Stimulus conversion convention.
  * The JTE-compile gate (real compiler + DOM render) and the Playwright gate (real browser gesture)
  * are out-of-scope for this file (coordinator-run and e2e, respectively).
  */
@@ -25,7 +29,8 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { LievitRuntime } from "../runtime/runtime.js";
-import { installCollectionNav } from "../runtime/features/collection-nav.enhancer.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const read = (rel: string) => readFileSync(join(jteDir, rel), "utf8");
@@ -49,9 +54,6 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
   test("comment block present and closes without nesting (no inner --%>)", () => {
     expect(src).toContain("<%--");
     expect(src).toContain("--%>");
-    // The outer doc-comment must not contain a nested --%> that would close it early.
-    // Strategy: extract everything between the first <%-- and its matching --%>, then assert
-    // the comment body itself does not contain a second closing --%>.
     const firstOpen = src.indexOf("<%--");
     const firstClose = src.indexOf("--%>", firstOpen + 4);
     const commentBody = src.slice(firstOpen + 4, firstClose);
@@ -68,9 +70,6 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
   });
 
   test("NEVER has @Wire, _component, _instance, _componentSnapshot params (outside comments)", () => {
-    // Strip JTE comments first -- the doc-comment explains the controlled/uncontrolled model
-    // using the words "@Wire field", "_instance.activeTab()" as prose; the check is that none
-    // of these appear as ACTUAL JTE directives / @param names outside the comment block.
     const withoutComments = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(withoutComments).not.toMatch(/@Wire\b/);
     expect(withoutComments).not.toContain("_component");
@@ -79,7 +78,6 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
   });
 
   test("declares the v-next CONTROLLED/UNCONTROLLED @param API", () => {
-    // Core identity params
     expect(src).toContain("@param String tabsId");
     expect(src).toContain("@param List<String> tabIds");
     expect(src).toContain("@param List<String> tabLabels");
@@ -87,30 +85,24 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
     expect(src).toContain("@param List<Boolean> tabClosable");
     expect(src).toContain("@param List<Boolean> tabDisabled");
     expect(src).toContain("@param String activeTab");
-    // Configuration params
     expect(src).toContain("@param String orientation");
     expect(src).toContain("@param String size");
     expect(src).toContain("@param String type");
     expect(src).toContain("@param boolean lazyLoad");
     expect(src).toContain("@param boolean addable");
     expect(src).toContain("@param boolean manualActivation");
-    // ARIA label params
     expect(src).toContain("@param String tabsLabel");
     expect(src).toContain("@param String tabsLabelledBy");
-    // Wire action name params (controlled seam: caller passes their own action names)
     expect(src).toContain("@param String selectAction");
     expect(src).toContain("@param String closeAction");
     expect(src).toContain("@param String addAction");
-    // Extension params
     expect(src).toContain("@param String cssClass");
     expect(src).toContain('@param String attrs = ""');
   });
 
   test("does NOT declare the old static-tier API (tabIds+labels+hrefs+active+content)", () => {
-    // The old tabs.jte had List<String> hrefs + gg.jte.Content content; the new one does not.
     expect(src).not.toContain("@param List<String> hrefs");
     expect(src).not.toContain("@param gg.jte.Content content");
-    // The old `active` (bare) param is gone; the new one is `activeTab`.
     expect(src).not.toMatch(/@param\s+String\s+active\b/);
   });
 
@@ -133,7 +125,6 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
     expect(src).toContain('role="tablist"');
     expect(src).toContain('role="tab"');
     expect(src).toContain('role="tabpanel"');
-    // Tab is a real <button> NOT an <a> or <div>.
     expect(src).toMatch(/<button[\s\S]{0,200}role="tab"/);
     expect(src).not.toMatch(/<a[\s\S]{0,200}role="tab"/);
   });
@@ -153,12 +144,10 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
   });
 
   test("aria-controls on each tab points to the correct panel id scheme", () => {
-    // aria-controls="panel-{tabsId}-{safeTabId}"
     expect(src).toContain('aria-controls="panel-${tabsId}-$unsafe{safeTabId}"');
   });
 
   test("aria-labelledby on each panel points back to the tab id (correct cross-ref)", () => {
-    // Panel aria-labelledby="tab-{tabsId}-{safeId}"
     expect(src).toContain('aria-labelledby="tab-${tabsId}-$unsafe{ptSafeId}"');
   });
 
@@ -169,8 +158,6 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
 
   test("disabled tabs: aria-disabled=true ONLY — NO native disabled attribute", () => {
     expect(src).toContain('aria-disabled="${isDisabled ? "true" : null}"');
-    // The spec forbids native `disabled` on tabs (it removes from tab order, breaks APG).
-    // We look for disabled as a bare attribute assignment that is NOT aria-disabled.
     const withoutComments = src.replace(/<%--[\s\S]*?--%>/g, "");
     expect(withoutComments).not.toMatch(/\bdisabled="${isDisabled[^"]*}"/);
   });
@@ -183,7 +170,6 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
   test("addable: add button with aria-label, NOT a data-lievit-item", () => {
     expect(src).toContain('aria-label="Add tab"');
     expect(src).toContain('data-slot="tabs-add"');
-    // The add button must NOT be in the roving tablist (it is a trailing action).
     const addButtonSection = src.slice(src.indexOf("aria-label=\"Add tab\"") - 300);
     expect(addButtonSection.slice(0, 300)).not.toContain("data-lievit-item");
   });
@@ -199,7 +185,14 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
     expect(src).toContain('tabindex="0"');
   });
 
-  test("collection-nav wiring: all required data-lievit-* attributes on the tablist root", () => {
+  test("Stimulus: tablist carries data-controller=\"lv-tabs\" (the converted interactive owner)", () => {
+    expect(src).toContain('data-controller="lv-tabs"');
+  });
+
+  test("collection-nav wiring preserved on the tablist root (the controller reads these attrs)", () => {
+    // The established data-lievit-collection-* attributes are KEPT (the controller reads
+    // orientation / wrap / select-action / manual from them; the enhancer SKIPS this tablist via
+    // the data-controller="lv-tabs" guard). Mirrors the popover exemplar keeping data-lv-opener.
     expect(src).toContain("data-lievit-collection");
     expect(src).toContain('data-lievit-collection-roving-tabindex="true"');
     expect(src).toContain("data-lievit-collection-orientation=");
@@ -208,7 +201,7 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
     expect(src).toContain("data-manual-activation=");
   });
 
-  test("each tab button carries data-lievit-item (marks it as a collection item)", () => {
+  test("each tab button carries data-lievit-item (the roving collection item the controller reads)", () => {
     expect(src).toContain("data-lievit-item");
   });
 
@@ -218,17 +211,13 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
 
   test("XSS: per-tab ids go through Escape.htmlAttribute (SAFE channel; never raw attrs)", () => {
     expect(src).toContain("Escape.htmlAttribute(tabId,");
-    // The safeTabId and ptSafeId are emitted via $unsafe{...} AFTER escaping -- this is the
-    // correct SAFE pattern (pre-escaped, then $unsafe to bypass double-escaping).
     expect(src).toContain("$unsafe{safeTabId}");
     expect(src).toContain("$unsafe{ptSafeId}");
-    // The close button label also goes through Escape.htmlAttribute.
     expect(src).toContain("Escape.htmlAttribute(tabLabel,");
     expect(src).toContain("$unsafe{safeTabLabel}");
   });
 
   test("token-driven: reads --lv-* tokens for colour, space, type, radius, shadow, ring", () => {
-    // Colour tokens
     expect(src).toContain("var(--lv-color-primary)");
     expect(src).toContain("var(--lv-color-primary-fg)");
     expect(src).toContain("var(--lv-color-muted-fg)");
@@ -237,18 +226,15 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
     expect(src).toContain("var(--lv-color-fg)");
     expect(src).toContain("var(--lv-color-card)");
     expect(src).toContain("var(--lv-color-bg)");
-    // Space tokens (height + padding scale)
     expect(src).toContain("var(--lv-space-8)");
     expect(src).toContain("var(--lv-space-9)");
     expect(src).toContain("var(--lv-space-10)");
     expect(src).toContain("var(--lv-space-4)");
     expect(src).toContain("var(--lv-space-6)");
-    // Type tokens
     expect(src).toContain("var(--lv-text-sm)");
     expect(src).toContain("var(--lv-text-base)");
     expect(src).toContain("var(--lv-font-medium)");
     expect(src).toContain("var(--lv-font-sans)");
-    // Structural tokens
     expect(src).toContain("var(--lv-radius-md)");
     expect(src).toContain("var(--lv-radius-full)");
     expect(src).toContain("var(--lv-shadow-xs)");
@@ -295,19 +281,13 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
     const meta = JSON.parse(readFileSync(join(jteDir, "tabs", "meta.json"), "utf8") as string);
     expect(meta.registryDependencies).toContain("icon");
   });
-
-  test("meta.json registers collection-nav enhancer", () => {
-    const meta = JSON.parse(readFileSync(join(jteDir, "tabs", "meta.json"), "utf8") as string);
-    expect(meta.enhancers).toBeDefined();
-    expect(meta.enhancers).toContain("collection-nav.enhancer.ts");
-  });
 });
 
 // ---------------------------------------------------------------------------
-// Runtime assertions (real LievitRuntime + collection-nav, happy-dom)
-// These mirror the buildRovingCollection pattern from collection-nav.enhancer.test.ts.
-// They assert the KEYBOARD + ROVING behavior against a real DOM built to match what tabs.jte
-// renders (manual build -- no JTE compiler in this environment).
+// Runtime assertions (REAL Stimulus Application + the REAL lv-tabs controller, happy-dom)
+// These drive the converted controller, NOT installCollectionNav. The DOM is built to match what
+// tabs.jte renders (manual build -- no JTE compiler in this environment), including the
+// data-controller="lv-tabs" the template stamps on the tablist.
 // ---------------------------------------------------------------------------
 
 function makeFetchImpl(calledActions: string[]): typeof fetch {
@@ -326,120 +306,103 @@ function makeFetchImpl(calledActions: string[]): typeof fetch {
 
 type TabDef = { id: string; label: string; disabled?: boolean };
 
-/**
- * Build a tabs DOM that mirrors what tabs.jte renders for a 3-tab horizontal tablist.
- * Uses real <button role=tab> elements so .focus() works in happy-dom.
- * The first non-disabled tab starts with tabindex="0"; others get tabindex="-1".
- */
-function buildTabsDom(opts: {
+interface BuildOpts {
   tabs: TabDef[];
   activeTabId: string;
   orientation?: "horizontal" | "vertical";
   manualActivation?: boolean;
+  /** Wire action name; omit to render an UNCONTROLLED tablist (no select-action attribute). */
   selectAction?: string;
-}): {
-  runtime: LievitRuntime;
-  calledActions: string[];
-  tablistEl: HTMLElement;
-  tabButtons: HTMLButtonElement[];
-  panelEls: HTMLElement[];
-} {
-  document.body.innerHTML = "";
-  const calledActions: string[] = [];
+}
 
+/**
+ * Emits the tabs DOM string exactly as tabs.jte renders it for a horizontal/vertical tablist,
+ * including data-controller="lv-tabs" + the data-lievit-collection-* attributes the controller
+ * reads. Returned as a string so the morph-safety tests can replay it through the real morph.
+ */
+function tabsHtml(opts: BuildOpts): string {
   const tabsId = "test-tabs";
   const orientation = opts.orientation ?? "horizontal";
   const manualActivation = opts.manualActivation ?? false;
-  const selectAction = opts.selectAction ?? "activate";
+  const collOrientation = orientation === "vertical" ? "vertical" : "horizontal";
 
-  // Component root (required by the runtime).
-  const componentRoot = document.createElement("div");
-  componentRoot.setAttribute("data-lievit-component", "com.example.TestTabs");
-  componentRoot.setAttribute("data-lievit-id", tabsId);
-  componentRoot.setAttribute("data-lievit-snapshot", "s1");
-
-  // Root wrapper.
-  const tabsRoot = document.createElement("div");
-  tabsRoot.setAttribute("data-slot", "tabs");
-  tabsRoot.setAttribute("data-orientation", orientation);
-  tabsRoot.setAttribute("data-type", "line");
-  tabsRoot.setAttribute("data-size", "md");
-
-  // Tablist strip.
-  const tablistEl = document.createElement("div") as HTMLElement;
-  tablistEl.setAttribute("role", "tablist");
-  tablistEl.setAttribute("aria-label", "Test tabs");
-  tablistEl.setAttribute("aria-orientation", orientation);
-  tablistEl.setAttribute("data-slot", "tabs-list");
-  tablistEl.setAttribute("data-lievit-collection", "");
-  tablistEl.setAttribute("data-lievit-collection-roving-tabindex", "true");
-  tablistEl.setAttribute(
-    "data-lievit-collection-orientation",
-    orientation === "vertical" ? "vertical" : "horizontal",
-  );
-  tablistEl.setAttribute("data-lievit-collection-wrap", "true");
-  tablistEl.setAttribute("data-lievit-collection-select-action", selectAction);
-  if (manualActivation) {
-    tablistEl.setAttribute("data-manual-activation", "true");
-  }
-
-  // Tab buttons.
-  const tabButtons: HTMLButtonElement[] = [];
   let firstEnabled = true;
-  for (const tab of opts.tabs) {
-    const btn = document.createElement("button") as HTMLButtonElement;
-    btn.setAttribute("type", "button");
-    btn.setAttribute("role", "tab");
-    btn.id = `tab-${tabsId}-${tab.id}`;
-    btn.setAttribute("aria-selected", tab.id === opts.activeTabId ? "true" : "false");
-    btn.setAttribute("aria-controls", `panel-${tabsId}-${tab.id}`);
-    btn.setAttribute("data-slot", "tabs-trigger");
-    btn.setAttribute("data-lievit-item", "");
-    btn.setAttribute("data-id", tab.id);
-    btn.textContent = tab.label;
+  const tabButtons = opts.tabs
+    .map((tab) => {
+      const active = tab.id === opts.activeTabId;
+      let tabindex: number;
+      if (tab.disabled) {
+        tabindex = -1;
+      } else {
+        tabindex = firstEnabled ? 0 : -1;
+        firstEnabled = false;
+      }
+      const disabledAttr = tab.disabled ? ' aria-disabled="true"' : "";
+      return (
+        `<button type="button" role="tab" id="tab-${tabsId}-${tab.id}" ` +
+        `aria-selected="${active ? "true" : "false"}" aria-controls="panel-${tabsId}-${tab.id}"` +
+        `${disabledAttr} tabindex="${tabindex}" data-slot="tabs-trigger" data-lievit-item ` +
+        `data-id="${tab.id}"${opts.selectAction != null ? ` l:click="${opts.selectAction}"` : ""}>` +
+        `${tab.label}</button>`
+      );
+    })
+    .join("");
 
-    if (tab.disabled) {
-      // APG Tabs: aria-disabled ONLY (NOT native disabled).
-      btn.setAttribute("aria-disabled", "true");
-      btn.tabIndex = -1;
-    } else {
-      // First non-disabled tab gets tabindex=0 (matches server-rendered initial state from tabs.jte).
-      btn.tabIndex = firstEnabled ? 0 : -1;
-      firstEnabled = false;
-    }
+  const panels = opts.tabs
+    .map((tab) => {
+      const active = tab.id === opts.activeTabId;
+      return (
+        `<div role="tabpanel" id="panel-${tabsId}-${tab.id}" ` +
+        `aria-labelledby="tab-${tabsId}-${tab.id}" tabindex="0" data-slot="tabs-content"` +
+        `${active ? "" : " hidden"}>Content for ${tab.label}</div>`
+      );
+    })
+    .join("");
 
-    tablistEl.appendChild(btn);
-    tabButtons.push(btn);
-  }
+  const selectActionAttr =
+    opts.selectAction != null
+      ? ` data-lievit-collection-select-action="${opts.selectAction}"`
+      : "";
+  const manualAttr = manualActivation ? ' data-manual-activation="true"' : "";
 
-  // Panel elements.
-  const panelEls: HTMLElement[] = [];
-  for (const tab of opts.tabs) {
-    const panel = document.createElement("div") as HTMLElement;
-    panel.setAttribute("role", "tabpanel");
-    panel.id = `panel-${tabsId}-${tab.id}`;
-    panel.setAttribute("aria-labelledby", `tab-${tabsId}-${tab.id}`);
-    panel.setAttribute("tabindex", "0");
-    panel.setAttribute("data-slot", "tabs-content");
-    if (tab.id !== opts.activeTabId) {
-      panel.setAttribute("hidden", "");
-    }
-    panel.textContent = `Content for ${tab.label}`;
-    panelEls.push(panel);
-  }
+  return (
+    `<div data-lievit-component="com.example.TestTabs" data-lievit-id="${tabsId}" ` +
+    `data-lievit-snapshot="s1">` +
+    `<div data-slot="tabs" data-orientation="${orientation}" data-type="line" data-size="md">` +
+    `<div role="tablist" aria-label="Test tabs" aria-orientation="${orientation}" ` +
+    `data-slot="tabs-list" data-controller="lv-tabs" data-lievit-collection ` +
+    `data-lievit-collection-roving-tabindex="true" ` +
+    `data-lievit-collection-orientation="${collOrientation}" ` +
+    `data-lievit-collection-wrap="true"${selectActionAttr}${manualAttr}>` +
+    `${tabButtons}</div>${panels}</div></div>`
+  );
+}
 
-  tabsRoot.appendChild(tablistEl);
-  for (const panel of panelEls) {
-    tabsRoot.appendChild(panel);
-  }
-  componentRoot.appendChild(tabsRoot);
-  document.body.appendChild(componentRoot);
+interface Built {
+  runtime: LievitRuntime;
+  calledActions: string[];
+  componentRoot: HTMLElement;
+  tablistEl: HTMLElement;
+  tabButtons: HTMLButtonElement[];
+  panelEls: HTMLElement[];
+}
 
+/** Mounts the tabs DOM, starts the real Stimulus app (auto-loads lv-tabs), and awaits connect. */
+async function buildTabsDom(opts: BuildOpts): Promise<Built> {
+  document.body.innerHTML = "";
+  const calledActions: string[] = [];
   const runtime = new LievitRuntime({ fetchImpl: makeFetchImpl(calledActions) });
-  installCollectionNav(runtime);
-  runtime.start();
 
-  return { runtime, calledActions, tablistEl, tabButtons, panelEls };
+  document.body.innerHTML = tabsHtml(opts);
+  const componentRoot = document.body.firstElementChild as HTMLElement;
+  const tablistEl = componentRoot.querySelector<HTMLElement>('[role="tablist"]')!;
+  const tabButtons = Array.from(tablistEl.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+  const panelEls = Array.from(componentRoot.querySelectorAll<HTMLElement>('[role="tabpanel"]'));
+
+  startStimulus({ runtime });
+  await flushStimulus();
+
+  return { runtime, calledActions, componentRoot, tablistEl, tabButtons, panelEls };
 }
 
 function key(el: Element, k: string): void {
@@ -451,16 +414,17 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stopStimulus();
   document.body.innerHTML = "";
 });
 
 // ---------------------------------------------------------------------------
-// tabs-render-structure: basic ARIA structure assertions on built DOM.
+// tabs-render-structure: basic ARIA structure assertions on the rendered DOM.
 // ---------------------------------------------------------------------------
 
 describe("tabs runtime — DOM structure (APG Tabs contract)", () => {
-  it("tabs-render-structure: tablist + 3 tabs + 3 panels with correct ARIA cross-references", () => {
-    const { tablistEl, tabButtons, panelEls } = buildTabsDom({
+  it("tabs-render-structure: tablist + 3 tabs + 3 panels with correct ARIA cross-references", async () => {
+    const { tablistEl, tabButtons, panelEls } = await buildTabsDom({
       tabs: [
         { id: "info", label: "Info" },
         { id: "docs", label: "Docs" },
@@ -473,32 +437,27 @@ describe("tabs runtime — DOM structure (APG Tabs contract)", () => {
     expect(tabButtons).toHaveLength(3);
     expect(panelEls).toHaveLength(3);
 
-    // First tab is active.
     expect(tabButtons[0].getAttribute("aria-selected")).toBe("true");
     expect(tabButtons[0].tabIndex).toBe(0);
-    // Others are inactive.
     expect(tabButtons[1].getAttribute("aria-selected")).toBe("false");
     expect(tabButtons[1].tabIndex).toBe(-1);
     expect(tabButtons[2].getAttribute("aria-selected")).toBe("false");
     expect(tabButtons[2].tabIndex).toBe(-1);
 
-    // aria-controls links to the panel id.
     expect(tabButtons[0].getAttribute("aria-controls")).toBe(panelEls[0].id);
     expect(tabButtons[1].getAttribute("aria-controls")).toBe(panelEls[1].id);
 
-    // aria-labelledby on panels points back to the tab button id.
     expect(panelEls[0].getAttribute("aria-labelledby")).toBe(tabButtons[0].id);
     expect(panelEls[1].getAttribute("aria-labelledby")).toBe(tabButtons[1].id);
     expect(panelEls[2].getAttribute("aria-labelledby")).toBe(tabButtons[2].id);
 
-    // Active panel visible; others hidden.
     expect(panelEls[0].hasAttribute("hidden")).toBe(false);
     expect(panelEls[1].hasAttribute("hidden")).toBe(true);
     expect(panelEls[2].hasAttribute("hidden")).toBe(true);
   });
 
-  it("tabs-render-disabled-tab: aria-disabled=true, NOT native disabled, tabIndex=-1 but stays in DOM", () => {
-    const { tabButtons } = buildTabsDom({
+  it("tabs-render-disabled-tab: aria-disabled=true, NOT native disabled, tabIndex=-1 but stays in DOM", async () => {
+    const { tabButtons } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2", disabled: true },
@@ -508,15 +467,12 @@ describe("tabs runtime — DOM structure (APG Tabs contract)", () => {
     });
 
     expect(tabButtons[1].getAttribute("aria-disabled")).toBe("true");
-    // Native disabled must NOT be set (disabled tabs must remain focusable in APG model).
     expect(tabButtons[1].hasAttribute("disabled")).toBe(false);
-    // disabled tab gets tabIndex=-1 in the initial server-rendered state (before arrow key
-    // navigation; collection-nav skips it during navigation but it is still in the DOM).
     expect(tabButtons[1].tabIndex).toBe(-1);
   });
 
-  it("tabs-render-vertical: aria-orientation=vertical on tablist + collection-nav attr", () => {
-    const { tablistEl } = buildTabsDom({
+  it("tabs-render-vertical: aria-orientation=vertical on tablist + collection-nav attr", async () => {
+    const { tablistEl } = await buildTabsDom({
       tabs: [
         { id: "a", label: "A" },
         { id: "b", label: "B" },
@@ -531,12 +487,12 @@ describe("tabs runtime — DOM structure (APG Tabs contract)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// tabs-key-*: keyboard interaction via real collection-nav enhancer.
+// tabs-key-*: keyboard interaction via the real lv-tabs controller.
 // ---------------------------------------------------------------------------
 
-describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs model)", () => {
+describe("tabs runtime — keyboard interaction (real lv-tabs controller, APG Tabs model)", () => {
   it("tabs-key-arrow-right-automatic: ArrowRight moves focus + fires activate in automatic mode", async () => {
-    const { tablistEl, tabButtons, calledActions } = buildTabsDom({
+    const { tablistEl, tabButtons, calledActions } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -546,24 +502,21 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
       selectAction: "activate",
     });
 
-    // Initial state: tab1 has tabindex=0.
     expect(tabButtons[0].tabIndex).toBe(0);
     expect(tabButtons[1].tabIndex).toBe(-1);
 
     key(tablistEl, "ArrowRight");
 
-    // Focus moved to tab2 synchronously.
     expect(document.activeElement).toBe(tabButtons[1]);
     expect(tabButtons[1].tabIndex).toBe(0);
     expect(tabButtons[0].tabIndex).toBe(-1);
 
-    // Automatic activation: the wire action fires asynchronously.
     await new Promise<void>((r) => setTimeout(r, 20));
     expect(calledActions).toContain("activate");
   });
 
   it("tabs-key-arrow-left-automatic: ArrowLeft moves focus backwards + fires activate", async () => {
-    const { tablistEl, tabButtons, calledActions } = buildTabsDom({
+    const { tablistEl, tabButtons, calledActions } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -573,7 +526,6 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
       selectAction: "activate",
     });
 
-    // Move to tab2 first.
     key(tablistEl, "ArrowRight");
     expect(document.activeElement).toBe(tabButtons[1]);
 
@@ -585,8 +537,8 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
     expect(calledActions.length).toBeGreaterThan(0);
   });
 
-  it("tabs-key-wrap: ArrowRight at last tab wraps to first", () => {
-    const { tablistEl, tabButtons } = buildTabsDom({
+  it("tabs-key-wrap: ArrowRight at last tab wraps to first", async () => {
+    const { tablistEl, tabButtons } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -595,16 +547,16 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
       activeTabId: "tab1",
     });
 
-    key(tablistEl, "End"); // → last tab
+    key(tablistEl, "End");
     expect(document.activeElement).toBe(tabButtons[2]);
 
-    key(tablistEl, "ArrowRight"); // wraps → first
+    key(tablistEl, "ArrowRight");
     expect(document.activeElement).toBe(tabButtons[0]);
     expect(tabButtons[0].tabIndex).toBe(0);
   });
 
-  it("tabs-key-arrow-vertical: vertical tablist uses ArrowDown/Up", () => {
-    const { tablistEl, tabButtons } = buildTabsDom({
+  it("tabs-key-arrow-vertical: vertical tablist uses ArrowDown/Up; cross-axis ArrowRight is a no-op", async () => {
+    const { tablistEl, tabButtons } = await buildTabsDom({
       tabs: [
         { id: "va", label: "A" },
         { id: "vb", label: "B" },
@@ -620,14 +572,13 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
     key(tablistEl, "ArrowUp");
     expect(document.activeElement).toBe(tabButtons[0]);
 
-    // ArrowRight must NOT move focus in vertical mode.
     const activeBefore = document.activeElement;
     key(tablistEl, "ArrowRight");
     expect(document.activeElement).toBe(activeBefore);
   });
 
-  it("tabs-key-home-end: Home moves to first, End to last", () => {
-    const { tablistEl, tabButtons } = buildTabsDom({
+  it("tabs-key-home-end: Home moves to first, End to last", async () => {
+    const { tablistEl, tabButtons } = await buildTabsDom({
       tabs: [
         { id: "t1", label: "T1" },
         { id: "t2", label: "T2" },
@@ -646,8 +597,8 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
     expect(tabButtons[0].tabIndex).toBe(0);
   });
 
-  it("tabs-key-skip-disabled: ArrowRight skips disabled tabs (default skipDisabled=true via collection-nav)", () => {
-    const { tablistEl, tabButtons } = buildTabsDom({
+  it("tabs-key-skip-disabled: ArrowRight skips disabled tabs", async () => {
+    const { tablistEl, tabButtons } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2", disabled: true },
@@ -656,13 +607,13 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
       activeTabId: "tab1",
     });
 
-    key(tablistEl, "ArrowRight"); // should skip disabled tab2, land on tab3
+    key(tablistEl, "ArrowRight");
     expect(document.activeElement).toBe(tabButtons[2]);
     expect(tabButtons[2].tabIndex).toBe(0);
   });
 
   it("tabs-key-manual-activation: ArrowRight moves focus but does NOT fire action", async () => {
-    const { tablistEl, tabButtons, calledActions } = buildTabsDom({
+    const { tablistEl, tabButtons, calledActions } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -675,13 +626,12 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
     key(tablistEl, "ArrowRight");
     await new Promise<void>((r) => setTimeout(r, 20));
 
-    // Focus moved but action NOT fired yet.
     expect(document.activeElement).toBe(tabButtons[1]);
     expect(calledActions).not.toContain("activate");
   });
 
   it("tabs-key-manual-activation-enter: Enter fires the action after focus moves", async () => {
-    const { tablistEl, tabButtons, calledActions } = buildTabsDom({
+    const { tablistEl, tabButtons, calledActions } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -691,16 +641,16 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
       selectAction: "activate",
     });
 
-    key(tablistEl, "ArrowRight"); // focus → tab2
+    key(tablistEl, "ArrowRight");
     expect(document.activeElement).toBe(tabButtons[1]);
 
-    key(tablistEl, "Enter"); // fires action
+    key(tablistEl, "Enter");
     await new Promise<void>((r) => setTimeout(r, 20));
     expect(calledActions).toContain("activate");
   });
 
   it("tabs-key-manual-activation-space: Space fires the action after focus moves", async () => {
-    const { tablistEl, calledActions } = buildTabsDom({
+    const { tablistEl, calledActions } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -718,12 +668,54 @@ describe("tabs runtime — keyboard interaction (real collection-nav, APG Tabs m
 });
 
 // ---------------------------------------------------------------------------
+// tabs-doctrine-*: the controlled / uncontrolled wire doctrine (the whole-contract rule:
+// assert BOTH branches, never just the firing one).
+// ---------------------------------------------------------------------------
+
+describe("tabs runtime — controlled/uncontrolled wire doctrine", () => {
+  it("tabs-doctrine-controlled-fires: a select action set => ArrowRight fires it exactly once", async () => {
+    const { tablistEl, calledActions } = await buildTabsDom({
+      tabs: [
+        { id: "tab1", label: "Tab 1" },
+        { id: "tab2", label: "Tab 2" },
+      ],
+      activeTabId: "tab1",
+      selectAction: "activate",
+    });
+
+    key(tablistEl, "ArrowRight");
+    await new Promise<void>((r) => setTimeout(r, 20));
+    expect(calledActions.filter((a) => a === "activate")).toHaveLength(1);
+  });
+
+  it("tabs-doctrine-uncontrolled-silent: no select action => focus moves but ZERO wire calls (the 410 guard)", async () => {
+    const { tablistEl, tabButtons, calledActions } = await buildTabsDom({
+      tabs: [
+        { id: "tab1", label: "Tab 1" },
+        { id: "tab2", label: "Tab 2" },
+      ],
+      activeTabId: "tab1",
+      // no selectAction => UNCONTROLLED tablist (no data-lievit-collection-select-action attr).
+    });
+
+    key(tablistEl, "ArrowRight");
+    key(tablistEl, "End");
+    key(tablistEl, "Home");
+    await new Promise<void>((r) => setTimeout(r, 20));
+
+    // Focus still rove client-side, but nothing rode the wire.
+    expect(document.activeElement).toBe(tabButtons[0]);
+    expect(calledActions).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // tabs-focus-*: roving tabindex state after navigation.
 // ---------------------------------------------------------------------------
 
 describe("tabs runtime — roving tabindex state", () => {
-  it("tabs-focus-roving-tabindex: after ArrowRight, tabindex=0 on new item; -1 on all others", () => {
-    const { tablistEl, tabButtons } = buildTabsDom({
+  it("tabs-focus-roving-tabindex: after ArrowRight, tabindex=0 on new item; -1 on all others", async () => {
+    const { tablistEl, tabButtons } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -732,15 +724,15 @@ describe("tabs runtime — roving tabindex state", () => {
       activeTabId: "tab1",
     });
 
-    key(tablistEl, "ArrowRight"); // → tab2
+    key(tablistEl, "ArrowRight");
 
     expect(tabButtons[0].tabIndex).toBe(-1);
     expect(tabButtons[1].tabIndex).toBe(0);
     expect(tabButtons[2].tabIndex).toBe(-1);
   });
 
-  it("tabs-focus-no-aria-activedescendant: roving mode must NOT set aria-activedescendant", () => {
-    const { tablistEl } = buildTabsDom({
+  it("tabs-focus-no-aria-activedescendant: roving mode must NOT set aria-activedescendant", async () => {
+    const { tablistEl } = await buildTabsDom({
       tabs: [
         { id: "tab1", label: "Tab 1" },
         { id: "tab2", label: "Tab 2" },
@@ -750,5 +742,60 @@ describe("tabs runtime — roving tabindex state", () => {
 
     key(tablistEl, "ArrowRight");
     expect(tablistEl.hasAttribute("aria-activedescendant")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// tabs-morph-*: morph-safety. Stimulus owns connect/disconnect, so a wire morph that replays the
+// tablist must NOT stack listeners (one gesture => one effect), and a morph that removes the
+// tablist must leave the detached node inert.
+// ---------------------------------------------------------------------------
+
+describe("tabs runtime — morph-safety (real lievit morph)", () => {
+  it("after a real morph, ArrowRight still fires activate EXACTLY once (no stacked listeners)", async () => {
+    const opts: BuildOpts = {
+      tabs: [
+        { id: "tab1", label: "Tab 1" },
+        { id: "tab2", label: "Tab 2" },
+        { id: "tab3", label: "Tab 3" },
+      ],
+      activeTabId: "tab1",
+      selectAction: "activate",
+    };
+    const { componentRoot, calledActions } = await buildTabsDom(opts);
+
+    // A real lievit wire morph re-renders the component subtree (idiomorph) with identical markup.
+    // The controller must NOT be double-connected and the keydown handler must stay single.
+    morph(componentRoot, tabsHtml(opts));
+    await flushStimulus();
+
+    const tablistEl = componentRoot.querySelector<HTMLElement>('[role="tablist"]')!;
+    key(tablistEl, "ArrowRight");
+
+    await new Promise<void>((r) => setTimeout(r, 20));
+    expect(calledActions.filter((a) => a === "activate")).toHaveLength(1);
+  });
+
+  it("a tablist removed by a morph stops firing (disconnect tears the listener down)", async () => {
+    const { componentRoot, tablistEl, calledActions } = await buildTabsDom({
+      tabs: [
+        { id: "tab1", label: "Tab 1" },
+        { id: "tab2", label: "Tab 2" },
+      ],
+      activeTabId: "tab1",
+      selectAction: "activate",
+    });
+
+    // Morph the tablist out of the tree.
+    morph(
+      componentRoot,
+      `<div data-lievit-component="com.example.TestTabs" data-lievit-snapshot="s2"><span>gone</span></div>`,
+    );
+    await flushStimulus();
+
+    // The detached tablist must no longer reach a live controller -> no focus move, no wire call.
+    key(tablistEl, "ArrowRight");
+    await new Promise<void>((r) => setTimeout(r, 20));
+    expect(calledActions).toHaveLength(0);
   });
 });

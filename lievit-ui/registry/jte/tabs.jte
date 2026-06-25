@@ -218,6 +218,7 @@
     aria-labelledby="${tabsLabelledBy}"
     aria-orientation="${orientation}"
     data-slot="tabs-list"
+    data-controller="lv-tabs"
     data-lievit-collection
     data-lievit-collection-roving-tabindex="true"
     data-lievit-collection-orientation="${collNavOrientation}"
