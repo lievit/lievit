@@ -6,7 +6,7 @@
  * form stepper. The Node harness has no JTE compiler, so this pins the contract on the
  * partial SOURCE as text: the @param API, the data-slot taxonomy, the step-list markup,
  * the ARIA contract (aria-current=step on li in linear mode; aria-current on button in
- * skippable mode), the collection-nav data-attribute wiring, the action bar (Prev / Next /
+ * skippable mode), the lv-wizard controller data-attribute wiring, the action bar (Prev / Next /
  * Submit), the live-region, token-driven styling, CSP-cleanliness, and the Apache header +
  * JTE comment conventions.
  *
@@ -205,7 +205,7 @@ describe("wizard.jte -- step-list ARIA (WAI-ARIA aria-current=step + W3C WAI tut
     expect(src).toContain('l:click="${isReachable ? goToAction : null}"');
   });
 
-  test("skippable step buttons carry data-lievit-item for collection-nav (reachable only)", () => {
+  test("skippable step buttons carry data-lievit-item for the lv-wizard controller (reachable only)", () => {
     expect(src).toContain('data-lievit-item="${isReachable ? "" : null}"');
   });
 
@@ -300,12 +300,24 @@ describe("wizard.jte -- indicator variants", () => {
 });
 
 // ---------------------------------------------------------------------------
-// collection-nav enhancer wiring (skippable mode)
+// lv-wizard controller wiring (skippable mode)
 // ---------------------------------------------------------------------------
 
-describe("wizard.jte -- collection-nav enhancer wiring (skippable mode)", () => {
-  test("step-list carries data-lievit-collection (gated on skippable)", () => {
-    expect(src).toContain('data-lievit-collection="${skippable ? "" : null}"');
+describe("wizard.jte -- lv-wizard controller wiring (skippable mode)", () => {
+  test("step-list carries data-controller=lv-wizard (gated on skippable)", () => {
+    expect(src).toContain('data-controller="${skippable ? "lv-wizard" : null}"');
+  });
+
+  test("step-list binds keydown to the lv-wizard controller via data-action (gated on skippable)", () => {
+    expect(src).toContain('data-action="${skippable ? "keydown->lv-wizard#onKeydown" : null}"');
+  });
+
+  test("step-list no longer emits the bare data-lievit-collection activator (the controller owns the roving nav; the shared collection-nav enhancer must not also scan it)", () => {
+    // Only the data-lievit-collection-* CONFIG attributes remain (orientation/wrap/select-action),
+    // which the controller READS; the bare ACTIVATOR is intentionally gone so the shared enhancer
+    // never double-handles the keystroke. A [data-lievit-collection] selector matches the exact
+    // name only, never the -* config attributes, so dropping the bare attr fully isolates the wizard.
+    expect(src).not.toMatch(/data-lievit-collection="/);
   });
 
   test("step-list carries data-lievit-collection-roving-tabindex=true (APG roving model)", () => {
@@ -324,7 +336,7 @@ describe("wizard.jte -- collection-nav enhancer wiring (skippable mode)", () => 
     expect(src).toContain('data-manual-activation="${skippable ? "true" : null}"');
   });
 
-  test("collection-nav orientation maps the orientation param to the enhancer vocab", () => {
+  test("orientation maps the orientation param to the controller's collection vocab", () => {
     // The template maps "vertical" => "vertical", other => "horizontal"
     expect(src).toContain('"vertical".equals(orientation) ? "vertical" : "horizontal"');
     expect(src).toContain('data-lievit-collection-orientation="${skippable ? (');
@@ -486,9 +498,9 @@ describe("wizard/meta.json", () => {
     expect(meta.registryDependencies).toContain("icon");
   });
 
-  test("meta.json lists collection-nav as an enhancer dependency", () => {
+  test("meta.json no longer lists collection-nav (skippable nav moved to the lv-wizard Stimulus controller)", () => {
     const meta = JSON.parse(readFileSync(join(jteDir, "wizard", "meta.json"), "utf8"));
-    expect(meta.enhancers ?? []).toContain("collection-nav");
+    expect(meta.enhancers ?? []).not.toContain("collection-nav");
   });
 
   test("meta.json does NOT list separator (old sub-partial; removed in v-next)", () => {
