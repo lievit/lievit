@@ -58,6 +58,7 @@
 
 <div
   data-slot="key-value-input"
+  data-controller="lv-key-value-input"
   data-lievit-key-value-input
   data-name="${name}"
   data-disabled="${disabled ? "true" : null}"
@@ -68,7 +69,7 @@
     <span data-slot="key-value-input-label" class="text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)]">${label}</span>
   @endif
 
-  <div data-slot="key-value-input-rows" data-key-value-input-rows class="flex flex-col gap-[var(--lv-space-2)]">
+  <div data-slot="key-value-input-rows" data-key-value-input-rows data-lv-key-value-input-target="rows" class="flex flex-col gap-[var(--lv-space-2)]">
     !{int i = 0;}
     @for(java.util.Map.Entry<String, String> entry : rows.entrySet())
       <div data-slot="key-value-input-row" data-key-value-input-row data-index="${i}" class="flex items-center gap-[var(--lv-space-2)]">
@@ -100,6 +101,7 @@
           type="submit"
           data-slot="key-value-input-remove"
           data-key-value-input-remove
+          data-action="click->lv-key-value-input#remove"
           name="${name}__remove"
           value="${i}"
           aria-label="Remove row ${i + 1}"
@@ -112,11 +114,11 @@
   </div>
 
   <%-- JS-on the enhancer clones this hidden template row (the {i} placeholder is re-stamped on add). --%>
-  <template data-key-value-input-template>
+  <template data-key-value-input-template data-lv-key-value-input-target="template">
     <div data-slot="key-value-input-row" data-key-value-input-row data-index="__i__" class="flex items-center gap-[var(--lv-space-2)]">
       <input data-slot="key-value-input-key" data-key-value-input-key type="text" name="${name}[__i__][key]" value="" placeholder="${keyPlaceholder}" aria-label="${keyLabel}, row __label__" class="${rowInputClass}" style="font-family:var(--lv-font-sans);">
       <input data-slot="key-value-input-value" data-key-value-input-value type="text" name="${name}[__i__][value]" value="" placeholder="${valuePlaceholder}" aria-label="${valueLabel}, row __label__" class="${rowInputClass}" style="font-family:var(--lv-font-sans);">
-      <button type="button" data-slot="key-value-input-remove" data-key-value-input-remove aria-label="Remove row __label__" class="${removeBtnClass}">@template.lievit.icon(name = "trash-2", size = "1rem")</button>
+      <button type="button" data-slot="key-value-input-remove" data-key-value-input-remove data-action="click->lv-key-value-input#remove" aria-label="Remove row __label__" class="${removeBtnClass}">@template.lievit.icon(name = "trash-2", size = "1rem")</button>
     </div>
   </template>
 
@@ -125,6 +127,7 @@
       type="submit"
       data-slot="key-value-input-add"
       data-key-value-input-add
+      data-action="click->lv-key-value-input#add"
       name="${name}__add"
       value="1"
       disabled="${disabled}"
@@ -133,5 +136,5 @@
     >@template.lievit.icon(name = "plus", size = "1rem")${addLabel}</button>
   </div>
 
-  <span data-slot="key-value-input-live" data-key-value-input-live aria-live="polite" class="sr-only"></span>
+  <span data-slot="key-value-input-live" data-key-value-input-live data-lv-key-value-input-target="live" aria-live="polite" class="sr-only"></span>
 </div>

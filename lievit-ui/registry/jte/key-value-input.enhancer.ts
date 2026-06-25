@@ -30,6 +30,13 @@ export function indexedName(prefix: string, index: number, field: "key" | "value
 /** Enhance one key-value-input root. No-op if it has no rows host or is already enhanced. */
 export function enhanceKeyValueInput(root: HTMLElement): void {
   if (root.hasAttribute(ENHANCED)) return;
+  // Migration guard (Stimulus conversion): a root converted to the `lv-key-value-input` Stimulus
+  // controller owns its own add/remove handling. This enhancer must NOT also wire it, or each Add /
+  // remove would fire twice. Converted templates carry data-controller="lv-key-value-input".
+  if (root.matches('[data-controller~="lv-key-value-input"]')) {
+    root.setAttribute(ENHANCED, "");
+    return;
+  }
   const rowsHost = root.querySelector<HTMLElement>("[data-key-value-input-rows]");
   const template = root.querySelector<HTMLTemplateElement>("[data-key-value-input-template]");
   if (!rowsHost || !template) return;
