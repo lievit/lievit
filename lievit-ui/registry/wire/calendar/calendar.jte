@@ -9,7 +9,8 @@
 
   lievit-ui calendar WIRE template -- a full event calendar (month/week/day) whose grid, the events
   placed in its cells, the view, the anchor and the filter all live SERVER-SIDE (ADR-0012, R1
-  RESOLVED). Pairs with registry/wire/calendar/CalendarComponent.java + the calendar.ts drag enhancer.
+  RESOLVED). Pairs with registry/wire/calendar/CalendarComponent.java + the `lv-calendar` Stimulus
+  controller (runtime/stimulus/controllers/lv-calendar-controller.ts) for the one client gesture.
   This is the single heaviest piece of the refactor: it retires both the <lv-calendar> Lit island AND
   gest's ht-calendar (@event-calendar) escape-hatch. There is NO Lit, NO @event-calendar, NO <slot>.
 
@@ -23,9 +24,11 @@
       grid arrives on the next morph; l:loading regions give instant feedback while a call resolves.
     - Filter/typeahead: l:model.debounce.250ms -> server re-filters a few hundred ms after the last key.
     - Navigation: l:click prev/next/today/viewMonth/viewWeek/viewDay re-render the resolved period.
-  The one irreducible client bit -- event drag-resize/drag-create -- is the calendar.ts enhancer: on
-  drop it $set's the dragged event id + the target ISO date into the wire and $call's `moveEvent`; the
-  server owns the event store, moves the event in Java and re-renders. addEventListener only, CSP-clean.
+  The one irreducible client bit -- event drag-resize/drag-create -- is the `lv-calendar` Stimulus
+  controller: on drop it arms the dragged event id + the target ISO date into the wire ($set) and
+  fires `moveEvent`; the server owns the event store, moves the event in Java and re-renders. The
+  drag-family events ride a single root data-action (CSP-clean: no inline handler), and Stimulus
+  re-binds them across the morph -- the morph-safe replacement for the hand-rolled idempotency.
 
   STRUCTURE (scientific decision rule): WAI-ARIA APG Grid pattern for the month layout (the same model
   the dropped island cited): the grid is a <table role="grid">, weekday headers are <th
@@ -50,8 +53,9 @@
     _component  ComponentMetadata   always-present wire metadata (the className anchor)
 
   Usage (copy this template in, seed allEvents in the component from real data keyed by the visible
-  range, register the component as a PROTOTYPE @Bean, call enhanceCalendars(runtime) once from main.ts
-  after startLievit() so a day-cell drop moves the event server-side):
+  range, register the component as a PROTOTYPE @Bean; the `lv-calendar` Stimulus controller is
+  auto-loaded by startStimulus(), so a day-cell drop moves the event server-side with no per-component
+  wiring -- a non-Stimulus adopter instead calls enhanceCalendars(runtime) from the shipped calendar.ts):
     @template.lievit.calendar(...)  -- mounted by the wire pipeline.
 --%>
 @param String view
@@ -67,7 +71,7 @@
 !{var label = _instance.periodLabel();}
 !{List<String> headers = _instance.weekdayHeaders();}
 !{List<List<Cell>> weeks = _instance.weeks();}
-<div data-lievit-component="${cid}" data-calendar data-calendar-view="${view}" style="display: block; font-family: var(--lv-font-sans); color: var(--lv-color-fg); background: var(--lv-color-bg); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); padding: var(--lv-space-3);">
+<div data-lievit-component="${cid}" data-calendar data-calendar-view="${view}" data-controller="lv-calendar" data-action="dragstart->lv-calendar#dragStart dragover->lv-calendar#dragOver drop->lv-calendar#drop" style="display: block; font-family: var(--lv-font-sans); color: var(--lv-color-fg); background: var(--lv-color-bg); border: 1px solid var(--lv-color-border); border-radius: var(--lv-radius-md); padding: var(--lv-space-3);">
 
     <%-- Toolbar: period label + nav + view switch + the debounced filter. --%>
     <div data-calendar-toolbar style="display: flex; flex-wrap: wrap; align-items: center; gap: var(--lv-space-2); margin-bottom: var(--lv-space-3);">
