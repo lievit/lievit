@@ -16,9 +16,10 @@
   before calling the template; no domain type needs to be on the JTE compile classpath.
 
   The one irreducible client behaviour for the custom variants is roving-tabindex arrow-key
-  navigation (APG Radio Group) -- this is the radio-group.enhancer.ts escape-hatch.
-  The native variant (`nativeInputs=true`) needs no enhancer: the platform provides identical
-  roving and arrow-key behaviour for real radio inputs sharing a `name`.
+  navigation (APG Radio Group) -- this is the lv-radio-group Stimulus controller
+  (runtime/stimulus/controllers/lv-radio-group-controller.ts), wired via data-controller +
+  data-action. The native variant (`nativeInputs=true`) needs no controller: the platform provides
+  identical roving and arrow-key behaviour for real radio inputs sharing a `name`.
 
   STRUCTURE (scientific decision rule):
   a11y source: WAI-ARIA APG Radio Group (https://www.w3.org/WAI/ARIA/apg/patterns/radio/).
@@ -32,20 +33,23 @@
   Two rendering paths:
 
   PATH A -- custom variant (default + button + button-vertical):
-    Root: `div role="radiogroup"` carrying `aria-labelledby`, `data-lievit-enhancer="radio-group"`.
-    Options: `div role="radio"` with `aria-checked`, `aria-disabled`, roving `tabindex`.
-    Enhancer: radio-group.enhancer.ts mounts on `data-lievit-enhancer="radio-group"` and drives
-    arrow-key navigation + aria-checked sync + lievit:radio-change dispatch.
+    Root: `div role="radiogroup"` carrying `aria-labelledby`, `data-controller="lv-radio-group"`,
+    `data-action="keydown->lv-radio-group#onKeydown"`.
+    Options: `div role="radio"` with `aria-checked`, `aria-disabled`, roving `tabindex`, and
+    `data-lv-radio-group-target="option"` (the controller reaches them in DOM order).
+    Controller: lv-radio-group (Stimulus) drives arrow-key navigation + aria-checked sync +
+    lievit:radio-change dispatch; it never round-trips the wire (the controlled/uncontrolled
+    doctrine -- any wire ride is the runtime's `l:change` on the dispatched `change`).
     The custom indicator (ring + dot) is `data-slot="radio-indicator"`, button variants omit it.
 
   PATH B -- native variant (`nativeInputs=true`):
     Root: `fieldset` + `legend`. Each option: `input type="radio"` + `label for`. The shared `name`
-    enforces single-select; the platform supplies roving arrow-key focus. No enhancer.
+    enforces single-select; the platform supplies roving arrow-key focus. No controller.
 
   A11y (WAI-ARIA APG Radio Group):
     Roles: role="radiogroup" (custom), fieldset+legend (native), role="radio" / input[type=radio].
     States: aria-checked="true|false", aria-disabled, aria-required, aria-invalid (from field).
-    Keyboard (custom path, enhancer-driven): ArrowDown/Right -> next (wrap, skip disabled) + check;
+    Keyboard (custom path, controller-driven): ArrowDown/Right -> next (wrap, skip disabled) + check;
     ArrowUp/Left -> prev + check; Space -> check focused if unchecked; Enter -> no-op (APG).
     Focus: roving tabindex -- exactly one option holds tabindex="0" (checked one, or first
     non-disabled if none checked). Tab exits the group normally (no trap).
@@ -188,7 +192,7 @@
 @if(!nativeInputs)
 <%-- =========================================================================
      PATH A: custom variant (default | button | button-vertical)
-     role="radiogroup" + role="radio" divs + radio-group.enhancer.ts
+     role="radiogroup" + role="radio" divs + lv-radio-group Stimulus controller
      ========================================================================= --%>
 
 <%-- Find the first non-disabled option id for tabindex when nothing is checked. --%>
@@ -213,7 +217,8 @@
   data-variant="${variant}"
   data-size="${size}"
   data-layout="${layout}"
-  data-lievit-enhancer="radio-group"
+  data-controller="lv-radio-group"
+  data-action="keydown->lv-radio-group#onKeydown"
   class="${cssClass}"
   style="font-family:var(--lv-font-sans);"
   $unsafe{dataAttrsMarkup}
@@ -252,6 +257,7 @@
           aria-disabled="${_optDis ? "true" : "false"}"
           tabindex="${_isTabStop ? "0" : "-1"}"
           data-slot="radio-option"
+          data-lv-radio-group-target="option"
           data-value="${_escId}"
           class="${btnHeightClass} ${textSizeClass} flex items-center justify-center px-[var(--lv-space-3)] font-[var(--lv-font-medium)] cursor-pointer select-none transition-colors border-r border-[var(--lv-color-border)] last:border-r-0 outline-none focus-visible:shadow-[var(--lv-ring)] focus-visible:relative focus-visible:z-10 aria-checked:bg-[var(--lv-color-primary)] aria-checked:text-[var(--lv-color-primary-fg)] aria-[checked=false]:bg-[var(--lv-color-input)] aria-[checked=false]:text-[var(--lv-color-fg)] aria-[checked=false]:hover:bg-[var(--lv-color-accent)] aria-[checked=false]:hover:text-[var(--lv-color-accent-fg)] aria-disabled:cursor-not-allowed aria-disabled:opacity-[var(--lv-opacity-disabled)] ${optionCssClass}"
           $unsafe{optionAttrsMarkup}
@@ -285,6 +291,7 @@
           aria-describedby="${_hasDesc ? _descId : null}"
           tabindex="${_isTabStop ? "0" : "-1"}"
           data-slot="radio-option"
+          data-lv-radio-group-target="option"
           data-value="${_escId}"
           class="${minHeightClass} flex items-start gap-[var(--lv-space-2)] cursor-pointer select-none outline-none focus-visible:shadow-[var(--lv-ring)] focus-visible:rounded-[var(--lv-radius-sm)] aria-disabled:cursor-not-allowed aria-disabled:opacity-[var(--lv-opacity-disabled)] ${optionCssClass}"
           $unsafe{optionAttrsMarkup}
@@ -325,7 +332,7 @@
 <%-- =========================================================================
      PATH B: native variant (nativeInputs=true)
      fieldset + legend + input[type=radio] + label.
-     No enhancer: platform supplies roving arrow-key navigation.
+     No controller: platform supplies roving arrow-key navigation.
      ========================================================================= --%>
 <fieldset
   data-slot="radio-group"
