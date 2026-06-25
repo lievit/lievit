@@ -144,11 +144,16 @@
 !{var _dataAttrsMarkup = _dataAttrs_.toString();}
 
 <%-- Root wrapper. data-slot + data-size + data-mode for test selectors and styling hooks.
-     data-lievit-combobox activates the colocated combobox enhancer. --%>
+     data-controller="lv-combobox" mounts the Stimulus controller (the morph-safe successor to the
+     colocated combobox.enhancer.ts); data-lievit-combobox is retained so a non-Stimulus adopter can
+     still wire the legacy enhancer (which skips any [data-controller~="lv-combobox"] root). The
+     blur-commit fires via a CSP-clean data-action on the root (focus leaving the whole combobox). --%>
 <div
   data-slot="combobox"
   data-size="${size}"
   data-mode="${mode}"
+  data-controller="lv-combobox"
+  data-action="focusout->lv-combobox#onFocusout"
   data-lievit-combobox
   data-combobox-listbox-id="${_listboxId}"
   data-combobox-input-id="${_inputId}"
@@ -176,6 +181,7 @@
        whether the text input or the clear button has focus. --%>
   <div
     data-slot="combobox-control"
+    data-lv-combobox-target="control"
     data-disabled="${disabled}"
     data-invalid="${invalid}"
     data-size="${size}"
@@ -187,6 +193,8 @@
       type="text"
       id="${_inputId}"
       data-slot="combobox-input"
+      data-lv-combobox-target="input"
+      data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
       role="combobox"
       aria-expanded="false"
       aria-haspopup="listbox"
@@ -211,6 +219,7 @@
       <button
         type="button"
         data-slot="combobox-clear"
+        data-action="click->lv-combobox#clear"
         aria-label="Clear"
         class="flex shrink-0 items-center justify-center px-[var(--lv-space-1)] text-[var(--lv-color-muted)] hover:text-[var(--lv-color-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] rounded-[var(--lv-radius-sm)]"
       >
@@ -223,6 +232,8 @@
     <button
       type="button"
       data-slot="combobox-toggle"
+      data-lv-combobox-target="toggle"
+      data-action="click->lv-combobox#onToggleClick"
       tabindex="-1"
       aria-hidden="true"
       aria-label="Toggle suggestions"
@@ -236,6 +247,12 @@
   <%-- LISTBOX PANEL: ALWAYS in the DOM so aria-controls="${_listboxId}" always resolves (APG rule).
        Visibility toggled via CSS popover seam (native popover attribute + anchor positioning), NOT
        via hidden or display:none -- the element must stay in the a11y tree as unexpanded.
+       The lv-combobox controller owns this popover's toggle (open/close + light-dismiss sync) via
+       data-action; it is an UNCONTROLLED overlay (its open state is pure client filter state), so it
+       carries NO data-lv-wire-close -- the controlled/uncontrolled doctrine (a spurious close on an
+       uncontrolled overlay is the wire-410 page-expired bug). It deliberately does NOT carry
+       data-lv-opener either: that is the hook the SHARED popover-anchor.enhancer.ts scans, and the
+       controller fully owns the toggle here, so omitting it prevents double-handling.
        data-lievit-collection activates collection-nav.enhancer.ts in aria-activedescendant mode.
        data-lievit-collection-activedescendant-target points at the <input> (the single DOM focus
        target; collection-nav writes aria-activedescendant there). --%>
@@ -243,9 +260,9 @@
     id="${_listboxId}"
     role="listbox"
     data-slot="combobox-listbox"
+    data-lv-combobox-target="listbox"
+    data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
     popover="auto"
-    data-lv-opener="${_inputId}"
-    data-lv-wire-close="close"
     data-lievit-collection
     data-lievit-collection-orientation="vertical"
     data-lievit-collection-wrap="true"
@@ -344,6 +361,7 @@
     name="${name}"
     value="${value}"
     data-slot="combobox-hidden"
+    data-lv-combobox-target="hidden"
     required="${required}"
   >
 
