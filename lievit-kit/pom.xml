@@ -25,6 +25,22 @@
             <groupId>io.github.lievit</groupId>
             <artifactId>lievit-spring-boot-starter</artifactId>
         </dependency>
+        <!--
+          lievit-ui: the primitive component registry that kit templates compose
+          (@template.lievit.*). Declared here so:
+            (a) The LievitIcons class (io.lievit.ui.LievitIcons) is on the kit compile
+                and runtime classpath (needed by any consumer that uses kit/page templates
+                that transitively call @template.lievit.icon).
+            (b) Maven dependency resolution surfaces the lievit-ui jar to any consumer
+                of lievit-kit (transitively), so a consumer running lievit:stage-templates
+                gets lievit-ui's lievit/** JTE resources extracted alongside kit's kit/** ones
+                with a single goal invocation.
+          RFC 0036 stage 3 (kit distribution).
+        -->
+        <dependency>
+            <groupId>io.github.lievit</groupId>
+            <artifactId>lievit-ui</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.jspecify</groupId>
@@ -78,4 +94,68 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <!--
+          Ship the kit JTE templates in the jar under kit/** so a consumer can
+          extract them for precompilation alongside the lievit-ui primitives.
+
+          Source layout:  src/main/resources/jte/kit/**/*.jte
+          Jar layout:     kit/<name>.jte, kit/<subdir>/<name>.jte, ...
+          Consumer usage: @template.kit.<name> (e.g. @template.kit.table,
+                          @template.kit.page.resource-list)
+
+          RFC 0036 stage 3 (kit distribution). Mirrors lievit-ui's add-jte-resources
+          execution but uses the src/main/resources/jte/kit/ conventional layout.
+
+          The resource list here explicitly EXCLUDES jte/** from the default src/main/resources
+          entry so the templates do NOT land at jte/kit/*.jte in the jar. The build-helper
+          add-kit-jte-resources execution (below) re-includes them under the remapped kit/**
+          targetPath. The <build><resources> list is the input to ${project.resources} that
+          maven-resources-plugin:resources reads — this is the canonical exclusion mechanism
+          (plugin-execution overrides of the resources parameter are read-only).
+        -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>jte/**</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <!--
+                      Wire src/main/resources/jte/kit as a resource directory with
+                      targetPath=kit so .jte files land in the jar as kit/table.jte,
+                      kit/page.jte, kit/page/resource-list.jte, etc.
+                      Consumers reference them as @template.kit.table, @template.kit.page,
+                      @template.kit.page.resource-list, etc.
+                    -->
+                    <execution>
+                        <id>add-kit-jte-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>add-resource</goal></goals>
+                        <configuration>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/src/main/resources/jte/kit</directory>
+                                    <targetPath>kit</targetPath>
+                                    <filtering>false</filtering>
+                                    <includes>
+                                        <include>**/*.jte</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

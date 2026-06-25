@@ -10,27 +10,32 @@
   page.KitTableView), so the KIT's own classes must be on the jte-compile classpath, AND they compose
   the lievit-ui partials (@template.lievit.*), so the ui partials must be staged alongside.
 
+  RFC 0036 stage 3 — kit distribution. The staging now uses the CANONICAL import recipe:
+    (a) lievit-maven-plugin:stage-templates extracts lievit/** from the lievit-ui jar
+        (lievit-ui is a transitive dep of lievit-kit, so the plugin finds it automatically).
+    (b) maven-resources-plugin:copy-resources stages the kit's own templates from
+        ../../src/main/resources/jte/kit/ into target/jte-src/kit/ alongside.
+  This REPLACES the previous filesystem-sibling copy (../../../lievit-ui/registry/jte) and
+  the manually added registry/icons source root: LievitIcons is now compiled into the
+  lievit-ui jar and resolves from the lievit-kit transitive classpath — no source root needed.
+
   CLASSPATH: this module depends on the BUILT lievit-kit artifact (io.github.lievit:lievit-kit:
   0.1.0-SNAPSHOT, installed by `./mvnw -pl lievit-kit -am install -DskipTests` from the reactor root,
-  which run.sh does), which transitively brings lievit-core + the starter + spring + jjwt. So the kit
-  view-models compile against the REAL bytecode, no source recompilation, no exclude chasing. The icon
-  partial's `@import static io.lievit.ui.LievitIcons` resolves a class that lives in lievit-ui/registry/
-  icons (NOT in any jar), so that ONE dir is added as a compile source root, exactly as lievit-ui's own
-  jte-compile does.
+  which run.sh does), which transitively brings lievit-ui (+ LievitIcons) + lievit-core + the starter
+  + spring + jjwt. The kit view-models compile against the REAL bytecode.
 
   Two jobs in one throwaway Maven project, both with the SAME gg.jte 3.2.4 apps/gest uses:
 
   1. REAL-COMPILER SMOKE. The jte-maven-plugin `generate` goal emits the template Java for EVERY
      staged kit/**/*.jte + lievit/**/*.jte, and the maven-compiler-plugin javac-compiles it against
-     the kit jar + the icon source, so any JTE syntax error (bad directive, attribute-position @if,
-     conditional root-tag split, unclosed tag) or unresolved kit/ui reference FAILS the build.
+     the kit jar (transitively: lievit-ui + LievitIcons on the classpath), so any JTE syntax error
+     (bad directive, attribute-position @if, conditional root-tag split, unclosed tag) or unresolved
+     kit/ui reference FAILS the build.
 
-  2. RENDER gate (KitTableChromeRenderTest): builds a real AdminListView fixture, wraps it in a
-     KitTableView, source-renders kit/table.jte on the fly (DirectoryCodeResolver over the staged
-     tree) and asserts the 14 Filament chrome pieces (header actions, search, sortable th with
-     aria-sort, bulk checkbox, per-page selector, numbered pagination + "Showing X to Y of Z" count
-     line, filter chips, empty state, summary row). A compile-only gate cannot prove the chrome
-     RENDERS; this does.
+  2. RENDER gate (KitTableChromeRenderTest et al.): builds real view-model fixtures, source-renders
+     kit/*.jte on the fly (DirectoryCodeResolver over the staged target/jte-src tree) and asserts the
+     Filament chrome pieces render correctly. A compile-only gate cannot prove the chrome RENDERS; this
+     does.
 
   Run:  ./lievit-kit/test/jte-compile/run.sh        (builds the kit jar first, then this)
   CI :  same.
@@ -51,13 +56,17 @@
     <!-- Keep in lockstep with gest's gg.jte version (apps/gest/pom.xml) + the lievit parent. -->
     <jte.version>3.2.4</jte.version>
     <junit.version>5.11.4</junit.version>
-    <!-- The reactor revision the kit jar is installed under. -->
+    <!-- The reactor revision the kit + lievit-ui jars are installed under. -->
     <lievit.version>0.1.0-SNAPSHOT</lievit.version>
   </properties>
 
   <dependencies>
-    <!-- The BUILT kit (transitively brings lievit-core + the starter + spring + jjwt): the kit
-         view-models the templates @import, compiled against the real bytecode. -->
+    <!--
+      The BUILT kit jar: the kit view-models the templates @import, compiled against the real bytecode.
+      lievit-kit now declares lievit-ui as a dependency (RFC 0036 stage 3), so lievit-ui (and with it
+      the compiled LievitIcons / IconResolver / LucideIconResolver classes) arrive transitively — no
+      separate icon source root needed here.
+    -->
     <dependency>
       <groupId>io.github.lievit</groupId>
       <artifactId>lievit-kit</artifactId>
@@ -85,27 +94,6 @@
     <directory>${project.basedir}/target</directory>
 
     <plugins>
-      <!-- The icon SPI (io.lievit.ui.LievitIcons + IconResolver + LucideIconResolver) lives in
-           lievit-ui/registry/icons and is NOT in any jar, so add that ONE dir as a compile source
-           root, exactly as lievit-ui's own jte-compile does. -->
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.6.0</version>
-        <executions>
-          <execution>
-            <id>add-icon-spi-source</id>
-            <phase>generate-sources</phase>
-            <goals><goal>add-source</goal></goals>
-            <configuration>
-              <sources>
-                <source>${project.basedir}/../../../lievit-ui/registry/icons</source>
-              </sources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -115,28 +103,60 @@
         </configuration>
       </plugin>
 
-      <!-- Stage the lievit-ui partials under target/jte-src/lievit/ and the kit production templates
-           under target/jte-src/kit/, the SAME adopter layout the @template.lievit.* / @template.kit.*
-           references resolve against. Idempotent. -->
+      <!--
+        STEP 1a — lievit-ui partials (lievit/**):
+        lievit-maven-plugin:stage-templates resolves ALL io.github.lievit:* compile-scope
+        artifacts and extracts entries whose jar path starts with "lievit/" into
+        target/jte-src/. Because lievit-kit now declares lievit-ui as a dependency, the
+        plugin finds lievit-ui's jar in the resolved artifact set automatically — no explicit
+        lievit-ui dependency needed here beyond what lievit-kit already brings.
+
+        After this step: target/jte-src/lievit/button.jte, lievit/icon.jte, etc.
+
+        consumerJteSourceDirectory is set to a non-existent path to skip the consumer-copy
+        step (kit templates are staged in step 1b with a separate execution below).
+      -->
+      <plugin>
+        <groupId>io.github.lievit</groupId>
+        <artifactId>lievit-maven-plugin</artifactId>
+        <version>${lievit.version}</version>
+        <executions>
+          <execution>
+            <id>stage-lievit-ui-templates</id>
+            <goals><goal>stage-templates</goal></goals>
+            <configuration>
+              <!--
+                stagingDirectory default is ${project.build.directory}/jte-src — correct.
+                consumerJteSourceDirectory: skip consumer copy (kit templates come from step 1b).
+              -->
+              <consumerJteSourceDirectory>${project.build.directory}/no-consumer-jte</consumerJteSourceDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        STEP 1b — kit production templates (kit/**):
+        Stage the kit's own .jte files from the source tree into target/jte-src/kit/ so they
+        sit alongside the lievit/** partials in the same merged directory.
+
+        Source: ../../src/main/resources/jte/kit/ (the canonical Maven source location,
+                matching lievit-kit's build-helper add-kit-jte-resources execution that ships
+                them in the jar under kit/**).
+        Destination: target/jte-src/kit/ (same subpath the jar would expose).
+
+        After this step: target/jte-src/kit/table.jte, kit/page.jte, kit/page/resource-list.jte, ...
+
+        The plugin's stage-templates (step 1a) handles lievit/**; this handles kit/**.
+        The two staging steps together produce one merged tree that a consumer would get by
+        combining the lievit-maven-plugin lievit/** unpack with an analogous kit/** unpack.
+        Idempotent: re-running copies the same files over themselves.
+      -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
         <version>3.3.1</version>
         <executions>
-          <execution>
-            <id>stage-ui-partials</id>
-            <phase>generate-sources</phase>
-            <goals><goal>copy-resources</goal></goals>
-            <configuration>
-              <outputDirectory>${project.build.directory}/jte-src/lievit</outputDirectory>
-              <resources>
-                <resource>
-                  <directory>${project.basedir}/../../../lievit-ui/registry/jte</directory>
-                  <filtering>false</filtering>
-                </resource>
-              </resources>
-            </configuration>
-          </execution>
           <execution>
             <id>stage-kit-templates</id>
             <phase>generate-sources</phase>
@@ -155,8 +175,8 @@
       </plugin>
 
       <!-- The real precompile gate: generate + javac-compile every staged kit/**/*.jte +
-           lievit/**/*.jte against the kit jar + the icon source. A JTE syntax / resolution error
-           fails here. -->
+           lievit/**/*.jte against the kit jar (which transitively brings LievitIcons on the
+           classpath). A JTE syntax / resolution error fails here. -->
       <plugin>
         <groupId>gg.jte</groupId>
         <artifactId>jte-maven-plugin</artifactId>
