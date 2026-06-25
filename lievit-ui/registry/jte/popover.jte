@@ -221,6 +221,7 @@
 <div
   id="${panelId}"
   popover="${type}"
+  data-controller="lv-popover"
   data-slot="popover-panel"
   data-variant="${variant}"
   data-placement="${placement}"

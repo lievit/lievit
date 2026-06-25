@@ -85,6 +85,7 @@
 <div
     data-slot="sidebar-wrapper"
     data-sidebar="root"
+    data-controller="lv-sidebar"
     data-side="${isRight ? "right" : "left"}"
     data-variant="${resolvedVariant}"
     data-storage-key="${storageKey}"
@@ -95,6 +96,7 @@
     <button
         type="button"
         data-sidebar="backdrop"
+        data-action="click->lv-sidebar#closeMobile"
         aria-hidden="true"
         tabindex="-1"
         class="lv-sidebar-backdrop"
@@ -123,6 +125,8 @@
             <button
                 type="button"
                 data-slot="sidebar-trigger"
+                data-lv-sidebar-target="trigger"
+                data-action="click->lv-sidebar#toggle"
                 aria-label="${triggerLabel}"
                 aria-controls="${navId}"
                 aria-expanded="${collapsed ? "false" : "true"}"

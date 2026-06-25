@@ -34,6 +34,7 @@
     type="button"
     data-slot="sidebar-rail"
     data-sidebar="rail"
+    data-action="click->lv-sidebar#toggle"
     aria-label="${label}"
     title="${label}"
     tabindex="-1"

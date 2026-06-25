@@ -67,6 +67,13 @@ function wirePanel(panel: Element, runtime: LievitRuntime): void {
   if (wiredPanels.has(panel)) {
     return;
   }
+  // Migration guard (Stimulus conversion): a panel converted to the `lv-popover` Stimulus
+  // controller owns its own toggle handling. This enhancer must NOT also wire it, or a controlled
+  // overlay would fire its close action twice. Converted templates carry data-controller="lv-popover".
+  if (panel.matches('[data-controller~="lv-popover"]')) {
+    wiredPanels.add(panel);
+    return;
+  }
   wiredPanels.add(panel);
 
   panel.addEventListener("toggle", (rawEvent: Event) => {

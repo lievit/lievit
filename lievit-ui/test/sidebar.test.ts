@@ -17,10 +17,26 @@
 import { describe, test, expect, afterEach, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { enhanceSidebar, enhanceAllSidebars } from "../registry/jte/sidebar.enhancer.js";
+import {
+  startStimulus,
+  stopStimulus,
+  flushStimulus,
+} from "../runtime/stimulus/application.js";
+import { morph } from "../runtime/morph.js";
 
 const jteDir = join(import.meta.dirname, "..", "registry", "jte");
 const readJte = (p: string) => readFileSync(join(jteDir, p), "utf8");
+
+/**
+ * Starts the real `lv-sidebar` Stimulus controller over every `data-controller="lv-sidebar"` root
+ * in the DOM and awaits its MutationObserver. The conversion of the old `enhanceSidebar(root)` /
+ * `enhanceAllSidebars()`: Stimulus connects every matching root on the page at once, so a single
+ * `connect()` enhances all of them. Idempotency is intrinsic (Stimulus connects each root once).
+ */
+async function connect(): Promise<void> {
+  startStimulus();
+  await flushStimulus();
+}
 
 /**
  * Build a DOM that matches the server-rendered sidebar partial output for a fixed nav:
@@ -37,6 +53,7 @@ function renderSidebar(
   const root = document.createElement("div");
   root.setAttribute("data-slot", "sidebar-wrapper");
   root.setAttribute("data-sidebar", "root");
+  root.setAttribute("data-controller", "lv-sidebar");
   root.setAttribute("data-side", side);
   root.setAttribute("data-variant", variant);
   root.setAttribute("data-storage-key", "lv-sidebar-state");
@@ -45,6 +62,7 @@ function renderSidebar(
 
   const backdrop = document.createElement("button");
   backdrop.setAttribute("data-sidebar", "backdrop");
+  backdrop.setAttribute("data-action", "click->lv-sidebar#closeMobile");
   backdrop.setAttribute("aria-hidden", "true");
   backdrop.className = "lv-sidebar-backdrop";
   root.appendChild(backdrop);
@@ -61,6 +79,8 @@ function renderSidebar(
   header.setAttribute("data-slot", "sidebar-header");
   const trigger = document.createElement("button");
   trigger.setAttribute("data-slot", "sidebar-trigger");
+  trigger.setAttribute("data-lv-sidebar-target", "trigger");
+  trigger.setAttribute("data-action", "click->lv-sidebar#toggle");
   trigger.setAttribute("aria-controls", "lv-sidebar-nav");
   trigger.setAttribute("aria-expanded", opts.collapsed ? "false" : "true");
   trigger.setAttribute("aria-label", "Toggle sidebar");
@@ -168,6 +188,7 @@ function renderSidebar(
     rail.type = "button";
     rail.setAttribute("data-slot", "sidebar-rail");
     rail.setAttribute("data-sidebar", "rail");
+    rail.setAttribute("data-action", "click->lv-sidebar#toggle");
     rail.setAttribute("aria-label", "Toggle sidebar");
     rail.setAttribute("tabindex", "-1");
     rail.className = "lv-sidebar-rail";
@@ -196,6 +217,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stopStimulus();
   document.body.innerHTML = "";
   document.getElementById("lv-sidebar-styles")?.remove();
 });
@@ -262,10 +284,10 @@ describe("sidebar partial: rendered nav contract (real DOM)", () => {
   });
 });
 
-describe("sidebar enhancer: collapse state (real DOM)", () => {
-  test("the trigger toggles the desktop collapsed state + mirrors aria-expanded", () => {
+describe("sidebar controller: collapse state (real Stimulus + real DOM)", () => {
+  test("the trigger toggles the desktop collapsed state + mirrors aria-expanded", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
+    await connect();
     const trigger = root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!;
     expect(root.getAttribute("data-state")).toBe("expanded");
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -279,36 +301,37 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
   });
 
-  test("the collapsed choice persists to localStorage and rehydrates a fresh render", () => {
+  test("the collapsed choice persists to localStorage and rehydrates a fresh render", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
+    await connect();
     root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
     expect(globalThis.localStorage?.getItem("lv-sidebar-state")).toBe("collapsed");
 
+    stopStimulus();
     document.body.innerHTML = "";
     const fresh = renderSidebar(); // SSR data-state="expanded"
-    enhanceSidebar(fresh); // hydrates the persisted "collapsed"
+    await connect(); // connect() hydrates the persisted "collapsed" on the new controller
     expect(fresh.getAttribute("data-state")).toBe("collapsed");
   });
 
-  test("the enhancer injects its stateful stylesheet once (idempotent)", () => {
-    const root = renderSidebar();
-    enhanceSidebar(root);
-    enhanceSidebar(root); // second call: marked, no-op
+  test("the controller injects its stateful stylesheet once (idempotent across roots)", async () => {
+    renderSidebar();
+    renderSidebar({ side: "right" });
+    await connect(); // two roots connect, but the <style> is injected once
     expect(document.querySelectorAll("#lv-sidebar-styles").length).toBe(1);
   });
 
-  test("enhanceAllSidebars wires every root on the page", () => {
+  test("connect() wires every root on the page", async () => {
     renderSidebar();
     const second = renderSidebar({ side: "right" });
-    enhanceAllSidebars();
+    await connect();
     second.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
     expect(second.getAttribute("data-state")).toBe("collapsed");
   });
 
-  test("the rail edge toggles the same collapse state as the trigger", () => {
+  test("the rail edge toggles the same collapse state as the trigger", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
+    await connect();
     const rail = root.querySelector<HTMLButtonElement>('[data-slot="sidebar-rail"]')!;
     expect(root.getAttribute("data-state")).toBe("expanded");
     rail.click();
@@ -324,9 +347,9 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
     expect(root.querySelector('[data-slot="sidebar-rail"]')!.getAttribute("tabindex")).toBe("-1");
   });
 
-  test("Cmd/Ctrl+B toggles the sidebar (shadcn keyboard shortcut)", () => {
+  test("Cmd/Ctrl+B toggles the sidebar (shadcn keyboard shortcut)", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
+    await connect();
     expect(root.getAttribute("data-state")).toBe("expanded");
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true }));
@@ -336,58 +359,73 @@ describe("sidebar enhancer: collapse state (real DOM)", () => {
     expect(root.getAttribute("data-state")).toBe("expanded");
   });
 
-  test("a plain 'b' (no modifier) does NOT toggle the sidebar", () => {
+  test("a plain 'b' (no modifier) does NOT toggle the sidebar", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
+    await connect();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "b" }));
     expect(root.getAttribute("data-state")).toBe("expanded");
   });
 });
 
-describe("sidebar enhancer: re-run idempotency (the round-2 listener-stacking bug class)", () => {
-  // The morph re-scan re-invokes enhanceAllSidebars over a re-rendered DOM; the ENHANCED marker must
-  // keep every listener (trigger click, rail click, and the document-level Cmd/Ctrl+B) bound exactly
-  // once, so one gesture toggles the state exactly once (collapsed->expanded, not collapsed->expanded
-  // ->collapsed back to where it started, the stacked-handler double-fire that shipped on the calendar).
+describe("sidebar controller: morph-safety (the round-2 listener-stacking bug class)", () => {
+  // Before, a morph re-scan re-invoked enhanceSidebar over a re-rendered DOM and the data-sidebar-
+  // enhanced marker had to keep every listener bound exactly once. With Stimulus the marker is gone:
+  // a wire morph that re-renders the SAME root keeps the SAME controller (idiomorph preserves node
+  // identity), so connect() never re-fires and no listener is stacked. A morph that REPLACES the
+  // root disconnects the old controller (its document keydown listener removed) and connects one new
+  // one. Either way one gesture => one toggle. These prove it through the REAL lievit morph.
 
-  test("a trigger click toggles exactly once after the enhancer re-runs on the same root", () => {
+  test("a trigger click toggles exactly once after a real morph re-renders the root", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
-    enhanceSidebar(root); // morph re-scan: already marked, must NOT re-bind the trigger
+    await connect();
     expect(root.getAttribute("data-state")).toBe("expanded");
 
-    root.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
+    // Re-render the root in place (identical markup): idiomorph preserves the controller.
+    morph(root, root.outerHTML);
+    await flushStimulus();
+
+    document.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
     // a stacked second listener would toggle twice and land back on "expanded".
-    expect(root.getAttribute("data-state"), "one click => one toggle, not a double-fire").toBe(
+    expect(
+      document.querySelector('[data-sidebar="root"]')!.getAttribute("data-state"),
+      "one click => one toggle, not a double-fire",
+    ).toBe("collapsed");
+  });
+
+  test("the rail click also stays single after a morph (no double toggle)", async () => {
+    const root = renderSidebar();
+    await connect();
+    morph(root, root.outerHTML);
+    await flushStimulus();
+
+    document.querySelector<HTMLButtonElement>('[data-slot="sidebar-rail"]')!.click();
+    expect(document.querySelector('[data-sidebar="root"]')!.getAttribute("data-state")).toBe(
       "collapsed",
     );
   });
 
-  test("the rail click also stays single after a re-run (no double toggle)", () => {
+  test("Cmd/Ctrl+B toggles exactly once after a morph (the document listener is not stacked)", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
-    enhanceSidebar(root);
-
-    root.querySelector<HTMLButtonElement>('[data-slot="sidebar-rail"]')!.click();
-    expect(root.getAttribute("data-state")).toBe("collapsed");
-  });
-
-  test("Cmd/Ctrl+B toggles exactly once after a re-run (the document listener is not stacked)", () => {
-    const root = renderSidebar();
-    enhanceSidebar(root);
-    enhanceSidebar(root); // the early ENHANCED return must skip the second document keydown bind
-    expect(root.getAttribute("data-state")).toBe("expanded");
+    await connect();
+    morph(root, root.outerHTML);
+    await flushStimulus();
+    expect(document.querySelector('[data-sidebar="root"]')!.getAttribute("data-state")).toBe(
+      "expanded",
+    );
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true }));
     // a stacked document listener would fire toggle twice and stay "expanded".
-    expect(root.getAttribute("data-state"), "one Cmd+B => one toggle").toBe("collapsed");
+    expect(
+      document.querySelector('[data-sidebar="root"]')!.getAttribute("data-state"),
+      "one Cmd+B => one toggle",
+    ).toBe("collapsed");
   });
 
-  test("enhanceAllSidebars run twice keeps every root's trigger single-fire", () => {
+  test("connect() run twice keeps every root's trigger single-fire", async () => {
     const a = renderSidebar();
     const b = renderSidebar({ side: "right" });
-    enhanceAllSidebars();
-    enhanceAllSidebars(); // the post-morph re-scan over the whole page
+    await connect();
+    await connect(); // the singleton app is already started: a second call is a no-op
 
     a.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
     b.querySelector<HTMLButtonElement>('[data-slot="sidebar-trigger"]')!.click();
@@ -483,9 +521,9 @@ describe("sidebar v-next: DOM fixes (open=false, disabled parent, SSR state, mob
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 
-  test("mobile off-canvas: backdrop click closes the overlay (removes data-mobile-open)", () => {
+  test("mobile off-canvas: backdrop click closes the overlay (removes data-mobile-open)", async () => {
     const root = renderSidebar();
-    enhanceSidebar(root);
+    await connect();
     // Set the mobile-open state directly (jsdom has no real layout / matchMedia).
     root.setAttribute("data-mobile-open", "");
     const backdrop = root.querySelector<HTMLButtonElement>('[data-sidebar="backdrop"]')!;
@@ -596,12 +634,29 @@ describe("sidebar partials: source contract (JTE compiles in the jte-compile smo
     expect(group).toContain("position: relative;");
   });
 
-  test("the enhancer wires the rail click + the Cmd/Ctrl+B shortcut (no inline handlers)", () => {
-    const enhancer = readFileSync(join(jteDir, "sidebar.enhancer.ts"), "utf8");
-    expect(enhancer).toContain('data-slot="sidebar-rail"');
-    expect(enhancer).toMatch(/metaKey\s*\|\|\s*e\.ctrlKey/);
-    expect(enhancer).toMatch(/key === "b"/);
-    expect(enhancer).toContain("toggleSidebar");
+  test("the template wires the controller via data-controller + data-action (no inline handlers)", () => {
+    // The collapse behaviour moved from sidebar.enhancer.ts to the lv-sidebar Stimulus controller.
+    // The template declares the wiring as CSP-clean data-controller / data-action (NOT on* handlers):
+    // the root carries the controller, the trigger + rail + backdrop carry their actions.
+    expect(main).toContain('data-controller="lv-sidebar"');
+    expect(main).toContain('data-action="click->lv-sidebar#toggle"'); // the header trigger
+    expect(main).toContain('data-action="click->lv-sidebar#closeMobile"'); // the backdrop
+    expect(rail).toContain('data-action="click->lv-sidebar#toggle"'); // the edge rail
+    // The trigger is a Stimulus target so the controller can mirror aria-expanded onto it.
+    expect(main).toContain('data-lv-sidebar-target="trigger"');
+  });
+
+  test("the controller carries the collapse + Cmd/Ctrl+B logic (the converted enhancer)", () => {
+    const controller = readFileSync(
+      join(jteDir, "..", "..", "runtime", "stimulus", "controllers", "lv-sidebar-controller.ts"),
+      "utf8",
+    );
+    expect(controller).toMatch(/metaKey\s*\|\|\s*e\.ctrlKey/);
+    expect(controller).toMatch(/key === "b"/);
+    expect(controller).toContain("toggle()");
+    // shadcn DOM namespace preserved (the hamburger bug was a regress to data-lv-*): hooks are data-slot/data-sidebar.
+    expect(controller).toContain('data-slot="sidebar-menu-button"');
+    expect(controller).toContain('data-mobile-open');
   });
 
   test("v-next: open=false uses smart-attribute pattern (omits the attr when false)", () => {
