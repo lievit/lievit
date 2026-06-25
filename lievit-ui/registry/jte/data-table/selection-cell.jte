@@ -57,7 +57,10 @@
     scope="col"
     data-slot="data-table-selection-head"
     class="lv-table-head h-[var(--lv-space-9)] w-[var(--lv-space-9)] px-[var(--lv-space-2)] pr-0 text-left align-middle [&:has([role=checkbox])]:pr-0 ${klass}"
-    style="color:var(--lv-color-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 70%, var(--lv-color-bg));"
+    <%-- Filament fidelity (#3): the select-all header cell rides the SAME 35% surface band as the
+         sortable column headers, so the whole thead reads as one uniform band. It used to be a darker
+         70% band, which made the checkbox column visibly darker than the rest of the same header row. --%>
+    style="color:var(--lv-color-fg);background-color:color-mix(in srgb, var(--lv-color-surface) 35%, var(--lv-color-bg));"
   >
     @template.lievit.checkbox(name = name, value = value, checked = checked, indeterminate = indeterminate, ariaLabel = label, attrs = modelAttr)
   </th>

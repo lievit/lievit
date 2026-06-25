@@ -34,9 +34,18 @@
 --%>
 @param String cssClass = ""
 @param String attrs = ""
+@param String edge = ""
 @param gg.jte.Content content
+<%-- Filament fi-ta edge gutter: the first/last cell of a row gets an extra outer inset so the
+     content sits off the card frame. Complete static class literals so the Tailwind scanner keeps
+     them. "" (interior cell) adds nothing. --%>
+!{var _edgeClass = switch (edge) {
+    case "first" -> "ps-[var(--lv-space-6)]";
+    case "last"  -> "pe-[var(--lv-space-6)]";
+    default      -> "";
+  };}
 <td
   data-slot="table-cell"
-  class="px-[var(--lv-space-4)] py-[var(--lv-space-3)] align-middle [&:has([role=checkbox])]:pr-0 ${cssClass}"
+  class="px-[var(--lv-space-4)] py-[var(--lv-space-3)] align-middle [&:has([role=checkbox])]:pr-0 ${_edgeClass} ${cssClass}"
   $unsafe{attrs}
 >${content}</td>
