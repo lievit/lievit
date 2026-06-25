@@ -427,6 +427,11 @@ function setupZoom(figure: HTMLElement, state: ChartState): void {
 
 function wireFigure(figure: HTMLElement): void {
   if (wiredFigures.has(figure)) return;
+  // Coexistence with the Stimulus conversion: a converted chart carries data-controller="lv-chart",
+  // and the lv-chart controller owns all the behavior below. The legacy enhancer must NOT double-wire
+  // such a figure (it would mount two tooltip/keyboard stacks on the same marks). When the LAST
+  // adopter on the old enhancer is gone, this file + its install line are deleted in a cleanup PR.
+  if (figure.matches('[data-controller~="lv-chart"]')) return;
   wiredFigures.add(figure);
 
   const tooltipId = figure.getAttribute(TOOLTIP_ID_ATTR);

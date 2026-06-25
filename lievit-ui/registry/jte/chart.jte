@@ -236,12 +236,24 @@
     legendColors[s] = (sc != null && !sc.isBlank()) ? sc : palette[s % palette.length];
   }}
 
+<%-- Stimulus action descriptors (CSP-clean plain strings, no eval): the lv-chart controller owns
+     tooltip / highlight / keyboard / mark-click. Declared once, stamped on every interactive mark;
+     Stimulus re-binds them after a wire morph for free (no rewire sweep). Null => attribute omitted
+     (zero JS on the static, non-interactive chart). --%>
+!{String _markAction = interactive
+    ? "pointerenter->lv-chart#markActivate focus->lv-chart#markActivate pointerleave->lv-chart#markDeactivate blur->lv-chart#markDeactivate click->lv-chart#markClick keydown->lv-chart#markKeydown"
+    : null;}
+!{String _svgAction = (interactive && zoomable)
+    ? "pointerdown->lv-chart#brushStart pointermove->lv-chart#brushMove pointerup->lv-chart#brushEnd"
+    : null;}
+
 <figure
   id="${_chartId}"
   data-slot="chart"
   data-chart-type="${type}"
   aria-labelledby="${_svgTitleId}"
   aria-busy="${loading ? "true" : null}"
+  data-controller="${interactive ? "lv-chart" : null}"
   data-lievit-enhancer="${interactive ? "chart" : null}"
   data-chart-zoomable="${(interactive && zoomable) ? "true" : null}"
   data-tooltip-id="${interactive ? _tooltipId : null}"
@@ -274,6 +286,7 @@
       width="100%"
       class="block h-auto w-full overflow-visible"
       style="font-family:var(--lv-font-sans);"
+      data-action="${_svgAction}"
     >
       <title id="${_svgTitleId}">${title}</title>
       @if(description != null && !description.isBlank())
@@ -331,6 +344,7 @@
               data-point-index="${i}"
               tabindex="${interactive ? "0" : null}"
               role="${interactive ? "img" : null}"
+              data-action="${_markAction}"
             />
           @endfor
         @else
@@ -454,6 +468,7 @@
                   data-point-index="${i}"
                   tabindex="${interactive ? "0" : null}"
                   role="${interactive ? "img" : null}"
+                  data-action="${_markAction}"
                 />
               @endif
             @endfor
@@ -482,6 +497,7 @@
                   data-point-index="${i}"
                   tabindex="${interactive ? "0" : null}"
                   role="${interactive ? "img" : null}"
+                  data-action="${_markAction}"
                 />
               @endif
             @endfor
@@ -569,6 +585,8 @@
         role="tooltip"
         aria-live="off"
         data-chart-tooltip="${_chartId}"
+        data-lv-chart-target="tooltip"
+        hidden
       ></div>
     @endif
   @endif

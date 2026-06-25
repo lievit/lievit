@@ -276,6 +276,50 @@ describe("chart -- interactive / tooltip", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Stimulus controller wiring (the conversion of chart.enhancer.ts)
+// Behaviour is proven in test/lv-chart-controller.test.ts against the REAL controller + morph;
+// this block pins the CSP-clean data-attribute CONTRACT the template must emit for it.
+// ---------------------------------------------------------------------------
+describe("chart -- lv-chart Stimulus controller wiring", () => {
+  test("figure mounts data-controller='lv-chart' only when interactive", () => {
+    expect(markup).toContain('data-controller="${interactive ? "lv-chart" : null}"');
+  });
+
+  test("the mark action descriptor is declared once and gated on interactive", () => {
+    expect(markup).toContain("String _markAction = interactive");
+    expect(markup).toContain("pointerenter->lv-chart#markActivate");
+    expect(markup).toContain("focus->lv-chart#markActivate");
+    expect(markup).toContain("pointerleave->lv-chart#markDeactivate");
+    expect(markup).toContain("blur->lv-chart#markDeactivate");
+    expect(markup).toContain("click->lv-chart#markClick");
+    expect(markup).toContain("keydown->lv-chart#markKeydown");
+  });
+
+  test("every interactive mark carries data-action='${_markAction}'", () => {
+    // Bars, points and pie/donut sectors are the three mark shapes; each must be wired.
+    const markActionHits = markup.match(/data-action="\$\{_markAction\}"/g) ?? [];
+    expect(markActionHits.length).toBe(3);
+  });
+
+  test("the SVG carries the brush action only when interactive && zoomable", () => {
+    expect(markup).toContain("String _svgAction = (interactive && zoomable)");
+    expect(markup).toContain("pointerdown->lv-chart#brushStart");
+    expect(markup).toContain("pointermove->lv-chart#brushMove");
+    expect(markup).toContain("pointerup->lv-chart#brushEnd");
+    expect(markup).toContain('data-action="${_svgAction}"');
+  });
+
+  test("the tooltip is the lv-chart controller's target", () => {
+    expect(markup).toContain('data-lv-chart-target="tooltip"');
+  });
+
+  test("data-action attributes are plain strings (CSP-clean, no inline handler)", () => {
+    // The descriptors are declared in JTE locals and referenced by ${...}; never an on*= handler.
+    expect(markup).not.toMatch(/\son[a-z]+=/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Reference lines
 // ---------------------------------------------------------------------------
 describe("chart -- reference lines", () => {
