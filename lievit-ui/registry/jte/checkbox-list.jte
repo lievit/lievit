@@ -125,6 +125,8 @@
   data-invalid="${invalid ? "true" : null}"
   data-disabled="${disabled ? "true" : null}"
   data-lievit-checkbox-list
+  data-controller="lv-checkbox-list"
+  data-action="change->lv-checkbox-list#onChange"
   aria-label="${ariaLabel}"
   aria-describedby="${describedBy}"
   aria-invalid="${invalid ? "true" : null}"
@@ -144,6 +146,7 @@
       data-slot="checkbox-list-tools"
       data-checkbox-list-tools
       hidden
+      data-lv-checkbox-list-target="tools"
       class="flex flex-wrap items-center gap-[var(--lv-space-2)]"
     >
       @if(searchable)
@@ -159,6 +162,7 @@
             role="searchbox"
             data-slot="checkbox-list-search"
             data-checkbox-list-search
+            data-action="input->lv-checkbox-list#filter"
             placeholder="${searchPlaceholder}"
             aria-label="${resolvedSearchAriaLabel}"
             autocomplete="off"
@@ -171,6 +175,7 @@
           type="button"
           data-slot="checkbox-list-toggle-all"
           data-checkbox-list-toggle-all
+          data-action="click->lv-checkbox-list#toggleAll"
           data-select-all-label="${selectAllLabel}"
           data-clear-label="${resolvedClearLabel}"
           aria-pressed="false"
