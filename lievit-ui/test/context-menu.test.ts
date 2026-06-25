@@ -9,7 +9,7 @@
  * These tests pin:
  *   A. Registry shape: context-menu is now a registry:jte partial, not a registry:wire.
  *   B. Source-text assertions on the JTE markup (panel absent when open=false; correct ARIA
- *      roles; data-slot contracts; smart-attribute escaping; no io.lievit import; no inline
+ *      roles; data-slot contracts; smart-attribute escaping; no dev.lievit import; no inline
  *      script / on* handler; data-lievit-collection on the panel for collection-nav handoff).
  *   C. Trigger enhancer unit tests: right-click interception, coordinate attributes, keyboard
  *      open (ContextMenu key / Shift+F10), outside-click dismiss, Escape dismiss, focus restore,
@@ -73,7 +73,7 @@ describe("context-menu registry:jte shape", () => {
 });
 
 // ============================================================================
-// B. JTE source-text assertions (no io.lievit import; correct ARIA; data-slot)
+// B. JTE source-text assertions (no dev.lievit import; correct ARIA; data-slot)
 // ============================================================================
 
 describe("context-menu.jte source-text (CSP + ARIA + no-import contract)", () => {
@@ -81,8 +81,8 @@ describe("context-menu.jte source-text (CSP + ARIA + no-import contract)", () =>
   // Strip JTE doc-comment before asserting (preserve body assertions only).
   const body = jte.replace(/<%--[\s\S]*?--%>/g, "");
 
-  test("no io.lievit import (JTE classpath only has JDK + jte + icons)", () => {
-    expect(jte).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import (JTE classpath only has JDK + jte + icons)", () => {
+    expect(jte).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no _component / _instance / _componentSnapshot params (this is a PARTIAL)", () => {
@@ -153,8 +153,8 @@ describe("context-menu/item.jte source-text (ARIA roles + escaping contract)", (
   const jte = readJte("context-menu/item.jte");
   const body = jte.replace(/<%--[\s\S]*?--%>/g, "");
 
-  test("no io.lievit import", () => {
-    expect(jte).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import", () => {
+    expect(jte).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("uses Escape.htmlAttribute for wireArgs (SAFE channel, not attrs)", () => {
@@ -261,8 +261,8 @@ describe("context-menu-trigger.enhancer.ts source-text (CSP + no-import contract
   // Strip block comments.
   const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "");
 
-  test("no io.lievit import (enhancer has no runtime dependency beyond the DOM)", () => {
-    expect(src).not.toMatch(/^import.*io\.lievit/m);
+  test("no dev.lievit import (enhancer has no runtime dependency beyond the DOM)", () => {
+    expect(src).not.toMatch(/^import.*dev\.lievit/m);
   });
 
   test("intercepts contextmenu event", () => {

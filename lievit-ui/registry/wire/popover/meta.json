@@ -8,7 +8,7 @@
     {
       "path": "wire/popover/PopoverComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/PopoverComponent.java",
+      "target": "dev/lievit/wire/PopoverComponent.java",
       "root": "java"
     },
     {
@@ -19,5 +19,5 @@
     }
   ],
   "tokens": ["color", "space", "radius", "type", "shadow", "z", "ring"],
-  "docs": "Register PopoverComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / @template.lievit.popover-wire(...); put your server-derived panel body in the owned data-popover-panel region (NOT a slot), or derive it from a @Wire field. The trigger fires `toggle` over the wire; `show`/`close` are also exposed. The panel is conditionally rendered (@if(open)) so its content cannot fail to project. The @LievitComponent(template=\"lievit/popover-wire\") name + the io.lievit.wire package are yours to change once copied."
+  "docs": "Register PopoverComponent as a PROTOTYPE-scoped @Bean (a fresh instance per stateless wire call). Render it via the wire mount / @template.lievit.popover-wire(...); put your server-derived panel body in the owned data-popover-panel region (NOT a slot), or derive it from a @Wire field. The trigger fires `toggle` over the wire; `show`/`close` are also exposed. The panel is conditionally rendered (@if(open)) so its content cannot fail to project. The @LievitComponent(template=\"lievit/popover-wire\") name + the dev.lievit.wire package are yours to change once copied."
 }

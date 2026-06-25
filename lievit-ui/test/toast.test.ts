@@ -196,8 +196,8 @@ describe("toast.jte source-text (v-next item partial)", () => {
     expect(src).toContain('l:click="${actionWireClick}"');
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toContain("import io.lievit");
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain("import dev.lievit");
   });
 
   test("no inline <script>", () => {
@@ -265,8 +265,8 @@ describe("toast/region.jte source-text (live-region container)", () => {
     expect(src).toContain("--lv-z-toast");
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toContain("import io.lievit");
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain("import dev.lievit");
   });
 
   test("no inline <script>", () => {
@@ -322,8 +322,8 @@ describe("notification-bell.jte source-text", () => {
     expect(src).toMatch(/popover/);
   });
 
-  test("no io.lievit import", () => {
-    expect(src).not.toContain("import io.lievit");
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain("import dev.lievit");
   });
 
   test("no inline <script>", () => {

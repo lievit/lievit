@@ -8,7 +8,7 @@
     {
       "path": "wire/toggle-group/ToggleGroupComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/ToggleGroupComponent.java",
+      "target": "dev/lievit/wire/ToggleGroupComponent.java",
       "root": "java"
     },
     {

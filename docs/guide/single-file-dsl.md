@@ -10,7 +10,7 @@ Single-file is not a trade on type safety: it is "DSL instead of JTE", both are 
 ## The counter, single-file
 
 ```java
-import static io.lievit.dsl.H.*;
+import static dev.lievit.dsl.H.*;
 
 @LievitComponent
 public class Counter {
@@ -35,7 +35,7 @@ A `@LievitRender` method that returns `Html` makes the component single-file: th
 renders the tree through the same wire pipeline (mount, wire call, effects, morph) as a JTE
 component, behind the one `TemplateAdapter` SPI, so the dispatcher and codec are untouched.
 
-## The element factories (`io.lievit.dsl.H`)
+## The element factories (`dev.lievit.dsl.H`)
 
 Static-import `H.*` and build the tree with factories:
 

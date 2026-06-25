@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.github.lievit</groupId>
+        <groupId>dev.lievit</groupId>
         <artifactId>lievit-parent</artifactId>
         <version>${revision}</version>
         <relativePath>../../pom.xml</relativePath>
@@ -29,13 +29,13 @@
     <dependencies>
         <!-- lievit: codec + registry + dispatcher + JTE adapter + wire endpoint. -->
         <dependency>
-            <groupId>io.github.lievit</groupId>
+            <groupId>dev.lievit</groupId>
             <artifactId>lievit-spring-boot-starter</artifactId>
         </dependency>
 
         <!-- lievit-kit: the Resource / Form / Table / Action / Panel admin layer. -->
         <dependency>
-            <groupId>io.github.lievit</groupId>
+            <groupId>dev.lievit</groupId>
             <artifactId>lievit-kit</artifactId>
         </dependency>
 

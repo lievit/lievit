@@ -22,7 +22,7 @@ framework-facing bus those hooks (and built-in features) dispatch through.
 
 ## Decision
 
-lievit adds a `LifecycleBus` (`io.lievit.component`, pure Java, ADR-0007) and a fixed,
+lievit adds a `LifecycleBus` (`dev.lievit.component`, pure Java, ADR-0007) and a fixed,
 documented phase order the `WireDispatcher` triggers on every call:
 
 **Update pipeline:** `HYDRATE` → `UPDATE` (per update; `UPDATED` finishers run after **all**

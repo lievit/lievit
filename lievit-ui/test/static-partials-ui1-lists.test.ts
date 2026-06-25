@@ -272,8 +272,8 @@ describe("data-list — v-next: ariaLabel + bordered chrome", () => {
     expect(src).toContain('var(--lv-color-card)');
     expect(src).toContain('var(--lv-color-card-fg)');
   });
-  test("no io.lievit import", () => {
-    expect(src).not.toContain('import io.lievit');
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain('import dev.lievit');
   });
 });
 
@@ -306,8 +306,8 @@ describe("data-list/row — v-next: href + hoverHighlight + dataAttrs", () => {
   test("focus ring on linked row", () => {
     expect(src).toContain('var(--lv-ring)');
   });
-  test("no io.lievit import", () => {
-    expect(src).not.toContain('import io.lievit');
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain('import dev.lievit');
   });
 });
 
@@ -342,8 +342,8 @@ describe("description-list — v-next: bordered + size + title + extra", () => {
   test("font-semibold on title", () => {
     expect(src).toContain('var(--lv-font-semibold)');
   });
-  test("no io.lievit import", () => {
-    expect(src).not.toContain('import io.lievit');
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain('import dev.lievit');
   });
 });
 
@@ -365,8 +365,8 @@ describe("description-list/item — v-next: colon param", () => {
   test("columnSpan emits grid-column span on both dt and dd", () => {
     expect(src).toContain('grid-column:span');
   });
-  test("no io.lievit import", () => {
-    expect(src).not.toContain('import io.lievit');
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain('import dev.lievit');
   });
 });
 
@@ -412,7 +412,7 @@ describe("key-value — v-next: bordered + striped + emptyMessage + scope", () =
   test("bordered adds radius-md", () => {
     expect(src).toContain('var(--lv-radius-md)');
   });
-  test("no io.lievit import", () => {
-    expect(src).not.toContain('import io.lievit');
+  test("no dev.lievit import", () => {
+    expect(src).not.toContain('import dev.lievit');
   });
 });

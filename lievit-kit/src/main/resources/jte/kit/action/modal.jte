@@ -1,7 +1,7 @@
 @import gg.jte.Content
-@import io.lievit.kit.AdminAction
-@import io.lievit.kit.ConfirmationModal
-@import io.lievit.kit.ModalConfig
+@import dev.lievit.kit.AdminAction
+@import dev.lievit.kit.ConfirmationModal
+@import dev.lievit.kit.ModalConfig
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

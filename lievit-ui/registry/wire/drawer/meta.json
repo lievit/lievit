@@ -8,7 +8,7 @@
     {
       "path": "wire/drawer/DrawerComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/DrawerComponent.java",
+      "target": "dev/lievit/wire/DrawerComponent.java",
       "root": "java"
     },
     {

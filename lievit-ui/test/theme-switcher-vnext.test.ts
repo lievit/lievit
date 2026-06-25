@@ -63,8 +63,8 @@ describe("theme-switcher v-next -- params & docs", () => {
     expect(src).toContain("@@template.lievit.theme-switcher(");
   });
 
-  test("no io.lievit import (JTE-compile gate classpath is JDK+jte+icons only)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import (JTE-compile gate classpath is JDK+jte+icons only)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 });
 

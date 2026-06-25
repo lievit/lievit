@@ -1,11 +1,11 @@
-@import io.lievit.kit.page.KitToastView
-@import io.lievit.kit.NotificationAction
+@import dev.lievit.kit.page.KitToastView
+@import dev.lievit.kit.NotificationAction
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
   lievit-kit :: kit.notification.toast - the canonical Filament FLASH notification chrome, rendered
-  from a KitToastView (a flashed io.lievit.kit.AdminNotification) onto the lievit-ui toast partial.
+  from a KitToastView (a flashed dev.lievit.kit.AdminNotification) onto the lievit-ui toast partial.
 
   v-next migration: the toast partial simplified its API.
   - position= removed (position is now a CSS concern / toaster-host concern, not per-toast).

@@ -2,16 +2,16 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
-package io.lievit.wire;
+package dev.lievit.wire;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import io.lievit.LievitAction;
-import io.lievit.LievitComponent;
-import io.lievit.LievitProperty;
-import io.lievit.LievitRender;
-import io.lievit.Wire;
+import dev.lievit.LievitAction;
+import dev.lievit.LievitComponent;
+import dev.lievit.LievitProperty;
+import dev.lievit.LievitRender;
+import dev.lievit.Wire;
 
 /**
  * {@code toggle-group}: the server-first WIRE replacement for the {@code <lv-toggle-group>} Lit

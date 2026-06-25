@@ -1,9 +1,9 @@
-@import io.lievit.kit.ChartWidget
+@import dev.lievit.kit.ChartWidget
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-kit :: kit.widget.chart - renders ONE io.lievit.kit.ChartWidget as a section card (heading +
+  lievit-kit :: kit.widget.chart - renders ONE dev.lievit.kit.ChartWidget as a section card (heading +
   description + an optional filter dropdown in the after-header) wrapping the lievit-ui chart, the
   SERVER-pure SVG (ADR-0012). This is the chart twin of kit.widget.stat: the canonical place a kit
   ChartWidget paints onto the lievit-ui presentational chart, server-first with NO chart.js canvas
@@ -12,7 +12,7 @@
 
   The ChartWidget carries: type() (BAR|LINE|PIE|DOUGHNUT|POLAR_AREA|RADAR|SCATTER|BUBBLE), data() (a
   ChartData = labels + List<Dataset>, each Dataset a label + List<Number> values), heading(),
-  description(), maxHeight(), color() (io.lievit.kit.Color), filters() (value->label) + activeFilter(),
+  description(), maxHeight(), color() (dev.lievit.kit.Color), filters() (value->label) + activeFilter(),
   isCollapsible(), pollingInterval(), dataChecksum().
 
   The mapping onto lievit-ui chart (a SINGLE-series SVG partial):

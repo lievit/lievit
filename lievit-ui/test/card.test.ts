@@ -322,8 +322,8 @@ describe("card -- CSP-clean + JTE hygiene", () => {
     expect(handlers, `unexpected inline handlers: ${handlers.join(", ")}`).toEqual([]);
   });
 
-  test("no io.lievit import (JTE-compile gate classpath rule)", () => {
-    expect(src).not.toMatch(/import io\.lievit\./);
+  test("no dev.lievit import (JTE-compile gate classpath rule)", () => {
+    expect(src).not.toMatch(/import dev\.lievit\./);
   });
 
   test("no nested JTE comment closes (would break the gate)", () => {

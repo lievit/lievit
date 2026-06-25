@@ -1,11 +1,11 @@
-@import io.lievit.kit.page.KitBellView
-@import io.lievit.kit.DatabaseNotification
+@import dev.lievit.kit.page.KitBellView
+@import dev.lievit.kit.DatabaseNotification
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
   lievit-kit :: kit.notification.bell - the canonical Filament topbar BELL chrome, rendered from a
-  KitBellView (a io.lievit.kit.NotificationBell scoped to one recipient + the host's mutation URLs)
+  KitBellView (a dev.lievit.kit.NotificationBell scoped to one recipient + the host's mutation URLs)
   onto the lievit-ui notification-bell partial.
 
   v-next migration (notification-bell API pivot): the top-level partial no longer accepts Content

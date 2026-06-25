@@ -77,7 +77,7 @@ wiring), not a template to ship as-is.
 
 ## HARD rules (lessons already paid for — violating these breaks the gate)
 
-- **NEVER `@import io.lievit.*` in a `.jte`.** Templates are PRESENTATIONAL: every datum arrives via `@param` (a `String`, `boolean`, `List<String>`, `gg.jte.Content`, or `java.util.Map<String,String>`). The wire/stateful behavior lives in the Java component + runtime, NOT in the template. The JTE-compile gate classpath is JDK + jte + `registry/icons` only — an `io.lievit` import fails to resolve and reds the gate.
+- **NEVER `@import dev.lievit.*` in a `.jte`.** Templates are PRESENTATIONAL: every datum arrives via `@param` (a `String`, `boolean`, `List<String>`, `gg.jte.Content`, or `java.util.Map<String,String>`). The wire/stateful behavior lives in the Java component + runtime, NOT in the template. The JTE-compile gate classpath is JDK + jte + `registry/icons` only — an `dev.lievit` import fails to resolve and reds the gate.
 - **NEVER nest `<%-- ... --%>` inside the doc-comment block.** JTE comments do not nest; an inner `--%>` closes the outer comment early and everything after is mis-parsed as markup (this reds the gate with a bogus `Unclosed tag <...>`). In usage examples inside the comment, write `(decorative)` not `<%-- decorative --%>`, and never put raw `<Type,Type>` generics in the comment text (write "Map of String to String").
 - **NEVER put `@if(...)` inside an HTML attribute NAME position.** JTE forbids `@if(x != null)attr="${x}" @endif` and reds the gate (`Illegal HTML attribute name @if`). Use **smart attributes** instead: `attr="${x}"` (JTE omits the attribute when the value is null); for a boolean, `disabled="${disabled}"` renders the bare attr when true and omits when false; for a conditional aria, `aria-required="${required ? "true" : null}"`; for a compound condition, `data-x="${cond ? value : null}"`. Smart attributes are the canonical JTE way to conditionally emit attributes.
 - **`@template.lievit.icon(...)` takes ONLY `name`, `size`, `cssClass`, `label`.** There is NO `ariaHidden` param — icon renders `aria-hidden="true"` automatically when `label == null` (decorative by default). Passing any other param reds the gate (`No parameter with name X is defined in lievit/icon.jte`).
@@ -100,7 +100,7 @@ Match the WAI-ARIA APG pattern the spec cites. Correct roles, states (`aria-*`),
 
 - `npx tsc --noEmit` clean (if you wrote/changed any `.ts`).
 - `npx vitest run test/<name>.test.ts` green for your component.
-- You CANNOT run the JTE-compile gate (it is per-wave, heavy, coordinator-run). So DOUBLE-CHECK the two JTE hazards above by eye: no `io.lievit` import, no nested `--%>`, balanced `@param`/`@if`/`@for`/`@endif`/`@endfor`, every `${}` expression valid Java.
+- You CANNOT run the JTE-compile gate (it is per-wave, heavy, coordinator-run). So DOUBLE-CHECK the two JTE hazards above by eye: no `dev.lievit` import, no nested `--%>`, balanced `@param`/`@if`/`@for`/`@endif`/`@endfor`, every `${}` expression valid Java.
 
 ## Your final report (structured, the coordinator parses it)
 

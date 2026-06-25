@@ -382,8 +382,8 @@ describe("drawer.jte: server-purity + CSP-clean + token-driven + licensed", () =
     expect(markup).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  test("it does not import io.lievit.* (PARTIAL: no Java class deps in template)", () => {
-    expect(jte).not.toContain("@import io.lievit");
+  test("it does not import dev.lievit.* (PARTIAL: no Java class deps in template)", () => {
+    expect(jte).not.toContain("@import dev.lievit");
   });
 
   test("it carries the Apache licence header", () => {

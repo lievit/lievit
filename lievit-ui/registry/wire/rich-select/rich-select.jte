@@ -1,6 +1,6 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.wire.RichSelectComponent
-@import io.lievit.wire.RichSelectComponent.Option
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.wire.RichSelectComponent
+@import dev.lievit.wire.RichSelectComponent.Option
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

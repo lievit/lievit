@@ -1,10 +1,10 @@
-@import io.lievit.kit.AdminListView
-@import io.lievit.kit.Cell
-@import io.lievit.kit.ColumnSummary
-@import io.lievit.kit.RowAction
-@import io.lievit.kit.page.KitTableView
-@import io.lievit.kit.page.KitTableLabels
-@import io.lievit.kit.page.SavedViewsView
+@import dev.lievit.kit.AdminListView
+@import dev.lievit.kit.Cell
+@import dev.lievit.kit.ColumnSummary
+@import dev.lievit.kit.RowAction
+@import dev.lievit.kit.page.KitTableView
+@import dev.lievit.kit.page.KitTableLabels
+@import dev.lievit.kit.page.SavedViewsView
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

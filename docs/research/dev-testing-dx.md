@@ -169,7 +169,7 @@ Livewire browser-only behaviours that *can* be server-driven become headless ass
 
 ```java
 // The user's test of THEIR component. Headless. Fast. Over the real wire.
-import static io.lievit.test.Lievit.test;
+import static dev.lievit.test.Lievit.test;
 
 @LievitTest                 // meta-annotation: @SpringBootTest slice + the test signing key + MockMvc
 class CounterComponentTest {
@@ -302,7 +302,7 @@ because it depends on the template-parse surface being exposed to test code (a v
 - **Failure messages that name the cause.** Covered in 2.2; this is the difference between a test
   that *catches* a bug and a test that *explains* it.
 - **It is a feature, not internal QA.** This harness ships *in* `lievit-spring-boot-starter`
-  (test-scope) as `io.lievit.test.Lievit`, documented in the README and the getting-
+  (test-scope) as `dev.lievit.test.Lievit`, documented in the README and the getting-
   started guide, the same way `Livewire::test()` is a documented Livewire feature. lievit's *own*
   internal tests (codec property-based, fuzzing, golden triples — ADR-0007) are a separate world the
   user never sees. `Lievit.test()` is the user's world.

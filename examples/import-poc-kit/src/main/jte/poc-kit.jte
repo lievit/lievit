@@ -1,4 +1,4 @@
-@import io.lievit.kit.StatWidget
+@import dev.lievit.kit.StatWidget
 <%--
   import-poc-kit consumer template.
 

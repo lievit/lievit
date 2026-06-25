@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-06-25
+
+### Changed
+
+- **Maven coordinate AND Java package are now `dev.lievit`** (were the `io.github.lievit` groupId +
+  the `io.lievit.*` package), published to **Maven Central**. `dev.lievit` is the reverse-DNS of the
+  validated `lievit.dev` domain; the old `io.lievit` package (from the never-purchased lievit.io) is
+  retired. This is the canonical distribution: consumers resolve `dev.lievit:lievit-*:1.0.3` from
+  Central everywhere (local, CI, any adopter), and — unlike JitPack — the `lievit-maven-plugin`
+  resolves too (a Maven plugin carries its groupId in its descriptor, so JitPack's `com.github.*`
+  re-coordinate failed it; Central with the real groupId works).
+
 ## [1.0.2] - 2026-06-25
 
 ### Fixed
@@ -21,8 +33,8 @@ All notable changes to this project are documented here. Format follows
 ### Fixed
 
 - **`lievit-maven-plugin` is now groupId-agnostic.** `stage-templates` no longer hard-codes the
-  lievit groupId (`io.github.lievit`): it scans ALL compile-scope dependency jars and stages any
-  that contain `*.jte` resources. A JitPack consumer (who resolves the artifacts under
+  lievit groupId (then `io.github.lievit`): it scans ALL compile-scope dependency jars and stages any
+  that contain `*.jte` resources. A JitPack consumer (who resolved the artifacts under
   `com.github.lievit.lievit:*`) previously got ZERO templates staged because the groupId never
   matched; now the plugin works regardless of the coordinate the consumer used (JitPack, Central,
   or local). The optional `<namespaces>` filter + the auto-detect default are unchanged. This
@@ -296,7 +308,7 @@ and lievit-kit both build green and dogfood the import path end-to-end (`example
   teaching a false invariant. `package-info.java` replaces the integer with a stable ROLE taxonomy
   (bootstrap / component / state / action / events / lifecycle / authorization / loading / page), and
   a build-time `AnnotationTaxonomyInvariantTest` asserts the documented set equals the actual set of
-  runtime annotations in `io.lievit`, so the doc can never silently drift again. The per-annotation
+  runtime annotations in `dev.lievit`, so the doc can never silently drift again. The per-annotation
   javadoc "one of the seven public annotations" lines were updated to the role-based language.
 
 - **`dropdown-menu` gains an optional `triggerClass` param** (backflow from gest, dogfood-then-extract):
@@ -341,7 +353,7 @@ and lievit-kit both build green and dogfood the import path end-to-end (`example
   active-filter indicator chips + reset-all, bulk select-all + per-row checkbox + the N-of-M bar,
   sortable header cells with `aria-sort` + chevron, header-group super-row, per-page selector,
   numbered pagination + "Showing X to Y of Z" count, column-manager, summary/footer row, empty state,
-  and the typed rich-cell switch. New view-model surface: `io.lievit.kit.page.KitTableView` (the
+  and the typed rich-cell switch. New view-model surface: `dev.lievit.kit.page.KitTableView` (the
   render-time bundle: URL patterns + filter-indicator chips + bulk `Selection` + `ColumnSummary`
   footer) and `KitTableComponent` (the generic kit-owned render entry that derives the server-first
   URL patterns from a resource's `AdminRoutes`), plus `AdminListView.Pagination.firstShown()` /
@@ -366,7 +378,7 @@ and lievit-kit both build green and dogfood the import path end-to-end (`example
   with its source-contract test and is covered by the real-compiler + typed-facade gate above. See
   the per-component entries below as they are filled in by the wave.
 - **Typed-state round-trip** (ADR-0020, the confirmed kit-CRUD blocker): a `Synthesizer<T>` SPI +
-  `SynthesizerRegistry` (`io.lievit.wire.synth`) so a non-primitive `@Wire` property (record, enum,
+  `SynthesizerRegistry` (`dev.lievit.wire.synth`) so a non-primitive `@Wire` property (record, enum,
   `LocalDate`/`LocalDateTime`/`LocalTime`/`Instant`, `BigDecimal`/`BigInteger`, `UUID`, `Set`, a
   non-String-keyed `Map`, or a user value object) dehydrates to a `@w`-tagged `{d, s, t}` tuple and
   hydrates back to the **exact** type, recursively — instead of decoding to a bare `LinkedHashMap`.
@@ -422,7 +434,7 @@ and lievit-kit both build green and dogfood the import path end-to-end (`example
     (byte-for-byte ADR-0001/0012 backward compatible); native hints for the new `WireEffects.Js`.
 
 - `Lievit.test()`: the developer-facing component test harness (ADR-0010), shipped as a feature in
-  `lievit-spring-boot-starter` (`io.lievit.test`). A fluent tester that mounts and drives
+  `lievit-spring-boot-starter` (`dev.lievit.test`). A fluent tester that mounts and drives
   a `@LievitComponent` through the real wire pipeline (codec → registry → dispatcher → template →
   the `POST /lievit/{id}/call` HTTP edge over `MockMvc`), headless, carrying the signed snapshot
   internally. Surface: `mount()`, `model(field, value)`, `call(action)`, `assertWire(path, value)`
@@ -462,7 +474,7 @@ and lievit-kit both build green and dogfood the import path end-to-end (`example
   + three page components + JTE templates) drives the whole spine List→Create→Edit→Delete through
   the real runtime and effects channel (`HelloAdminIT`).
 - Release readiness: `jitpack.yml` so the Java 25 reactor builds on JitPack and is consumable as
-  `com.github.lievit.lievit:<module>`; the README gained a JitPack install snippet (Maven + Gradle).
+  `dev.lievit:<module>`; the README gained a JitPack install snippet (Maven + Gradle).
   Single source of version truth via the Maven CI-friendly `${revision}` property + the
   flatten-maven-plugin (a version bump is now a one-line edit, not 12). CI un-stubbed: the `build`
   job runs the real `./mvnw -B verify`, the `native` job runs the real AOT reachability gate, and

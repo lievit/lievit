@@ -24,7 +24,7 @@
  *   - Error links: <a href="#fieldId"> for errors with fieldId, plain text for form-level.
  *   - data-slot=form-error (slot name preserved).
  *   - aria-describedby conditional wiring.
- *   - No io.lievit.* imports.
+ *   - No dev.lievit.* imports.
  *   - No inline <script> / on* handlers (CSP).
  *   - No nested JTE comments.
  */
@@ -42,8 +42,8 @@ const markup = src.replace(/<%--[\s\S]*?--%>/g, "");
 // §1 Security / presentational contract
 // ---------------------------------------------------------------------------
 describe("form.jte -- security and presentational contract", () => {
-  test("never imports io.lievit.* (presentational only)", () => {
-    expect(src).not.toMatch(/@import io\.lievit\./);
+  test("never imports dev.lievit.* (presentational only)", () => {
+    expect(src).not.toMatch(/@import dev\.lievit\./);
   });
 
   test("no inline <script> (CSP)", () => {

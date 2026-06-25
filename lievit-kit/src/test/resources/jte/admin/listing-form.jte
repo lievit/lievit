@@ -1,7 +1,7 @@
 @import java.util.Map
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.AdminFormView
-@import io.lievit.kit.hello.FormPage
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.AdminFormView
+@import dev.lievit.kit.hello.FormPage
 @param FormPage _instance
 @param Map<String, String> state
 @param String listUrl

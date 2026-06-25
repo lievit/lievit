@@ -8,7 +8,7 @@
     {
       "path": "wire/dialog/DialogComponent.java",
       "type": "registry:wire",
-      "target": "io/lievit/wire/DialogComponent.java",
+      "target": "dev/lievit/wire/DialogComponent.java",
       "root": "java"
     },
     {

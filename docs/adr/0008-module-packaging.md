@@ -10,7 +10,7 @@ How lievit is cut into Maven artifacts is a one-way-ish door once published: coo
 hard to change after adopters depend on them. Two positions are on the table, and they disagree.
 
 **Position A (the entity, locked text).** Seven artifacts:
-`io.lievit:lievit-core` · `-jte` · `-thymeleaf` · `-mustache` · `-freemarker` · `-raw` ·
+`dev.lievit:lievit-core` · `-jte` · `-thymeleaf` · `-mustache` · `-freemarker` · `-raw` ·
 `-spring-boot-starter`. One artifact per template adapter plus a core plus a starter.
 
 **Position B (Francesco, 2026-06-17).** "Tutto in uno, no lievit-core, admin inside." Collapse
@@ -27,7 +27,7 @@ cost.
 **Resolved by Francesco, 2026-06-17.** Position A, in a monorepo:
 
 - **One repository (monorepo) `lievit/lievit`**, holding **seven Maven artifacts**:
-  `io.lievit:lievit-core` · `-jte` · `-thymeleaf` · `-mustache` · `-freemarker` · `-raw` ·
+  `dev.lievit:lievit-core` · `-jte` · `-thymeleaf` · `-mustache` · `-freemarker` · `-raw` ·
   `-spring-boot-starter`. `lievit-core` IS a published coordinate (sub-question 1: published, not
   hidden). All five template adapters are separate artifacts from v0.1 (sub-question 2: split).
   `lievit-spring-boot-starter` is the single primary dependency most adopters add.
@@ -47,7 +47,7 @@ reserved as a future SEPARATE REPOSITORY) is **superseded**. There is **no real 
 separate repo for now**, so the admin ships **inside this monorepo** as a module:
 
 - The admin is named **`lievit-kit`** ("Filament for Spring"), a reactor module `lievit-kit/`
-  (`io.lievit:lievit-kit`), **path-depending on `lievit-core`** (the SPI) and on
+  (`dev.lievit:lievit-kit`), **path-depending on `lievit-core`** (the SPI) and on
   `lievit-spring-boot-starter` (the wire runtime). It is NOT bundled into the runtime: an adopter who
   wants only the wire runtime never pulls it; an adopter who wants the admin adds the one extra
   coordinate. This keeps the ADR-0004 / ADR-0006 acyclic-graph and native-tree-shaking properties

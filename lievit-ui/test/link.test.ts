@@ -226,7 +226,7 @@ describe("link -- hygiene (token-driven, CSP-clean)", () => {
     expect(numericUtils, `non-token numeric utilities: ${numericUtils.join(", ")}`).toEqual([]);
   });
 
-  test("no @import io.lievit.* (templates are presentational: data arrives via @param only)", () => {
-    expect(src).not.toMatch(/@import io\.lievit\./);
+  test("no @import dev.lievit.* (templates are presentational: data arrives via @param only)", () => {
+    expect(src).not.toMatch(/@import dev\.lievit\./);
   });
 });

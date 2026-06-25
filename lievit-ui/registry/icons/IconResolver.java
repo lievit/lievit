@@ -4,7 +4,7 @@
  *
  * Lucide icons (ISC, https://lucide.dev) -- see registry/icons/LICENSE-lucide.
  */
-package io.lievit.ui;
+package dev.lievit.ui;
 
 /**
  * SPI for resolving an icon name to its inner SVG markup (the {@code <path>}/{@code <circle>}/...
@@ -15,7 +15,7 @@ package io.lievit.ui;
  * classpath: copy {@code icon.jte} in and it works out of the box. An adopter who wants a different
  * icon set (a larger Lucide vendor, an in-house brand set, a sprite-backed source) implements this
  * interface and registers it via {@link LievitIcons#setResolver(IconResolver)} -- the partial's
- * {@code @import static io.lievit.ui.LievitIcons.body} call site never changes.
+ * {@code @import static dev.lievit.ui.LievitIcons.body} call site never changes.
  *
  * <p>Invariant: an unknown name returns {@code ""} (empty markup), never {@code null} and never a
  * thrown exception. The partial emits the result with {@code $unsafe{...}}, so a resolver MUST only

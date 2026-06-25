@@ -1,7 +1,7 @@
 @import java.util.Map
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.AdminViewView
-@import io.lievit.kit.hello.ListingViewComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.AdminViewView
+@import dev.lievit.kit.hello.ListingViewComponent
 @param ListingViewComponent _instance
 @param String recordId
 @param boolean notFound

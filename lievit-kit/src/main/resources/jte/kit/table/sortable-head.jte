@@ -1,5 +1,5 @@
-@import io.lievit.kit.AdminListView
-@import io.lievit.kit.SortDirection
+@import dev.lievit.kit.AdminListView
+@import dev.lievit.kit.SortDirection
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

@@ -3,7 +3,7 @@
   Licensed under the Apache License, Version 2.0 (the "License").
 
   lievit-ui notification-bell/item partial -- one notification ROW in the bell panel (the
-  Filament database-notification entry, one io.lievit.kit.DatabaseNotification): a title, an
+  Filament database-notification entry, one dev.lievit.kit.DatabaseNotification): a title, an
   optional body, a relative time, an optional leading icon, and -- when unread -- an unread DOT
   plus an optional mark-read action. Server-first, no JS.
 

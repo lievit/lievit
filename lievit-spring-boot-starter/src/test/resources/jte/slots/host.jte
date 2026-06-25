@@ -1,5 +1,5 @@
-@import io.lievit.component.LievitChildren
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.LievitChildren
+@import dev.lievit.component.ComponentMetadata
 @param String title
 @param int clicks
 @param ComponentMetadata _component

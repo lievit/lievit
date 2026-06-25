@@ -460,11 +460,11 @@ describe("dropdown-menu/item -- wireArgs SAFE channel (XSS trust split)", () => 
 });
 
 // ---------------------------------------------------------------------------
-// Item partial: no io.lievit imports (JTE-compile gate rule)
+// Item partial: no dev.lievit imports (JTE-compile gate rule)
 // ---------------------------------------------------------------------------
-describe("dropdown-menu/item -- JTE gate: no io.lievit imports", () => {
-  test("item partial has no @import io.lievit (forbidden in the JTE classpath)", () => {
-    expect(itemSrc).not.toContain("@import io.lievit");
+describe("dropdown-menu/item -- JTE gate: no dev.lievit imports", () => {
+  test("item partial has no @import dev.lievit (forbidden in the JTE classpath)", () => {
+    expect(itemSrc).not.toContain("@import dev.lievit");
   });
 });
 
@@ -604,9 +604,9 @@ describe("dropdown-menu -- CSP hygiene (all partials)", () => {
     }
   });
 
-  test("no @import io.lievit in any partial (JTE-compile classpath rule)", () => {
+  test("no @import dev.lievit in any partial (JTE-compile classpath rule)", () => {
     for (const src of allSrc) {
-      expect(src).not.toContain("@import io.lievit");
+      expect(src).not.toContain("@import dev.lievit");
     }
   });
 

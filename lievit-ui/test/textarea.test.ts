@@ -697,8 +697,8 @@ describe("textarea.jte -- JTE compile pre-check (no nested comments, balanced ta
     expect(opens).toBe(closes);
   });
 
-  test("no io.lievit.* import in the template (JTE classpath is JDK+jte+icons only)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit.* import in the template (JTE classpath is JDK+jte+icons only)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("@if/@endif count balances (no unclosed conditional)", () => {

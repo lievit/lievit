@@ -1,4 +1,4 @@
-@import io.lievit.kit.page.KitPageView
+@import dev.lievit.kit.page.KitPageView
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

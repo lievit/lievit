@@ -43,7 +43,7 @@ documentation of the endpoint's security-context contract.
 The invariant: **no error response carries a stack trace, an internal class name (FQN), the
 exception message, or any snapshot / token / payload content.** Detail lives only in the server log.
 Pinned by `HostileWireIT` (a throwing action whose message names a fake internal class
-`io.lievit.secret.GadgetChain`; the test asserts none of it reaches the body).
+`dev.lievit.secret.GadgetChain`; the test asserts none of it reaches the body).
 
 **The wire endpoint inherits the page's security context.** lievit does not put Spring Security on
 the starter's classpath (it would force a dependency on every consumer). The contract instead is

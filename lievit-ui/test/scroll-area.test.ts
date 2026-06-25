@@ -9,7 +9,7 @@
  *   §1  Source-text: @param API, doc-comment structure, hard-rule compliance.
  *   §2  Source-text: data-slot anatomy, orientation + overlay branches, ARIA attributes.
  *   §3  Source-text: CSP constraints (no inline script, no on* handler, no <style> block,
- *       no hardcoded hex, no io.lievit import).
+ *       no hardcoded hex, no dev.lievit import).
  *   §4  Source-text: JTE compile contract (no nested comments, no tag-name expression,
  *       no @if in attr-name position, balanced tags).
  *   §5  Enhancer: scroll-area.enhancer.ts behavior (happy-dom, real DOM, no JTE compile).
@@ -66,8 +66,8 @@ describe("scroll-area.jte -- params & docs API", () => {
     expect(src).toContain("@param java.util.Map<String, String> dataAttrs = java.util.Map.of()");
   });
 
-  test("no io.lievit import (gate classpath is JDK + jte only)", () => {
-    expect(src, "must not import io.lievit.*").not.toContain("@import io.lievit");
+  test("no dev.lievit import (gate classpath is JDK + jte only)", () => {
+    expect(src, "must not import dev.lievit.*").not.toContain("@import dev.lievit");
   });
 
   test("imports the three JTE utility types (Content, StringOutput, Escape)", () => {

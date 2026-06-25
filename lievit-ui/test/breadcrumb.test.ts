@@ -367,12 +367,12 @@ describe("breadcrumb -- token discipline + CSP", () => {
     expect(stripped).not.toMatch(/\son[a-z]+\s*=/i);
   });
 
-  test("does NOT import io.lievit.* (gate classpath is JDK + jte + registry/icons only)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit\./);
+  test("does NOT import dev.lievit.* (gate classpath is JDK + jte + registry/icons only)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit\./);
   });
 
-  test("does NOT use @import static for any io.lievit class", () => {
-    expect(src).not.toMatch(/@import\s+static\s+io\.lievit\./);
+  test("does NOT use @import static for any dev.lievit class", () => {
+    expect(src).not.toMatch(/@import\s+static\s+dev\.lievit\./);
   });
 });
 

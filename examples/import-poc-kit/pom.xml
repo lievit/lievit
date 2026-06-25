@@ -26,7 +26,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>io.github.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-parent</artifactId>
     <version>${revision}</version>
     <relativePath>../../pom.xml</relativePath>
@@ -56,7 +56,7 @@
       dependency intent visible and to prove the consumer pom mirrors the gest topology.
     -->
     <dependency>
-      <groupId>io.github.lievit</groupId>
+      <groupId>dev.lievit</groupId>
       <artifactId>lievit-ui</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -66,7 +66,7 @@
       Transitively brings lievit-ui (already declared above) + Spring context + validation.
     -->
     <dependency>
-      <groupId>io.github.lievit</groupId>
+      <groupId>dev.lievit</groupId>
       <artifactId>lievit-kit</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -84,7 +84,7 @@
     <plugins>
       <!--
         STEP 1: lievit-maven-plugin:stage-templates (phase: generate-sources)
-        Resolves io.github.lievit:* artifacts and extracts ALL *.jte entries from their jars
+        Resolves dev.lievit:* artifacts and extracts ALL *.jte entries from their jars
         into target/jte-src/, preserving namespace paths:
           - lievit-ui jar: lievit/button.jte, lievit/stat-card.jte, lievit/icon.jte, ...
           - lievit-kit jar: kit/widget/stat.jte, kit/table.jte, ...
@@ -92,7 +92,7 @@
         Then copies src/main/jte/ (poc-kit.jte) alongside.
       -->
       <plugin>
-        <groupId>io.github.lievit</groupId>
+        <groupId>dev.lievit</groupId>
         <artifactId>lievit-maven-plugin</artifactId>
         <version>${project.version}</version>
         <executions>

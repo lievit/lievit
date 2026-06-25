@@ -1,5 +1,5 @@
-@import io.lievit.component.LievitIsland
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.LievitIsland
+@import dev.lievit.component.ComponentMetadata
 @param int feed
 @param String outside
 @param ComponentMetadata _component

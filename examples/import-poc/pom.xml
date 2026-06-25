@@ -10,7 +10,7 @@
   manually wired jte merge). The recipe is now:
 
     1. lievit-maven-plugin:stage-templates (@generate-sources)
-       Resolves io.github.lievit:* artifacts, extracts lievit/** JTE resources from their
+       Resolves dev.lievit:* artifacts, extracts lievit/** JTE resources from their
        jars into target/jte-src/lievit/, then copies src/main/jte/** alongside.
        One goal replaces the two-plugin unpack+merge hand-wiring.
 
@@ -34,7 +34,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>io.github.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-parent</artifactId>
     <version>${revision}</version>
     <relativePath>../../pom.xml</relativePath>
@@ -62,7 +62,7 @@
       Transitively brings gg.jte:jte.
     -->
     <dependency>
-      <groupId>io.github.lievit</groupId>
+      <groupId>dev.lievit</groupId>
       <artifactId>lievit-ui</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -80,12 +80,12 @@
     <plugins>
       <!--
         STEP 1 (was: unpack + copy-resources, three plugins):
-        lievit-maven-plugin:stage-templates resolves the io.github.lievit:lievit-ui artifact,
+        lievit-maven-plugin:stage-templates resolves the dev.lievit:lievit-ui artifact,
         extracts lievit/** JTE entries into target/jte-src/, and copies src/main/jte/** alongside.
         Phase: generate-sources (before the jte precompile at process-classes).
       -->
       <plugin>
-        <groupId>io.github.lievit</groupId>
+        <groupId>dev.lievit</groupId>
         <artifactId>lievit-maven-plugin</artifactId>
         <version>${project.version}</version>
         <executions>

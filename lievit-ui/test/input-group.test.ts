@@ -455,14 +455,14 @@ describe("input-group.jte -- CSP hygiene", () => {
     ).toEqual([]);
   });
 
-  test("no io.lievit import (JTE-compile gate classpath is JDK + jte + icons only)", () => {
-    expect(src).not.toMatch(/@import io\.lievit/);
+  test("no dev.lievit import (JTE-compile gate classpath is JDK + jte + icons only)", () => {
+    expect(src).not.toMatch(/@import dev\.lievit/);
   });
 
-  test("no io.lievit or any lievit Java import in the @import lines", () => {
+  test("no dev.lievit or any lievit Java import in the @import lines", () => {
     const imports = src.match(/@import [^\n]+/g) ?? [];
     for (const imp of imports) {
-      expect(imp, `forbidden import: ${imp}`).not.toMatch(/io\.lievit/);
+      expect(imp, `forbidden import: ${imp}`).not.toMatch(/dev\.lievit/);
     }
   });
 

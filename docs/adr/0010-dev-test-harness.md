@@ -39,7 +39,7 @@ ergonomic and ship it as a **product feature**, not leave it as boilerplate ever
 
 ## Decision
 
-lievit ships a developer-facing test harness, `io.lievit.test.Lievit.test(Class)`, in
+lievit ships a developer-facing test harness, `dev.lievit.test.Lievit.test(Class)`, in
 `lievit-spring-boot-starter` at test scope, documented as a feature. It is the lievit answer to
 `Livewire::test()`, designed to pull behaviour out of the browser tier.
 

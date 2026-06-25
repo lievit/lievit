@@ -63,8 +63,8 @@ describe("tabs (v-next headless controlled/uncontrolled PARTIAL — source-text 
     expect(src).toContain("@@template.lievit.tabs(");
   });
 
-  test("NEVER imports io.lievit.* (JTE-compile gate classpath excludes it)", () => {
-    expect(src).not.toMatch(/@import\s+io\.lievit\./);
+  test("NEVER imports dev.lievit.* (JTE-compile gate classpath excludes it)", () => {
+    expect(src).not.toMatch(/@import\s+dev\.lievit\./);
   });
 
   test("NEVER has @Wire, _component, _instance, _componentSnapshot params (outside comments)", () => {

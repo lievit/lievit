@@ -1,5 +1,5 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.spring.keyless.KeylessListComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.spring.keyless.KeylessListComponent
 @param int rows
 @param ComponentMetadata _component
 @param Object _instance

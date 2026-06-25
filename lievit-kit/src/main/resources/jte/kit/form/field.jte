@@ -1,5 +1,5 @@
-@import io.lievit.kit.AdminFormView
-@import io.lievit.kit.SelectOption
+@import dev.lievit.kit.AdminFormView
+@import dev.lievit.kit.SelectOption
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

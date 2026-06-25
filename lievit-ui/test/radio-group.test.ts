@@ -97,8 +97,8 @@ describe("radio-group.jte -- @param declarations", () => {
     expect(src).toContain("@param java.util.Map<String, String> optionAttrs = java.util.Map.of()");
   });
 
-  test("no @import io.lievit.* (JTE gate classpath has JDK + jte + icons only)", () => {
-    expect(src).not.toMatch(/@import io\.lievit\./);
+  test("no @import dev.lievit.* (JTE gate classpath has JDK + jte + icons only)", () => {
+    expect(src).not.toMatch(/@import dev\.lievit\./);
   });
 
   test("imports only gg.jte.output.StringOutput and gg.jte.html.escape.Escape", () => {

@@ -1,4 +1,4 @@
-@param io.lievit.kit.hello.Listing row
+@param dev.lievit.kit.hello.Listing row
 <%-- NEGATIVE FIXTURE (ADR-0082): the pre-fix hello-admin row-arm that shipped silently broken.
      l:value is not a lievit directive and l:model binds an INPUT listener a <button> never fires,
      so this armed nothing in the browser while the server ITs passed. The validator MUST reject it.

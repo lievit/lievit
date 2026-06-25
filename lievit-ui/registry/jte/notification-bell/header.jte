@@ -7,7 +7,7 @@
   clear-all actions on the right. Server-first, no JS.
 
   TIER: STATIC presentational -> JTE partial. The two actions are real <button>s that POST a
-  wire action (the io.lievit.kit.NotificationBell markAllRead() / clearAll() operations): a
+  wire action (the dev.lievit.kit.NotificationBell markAllRead() / clearAll() operations): a
   non-blank action URL renders the button as a form submit (formaction, CSP-clean, no inline
   handler); otherwise the adopter wires an l:click in their copy of the markup. The buttons
   carry the mark-read ("check") and clear ("trash-2") Lucide icons + a text label so the

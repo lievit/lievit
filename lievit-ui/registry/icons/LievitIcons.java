@@ -4,11 +4,11 @@
  *
  * Lucide icons (ISC, https://lucide.dev) -- see registry/icons/LICENSE-lucide.
  */
-package io.lievit.ui;
+package dev.lievit.ui;
 
 /**
  * Static entry point the {@code lievit/icon.jte} partial imports ({@code @import static
- * io.lievit.ui.LievitIcons.body}). It delegates to a swappable {@link IconResolver} so the partial
+ * dev.lievit.ui.LievitIcons.body}). It delegates to a swappable {@link IconResolver} so the partial
  * renders standalone -- the default resolver is lievit's own bundled, tree-shaken Lucide set
  * ({@link LucideIconResolver}), so the component works with ZERO adopter classpath out of the box.
  *

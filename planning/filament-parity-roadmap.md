@@ -18,7 +18,7 @@ a gest one-off.
 ## What ALREADY exists (gap analysis 2026-06-20 - do NOT rebuild)
 - **`@LievitUrl` (lievit-core)**: COMPLETE. Binds a `@Wire` field to the URL query string with
   PUSH/REPLACE history modes, aliasing, keepEmpty. This IS the URL-determinism Francesco wants -
-  the calendar just has to USE it (a dogfood), it is not a build. (`io.lievit.LievitUrl` +
+  the calendar just has to USE it (a dogfood), it is not a build. (`dev.lievit.LievitUrl` +
   `component/UrlEffect.java`.)
 - **Full pagination (lievit-ui `registry/jte/pagination.jte`)**: COMPLETE - First/Prev/1 2 3/Next/Last
   + ellipsis windowing, real `<a href>`, APG a11y. gest shows "Pagina 1 di 1" because it does NOT

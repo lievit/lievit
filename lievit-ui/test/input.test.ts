@@ -500,14 +500,14 @@ describe("input.jte -- CSP hygiene (no inline script, no on* handlers)", () => {
     expect(inlineHandlers, `unexpected inline handlers: ${inlineHandlers.join(", ")}`).toEqual([]);
   });
 
-  test("no io.lievit import (JTE-compile gate classpath is JDK + jte + icons only)", () => {
-    expect(src).not.toMatch(/@import io\.lievit/);
+  test("no dev.lievit import (JTE-compile gate classpath is JDK + jte + icons only)", () => {
+    expect(src).not.toMatch(/@import dev\.lievit/);
   });
 
-  test("no @import io.lievit or any lievit Java import that would fail the compile gate", () => {
+  test("no @import dev.lievit or any lievit Java import that would fail the compile gate", () => {
     const imports = src.match(/@import [^\n]+/g) ?? [];
     for (const imp of imports) {
-      expect(imp, `forbidden import: ${imp}`).not.toMatch(/io\.lievit/);
+      expect(imp, `forbidden import: ${imp}`).not.toMatch(/dev\.lievit/);
     }
   });
 

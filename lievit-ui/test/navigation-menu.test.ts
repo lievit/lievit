@@ -85,8 +85,8 @@ describe("navigation-menu: house rules", () => {
     expect(read(f)).not.toMatch(/@\*/);
   });
 
-  test.each(ALL)("%s has no io.lievit import", (f) => {
-    expect(read(f)).not.toMatch(/@import\s+io\.lievit/);
+  test.each(ALL)("%s has no dev.lievit import", (f) => {
+    expect(read(f)).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test.each(ALL)("%s has no literal colour values (token-only)", (f) => {
@@ -142,7 +142,7 @@ describe("navigation-menu.jte shell structure", () => {
     expect(src).not.toContain('data-lievit-collection-roving-tabindex="true"');
   });
 
-  test("no io.lievit import in shell (JTE-compile-classpath safe)", () => {
+  test("no dev.lievit import in shell (JTE-compile-classpath safe)", () => {
     expect(read(SHELL)).not.toMatch(/@import/);
   });
 });

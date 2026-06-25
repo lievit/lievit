@@ -31,7 +31,7 @@
      components through this facade, compile-checked, so the typed API is proven, not just
      asserted on source text. See README.md for the adopter copy-paste.
 
-  The icon partial does `@import static io.lievit.ui.LievitIcons.body` (lievit-owned, NO
+  The icon partial does `@import static dev.lievit.ui.LievitIcons.body` (lievit-owned, NO
   adopter class), so registry/icons (which holds the IconResolver SPI + its default
   LucideIconResolver + the LievitIcons facade) is wired in as an extra compile source root.
   Compiling with ONLY registry/icons on the classpath is the standalone proof.
@@ -44,7 +44,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.lievit</groupId>
+  <groupId>dev.lievit</groupId>
   <artifactId>lievit-ui-jte-compile-smoke</artifactId>
   <version>0</version>
   <packaging>jar</packaging>
@@ -94,7 +94,7 @@
     <plugins>
       <!-- Add the registry/icons dir as a compile source root so the lievit-owned
            icon SPI (IconResolver + LucideIconResolver + the LievitIcons facade,
-           package io.lievit.ui) is on the classpath when the icon template's static
+           package dev.lievit.ui) is on the classpath when the icon template's static
            import is compiled. No adopter class is involved; this IS the standalone
            proof. -->
       <plugin>

@@ -226,8 +226,8 @@ describe("jte-source — hover-card-trigger.jte: static markup contract", () => 
     expect(triggerSrc).toContain('"--hc-" + cardId');
   });
 
-  it("has no @import io.lievit (runtime types must not be imported in templates)", () => {
-    expect(triggerSrc).not.toContain("@import io.lievit");
+  it("has no @import dev.lievit (runtime types must not be imported in templates)", () => {
+    expect(triggerSrc).not.toContain("@import dev.lievit");
   });
 
   it("has no inline <script> or on* handlers (CSP-clean)", () => {
@@ -317,8 +317,8 @@ describe("jte-source — hover-card.jte: static markup contract", () => {
     expect(cardSrc).toContain("$unsafe{dataAttrsMarkup}");
   });
 
-  it("has no @import io.lievit (runtime types must not be imported in templates)", () => {
-    expect(cardSrc).not.toContain("@import io.lievit");
+  it("has no @import dev.lievit (runtime types must not be imported in templates)", () => {
+    expect(cardSrc).not.toContain("@import dev.lievit");
   });
 
   it("has no inline <script> or on* handlers (CSP-clean)", () => {

@@ -110,9 +110,9 @@ describe("pagination (#438)", () => {
   });
   test("derives the page window from params (sliding window algorithm) and page links are real <a href>", () => {
     // v-next: sliding window uses wStart/wEnd locals computed from currentPage + windowSize;
-    // URL-mode links are <a href="${baseUrl}?page=${p}">
+    // URL-mode links are <a href="${baseUrl}${_sep}page=${p}"> (separator is ? or & based on baseUrl)
     expect(src).toMatch(/@for\s*\(int p = wStart; p <= wEnd; p\+\+\)/);
-    expect(src).toContain("baseUrl}?page=");
+    expect(src).toContain("baseUrl}${_sep}page=");
     expect(src).toMatch(/<a\b/);
   });
   test("prev/next use Lucide chevrons; disabled at the boundary", () => {

@@ -311,8 +311,8 @@ describe("chart -- security hygiene", () => {
     expect(src).toContain("Escape.htmlAttribute");
   });
 
-  test("no io.lievit import (HARD rule: gate classpath does not include lievit types)", () => {
-    expect(src).not.toMatch(/^@import io\.lievit/m);
+  test("no dev.lievit import (HARD rule: gate classpath does not include lievit types)", () => {
+    expect(src).not.toMatch(/^@import dev\.lievit/m);
   });
 });
 
@@ -403,8 +403,8 @@ describe("chart.enhancer.ts -- source structure", () => {
     expect(enhSrc).not.toMatch(/\bon[A-Z][a-z]+\s*=/);
   });
 
-  test("does not import io.lievit", () => {
-    expect(enhSrc).not.toContain('from "io.lievit');
+  test("does not import dev.lievit", () => {
+    expect(enhSrc).not.toContain('from "dev.lievit');
   });
 });
 

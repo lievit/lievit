@@ -1,4 +1,4 @@
-@import io.lievit.component.ComponentMetadata
+@import dev.lievit.component.ComponentMetadata
 @param String value
 @param ComponentMetadata _component
 <div data-lievit-component="${_component.className()}">

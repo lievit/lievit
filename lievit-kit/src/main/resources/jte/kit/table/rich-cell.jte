@@ -1,4 +1,4 @@
-@import io.lievit.kit.Cell
+@import dev.lievit.kit.Cell
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -56,7 +56,7 @@
     @else
         <div class="flex items-center">
             <div class="flex -space-x-2">
-                @for(io.lievit.kit.AvatarStackColumn.Avatar avatar : stack.visible())
+                @for(dev.lievit.kit.AvatarStackColumn.Avatar avatar : stack.visible())
                     @template.lievit.avatar(name = avatar.label(),
                         src = avatar.hasImage() ? avatar.image() : null,
                         size = "sm",

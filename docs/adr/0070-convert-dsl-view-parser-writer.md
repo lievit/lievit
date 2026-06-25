@@ -7,7 +7,7 @@
 ## Context
 
 Issue #141 asks for a `convert` command that transforms a component between the two authoring shapes
-locked in ADR-0003: single-file (markup inline via the `io.lievit.dsl.H` builder, ADR-0018) and
+locked in ADR-0003: single-file (markup inline via the `dev.lievit.dsl.H` builder, ADR-0018) and
 multi-file (a class + a JTE template). Converting *out of* single-file needs to read the
 `@LievitRender Html view()` render expression (a tree of `H.*` factory calls with a fluent
 `.attr(...)` / `.wireClick(...)` chain) and turn it into a neutral form; converting *into* single-file
@@ -18,7 +18,7 @@ convenience would be a heavy, GraalVM-hostile dependency for a tiny, fixed gramm
 
 ## Decision
 
-Ship a purpose-built `DslViewParser` + `DslViewWriter` in `lievit-compiler` (`io.lievit.compiler.convert`)
+Ship a purpose-built `DslViewParser` + `DslViewWriter` in `lievit-compiler` (`dev.lievit.compiler.convert`)
 that read and write exactly the curated DSL surface, not arbitrary Java:
 
 - The parser is a small recursive-descent reader over the render expression: a factory name + its
@@ -31,7 +31,7 @@ that read and write exactly the curated DSL surface, not arbitrary Java:
 
 Both go through the engine-neutral `ViewNode` AST (ADR-0072), so a parse-write round-trip is a fixed
 point. The convert deliberately emits/parses the DSL **as text**: the compiler never imports
-`io.lievit.dsl`, preserving its ArchUnit-enforced zero-DSL-dependency boundary (ADR-0023).
+`dev.lievit.dsl`, preserving its ArchUnit-enforced zero-DSL-dependency boundary (ADR-0023).
 
 ## Consequences
 

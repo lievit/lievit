@@ -13,7 +13,7 @@
  *
  * Emits two consumers from the same source of truth:
  *   - LucideIconResolver.java : lievit's DEFAULT IconResolver impl (the bundled, tree-shaken
- *                               Lucide map). lievit-owned package io.lievit.ui; the JTE partial
+ *                               Lucide map). lievit-owned package dev.lievit.ui; the JTE partial
  *                               reaches it through the LievitIcons facade, never directly.
  *   - icon-bodies.ts          : the TS map for Lit islands that need an inline icon (light-DOM)
  *
@@ -67,7 +67,7 @@ const java = `/*
  * uniform <svg> wrapper lives in icon.jte. The partial never names this class directly -- it goes
  * through the LievitIcons facade, which an adopter can repoint via LievitIcons.setResolver(...).
  */
-package io.lievit.ui;
+package dev.lievit.ui;
 
 import java.util.Map;
 

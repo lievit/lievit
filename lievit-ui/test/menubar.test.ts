@@ -185,11 +185,11 @@ describe("menubar -- token-driven bar styling", () => {
 });
 
 // ---------------------------------------------------------------------------
-// JTE gate rules: no io.lievit imports, no nested comments, no inline script
+// JTE gate rules: no dev.lievit imports, no nested comments, no inline script
 // ---------------------------------------------------------------------------
 describe("menubar -- JTE gate rules", () => {
-  test("no @import io.lievit (forbidden in the JTE classpath)", () => {
-    expect(src).not.toContain("@import io.lievit");
+  test("no @import dev.lievit (forbidden in the JTE classpath)", () => {
+    expect(src).not.toContain("@import dev.lievit");
   });
 
   test("no nested JTE comments (inner --%> would close outer comment early)", () => {

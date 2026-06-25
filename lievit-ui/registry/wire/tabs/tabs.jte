@@ -1,5 +1,5 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.wire.TabsComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.wire.TabsComponent
 @import java.util.List
 <%--
   Copyright 2026 Francesco Bilotta

@@ -1,16 +1,16 @@
-@import io.lievit.kit.StatWidget
+@import dev.lievit.kit.StatWidget
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-kit :: kit.widget.stat - renders ONE io.lievit.kit.StatWidget as the lievit-ui stat-card
+  lievit-kit :: kit.widget.stat - renders ONE dev.lievit.kit.StatWidget as the lievit-ui stat-card
   (the Filament StatsOverview stat / KPI card). This is the widget twin of kit.table.rich-cell: the
   single canonical place a kit StatWidget paints onto the lievit-ui presentational primitive, so an
   adopter stops hand-assembling a KPI card per dashboard.
 
   The StatWidget carries (issue #309): heading, value() (a Supplier already resolved to a String by
-  the controller / the model accessor), description, a leading icon() (an io.lievit.kit.Icon alias),
-  a color() (io.lievit.kit.Color, semantic name), a descriptionIcon() + descriptionIconPosition()
+  the controller / the model accessor), description, a leading icon() (an dev.lievit.kit.Icon alias),
+  a color() (dev.lievit.kit.Color, semantic name), a descriptionIcon() + descriptionIconPosition()
   (the trend arrow before/after the description), an optional chart() sparkline (small line of
   values), and an optional url() + opensInNewTab() turning the whole card into a link.
 
@@ -47,7 +47,7 @@
     chart sparkline   -> footer slot
     descriptionIcon   -> mapped to trendValue via description; trend derived from color
 --%>
-!{var colorName = stat.color().map(io.lievit.kit.Color::name).orElse("");}
+!{var colorName = stat.color().map(dev.lievit.kit.Color::name).orElse("");}
 !{var statVariant = "success".equals(colorName) ? "success"
     : "danger".equals(colorName) || "destructive".equals(colorName) ? "destructive"
     : "warning".equals(colorName) ? "warning"

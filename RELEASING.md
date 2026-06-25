@@ -57,8 +57,8 @@ changelogs.
 
 ## Distribution
 
-Pre-first-release, consume via JitPack (`com.github.lievit.lievit:<module>`, a tag / commit /
-`<branch>-SNAPSHOT`); see the README. On the first tagged release the modules also publish to Maven
-Central via the `release` profile (signed source + javadoc jars). The jte-models typed facade is
-generated in the adopter's own build from the copied-in partials (see
-`lievit-ui/test/jte-compile/README.md`), so it tracks the adopter's lievit version automatically.
+Modules publish to Maven Central under `dev.lievit` via the `release` profile
+(signed source + javadoc jars). See the README for the install coordinates.
+The jte-models typed facade is generated in the adopter's own build from the copied-in
+partials (see `lievit-ui/test/jte-compile/README.md`), so it tracks the adopter's lievit
+version automatically.

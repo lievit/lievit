@@ -1,10 +1,10 @@
-@import io.lievit.kit.AdminAction
-@import io.lievit.kit.ActionVariant
+@import dev.lievit.kit.AdminAction
+@import dev.lievit.kit.ActionVariant
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
 
-  lievit-kit :: kit.action - render ONE first-class admin action (io.lievit.kit.AdminAction) as the
+  lievit-kit :: kit.action - render ONE first-class admin action (dev.lievit.kit.AdminAction) as the
   Filament action trigger, onto the lievit-ui button / link / badge / icon partials. Sibling of
   kit/table.jte: the kit ships THIS, so an adopter stops hand-assembling the action affordance per
   resource. A header/row/bulk cluster renders it through kit/action/group.jte.

@@ -10,7 +10,7 @@ For the *why* behind a decision, follow the ADR links: the guides describe behav
 
 ## Read order
 
-1. [Getting started](getting-started.md) — install via JitPack, build a Counter in five minutes.
+1. [Getting started](getting-started.md) — install via Maven Central, build a Counter in five minutes.
 2. [Components and the wire protocol](components-and-wire.md) — the mount/render/action/re-render
    loop, the snapshot, what crosses the wire.
 3. [Directives reference](directives.md) — every `l:*` directive that ships, with modifiers.

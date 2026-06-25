@@ -1,7 +1,7 @@
 @import java.util.Map
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.kit.WizardAction
-@import io.lievit.kit.wire.WizardActionComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.kit.WizardAction
+@import dev.lievit.kit.wire.WizardActionComponent
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").

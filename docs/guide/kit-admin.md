@@ -15,7 +15,7 @@ Add the module:
 
 ```xml
 <dependency>
-    <groupId>com.github.lievit.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-kit</artifactId>
     <version>main-SNAPSHOT</version>
 </dependency>

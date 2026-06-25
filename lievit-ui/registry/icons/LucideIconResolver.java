@@ -12,7 +12,7 @@
  * uniform <svg> wrapper lives in icon.jte. The partial never names this class directly -- it goes
  * through the LievitIcons facade, which an adopter can repoint via LievitIcons.setResolver(...).
  */
-package io.lievit.ui;
+package dev.lievit.ui;
 
 import java.util.Map;
 

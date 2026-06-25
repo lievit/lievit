@@ -5,7 +5,7 @@
 
   lievit-ui Maven module (RFC 0036 stage 2).
 
-  This pom makes lievit-ui a Maven artifact: io.github.lievit:lievit-ui.
+  This pom makes lievit-ui a Maven artifact: dev.lievit:lievit-ui.
   The jar carries two things the JTE distribution design requires (07-distribution-design.md):
     (a) the .jte sources from registry/jte/** staged under lievit/ in the jar classpath
         (so lievit/button.jte -> @template.lievit.button in the consumer build).
@@ -25,7 +25,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>io.github.lievit</groupId>
+    <groupId>dev.lievit</groupId>
     <artifactId>lievit-parent</artifactId>
     <version>${revision}</version>
     <relativePath>../pom.xml</relativePath>

@@ -335,9 +335,9 @@ describe("empty -- security and CSP hygiene", () => {
     expect(src).not.toContain("—"); // U+2014 EM DASH
   });
 
-  test("no io.lievit import (JTE-compile gate classpath rule)", () => {
-    // The gate classpath is JDK + jte + registry/icons only; io.lievit fails to resolve.
-    expect(src).not.toMatch(/@import\s+io\.lievit/);
+  test("no dev.lievit import (JTE-compile gate classpath rule)", () => {
+    // The gate classpath is JDK + jte + registry/icons only; dev.lievit fails to resolve.
+    expect(src).not.toMatch(/@import\s+dev\.lievit/);
   });
 
   test("no nested JTE comments inside the doc-comment block (would close the outer block early)", () => {

@@ -1,7 +1,7 @@
 @import java.util.List
-@import io.lievit.kit.AdminAction
-@import io.lievit.kit.ActionGroup
-@import io.lievit.kit.ActionPlacement
+@import dev.lievit.kit.AdminAction
+@import dev.lievit.kit.ActionGroup
+@import dev.lievit.kit.ActionPlacement
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
@@ -9,10 +9,10 @@
   lievit-kit :: kit.action.group - a CLUSTER of admin actions for one host placement (HEADER row,
   ROW cell, or the BULK bar), rendered onto the lievit-ui button-group + dropdown-menu partials.
   Composes kit/action.jte (the single trigger) for the flat actions and folds an optional
-  io.lievit.kit.ActionGroup into the Filament row "⋮" dropdown menu. Sibling of kit/table.jte's
+  dev.lievit.kit.ActionGroup into the Filament row "⋮" dropdown menu. Sibling of kit/table.jte's
   inline action rendering; the kit ships THIS so a host renders a whole action cluster from the model.
 
-  PLACEMENT (io.lievit.kit.ActionPlacement, the Filament BelongsToTable host context) decides the
+  PLACEMENT (dev.lievit.kit.ActionPlacement, the Filament BelongsToTable host context) decides the
   LAYOUT, not the trigger (the trigger is each action's own ActionVariant, owned by kit/action.jte):
     HEADER -> a horizontal toolbar of the resource-scoped actions (Create / Export), right-aligned.
     ROW    -> a tight inline cluster of per-row actions (Edit / Delete), usually icon/link variants,

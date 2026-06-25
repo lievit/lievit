@@ -107,8 +107,8 @@ describe("checkbox-list.jte -- native multi-select form control", () => {
     expect(markup).not.toMatch(/\son[a-z]+=/);
   });
 
-  test("no io.lievit import (JTE classpath has no lievit jar)", () => {
-    expect(src).not.toContain("@import io.lievit");
+  test("no dev.lievit import (JTE classpath has no lievit jar)", () => {
+    expect(src).not.toContain("@import dev.lievit");
   });
 
   test("no hardcoded colour or literal hex in the markup", () => {

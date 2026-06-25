@@ -7,7 +7,7 @@
  * element -- the modal partial pinned to an edge. The browser owns modal show/hide, focus-trap,
  * ::backdrop and Escape; close paths are native <form method="dialog"> submits. ZERO JS, no
  * enhancer -> CSP-clean by construction. It is the static presentation shell behind the kit's
- * edge-anchored panels (io.lievit.kit.SlideOver, ModalConfig.asSlideOver()).
+ * edge-anchored panels (dev.lievit.kit.SlideOver, ModalConfig.asSlideOver()).
  *
  * These tests pin the registry item shape + server-purity + render-asserting source contract: the
  * body CONTENT is present in the DOM (owned ${content}, never a <slot>), the data-slot/data-side

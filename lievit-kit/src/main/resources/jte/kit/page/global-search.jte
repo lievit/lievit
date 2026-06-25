@@ -1,7 +1,7 @@
 @import java.util.Map
-@import io.lievit.kit.GlobalSearchResults
-@import io.lievit.kit.GlobalSearchResult
-@import io.lievit.kit.page.KitPageView
+@import dev.lievit.kit.GlobalSearchResults
+@import dev.lievit.kit.GlobalSearchResult
+@import dev.lievit.kit.page.KitPageView
 <%--
   Copyright 2026 Francesco Bilotta
   Licensed under the Apache License, Version 2.0 (the "License").
