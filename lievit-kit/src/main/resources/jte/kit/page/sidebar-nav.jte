@@ -22,8 +22,21 @@
   This is the SAME segmentation lievit-ui blocks/app-shell does, lifted here so the kit owns it and a
   nav item can carry a badge variant (a coloured count) the bare block could not.
 
+  MULTI-LEVEL + EXTERNAL LINK SUPPORT (issue #494, ADR sw-architecture-008 backflow): a nav spans two
+  apps or carries disclosure groups, so a nav item may be a DROPDOWN PARENT or open an EXTERNAL host.
+  Three extra row shapes are read on top of the kit idiom; the sidebar.item partial already supports
+  both natively (a `content` sub-tree makes it a native <details> disclosure; a leaf is a real <a
+  href>), so no new primitive is needed:
+    - `parent`="true" (+ `key`/`label`/`icon`): opens a disclosure group; the rows that immediately
+      follow carrying `child`="true" are ITS children (collected here into the parent's content slot).
+    - `child`="true": a child leaf belonging to the preceding parent (same item keys).
+    - `external`="true" on any leaf: an absolute-URL link into an external host -> rel=noopener +
+      target="_blank" (Filament's openInNewTab semantics, issue #494).
+  A plain leaf (no marker) is a same-shell nav item, exactly as the bare kit idiom defines.
+
   Server-first / strict-CSP: every entry is a real <a href> (the sidebar.item partial) or a group
-  heading; nothing inline-scripts. The badge is the lievit-ui badge partial (token-styled).
+  heading; a dropdown is a native <details> (sidebar.item parent), zero JS, JS-off correct; nothing
+  inline-scripts. The badge is the lievit-ui badge partial (token-styled).
 
   Params:
     page - the KitPageView render bundle (read .navGroups() + .activeNav()).
@@ -52,21 +65,74 @@
     starts.add(s); ends.add(e); cursor = e;
   }
 }
+<%-- Per-row child range (issue #494): a `parent` row's children are the immediately-following `child`
+     rows. The ranges are computed once in Java so the markup iterates leaves + parents without nested
+     scanning; a `child` row is rendered only inside its parent's content slot (skipped in the outer
+     loop). ADR sw-architecture-008 backflow. --%>
+!{var childEnd = new int[rows.size()];}
+!{
+  for (int i = 0; i < rows.size(); i++) {
+    if ("true".equals(rows.get(i).get("parent"))) {
+      int e = i + 1;
+      while (e < rows.size() && "true".equals(rows.get(e).get("child"))) e++;
+      childEnd[i] = e;
+    } else {
+      childEnd[i] = i;
+    }
+  }
+}
 @for(var gi = 0; gi < labels.size(); gi++)
   !{var gStart = starts.get(gi);}
   !{var gEnd = ends.get(gi);}
   @template.lievit.sidebar.group(label = labels.get(gi), content = @`
     @for(var i = gStart; i < gEnd; i++)
       !{var item = rows.get(i);}
-      !{var key = item.getOrDefault("key", item.getOrDefault("href", item.getOrDefault("label", "")));}
-      @template.lievit.sidebar.item(
-        key = key,
-        label = item.getOrDefault("label", ""),
-        href = item.getOrDefault("href", ""),
-        icon = item.getOrDefault("icon", ""),
-        badge = item.getOrDefault("badge", ""),
-        active = key.equals(page.activeNav())
-      )
+      @if("true".equals(item.get("child")))
+        <%-- consumed by the preceding parent's content slot below; never rendered standalone --%>
+      @elseif("true".equals(item.get("parent")))
+        <%-- Dropdown parent (issue #494): a native <details> disclosure whose children are the rows
+             that follow with child="true". Zero JS, JS-off correct. ADR sw-architecture-008. --%>
+        !{var pKey = item.getOrDefault("key", item.getOrDefault("label", ""));}
+        !{var pStart = i + 1;}
+        !{var pChildEnd = childEnd[i];}
+        @template.lievit.sidebar.item(
+          key = pKey,
+          label = item.getOrDefault("label", ""),
+          icon = item.getOrDefault("icon", ""),
+          content = @`
+            @for(var c = pStart; c < pChildEnd; c++)
+              !{var child = rows.get(c);}
+              !{var cExternal = "true".equals(child.get("external"));}
+              !{var cKey = child.getOrDefault("key", child.getOrDefault("href", child.getOrDefault("label", "")));}
+              @template.lievit.sidebar.item(
+                key = cKey,
+                label = child.getOrDefault("label", ""),
+                href = child.getOrDefault("href", ""),
+                icon = child.getOrDefault("icon", ""),
+                badge = child.getOrDefault("badge", ""),
+                active = cKey.equals(page.activeNav()),
+                target = cExternal ? "_blank" : "",
+                rel = cExternal ? "noopener" : ""
+              )
+            @endfor
+          `
+        )
+      @else
+        <%-- Leaf item (same-shell or external link, issue #494): external="true" adds rel=noopener +
+             target="_blank" (Filament's openInNewTab semantics). ADR sw-architecture-008. --%>
+        !{var external = "true".equals(item.get("external"));}
+        !{var key = item.getOrDefault("key", item.getOrDefault("href", item.getOrDefault("label", "")));}
+        @template.lievit.sidebar.item(
+          key = key,
+          label = item.getOrDefault("label", ""),
+          href = item.getOrDefault("href", ""),
+          icon = item.getOrDefault("icon", ""),
+          badge = item.getOrDefault("badge", ""),
+          active = key.equals(page.activeNav()),
+          target = external ? "_blank" : "",
+          rel = external ? "noopener" : ""
+        )
+      @endif
     @endfor
   `)
 @endfor

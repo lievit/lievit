@@ -36,9 +36,12 @@
     gg.jte.Content action = null optional trailing action affordance (sidebar/menu-action),
                                pinned to the row's end; the <li> is its positioning context.
     String cssClass = ""       extra utility classes on the entry.
+    String target = ""         leaf only: the anchor target attribute (e.g. "_blank" for external links).
+    String rel = ""            leaf only: the anchor rel attribute (e.g. "noopener" for external links).
 
   Usage:
     @@template.lievit.sidebar.item(key = "home", href = "/", label = "Home", icon = "house", active = true)
+    @@template.lievit.sidebar.item(key = "ext", href = "https://legacy.example.com", label = "Legacy", target = "_blank", rel = "noopener")
     @@template.lievit.sidebar.item(key = "settings", label = "Settings", icon = "settings", open = true, content = @@`
       @@template.lievit.sidebar.item(key = "team", href = "/settings/team", label = "Team", active = true)
     `)
@@ -54,6 +57,8 @@
 @param gg.jte.Content content = null
 @param gg.jte.Content action = null
 @param String cssClass = ""
+@param String target = ""
+@param String rel = ""
 !{var hasIcon = icon != null && !icon.isEmpty();}
 !{var hasBadge = badge != null && !badge.isEmpty();}
 !{var isParent = content != null;}
@@ -98,6 +103,8 @@
             tabindex="${disabled ? "-1" : null}"
             class="lv-sidebar-item"
             style="${rowStyle} opacity: ${disabled ? "0.5" : "1"}; pointer-events: ${disabled ? "none" : "auto"};"
+            target="${target != null && !target.isBlank() ? target : null}"
+            rel="${rel != null && !rel.isBlank() ? rel : null}"
         >
             @if(hasIcon)
                 <span aria-hidden="true" style="flex-shrink: 0; display: inline-flex;">@template.lievit.icon(name = icon, size = "1rem")</span>

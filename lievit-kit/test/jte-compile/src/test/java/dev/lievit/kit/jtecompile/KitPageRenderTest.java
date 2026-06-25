@@ -360,6 +360,176 @@ class KitPageRenderTest {
         assertTrue(html.contains("action=\"/admin/login\""), "auth form action missing");
     }
 
+    // ── #492 brand-logo + page-header opt-out ───────────────────────────────────────────────────
+
+    @Test
+    void renders_the_brand_logo_img_when_brandLogo_is_set() {
+        // #492 app-shell branding: a non-empty brandLogo renders an <img data-slot="kit-page-brand-logo">
+        // in the sidebar header; an empty brandLogo falls back to the brandName text.
+        // ADR sw-architecture-008 backflow.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("content", (gg.jte.Content) (o) -> o.writeContent("<p>body</p>"));
+        model.put("brandLogo", "/assets/logo.svg");
+        model.put("brandLogoAlt", "Acme Corp");
+        String html = render("kit/page.jte", model);
+
+        assertTrue(html.contains("data-slot=\"kit-page-brand-logo\""), "brand-logo img slot missing:\n" + html);
+        assertTrue(html.contains("src=\"/assets/logo.svg\""), "brand-logo src missing");
+        assertTrue(html.contains("alt=\"Acme Corp\""), "brand-logo alt missing");
+        // The brand-name text fallback must NOT appear when a logo is set (Filament parity).
+        assertFalse(html.contains(">HouseTree<"), "brand-name text must not render alongside the logo");
+    }
+
+    @Test
+    void falls_back_to_brand_name_text_when_brandLogo_is_empty() {
+        // #492: the default brandLogo="" keeps the brandName text fallback for existing adopters.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("content", (gg.jte.Content) (o) -> o.writeContent("<p>body</p>"));
+        String html = render("kit/page.jte", model);
+
+        assertTrue(html.contains("HouseTree"), "brand-name text fallback missing:\n" + html);
+        assertFalse(html.contains("data-slot=\"kit-page-brand-logo\""), "no-logo case must not emit the img slot");
+    }
+
+    @Test
+    void suppresses_the_page_header_when_pageHeader_is_false() {
+        // #492 page-header opt-out: pageHeader=false removes the in-content header band so a
+        // full-bleed page can render its own heading without being double-headed.
+        // ADR sw-architecture-008 backflow.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("content", (gg.jte.Content) (o) -> o.writeContent("<h2>My own heading</h2>"));
+        model.put("pageHeader", false);
+        String html = render("kit/page.jte", model);
+
+        assertFalse(html.contains("kit-page-header"), "page-header band must be absent when pageHeader=false:\n" + html);
+        // The h1 the page-header would emit must not appear (the body carries its own heading).
+        assertFalse(html.contains("<h1"), "page-header h1 must be absent when pageHeader=false");
+        // The page body itself still renders.
+        assertTrue(html.contains("My own heading"), "page body missing");
+    }
+
+    // ── #493 responsive shell (hamburger + sidebar-footer user-menu) ─────────────────────────────
+
+    @Test
+    void renders_the_mobile_hamburger_button_in_the_topbar() {
+        // #493: a mobile hamburger button (data-lv-sidebar-open, lv-sidebar-mobile-open-trigger)
+        // is always present in the topbar so the sidebar is reachable on narrow viewports.
+        // ADR sw-architecture-008 backflow.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("content", (gg.jte.Content) (o) -> o.writeContent("<p>body</p>"));
+        String html = render("kit/page.jte", model);
+
+        assertTrue(html.contains("data-lv-sidebar-open"), "mobile hamburger data-lv-sidebar-open missing:\n" + html);
+        assertTrue(html.contains("lv-sidebar-mobile-open-trigger"), "mobile hamburger CSS class missing");
+        assertTrue(html.contains("Open navigation"), "hamburger aria-label missing");
+    }
+
+    @Test
+    void renders_the_user_menu_in_the_sidebar_footer() {
+        // #493: when the page has a user the user-menu is placed in the sidebar footer (Filament
+        // panel placement) so it collapses with the icon rail on desktop.
+        // ADR sw-architecture-008 backflow.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("content", (gg.jte.Content) (o) -> o.writeContent("<p>body</p>"));
+        String html = render("kit/page.jte", model);
+
+        // The sidebar footer slot carries the user menu (footer wrapper + user-menu slot).
+        assertTrue(html.contains("sidebar-footer"), "sidebar-footer slot missing:\n" + html);
+        assertTrue(html.contains("kit-page-user-menu"), "user menu in sidebar footer missing");
+        // The footer menu renders upward (chevron-up, inFooter=true) and shows the user identity.
+        assertTrue(html.contains("Francesco Bilotta"), "user name missing in footer menu");
+    }
+
+    // ── #494 sidebar multi-level nav + external links ────────────────────────────────────────────
+
+    @Test
+    void renders_a_multi_level_parent_child_nav_group() {
+        // #494: a nav row with parent="true" renders as a <details> disclosure (sidebar.item parent);
+        // the child rows appear inside the disclosure content slot.
+        // ADR sw-architecture-008 backflow.
+        List<Map<String, String>> navRows = new java.util.ArrayList<>();
+        Map<String, String> parent = new java.util.LinkedHashMap<>();
+        parent.put("parent", "true");
+        parent.put("label", "Settings");
+        parent.put("icon", "settings");
+        navRows.add(parent);
+        Map<String, String> child1 = new java.util.LinkedHashMap<>();
+        child1.put("child", "true");
+        child1.put("label", "Users");
+        child1.put("href", "/admin/users");
+        navRows.add(child1);
+        Map<String, String> child2 = new java.util.LinkedHashMap<>();
+        child2.put("child", "true");
+        child2.put("label", "Roles");
+        child2.put("href", "/admin/roles");
+        navRows.add(child2);
+
+        KitPageView page = KitPageView.of("Acme", "Users", navRows);
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", page);
+        String html = render("kit/page/sidebar-nav.jte", model);
+
+        // The parent renders as a disclosure (<details>/<summary>); the children are real <a href>.
+        assertTrue(html.contains("data-sidebar=\"disclosure\""), "parent disclosure missing:\n" + html);
+        assertTrue(html.contains("Settings"), "parent label missing");
+        assertTrue(html.contains("/admin/users"), "child href missing");
+        assertTrue(html.contains("/admin/roles"), "second child href missing");
+    }
+
+    @Test
+    void renders_external_leaf_items_with_target_blank_and_rel_noopener() {
+        // #494: a nav row with external="true" renders with target="_blank" rel="noopener" on the
+        // leaf <a> (Filament's openInNewTab semantics). ADR sw-architecture-008 backflow.
+        List<Map<String, String>> navRows = new java.util.ArrayList<>();
+        Map<String, String> ext = new java.util.LinkedHashMap<>();
+        ext.put("label", "Legacy App");
+        ext.put("href", "https://legacy.example.com");
+        ext.put("external", "true");
+        navRows.add(ext);
+        Map<String, String> plain = new java.util.LinkedHashMap<>();
+        plain.put("label", "Dashboard");
+        plain.put("href", "/admin");
+        navRows.add(plain);
+
+        KitPageView page = KitPageView.of("Acme", "Dashboard", navRows);
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", page);
+        String html = render("kit/page/sidebar-nav.jte", model);
+
+        // The external item carries the security attributes.
+        assertTrue(html.contains("target=\"_blank\""), "target=_blank missing on external link:\n" + html);
+        assertTrue(html.contains("rel=\"noopener\""), "rel=noopener missing on external link");
+        assertTrue(html.contains("https://legacy.example.com"), "external href missing");
+        // The plain item must NOT carry target/rel.
+        assertFalse(html.contains("/admin\" target"), "internal link must not carry target=_blank");
+    }
+
+    // ── #495 global-search mobile magnifier popover ──────────────────────────────────────────────
+
+    @Test
+    void renders_the_mobile_magnifier_button_and_the_desktop_search_field() {
+        // #495: global-search emits both a sm:hidden magnifier popover trigger (mobile) and a
+        // hidden sm:block inline field (desktop). ADR sw-architecture-008 backflow.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("results", null);
+        String html = render("kit/page/global-search.jte", model);
+
+        // Mobile: the popover trigger wrapper is present and sm:hidden.
+        assertTrue(html.contains("kit-page-global-search-mobile"), "mobile search slot missing:\n" + html);
+        assertTrue(html.contains("sm:hidden"), "mobile search must be sm:hidden");
+        // Desktop: the inline field is present and hidden sm:block.
+        assertTrue(html.contains("kit-page-global-search"), "desktop search slot missing");
+        assertTrue(html.contains("hidden") && html.contains("sm:block"), "desktop field must be hidden sm:block");
+        // The mobile trigger is a magnifier icon (data-slot).
+        assertTrue(html.contains("kit-page-search-mobile-trigger"), "mobile trigger slot missing");
+    }
+
     // ── Fixtures for the list body ───────────────────────────────────────────────────────────────
 
     record TestRow(int id, String name) {}

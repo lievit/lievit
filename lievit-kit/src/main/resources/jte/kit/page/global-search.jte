@@ -1,4 +1,5 @@
 @import java.util.Map
+@import java.util.LinkedHashMap
 @import dev.lievit.kit.GlobalSearchResults
 @import dev.lievit.kit.GlobalSearchResult
 @import dev.lievit.kit.page.KitPageView
@@ -21,21 +22,76 @@
       for the current term), the same field becomes the trigger of a native-popover panel listing the
       grouped results as real <a href> links (the Filament grouped dropdown), or a no-results line.
 
-  Server-first / strict-CSP: the field is a real form GET; the results popover is the lievit-ui
-  popover partial (native HTML popover, zero JS, light-dismiss + Escape). Every result is a real
-  <a href> the browser navigates. Nothing inline-scripts.
+  MOBILE MAGNIFIER POPOVER (issue #495, ADR sw-architecture-008 backflow): below the `sm` breakpoint
+  the inline search field is `hidden`, so on a phone the topbar had NO search at all. Filament
+  collapses search into a magnifier icon-button that opens the field. We mirror that: a `sm:hidden`
+  magnifier button that toggles a native-HTML-popover panel (lievit.popover -> CSP-clean, zero JS,
+  top-layer, Escape + outside-click dismiss) holding the SAME GET search form. The desktop inline
+  field is `hidden sm:block` and the mobile trigger is `sm:hidden`, so exactly one is shown per
+  breakpoint and the search form is never duplicated to the user (only in the markup, for the two
+  layouts). The form is the SAME real GET (works JS-off once the popover is open); the
+  grouped-results popover is desktop-only (it is a server prefetch of the active term, surfaced on
+  the inline field).
+
+  EXTERNAL FINDER SUPPORT (issue #494 companion param, ADR sw-architecture-008 backflow): the search
+  may target an app whose finder expects a different query param name and extra fixed GET fields.
+  A GET form discards the action URL's query string and replaces it with the form fields, so extra
+  selectors MUST ride as hidden inputs, not baked in the action. Two extra params carry this:
+  `name` (the query field name, default "q") and `hidden` (fixed extra fields). The kit default
+  (name "q", no hidden) is unchanged so existing adopters are unaffected.
+
+  Server-first / strict-CSP: the field is a real form GET; the results popover + the mobile-search
+  popover are the lievit-ui popover partial (native HTML popover, zero JS, light-dismiss + Escape).
+  Every result is a real <a href> the browser navigates. Nothing inline-scripts.
 
   Params:
-    page    - the KitPageView render bundle (read .searchAction() + .searchQuery()).
-    results - server-prefetched grouped hits for the active term; null => field-only (no popover).
-    name    - the search input name (the GET param). Default "q".
-    placeholder - the field placeholder.
+    page        - the KitPageView render bundle (read .searchAction() + .searchQuery()).
+    results     - server-prefetched grouped hits for the active term; null => field-only (no popover).
+    name        - the search input name (the GET param). Default "q".
+    placeholder - the field placeholder. Default "Search...".
+    hidden      - fixed extra GET fields rendered as hidden inputs (e.g. a legacy selector).
+                  Empty by default. ADR sw-architecture-008 backflow.
 --%>
 @param KitPageView page
 @param GlobalSearchResults results = null
 @param String name = "q"
 @param String placeholder = "Search..."
+@param Map<String, String> hidden = new LinkedHashMap<>()
 !{var hasResults = results != null && !results.isEmpty();}
+<%-- The plain GET search form, rendered into both the desktop inline field and the mobile popover so
+     the two layouts share one form definition. A GET form discards the action's query string and uses
+     its own fields, so any extra `hidden` selectors ride as hidden inputs. --%>
+!{gg.jte.Content searchForm = @`
+  <form role="search" method="get" action="${page.searchAction()}" class="block w-full">
+    @for(Map.Entry<String, String> h : hidden.entrySet())
+      <input type="hidden" name="${h.getKey()}" value="${h.getValue()}">
+    @endfor
+    @template.lievit.input-group(
+      ariaLabel = placeholder,
+      leadingAddon = @`@template.lievit.icon(name = "search")`,
+      content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
+  </form>
+`;}
+<%-- Mobile magnifier (issue #495): below `sm` the inline field is hidden, so this Filament-style
+     icon-button opens the search in a native-popover panel. CSP-clean: lievit.popover is the native
+     HTML popover, no inline handler. ADR sw-architecture-008 backflow. --%>
+<div data-slot="kit-page-global-search-mobile" class="sm:hidden">
+  @template.lievit.popover(
+    id = "kit-page-search-mobile",
+    placement = "bottom-end",
+    trigger = @`
+      <span data-slot="kit-page-search-mobile-trigger"
+            class="inline-flex h-[var(--lv-space-9)] w-[var(--lv-space-9)] items-center justify-center rounded-[var(--lv-radius-md)] hover:bg-[var(--lv-color-accent)]"
+            aria-label="${placeholder}">
+        @template.lievit.icon(name = "search")
+      </span>
+    `,
+    content = @`
+      <div class="w-[min(20rem,calc(100vw-var(--lv-space-8)))]">
+        ${searchForm}
+      </div>
+    `)
+</div>
 <div data-slot="kit-page-global-search" class="hidden w-[var(--lv-app-shell-search-w,18rem)] min-w-0 sm:block" style="font-family:var(--lv-font-sans);">
   @if(hasResults)
     <%-- Field + grouped-results popover: the field is the trigger, the panel lists hits by group.
@@ -46,6 +102,9 @@
       cssClass = "block w-full",
       trigger = @`
         <form role="search" method="get" action="${page.searchAction()}" class="block w-full">
+          @for(Map.Entry<String, String> h : hidden.entrySet())
+            <input type="hidden" name="${h.getKey()}" value="${h.getValue()}">
+          @endfor
           @template.lievit.input-group(
             ariaLabel = placeholder,
             leadingAddon = @`@template.lievit.icon(name = "search")`,
@@ -76,11 +135,6 @@
   @else
     <%-- Field only: a real form GET; the server renders the hits into the page body on submit.
          v-next: input-group is now a layout wrapper (content= slot). --%>
-    <form role="search" method="get" action="${page.searchAction()}" class="block w-full">
-      @template.lievit.input-group(
-        ariaLabel = placeholder,
-        leadingAddon = @`@template.lievit.icon(name = "search")`,
-        content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
-    </form>
+    ${searchForm}
   @endif
 </div>
