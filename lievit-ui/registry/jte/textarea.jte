@@ -117,6 +117,11 @@
 <%-- The model directive: only emitted when model is non-blank. --%>
 !{var modelDirective = (model != null && !model.isBlank()) ? "l:model=\"" + model + "\"" : "";}
 
+<%-- Stimulus mount: the lv-textarea controller owns grow-to-content + live count. Stamped ONLY
+     when autosize OR showCount is active (a bare textarea needs no controller), mirroring the old
+     enhancer mount condition. data-action wiring is CSP-clean (plain strings, no eval, no on*=). --%>
+!{var enhanced = autosize || showCount;}
+
 <%-- SAFE dynamic data-* fragment (mirrors badge.jte / button.jte exactly).
      JTE's HTML parser forbids a raw @for in attribute-NAME position, so the fragment is
      built once here -- each entry becomes data-<key>="<escaped-value>". --%>
@@ -142,6 +147,8 @@
   data-slot="textarea"
   data-size="${size}"
   data-lv-invalid="${invalid}"
+  data-controller="${enhanced ? "lv-textarea" : null}"
+  data-action="${enhanced ? "input->lv-textarea#onInput lievit:morphed->lv-textarea#onMorphed mousedown->lv-textarea#onPointerDown mouseup->lv-textarea#onPointerUp" : null}"
   id="${areaId}"
   name="${name}"
   rows="${effectiveMinRows}"
