@@ -28,6 +28,10 @@
   Native <button> + hidden beats a JS height-measure: zero client logic, CSP-clean, cannot fail to
   project (the whole point of the pivot).
 
+  Stimulus migration: nothing to convert -- the toggle is a server round-trip via l:click (the wire
+  runtime's own directive), not a client enhancer. This component ships NO lv-* Stimulus controller
+  and needs none; there is no WeakSet, afterCall sweep, or data-*-enhanced marker to delete.
+
   A11y (WAI-ARIA APG Accordion): per item button[aria-expanded][aria-controls] + region[aria-labelledby],
   the collapsed region removed from the a11y tree via `hidden`.
 
