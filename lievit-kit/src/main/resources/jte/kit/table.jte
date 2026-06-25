@@ -93,10 +93,17 @@
 !{KitTableView.Selection selection = table.selection();}
 !{int columnCount = view.headers().size() + (selection.enabled() ? 1 : 0) + 1;}
 !{SavedViewsView savedViews = table.savedViews();}
-<div data-slot="kit-table" data-admin-list class="w-full" style="font-family:var(--lv-font-sans);">
+<%-- Filament fidelity (fi-ta-ctn): the WHOLE chrome (heading -> toolbar -> bars -> table ->
+     pagination) sits in ONE elevated card: rounded-xl, a hairline ring/border, a soft shadow, on the
+     page background, with the internal sections divided by border-b. No overflow-hidden on the root:
+     the column-manager / saved-views dropdowns must be free to escape the card edge. --%>
+<div data-slot="kit-table" data-admin-list
+     class="w-full rounded-[var(--lv-radius-xl)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-sm)]"
+     style="font-family:var(--lv-font-sans);">
 
-  <%-- 1. Header bar: heading + the resource-scoped header actions (Filament fi-ta-header). --%>
-  <div data-slot="kit-table-header" class="flex items-center justify-between gap-[var(--lv-space-2)]">
+  <%-- 1. Header bar: heading + the resource-scoped header actions (Filament fi-ta-header). The card
+       gutter (px) + the section divider (border-b) come from the card frame. --%>
+  <div data-slot="kit-table-header" class="flex items-center justify-between gap-[var(--lv-space-2)] border-b border-[var(--lv-color-border)] px-[var(--lv-space-4)] py-[var(--lv-space-3)]">
     <div data-admin-heading-row class="flex items-center gap-[var(--lv-space-3)]">
       <h1 data-admin-heading class="text-[length:var(--lv-text-xl)] font-[var(--lv-font-semibold)] text-[var(--lv-color-fg)]">${view.heading()}</h1>
       @if(headerExtra != null)
@@ -207,8 +214,11 @@
     </div>
   @endif
 
-  <%-- 2 + 3 + 11. Toolbar: global search (left), filters trigger + column-manager (right). --%>
+  <%-- 2 + 3 + 11. Toolbar: global search (left), filters trigger + column-manager (right). The card
+       gutter (px) + section divider (border-b) ride the toolbar's own klass so the row sits inside
+       the card frame. --%>
   @template.lievit.data-table.toolbar(
+    klass = "px-[var(--lv-space-4)] border-b border-[var(--lv-color-border)]",
     search = controls.searchable() ? @`
       <form method="get" data-slot="kit-table-search-form" role="search" class="flex items-center gap-[var(--lv-space-2)]">
         <%-- v-next input: model= and ariaLabel= removed; use a sr-only <label> for a11y. --%>
@@ -222,13 +232,21 @@
     ` : null,
     end = @`
       @if(controls.hasFilters())
-        <div data-admin-filters-trigger class="inline-flex items-center gap-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
+        <%-- Filament fidelity (#5): the "Filtri" affordance is a real <button> trigger sitting in the
+             toolbar's right cluster beside search (the actionable fi-ta filters control), not a static
+             <div> indicator. aria-controls points at the always-open inline filter panel below (the
+             server-first / strict-CSP JS-off fallback); the button toggles its visibility client-side
+             when an enhancer is present, and is a harmless no-op (panel already visible) when JS is off.
+             No hardcoded wire action: the panel below is the server-rendered source of truth. --%>
+        <button type="button" data-admin-filters-trigger data-slot="filters-trigger"
+                aria-controls="kit-table-filters" aria-expanded="true"
+                class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-transparent px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-sm)] text-[var(--lv-color-fg)] hover:bg-[color-mix(in_srgb,var(--lv-color-surface)_50%,var(--lv-color-bg))]">
           @template.lievit.icon(name = "funnel", size = "1rem")
           <span>${labels.filters()}</span>
           @if(controls.activeFilterCount() > 0)
             @template.lievit.badge(variant = "neutral", label = String.valueOf(controls.activeFilterCount()))
           @endif
-        </div>
+        </button>
       @endif
       <%-- 11. Column manager: a host-supplied items slot overrides; otherwise the AUTO dropdown built
            from the view-model's toggleable columns. Each checkbox item is a real GET <a href> when a
@@ -263,7 +281,7 @@
 
   <%-- 3. Inline filter panel: one control per registered filter (toggle / select / ternary / trashed). --%>
   @if(controls.hasFilters())
-    <div data-admin-filters data-filters-layout="${controls.filtersLayout().token()}" class="flex flex-wrap items-end gap-[var(--lv-space-3)] py-[var(--lv-space-2)]">
+    <div id="kit-table-filters" data-admin-filters data-filters-layout="${controls.filtersLayout().token()}" class="flex flex-wrap items-end gap-[var(--lv-space-3)] border-b border-[var(--lv-color-border)] px-[var(--lv-space-4)] py-[var(--lv-space-3)]">
       @for(AdminListView.FilterControl filter : controls.filterControls())
         <div data-admin-filter="${filter.name()}" data-filter-kind="${filter.kind().name()}" data-filter-active="${filter.active()}">
           @if(filter.kind() == AdminListView.FilterControl.Kind.TOGGLE)
@@ -300,8 +318,9 @@
     </div>
   @endif
 
-  <%-- The table (table/* primitives). --%>
-  <div data-slot="kit-table-scroll" class="relative w-full overflow-x-auto rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)]">
+  <%-- The table (table/* primitives). The card frame is the single elevated surface now, so the
+       scroll wrapper drops its OWN box (no double border / rounding); it only scrolls horizontally. --%>
+  <div data-slot="kit-table-scroll" class="relative w-full overflow-x-auto">
     <table data-slot="table" class="w-full caption-bottom text-[length:var(--lv-text-sm)]" style="border-collapse:collapse;">
       @template.lievit.table.header(content = @`
         <%-- 8. Header-group super-row (colspan), when a column group is registered. --%>
@@ -325,16 +344,20 @@
             @template.lievit.data-table.selection-cell(header = true, name = "selectAll",
               checked = selection.allSelected(), indeterminate = selection.someSelected(), model = "selectAll")
           @endif
-          @for(AdminListView.Header header : view.headerCells())
+          @for(int _hi = 0; _hi < view.headerCells().size(); _hi++)
+            !{AdminListView.Header header = view.headerCells().get(_hi);}
             <%-- #491 signed sort-token: the sort link carries an HMAC-signed token when the host
                  wires a SortTokenSigner; a re-click on the active sort column carries the negated key
                  ("-key") to toggle asc→desc, signed with the same key so the server verifies both
                  directions. Unsigned mode (no signer) is the backward-compatible default.
                  ADR sw-architecture-008. --%>
             !{var _rawSortKey = (header.isSorted() && header.sortDirection() == dev.lievit.kit.SortDirection.ASC) ? "-" + header.sortKey() : header.sortKey();}
-            @template.kit.table.sortable-head(header = header, sortHref = table.sortHref(_rawSortKey))
+            <%-- Filament fi-ta edge gutter: the first DATA header gets the leading inset only when no
+                 select-all checkbox column precedes it (else the checkbox cell is the leading column). --%>
+            @template.kit.table.sortable-head(header = header, sortHref = table.sortHref(_rawSortKey),
+              edge = (_hi == 0 && !selection.enabled()) ? "first" : "")
           @endfor
-          @template.lievit.table.head(content = @`${labels.actions()}`)
+          @template.lievit.table.head(edge = "last", content = @`${labels.actions()}`)
         </tr>
       `)
       @if(view.rows().isEmpty())
@@ -356,8 +379,12 @@
                 @template.lievit.data-table.selection-cell(name = "selected", value = row.id(),
                   checked = rowSelected, model = "selected")
               @endif
-              @for(Cell cell : row.cells())
-                @template.lievit.table.cell(content = @`@template.kit.table.rich-cell(cell = cell)`)
+              <%-- Filament fi-ta edge gutter: the first DATA cell gets the leading inset only when no
+                   select-all checkbox column precedes it. --%>
+              @for(int _ci = 0; _ci < row.cells().size(); _ci++)
+                !{Cell cell = row.cells().get(_ci);}
+                @template.lievit.table.cell(edge = (_ci == 0 && !selection.enabled()) ? "first" : "",
+                  content = @`@template.kit.table.rich-cell(cell = cell)`)
               @endfor
               <%-- Trailing actions cell: preference order (Filament Table->actions, #490):
                    1. GENERIC kit Row.actions() — per-record static actions declared on the Resource.
@@ -366,7 +393,7 @@
                       Rendered once per row; the host receives no context param (use the surrounding
                       template or a child component for per-row state). ADR sw-architecture-008.
                    3. Kit fallback: the legacy single Edit link so hosts without actions keep a link. --%>
-              @template.lievit.table.cell(content = @`
+              @template.lievit.table.cell(edge = "last", content = @`
                 @if(row.hasActions())
                   <div data-admin-row-actions="${row.id()}" class="flex items-center gap-[var(--lv-space-1)]">
                     @for(RowAction action : row.actions())
@@ -427,7 +454,7 @@
   @endif
 
   <%-- 9 + 10. Per-page selector, numbered pagination + "Showing X to Y of Z results". --%>
-  <div data-slot="kit-table-pagination" class="flex flex-wrap items-center justify-between gap-[var(--lv-space-3)] py-[var(--lv-space-3)]">
+  <div data-slot="kit-table-pagination" class="flex flex-wrap items-center justify-between gap-[var(--lv-space-3)] border-t border-[var(--lv-color-border)] px-[var(--lv-space-4)] py-[var(--lv-space-3)]">
     <div class="flex items-center gap-[var(--lv-space-2)]">
       <div data-admin-results-count aria-live="polite" class="text-[length:var(--lv-text-sm)] text-[var(--lv-color-muted-fg)]">
         @if(pagination.total() == 0)
