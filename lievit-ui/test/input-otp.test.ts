@@ -2,34 +2,37 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * input-otp (v-next, CLIENT-ENHANCER): tests for the re-forged partial + enhancer surface.
+ * input-otp (v-next, STIMULUS CONTROLLER): tests for the re-forged partial + the lv-input-otp
+ * controller. The .jte render is pinned by the real-compiler jte-compile gate; this file pins the
+ * controller's DOM behaviour against a DOM shaped exactly like the v-next partial output:
+ * N native single-char inputs (data-otp-slot, role=spinbutton, data-lv-input-otp-target="slot",
+ * data-action) + a hidden mirror (data-otp-mirror, target="mirror"), inside a
+ * [data-controller="lv-input-otp"] root that declares data-otp-mode / data-otp-length /
+ * data-otp-autosubmit / data-otp-complete.
  *
- * The .jte render is pinned by the real-compiler jte-compile gate; this file pins the
- * enhancer's DOM behaviour against a DOM shaped exactly like the v-next partial output:
- * N native single-char inputs (data-otp-slot, role=spinbutton) + a hidden mirror
- * (data-otp-mirror), inside a [data-slot="input-otp"] root that declares data-otp-mode,
- * data-otp-length, data-otp-autosubmit. The enhancer is exercised on a REAL DOM (happy-dom)
- * with REAL dispatchEvent calls per the client-island-fidelity lesson.
+ * Per the conversion convention §6 the controller is exercised through the REAL @hotwired/stimulus
+ * Application (startStimulus auto-loads it by filename) and a REAL lievit wire morph -- never a
+ * mocked $lievit, never a mocked runtime. A test that mocked the runtime would certify nothing.
  *
- * Tests are named to match the spec §7 acceptance-test identifiers where applicable.
- * The shared test files (jte-static-partials, tier4-components, etc.) are NOT touched.
+ * input-otp does NOT dismiss and NEVER round-trips the wire (the value POSTs with a plain form via
+ * the mirror), so there is no controlled/uncontrolled branch; the whole-contract analog is the
+ * no-wire invariant (see "never round-trips the wire"), asserted through a real fetch-stub runtime.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { enhanceInputOtp, enhanceAllInputOtp } from "../registry/jte/input-otp.enhancer.js";
+import { describe, test, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+import { LievitRuntime } from "../runtime/runtime.js";
+import { morph } from "../runtime/morph.js";
+import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
 
 // ---------------------------------------------------------------------------
 // DOM helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Build a DOM that matches the server-rendered v-next input-otp partial.
- *
- * Key attributes mirrored from the JTE:
- *   - root: data-slot="input-otp", data-otp-mode, data-otp-length, data-otp-autosubmit.
- *   - group: data-slot="input-otp-group", role="group".
- *   - each slot: data-otp-slot="{i}", role="spinbutton", tabindex per roving model.
- *   - mirror: data-otp-mirror, type="hidden".
+ * Build a DOM that matches the server-rendered v-next input-otp partial, INCLUDING the Stimulus
+ * wiring the .jte now emits (data-controller, data-action, data-lv-input-otp-target). This is the
+ * "build the DOM exactly as the .jte emits it" step of the convention test template.
  */
 function buildOtp(opts: {
   length?: number;
@@ -51,6 +54,7 @@ function buildOtp(opts: {
   } = opts;
 
   const root = document.createElement("div");
+  root.setAttribute("data-controller", "lv-input-otp");
   root.dataset.slot = "input-otp";
   root.dataset.otpMode = mode;
   root.dataset.otpLength = String(length);
@@ -61,12 +65,18 @@ function buildOtp(opts: {
   group.setAttribute("role", "group");
   group.setAttribute("aria-label", groupLabel);
   group.dataset.slot = "input-otp-group";
+  group.setAttribute("data-action", "paste->lv-input-otp#onPaste");
 
   for (let i = 0; i < length; i++) {
     const slot = document.createElement("input");
     slot.type = masked ? "password" : "text";
     slot.setAttribute("role", "spinbutton");
     slot.setAttribute("data-otp-slot", String(i));
+    slot.setAttribute("data-lv-input-otp-target", "slot");
+    slot.setAttribute(
+      "data-action",
+      "input->lv-input-otp#onInput keydown->lv-input-otp#onKeydown focus->lv-input-otp#onFocus",
+    );
     slot.setAttribute("maxlength", "1");
     slot.setAttribute("aria-label", `Digit ${i + 1} of ${length}`);
     slot.setAttribute("aria-valuetext", "blank");
@@ -88,6 +98,7 @@ function buildOtp(opts: {
   mirror.type = "hidden";
   mirror.name = "otp";
   mirror.setAttribute("data-otp-mirror", "");
+  mirror.setAttribute("data-lv-input-otp-target", "mirror");
   mirror.value = value;
   mirror.tabIndex = -1;
   root.appendChild(mirror);
@@ -102,6 +113,31 @@ function buildOtp(opts: {
   return root;
 }
 
+/** Build the OTP, start Stimulus, and await the MutationObserver so the controller is connected. */
+async function mountOtp(opts: Parameters<typeof buildOtp>[0]): Promise<HTMLElement> {
+  const root = buildOtp(opts);
+  startStimulus({});
+  await flushStimulus();
+  return root;
+}
+
+/** A real LievitRuntime backed by a fetch stub; counts the wire calls it dispatches. */
+function makeRuntime(): {
+  runtime: LievitRuntime;
+  calledActions: string[];
+  fetchImpl: ReturnType<typeof vi.fn>;
+} {
+  const calledActions: string[] = [];
+  const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse((init?.body as string) ?? "{}") as Record<string, unknown>;
+    const calls = body._calls as string[] | undefined;
+    if (calls) calledActions.push(...calls);
+    return new Response("<div></div>", { status: 200, headers: { "Lievit-Snapshot": "s2" } });
+  });
+  const runtime = new LievitRuntime({ fetchImpl: fetchImpl as unknown as typeof fetch });
+  return { runtime, calledActions, fetchImpl };
+}
+
 /** The ordered slot inputs of a root. */
 function slots(root: Element): HTMLInputElement[] {
   return Array.from(root.querySelectorAll<HTMLInputElement>("[data-otp-slot]")).sort(
@@ -114,28 +150,18 @@ function mirror(root: Element): HTMLInputElement {
   return root.querySelector<HTMLInputElement>("[data-otp-mirror]")!;
 }
 
-/**
- * Simulate typing one character into a slot:
- * 1. Set slot.value to the new char (native input overwrites).
- * 2. Fire a synthetic InputEvent (bubbles, so delegation reaches the root).
- */
+/** Simulate typing one character into a slot: set value, then fire a bubbling InputEvent. */
 function typeChar(slot: HTMLInputElement, ch: string): void {
   slot.value = ch;
   slot.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true }));
 }
 
-/**
- * Simulate a KeyboardEvent on a slot.
- */
+/** Simulate a KeyboardEvent on a slot. */
 function keyDown(slot: HTMLInputElement, key: string): void {
-  slot.dispatchEvent(
-    new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
-  );
+  slot.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 }
 
-/**
- * Simulate a paste event on an element with the given text.
- */
+/** Simulate a paste event on an element with the given text. */
 function simulatePaste(target: Element, text: string): void {
   const evt = new Event("paste", { bubbles: true, cancelable: true }) as ClipboardEvent;
   Object.defineProperty(evt, "clipboardData", {
@@ -145,12 +171,17 @@ function simulatePaste(target: Element, text: string): void {
   target.dispatchEvent(evt);
 }
 
+beforeEach(() => {
+  document.body.innerHTML = "";
+});
+
 afterEach(() => {
+  stopStimulus();
   document.body.innerHTML = "";
 });
 
 // ---------------------------------------------------------------------------
-// DOM shape (static, before enhance — verifies the partial output contract)
+// DOM shape (static, before Stimulus — verifies the partial output contract)
 // ---------------------------------------------------------------------------
 
 describe("input-otp partial DOM shape", () => {
@@ -222,14 +253,13 @@ describe("input-otp partial DOM shape", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Enhancer — character input + mirror sync
+// Controller — character input + mirror sync
 // ---------------------------------------------------------------------------
 
-describe("input-otp enhancer: character input", () => {
+describe("lv-input-otp controller: character input", () => {
   let root: HTMLElement;
-  beforeEach(() => {
-    root = buildOtp({ length: 4 });
-    enhanceInputOtp(root);
+  beforeEach(async () => {
+    root = await mountOtp({ length: 4 });
   });
 
   test("keyboard_digit_fills_slot_and_advances: typing a digit fills slot 0 and moves focus to slot 1", () => {
@@ -251,14 +281,14 @@ describe("input-otp enhancer: character input", () => {
     typeChar(s[0], "A");
     expect(s[0].value).toBe("");
     expect(mirror(root).value).toBe("");
-    // Focus should still be on slot 0 (no advance).
     expect(document.activeElement).not.toBe(s[1]);
   });
 
-  test("alphanumeric mode accepts letters (normalised to uppercase)", () => {
-    // Build a fresh root with alphanumeric mode; the root captured above is numeric.
-    const alphaRoot = buildOtp({ length: 4, mode: "alphanumeric" });
-    enhanceInputOtp(alphaRoot);
+  test("alphanumeric mode accepts letters (normalised to uppercase)", async () => {
+    // A fresh page with alphanumeric mode; the beforeEach root is numeric.
+    document.body.innerHTML = "";
+    stopStimulus();
+    const alphaRoot = await mountOtp({ length: 4, mode: "alphanumeric" });
     const s = slots(alphaRoot);
     typeChar(s[0], "a");
     expect(s[0].value).toBe("A");
@@ -271,34 +301,23 @@ describe("input-otp enhancer: character input", () => {
     typeChar(s[1], "2");
     typeChar(s[2], "3");
     typeChar(s[3], "4");
-    // After filling slot 3 (last), focus stays on slot 3.
     expect(document.activeElement).toBe(s[3]);
-  });
-
-  test("enhanceInputOtp is idempotent (re-enhancing does not double-bind)", () => {
-    enhanceInputOtp(root); // second call; MOUNTED guard, no-op
-    const s = slots(root);
-    typeChar(s[0], "5");
-    // A single input handler: mirror should be "5", not "55".
-    expect(mirror(root).value).toBe("5");
   });
 });
 
 // ---------------------------------------------------------------------------
-// Enhancer — backspace + delete
+// Controller — backspace + delete
 // ---------------------------------------------------------------------------
 
-describe("input-otp enhancer: backspace and delete", () => {
+describe("lv-input-otp controller: backspace and delete", () => {
   let root: HTMLElement;
-  beforeEach(() => {
-    root = buildOtp({ length: 4 });
-    enhanceInputOtp(root);
+  beforeEach(async () => {
+    root = await mountOtp({ length: 4 });
   });
 
   test("keyboard_backspace_on_filled_slot_clears_stays: Backspace on a filled slot clears it, focus stays", () => {
     const s = slots(root);
     typeChar(s[0], "7");
-    // Move focus to slot 0 explicitly.
     s[0].focus();
     keyDown(s[0], "Backspace");
     expect(s[0].value).toBe("");
@@ -321,7 +340,6 @@ describe("input-otp enhancer: backspace and delete", () => {
     const s = slots(root);
     s[0].focus();
     keyDown(s[0], "Backspace");
-    // No retreat possible; slot 0 stays focused.
     expect(document.activeElement).toBe(s[0]);
   });
 
@@ -336,14 +354,13 @@ describe("input-otp enhancer: backspace and delete", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Enhancer — arrow navigation + Home/End
+// Controller — arrow navigation + Home/End
 // ---------------------------------------------------------------------------
 
-describe("input-otp enhancer: arrow navigation", () => {
+describe("lv-input-otp controller: arrow navigation", () => {
   let root: HTMLElement;
-  beforeEach(() => {
-    root = buildOtp({ length: 6 });
-    enhanceInputOtp(root);
+  beforeEach(async () => {
+    root = await mountOtp({ length: 6 });
   });
 
   test("keyboard_arrow_left_moves_focus: ArrowLeft from slot 3 moves focus to slot 2", () => {
@@ -394,13 +411,12 @@ describe("input-otp enhancer: arrow navigation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Enhancer — auto-submit
+// Controller — auto-submit / completion
 // ---------------------------------------------------------------------------
 
-describe("input-otp enhancer: auto-submit", () => {
-  test("autosubmit_fires_complete_on_nth_char: filling all slots fires lievit:otp-complete", () => {
-    const root = buildOtp({ length: 4, autoSubmit: true, completeAction: "event" });
-    enhanceInputOtp(root);
+describe("lv-input-otp controller: auto-submit", () => {
+  test("autosubmit_fires_complete_on_nth_char: filling all slots fires lievit:otp-complete", async () => {
+    const root = await mountOtp({ length: 4, autoSubmit: true, completeAction: "event" });
     const s = slots(root);
     const events: string[] = [];
     root.addEventListener("lievit:otp-complete", (e) => {
@@ -414,9 +430,8 @@ describe("input-otp enhancer: auto-submit", () => {
     expect(events).toEqual(["1234"]);
   });
 
-  test("autosubmit_false_does_not_fire_on_nth_char: filling all slots does NOT fire when autoSubmit=false", () => {
-    const root = buildOtp({ length: 3, autoSubmit: false, completeAction: "event" });
-    enhanceInputOtp(root);
+  test("autosubmit_false_does_not_fire_on_nth_char: filling all slots does NOT fire when autoSubmit=false", async () => {
+    const root = await mountOtp({ length: 3, autoSubmit: false, completeAction: "event" });
     const s = slots(root);
     let fired = 0;
     root.addEventListener("lievit:otp-complete", () => { fired++; });
@@ -426,9 +441,8 @@ describe("input-otp enhancer: auto-submit", () => {
     expect(fired).toBe(0);
   });
 
-  test("keyboard_enter_fires_complete_when_autosubmit_false_and_all_filled", () => {
-    const root = buildOtp({ length: 3, autoSubmit: false, completeAction: "event" });
-    enhanceInputOtp(root);
+  test("keyboard_enter_fires_complete_when_autosubmit_false_and_all_filled", async () => {
+    const root = await mountOtp({ length: 3, autoSubmit: false, completeAction: "event" });
     const s = slots(root);
     const tokens: string[] = [];
     root.addEventListener("lievit:otp-complete", (e) => {
@@ -437,31 +451,26 @@ describe("input-otp enhancer: auto-submit", () => {
     typeChar(s[0], "7");
     typeChar(s[1], "8");
     typeChar(s[2], "9");
-    // All slots filled; no fire yet.
     expect(tokens).toHaveLength(0);
-    // Enter on any slot fires it.
     s[2].focus();
     keyDown(s[2], "Enter");
     expect(tokens).toEqual(["789"]);
   });
 
-  test("keyboard_enter_noop_when_incomplete: Enter with incomplete code does not fire", () => {
-    const root = buildOtp({ length: 4, autoSubmit: false, completeAction: "event" });
-    enhanceInputOtp(root);
+  test("keyboard_enter_noop_when_incomplete: Enter with incomplete code does not fire", async () => {
+    const root = await mountOtp({ length: 4, autoSubmit: false, completeAction: "event" });
     const s = slots(root);
     let fired = 0;
     root.addEventListener("lievit:otp-complete", () => { fired++; });
     typeChar(s[0], "1");
     typeChar(s[1], "2");
-    // Only 2 of 4 filled.
     s[2].focus();
     keyDown(s[2], "Enter");
     expect(fired).toBe(0);
   });
 
-  test("completion fires lievit:otp-complete exactly once per filled state (latch)", () => {
-    const root = buildOtp({ length: 2, autoSubmit: true, completeAction: "event" });
-    enhanceInputOtp(root);
+  test("completion fires lievit:otp-complete exactly once per filled state (latch)", async () => {
+    const root = await mountOtp({ length: 2, autoSubmit: true, completeAction: "event" });
     const s = slots(root);
     let fires = 0;
     root.addEventListener("lievit:otp-complete", () => { fires++; });
@@ -473,9 +482,8 @@ describe("input-otp enhancer: auto-submit", () => {
     expect(fires).toBe(1);
   });
 
-  test("completion re-arms after the code drops below full", () => {
-    const root = buildOtp({ length: 2, autoSubmit: true, completeAction: "event" });
-    enhanceInputOtp(root);
+  test("completion re-arms after the code drops below full", async () => {
+    const root = await mountOtp({ length: 2, autoSubmit: true, completeAction: "event" });
     const s = slots(root);
     let fires = 0;
     root.addEventListener("lievit:otp-complete", () => { fires++; });
@@ -491,14 +499,15 @@ describe("input-otp enhancer: auto-submit", () => {
     expect(fires).toBe(2);
   });
 
-  test('completeAction="submit" requestSubmits the enclosing form', () => {
+  test('completeAction="submit" requestSubmits the enclosing form', async () => {
     const form = document.createElement("form");
-    const root = buildOtp({ length: 2, autoSubmit: true, completeAction: "submit" });
-    form.appendChild(root);
     document.body.appendChild(form);
+    const root = buildOtp({ length: 2, autoSubmit: true, completeAction: "submit" });
+    form.appendChild(root); // move the root inside the form
     let submitted = 0;
     form.requestSubmit = () => { submitted++; };
-    enhanceInputOtp(root);
+    startStimulus({});
+    await flushStimulus();
     const s = slots(root);
     typeChar(s[0], "4");
     expect(submitted).toBe(0);
@@ -506,9 +515,8 @@ describe("input-otp enhancer: auto-submit", () => {
     expect(submitted).toBe(1);
   });
 
-  test("no completeAction: lievit:otp-complete is never fired (plain form POST)", () => {
-    const root = buildOtp({ length: 2 }); // no completeAction
-    enhanceInputOtp(root);
+  test("no completeAction: lievit:otp-complete is never fired (plain form POST)", async () => {
+    const root = await mountOtp({ length: 2 }); // no completeAction
     let fires = 0;
     root.addEventListener("lievit:otp-complete", () => { fires++; });
     const s = slots(root);
@@ -519,13 +527,12 @@ describe("input-otp enhancer: auto-submit", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Enhancer — paste
+// Controller — paste
 // ---------------------------------------------------------------------------
 
-describe("input-otp enhancer: paste", () => {
-  test("paste_splits_across_slots: pasting 4 digits fills all slots and fires complete", () => {
-    const root = buildOtp({ length: 4, completeAction: "event" });
-    enhanceInputOtp(root);
+describe("lv-input-otp controller: paste", () => {
+  test("paste_splits_across_slots: pasting 4 digits fills all slots and fires complete", async () => {
+    const root = await mountOtp({ length: 4, completeAction: "event" });
     const tokens: string[] = [];
     root.addEventListener("lievit:otp-complete", (e) => {
       tokens.push((e as CustomEvent<string>).detail);
@@ -541,9 +548,8 @@ describe("input-otp enhancer: paste", () => {
     expect(tokens).toEqual(["1234"]);
   });
 
-  test("paste_partial_fills_from_slot_zero: pasting 3 chars into 6-slot group leaves 3-5 empty", () => {
-    const root = buildOtp({ length: 6, completeAction: "event" });
-    enhanceInputOtp(root);
+  test("paste_partial_fills_from_slot_zero: pasting 3 chars into 6-slot group leaves 3-5 empty", async () => {
+    const root = await mountOtp({ length: 6, completeAction: "event" });
     let fires = 0;
     root.addEventListener("lievit:otp-complete", () => { fires++; });
     const group = root.querySelector("[data-slot='input-otp-group']")!;
@@ -554,17 +560,14 @@ describe("input-otp enhancer: paste", () => {
     expect(s[2].value).toBe("3");
     expect(s[3].value).toBe("");
     expect(fires).toBe(0);
-    // Focus on the first unfilled slot (slot 3).
     expect(document.activeElement).toBe(s[3]);
   });
 
-  test("paste_strips_non_conforming_chars_numeric_mode: letters are stripped in numeric mode", () => {
-    const root = buildOtp({ length: 6 });
-    enhanceInputOtp(root);
+  test("paste_strips_non_conforming_chars_numeric_mode: letters are stripped in numeric mode", async () => {
+    const root = await mountOtp({ length: 6 });
     const group = root.querySelector("[data-slot='input-otp-group']")!;
     simulatePaste(group, "1A3B56");
     const s = slots(root);
-    // Only digits pass: "1", "3", "5", "6" distributed to slots 0-3; slots 4-5 empty.
     expect(s[0].value).toBe("1");
     expect(s[1].value).toBe("3");
     expect(s[2].value).toBe("5");
@@ -573,33 +576,27 @@ describe("input-otp enhancer: paste", () => {
     expect(s[5].value).toBe("");
   });
 
-  test("paste_hostile_value_renders_inert: script-like content goes into slot values, not HTML", () => {
-    const root = buildOtp({ length: 4, mode: "any" });
-    enhanceInputOtp(root);
+  test("paste_hostile_value_renders_inert: script-like content goes into slot values, not HTML", async () => {
+    const root = await mountOtp({ length: 4, mode: "any" });
     const group = root.querySelector("[data-slot='input-otp-group']")!;
-    // Paste a string starting with printable chars from the hostile payload.
     simulatePaste(group, "><sc");
     const s = slots(root);
-    // Each char is written into slot.value (a DOM property), not innerHTML.
     expect(s[0].value).toBe(">");
     expect(s[1].value).toBe("<");
     expect(s[2].value).toBe("s");
     expect(s[3].value).toBe("c");
-    // Sanity: the group's innerHTML does NOT contain a <script> element.
     expect(root.querySelector("script")).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Enhancer — focus + roving tabindex
+// Controller — focus + roving tabindex + multi-root auto-wiring
 // ---------------------------------------------------------------------------
 
-describe("input-otp enhancer: roving tabindex", () => {
-  test("focus_roving_tabindex_on_click: clicking slot 4 makes it tabindex=0; others become -1", () => {
-    const root = buildOtp({ length: 6 });
-    enhanceInputOtp(root);
+describe("lv-input-otp controller: roving tabindex + auto-wiring", () => {
+  test("focus_roving_tabindex_on_click: focusing slot 4 makes it tabindex=0; others become -1", async () => {
+    const root = await mountOtp({ length: 6 });
     const s = slots(root);
-    // Simulate the user clicking slot 4 (focus event fires on the slot).
     s[4].focus();
     expect(s[4].tabIndex).toBe(0);
     expect(s[0].tabIndex).toBe(-1);
@@ -607,31 +604,108 @@ describe("input-otp enhancer: roving tabindex", () => {
     expect(s[5].tabIndex).toBe(-1);
   });
 
-  test("enhanceAllInputOtp wires every root on the page", () => {
+  test("startStimulus auto-wires EVERY input-otp root on the page (filename autoload)", async () => {
+    const first = buildOtp({ length: 4 });
     const second = buildOtp({ length: 3 });
-    enhanceAllInputOtp();
+    startStimulus({});
+    await flushStimulus();
+    typeChar(slots(first)[0], "1");
     typeChar(slots(second)[0], "9");
+    expect(mirror(first).value).toBe("1");
     expect(mirror(second).value).toBe("9");
   });
 
-  test("enhanceAllInputOtp with a scope argument only enhances roots within the scope", () => {
+  test("a root inserted AFTER start is wired once the MutationObserver runs", async () => {
+    startStimulus({});
+    await flushStimulus();
+    const late = buildOtp({ length: 2 });
+    await flushStimulus(); // Stimulus connects the newly-inserted root
+    typeChar(slots(late)[0], "5");
+    expect(mirror(late).value).toBe("5");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Controller — the no-wire invariant (the OTP analog of "uncontrolled silent")
+// ---------------------------------------------------------------------------
+
+describe("lv-input-otp controller: never round-trips the wire", () => {
+  it("filling + completing the code dispatches ZERO /lievit/<id>/call (plain form POST only)", async () => {
+    const { runtime, calledActions, fetchImpl } = makeRuntime();
+    // Wrap in a real lievit component so a stray wire call WOULD be addressable + observable.
+    const componentRoot = document.createElement("div");
+    componentRoot.setAttribute("data-lievit-component", "com.example.Otp");
+    componentRoot.setAttribute("data-lievit-id", "cid-otp");
+    componentRoot.setAttribute("data-lievit-snapshot", "s1");
+    document.body.appendChild(componentRoot);
+
+    const root = buildOtp({ length: 4, completeAction: "event" });
+    componentRoot.appendChild(root);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const s = slots(root);
+    typeChar(s[0], "1");
+    typeChar(s[1], "2");
+    typeChar(s[2], "3");
+    typeChar(s[3], "4");
+    simulatePaste(root.querySelector("[data-slot='input-otp-group']")!, "5678");
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calledActions).toHaveLength(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Controller — morph-safety (real lievit wire morph; the whole point of the migration)
+// ---------------------------------------------------------------------------
+
+describe("lv-input-otp controller: morph-safety (real lievit morph)", () => {
+  it("after an in-place morph the code still completes EXACTLY once (no stacked listeners)", async () => {
+    const root = await mountOtp({ length: 2, autoSubmit: true, completeAction: "event" });
+    const fires: string[] = [];
+    const onComplete = (e: Event): void => {
+      fires.push((e as CustomEvent<string>).detail);
+    };
+    document.addEventListener("lievit:otp-complete", onComplete);
+
+    // A real lievit wire morph re-renders the subtree (idiomorph). The markup is identical, so the
+    // controller must NOT be double-connected and the actions must stay single (no WeakSet, no
+    // data-otp-enhanced bookkeeping -- Stimulus owns the lifecycle).
+    morph(root, root.outerHTML);
+    await flushStimulus();
+
+    const s = slots(root);
+    typeChar(s[0], "4");
+    typeChar(s[1], "2");
+
+    expect(fires).toEqual(["42"]); // exactly once -> reconnected + single handling
+    document.removeEventListener("lievit:otp-complete", onComplete);
+  });
+
+  it("a root removed by a morph fires nothing (disconnect tears the actions down)", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const inner = buildOtp({ length: 2 });
-    container.appendChild(inner);
+    const root = buildOtp({ length: 2, autoSubmit: true, completeAction: "event" });
+    container.appendChild(root);
+    startStimulus({});
+    await flushStimulus();
 
-    const outer = buildOtp({ length: 2 });
-    document.body.appendChild(outer);
+    let fires = 0;
+    const onComplete = (): void => { fires++; };
+    document.addEventListener("lievit:otp-complete", onComplete);
 
-    enhanceAllInputOtp(container);
+    // Morph the OTP out of the tree.
+    morph(container, "<div><span>gone</span></div>");
+    await flushStimulus();
 
-    // Inner root is enhanced: typing works.
-    typeChar(slots(inner)[0], "1");
-    expect(mirror(inner).value).toBe("1");
-
-    // Outer root was NOT in scope: still unenhanced (mirror stays empty on type).
-    slots(outer)[0].value = "7";
-    slots(outer)[0].dispatchEvent(new InputEvent("input", { bubbles: true }));
-    expect(mirror(outer).value).toBe("");
+    // The detached slots no longer reach a live controller -> typing fires nothing.
+    const s = slots(root);
+    typeChar(s[0], "1");
+    typeChar(s[1], "2");
+    await flushStimulus();
+    expect(fires).toBe(0);
+    document.removeEventListener("lievit:otp-complete", onComplete);
   });
 });
