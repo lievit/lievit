@@ -6,11 +6,14 @@
  *
  * What this does (replacing the 3-plugin hand-wiring in import-poc):
  *   1. Walk the consumer's resolved compile-scope artifacts.
- *   2. For each artifact whose groupId is "io.github.lievit", open its jar and extract
- *      every *.jte entry into the staging directory, preserving the top-level namespace
+ *   2. For each artifact (any groupId), open its jar and inspect its entries: if the jar
+ *      contains at least one *.jte entry it is treated as a lievit template jar and every
+ *      *.jte entry is extracted into the staging directory, preserving the top-level namespace
  *      directory (e.g. lievit/button.jte -> jte-src/lievit/button.jte,
  *      kit/table.jte -> jte-src/kit/table.jte). Non-.jte resources (lievit-runtime/**,
  *      .class files, META-INF, etc.) are naturally excluded by the .jte suffix filter.
+ *      This content-based detection is groupId-agnostic: it works for io.github.lievit
+ *      (Maven Central / local install) and com.github.lievit.lievit (JitPack) alike.
  *   3. Copy the consumer's own JTE sources (consumerJteSourceDirectory) alongside,
  *      preserving their relative paths.
  *
@@ -56,18 +59,22 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 
 /**
- * Stages lievit JTE templates from all {@code io.github.lievit:*} dependency jars for
- * precompilation.
+ * Stages lievit JTE templates from dependency jars for precompilation.
  *
- * <p>Resolves every {@code io.github.lievit:*} compile-scope artifact, extracts every {@code
- * *.jte} entry from their jars into {@code stagingDirectory} preserving the namespace path (e.g.
- * {@code lievit/button.jte}, {@code kit/table.jte}), then copies the consumer's own JTE sources
- * alongside. The result is one merged directory that the {@code jte-maven-plugin:precompile} goal
- * reads as its {@code sourceDirectory}.
+ * <p>Inspects every compile-scope artifact (regardless of groupId) and extracts every {@code
+ * *.jte} entry from any jar that contains at least one such entry, preserving the namespace path
+ * (e.g. {@code lievit/button.jte}, {@code kit/table.jte}). The consumer's own JTE sources are
+ * then copied alongside. The result is one merged directory that the {@code
+ * jte-maven-plugin:precompile} goal reads as its {@code sourceDirectory}.
  *
- * <p>Namespace detection is automatic by default: every {@code *.jte} entry from every {@code
- * io.github.lievit:*} jar is staged, preserving its top-level directory (the JTE namespace). The
- * optional {@code <namespaces>} parameter restricts extraction to specific top-level directories.
+ * <p>The scan is <em>groupId-agnostic</em>: a jar qualifies by <em>content</em> (presence of
+ * {@code *.jte} entries), not by groupId. This means both {@code io.github.lievit:*} artifacts
+ * (Maven Central / local install) and {@code com.github.lievit.lievit:*} artifacts (JitPack) are
+ * handled transparently.
+ *
+ * <p>Namespace detection is automatic by default: every {@code *.jte} entry from every qualifying
+ * jar is staged, preserving its top-level directory (the JTE namespace). The optional {@code
+ * <namespaces>} parameter restricts extraction to specific top-level directories.
  *
  * <p>Minimal consumer pom (instead of three hand-wired plugins):
  *
@@ -90,9 +97,6 @@ import org.apache.maven.project.MavenProject;
     requiresDependencyResolution = ResolutionScope.COMPILE,
     threadSafe = true)
 public class StageTemplatesMojo extends AbstractMojo {
-
-  /** GroupId of lievit artifacts whose jars are scanned for *.jte resources. */
-  private static final String LIEVIT_GROUP_ID = "io.github.lievit";
 
   // ---- injected by Maven ---------------------------------------------------------------
 
@@ -173,43 +177,46 @@ public class StageTemplatesMojo extends AbstractMojo {
     if (filterByNamespace) {
       getLog().info("lievit:stage-templates: namespace filter active: " + namespaces);
     } else {
-      getLog().info("lievit:stage-templates: namespace filter: auto (all *.jte from lievit jars)");
+      getLog().info("lievit:stage-templates: namespace filter: auto (all *.jte from qualifying jars)");
     }
 
-    // Step 1: extract *.jte resources from every io.github.lievit:* artifact.
+    // Step 1: extract *.jte resources from every compile-scope artifact that contains *.jte entries.
+    // Qualification is content-based (jar contains at least one *.jte entry), not groupId-based,
+    // so this works for both io.github.lievit (Central/local) and com.github.lievit.lievit (JitPack).
     Set<Artifact> artifacts = project.getArtifacts();
     if (artifacts == null || artifacts.isEmpty()) {
       getLog().warn(
           "lievit:stage-templates: no resolved artifacts found. "
               + "Ensure requiresDependencyResolution=COMPILE is honoured and the project "
-              + "declares at least one io.github.lievit:* dependency.");
+              + "declares at least one lievit dependency.");
     }
     int extractedTotal = 0;
     for (Artifact artifact : artifacts) {
-      if (!LIEVIT_GROUP_ID.equals(artifact.getGroupId())) {
-        continue;
-      }
       File jarFile = artifact.getFile();
       if (jarFile == null || !jarFile.isFile()) {
-        getLog().warn(
+        getLog().debug(
             "lievit:stage-templates: artifact "
                 + artifact.getId()
                 + " has no local file (not yet resolved?), skipping.");
         continue;
       }
       int extracted = extractJteResources(jarFile, staging, artifact.getId(), filterByNamespace);
-      extractedTotal += extracted;
-      getLog().info(
-          "lievit:stage-templates: extracted "
-              + extracted
-              + " *.jte entries from "
-              + artifact.getId());
+      if (extracted > 0) {
+        extractedTotal += extracted;
+        getLog().info(
+            "lievit:stage-templates: extracted "
+                + extracted
+                + " *.jte entries from "
+                + artifact.getId());
+      } else {
+        getLog().debug(
+            "lievit:stage-templates: no *.jte entries in " + artifact.getId() + ", skipping.");
+      }
     }
     if (extractedTotal == 0) {
       getLog().warn(
           "lievit:stage-templates: no *.jte entries extracted. "
-              + "Check that at least one io.github.lievit:* artifact with JTE templates "
-              + "is on the compile classpath.");
+              + "Check that at least one artifact with JTE templates is on the compile classpath.");
     } else {
       getLog().info("lievit:stage-templates: " + extractedTotal + " *.jte entries staged.");
     }
@@ -247,7 +254,7 @@ public class StageTemplatesMojo extends AbstractMojo {
    * <p>Non-{@code .jte} entries (class files, META-INF, TS sources under {@code lievit-runtime/},
    * etc.) are always excluded by the {@code .jte} suffix check.
    *
-   * @return the number of entries written
+   * @return the number of {@code *.jte} entries written (0 if the jar contains none)
    */
   private int extractJteResources(
       File jarFile, Path staging, String artifactId, boolean filterByNamespace)

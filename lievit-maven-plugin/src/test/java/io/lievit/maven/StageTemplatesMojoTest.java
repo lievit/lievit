@@ -160,15 +160,46 @@ class StageTemplatesMojoTest {
   }
 
   /**
-   * @spec.given an artifact with a non-lievit groupId in the project's artifact set
-   * @spec.when  stage-templates executes
-   * @spec.then  the staging directory does NOT contain any entries from that artifact
-   *             (only lievit group IDs are scanned)
+   * @spec.given a jar with groupId "com.github.lievit.lievit" (JitPack coordinate) containing
+   *             lievit/button.jte — the coordinate a consumer gets when they resolve lievit via
+   *             JitPack instead of Maven Central
+   * @spec.when  stage-templates executes with no namespace filter (auto mode)
+   * @spec.then  lievit/button.jte IS staged, proving the content-based (groupId-agnostic) scan
+   *             works for JitPack consumers
    */
   @Test
-  void stage_ignores_non_lievit_artifacts() throws Exception {
+  void stage_extracts_jte_from_jitpack_groupid_artifact() throws Exception {
+    Path fakeJar = tmp.resolve("lievit-ui-1.0.0.jar");
+    createFakeJar(fakeJar, "lievit/button.jte", "@param String label\n<button>${label}</button>");
+
+    Path stagingDir = tmp.resolve("jte-src");
+    MavenProject fakeProject = new MavenProject();
+    // JitPack resolves lievit under the GitHub org-scoped groupId, not io.github.lievit.
+    Artifact jitpackArtifact = buildArtifact("com.github.lievit.lievit", "lievit-ui", "1.0.0", fakeJar.toFile());
+    fakeProject.setArtifacts(Set.of(jitpackArtifact));
+
+    StageTemplatesMojo mojo = new StageTemplatesMojo();
+    inject(mojo, "project", fakeProject);
+    inject(mojo, "stagingDirectory", stagingDir.toFile());
+    inject(mojo, "consumerJteSourceDirectory", tmp.resolve("nonexistent").toFile());
+    inject(mojo, "namespaces", null);
+    inject(mojo, "skip", false);
+    mojo.execute();
+
+    assertTrue(Files.exists(stagingDir.resolve("lievit/button.jte")),
+        "lievit/button.jte must be staged from a com.github.lievit.lievit (JitPack) artifact");
+  }
+
+  /**
+   * @spec.given a jar with an arbitrary groupId (com.example) that contains NO *.jte entries
+   * @spec.when  stage-templates executes
+   * @spec.then  the staging directory receives nothing from that jar (content-based: no *.jte = skip)
+   */
+  @Test
+  void stage_ignores_artifacts_without_jte_entries() throws Exception {
     Path fakeJar = tmp.resolve("some-other-lib.jar");
-    createFakeJar(fakeJar, "lievit/hijack.jte", "malicious");
+    // This jar has only a .class file — no *.jte entries.
+    createFakeJarMulti(fakeJar, new String[]{"com/example/Foo.class", "Êþº¾"});
 
     Path stagingDir = tmp.resolve("jte-src");
     MavenProject fakeProject = new MavenProject();
@@ -183,9 +214,15 @@ class StageTemplatesMojoTest {
     inject(mojo, "skip", false);
     mojo.execute();
 
-    // Nothing from a non-lievit jar must land in the staging dir.
-    assertFalse(Files.exists(stagingDir.resolve("lievit/hijack.jte")),
-        "lievit/** from a non-lievit groupId artifact must NOT be extracted");
+    // The staging dir must be empty — no *.jte entries means nothing staged.
+    assertFalse(Files.exists(stagingDir.resolve("com/example/Foo.class")),
+        "non-jte entries must never be staged");
+    // stagingDir itself may have been created; what matters is it contains no files.
+    long fileCount = Files.exists(stagingDir)
+        ? Files.walk(stagingDir).filter(p -> !Files.isDirectory(p)).count()
+        : 0L;
+    assertTrue(fileCount == 0,
+        "staging dir must be empty when no artifact contains *.jte entries (got " + fileCount + " files)");
   }
 
   // ---- helpers -------------------------------------------------------------------------

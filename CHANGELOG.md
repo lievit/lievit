@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-06-25
+
+### Fixed
+
+- **`lievit-maven-plugin` is now groupId-agnostic.** `stage-templates` no longer hard-codes the
+  lievit groupId (`io.github.lievit`): it scans ALL compile-scope dependency jars and stages any
+  that contain `*.jte` resources. A JitPack consumer (who resolves the artifacts under
+  `com.github.lievit.lievit:*`) previously got ZERO templates staged because the groupId never
+  matched; now the plugin works regardless of the coordinate the consumer used (JitPack, Central,
+  or local). The optional `<namespaces>` filter + the auto-detect default are unchanged. This
+  unblocks the first external import-consumer (gest) on JitPack.
+
 ## [1.0.0] - 2026-06-25
 
 First stable release. lievit is server-rendered to the core: the UI primitives are JTE partials +
