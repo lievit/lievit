@@ -86,6 +86,10 @@ describe("menubar -- bar container element + landmark", () => {
     expect(markup).toContain('data-size="${size}"');
   });
 
+  test('bar carries data-controller="lv-menubar" (Stimulus drives the roving-tabindex keyboard model)', () => {
+    expect(markup).toContain('data-controller="lv-menubar"');
+  });
+
   test("bar renders the content Content slot (${content} interpolation)", () => {
     expect(markup).toContain("${content}");
   });
