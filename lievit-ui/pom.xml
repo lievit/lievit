@@ -10,7 +10,7 @@
     (a) the .jte sources from registry/jte/** staged under lievit/ in the jar classpath
         (so lievit/button.jte -> @template.lievit.button in the consumer build).
     (b) the compiled LievitIcons + IconResolver + LucideIconResolver classes from
-        registry/icons (package io.lievit.ui), so a consumer gets the icon SPI via the
+        registry/icons (package dev.lievit.ui), so a consumer gets the icon SPI via the
         dependency, not via a separate filesystem source root.
 
   The existing npm/vitest/JTE-compile tooling is UNTOUCHED: this pom is additive.
@@ -36,7 +36,7 @@
   <description>
     lievit-ui component registry as a Maven jar. Delivers the JTE component partials as classpath
     resources under lievit/** (consumable via the unpack+merge+precompile recipe) and the compiled
-    icon SPI (LievitIcons / IconResolver / LucideIconResolver, package io.lievit.ui).
+    icon SPI (LievitIcons / IconResolver / LucideIconResolver, package dev.lievit.ui).
     RFC 0036 stage 2 — distribution design documented in lievit-ui/planning/v-next/07-distribution-design.md.
   </description>
 

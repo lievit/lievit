@@ -6,7 +6,7 @@
   REAL-COMPILER smoke + RENDER gate for the lievit-KIT production JTE chrome (kit/table.jte + parts).
 
   This is the kit analogue of lievit-ui/test/jte-compile, with one extra job: the kit templates
-  `@import io.lievit.kit.*` (AdminListView, Cell, ColumnSummary, SortDirection, AvatarStackColumn,
+  `@import dev.lievit.kit.*` (AdminListView, Cell, ColumnSummary, SortDirection, AvatarStackColumn,
   page.KitTableView), so the KIT's own classes must be on the jte-compile classpath, AND they compose
   the lievit-ui partials (@template.lievit.*), so the ui partials must be staged alongside.
 
@@ -45,7 +45,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.lievit</groupId>
+  <groupId>dev.lievit</groupId>
   <artifactId>lievit-kit-jte-compile-render</artifactId>
   <version>0</version>
   <packaging>jar</packaging>

@@ -34,7 +34,7 @@
 
         <!--
             The SFC<->MFC convert (issue #141) drives the compiler's engine-neutral view AST + the
-            parsers/writers (io.lievit.compiler.convert): the CLI rewrites source text, the compiler
+            parsers/writers (dev.lievit.compiler.convert): the CLI rewrites source text, the compiler
             owns the markup transform. The compiler is pure Java, zero Spring (ArchUnit-enforced), so
             the CLI stays a thin standalone fat-jar.
         -->
@@ -149,7 +149,7 @@
                             </filters>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>io.lievit.cli.LievitCli</mainClass>
+                                    <mainClass>dev.lievit.cli.LievitCli</mainClass>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>

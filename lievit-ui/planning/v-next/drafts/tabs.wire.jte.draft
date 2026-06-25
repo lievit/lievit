@@ -1,6 +1,6 @@
-@import io.lievit.component.ComponentMetadata
-@import io.lievit.wire.TabItem
-@import io.lievit.wire.TabsComponent
+@import dev.lievit.component.ComponentMetadata
+@import dev.lievit.wire.TabItem
+@import dev.lievit.wire.TabsComponent
 @import gg.jte.output.StringOutput
 @import gg.jte.html.escape.Escape
 @import java.util.List

@@ -59,7 +59,7 @@ jobs:
         run: |
           ./mvnw -B -ntp -V -Pnative \
             -pl lievit-core,lievit-jte,lievit-spring-boot-starter -am \
-            test -Dtest='io.lievit.spring.native_.*' -Dsurefire.failIfNoSpecifiedTests=false
+            test -Dtest='dev.lievit.spring.native_.*' -Dsurefire.failIfNoSpecifiedTests=false
 
   lievit-ui:
     name: lievit-ui registry (typecheck + test + drift)

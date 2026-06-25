@@ -62,7 +62,7 @@
     </dependency>
 
     <!--
-      lievit-kit: delivers kit/*.jte templates + io.lievit.kit.* model classes (StatWidget, etc.).
+      lievit-kit: delivers kit/*.jte templates + dev.lievit.kit.* model classes (StatWidget, etc.).
       Transitively brings lievit-ui (already declared above) + Spring context + validation.
     -->
     <dependency>

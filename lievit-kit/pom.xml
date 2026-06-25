@@ -28,7 +28,7 @@
         <!--
           lievit-ui: the primitive component registry that kit templates compose
           (@template.lievit.*). Declared here so:
-            (a) The LievitIcons class (io.lievit.ui.LievitIcons) is on the kit compile
+            (a) The LievitIcons class (dev.lievit.ui.LievitIcons) is on the kit compile
                 and runtime classpath (needed by any consumer that uses kit/page templates
                 that transitively call @template.lievit.icon).
             (b) Maven dependency resolution surfaces the lievit-ui jar to any consumer

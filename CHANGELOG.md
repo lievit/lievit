@@ -6,6 +6,34 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-06-25
+
+### Fixed
+
+- **Namespace residuals the 1.0.3 `io.lievit → dev.lievit` rename missed** (it ran over `.java`/`.jte`
+  but not `.xml`/`.html`/CI): the `lievit-cli` shaded-jar `<mainClass>` (was `io.lievit.cli.LievitCli`,
+  so `java -jar lievit-cli.jar` threw `ClassNotFoundException` — the directive linter was broken), the
+  CI native-test filter `-Dtest=...`, and the kit-crud example's Thymeleaf `T(io.lievit.kit.Cell.*)`
+  refs. (1.1.0 was built but never reached Central; 1.1.1 is the first published 1.1.x.)
+
+### Added
+
+- **lievit-kit Filament-parity backflow** (issues #489-495, ADR sw-architecture-008): seven generic
+  admin features harvested from the gest dogfood — gest had kept them as publish-to-customize
+  overrides because lievit-kit lacked them; now they ship upstream so adopters drop the override.
+  All additive + backward-compatible (new optional `@param` slots default null, opt-in flags).
+  - **table** (`kit/table.jte`): toolbar slots `scopeBar` / `headerActionsExtra` / `bulkActions` /
+    `favoriteTabs` / `viewsManager` (#489); a per-row `rowActionsSlot` (#490); an opt-in
+    **HMAC-signed sort token** so a tampered `?sort=` is rejected server-side — `SortTokenSigner`
+    reuses lievit-core's HMAC-SHA256 primitive (no hand-rolled crypto), wired via
+    `KitTableView.withSignedSort(signer)` (#491).
+  - **app shell** (`kit/page.jte`): brand-logo slot + page-header opt-out (#492); a responsive
+    mobile hamburger + sidebar-footer user-menu (#493).
+  - **sidebar nav** (`kit/page/sidebar-nav.jte`): multi-level parent/child groups + external
+    `target=_blank rel=noopener` links (#494). `lievit-ui` `sidebar/item.jte` gains `target`/`rel`
+    (smart-attribute null-omission, no change for existing callers).
+  - **global search** (`kit/page/global-search.jte`): a responsive mobile magnifier popover (#495).
+
 ## [1.0.3] - 2026-06-25
 
 ### Changed
