@@ -136,6 +136,12 @@ export function enhanceFileUploads(options: FileUploadOptions = {}): () => void 
         : null);
   const teardowns: Array<() => void> = [];
   for (const el of collectRoots(root, "[data-file-upload]")) {
+    // Coexistence during the Stimulus fan-out: a root converted to the lv-file-upload controller
+    // owns its own lifecycle (drag-drop + previews + progress). Skip it so this legacy enhancer
+    // never double-wires the same DOM (the convention's converted-instance guard).
+    if (el.matches('[data-controller~="lv-file-upload"]')) {
+      continue;
+    }
     if (el.getAttribute(WIRED) === "true") {
       continue;
     }

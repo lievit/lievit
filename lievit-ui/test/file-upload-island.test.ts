@@ -195,4 +195,16 @@ describe("file-upload island drag-drop + preview wiring", () => {
     zone.dispatchEvent(new Event("dragover", { bubbles: true, cancelable: true }));
     expect(zone.getAttribute("data-file-upload-dragover")).toBe("true");
   });
+
+  test("a root converted to the lv-file-upload controller is SKIPPED (no double-wire)", () => {
+    // Coexistence during the Stimulus fan-out: the lv-file-upload controller owns a converted root's
+    // lifecycle, so this legacy enhancer must leave it untouched (the convention's converted-instance
+    // guard). It does not stamp data-file-upload-enhanced and binds no listeners on it.
+    const { root, zone } = renderRoot();
+    root.setAttribute("data-controller", "lv-file-upload");
+    teardown = enhanceFileUploads({ root, objectUrlFor: () => "blob:x" });
+    expect(root.getAttribute("data-file-upload-enhanced")).toBeNull();
+    zone.dispatchEvent(new Event("dragover", { bubbles: true, cancelable: true }));
+    expect(zone.getAttribute("data-file-upload-dragover")).toBeNull();
+  });
 });

@@ -58,7 +58,7 @@
 !{var inputId = "lv-file-input";}
 !{var hintId = "lv-file-hint";}
 !{List<UploadedFile> files = _instance.files();}
-<div data-lievit-component="${cid}" data-file-upload style="display: block; font-family: var(--lv-font-sans);">
+<div data-lievit-component="${cid}" data-file-upload data-controller="lv-file-upload" data-action="lievit:upload-progress->lv-file-upload#progress" style="display: block; font-family: var(--lv-font-sans);">
     <input
         id="${inputId}"
         type="file"
@@ -67,6 +67,8 @@
         disabled="${disabled}"
         l:upload="files"
         data-file-upload-input
+        data-lv-file-upload-target="input"
+        data-action="change->lv-file-upload#change"
         style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0;"
     />
 
@@ -78,6 +80,8 @@
         aria-describedby="${hint.isEmpty() ? "" : hintId}"
         aria-disabled="${disabled ? "true" : "false"}"
         data-file-upload-zone
+        data-lv-file-upload-target="zone"
+        data-action="dragover->lv-file-upload#dragOver dragleave->lv-file-upload#dragLeave drop->lv-file-upload#drop"
         style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--lv-space-2); padding: var(--lv-space-5) var(--lv-space-4); border: 2px dashed var(--lv-color-border); border-radius: var(--lv-radius-md); background: var(--lv-color-surface); cursor: ${disabled ? "not-allowed" : "pointer"}; opacity: ${disabled ? "0.5" : "1"}; text-align: center;"
     >
         <span aria-hidden="true" style="color: var(--lv-color-muted);">
