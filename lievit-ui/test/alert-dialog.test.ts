@@ -178,19 +178,34 @@ describe("alert-dialog -- no close-X, no light-dismiss (spec §4 anti-patterns)"
 });
 
 // ---------------------------------------------------------------------------
-// Focus-trap enhancer protocol (spec §4 + §6 enhancer responsibilities)
+// Focus-mechanics protocol: the lv-alert-dialog Stimulus controller (spec §4 + §6).
+// The behaviour itself is proven against the real controller + real morph in
+// test/lv-alert-dialog-controller.test.ts; this block pins the template contract the
+// controller reads.
 // ---------------------------------------------------------------------------
-describe("alert-dialog -- focus-trap enhancer protocol (spec §4, §6)", () => {
-  test("panel root carries data-lievit-focus-trap to activate the shared focus trap", () => {
+describe("alert-dialog -- focus-mechanics protocol (spec §4, §6)", () => {
+  test("panel root carries data-controller=\"lv-alert-dialog\" (the Stimulus controller owns the trap)", () => {
+    expect(markup).toContain('data-controller="lv-alert-dialog"');
+  });
+
+  test("panel root carries data-lv-wire-close wired to cancelWireClick (controlled-doctrine seam read by DismissableController)", () => {
+    // Escape == cancel rides the wire ONLY because data-lv-wire-close is present (alert-dialog is
+    // wire-CONTROLLED by definition); the base reads this attribute, never a hardcoded fallback.
+    expect(markup).toContain('data-lv-wire-close="${cancelWireClick}"');
+  });
+
+  test("panel root keeps data-lievit-focus-trap for the shared-enhancer family golden (inert here via the coexistence guard)", () => {
+    // The shared focus-trap enhancer skips any element carrying data-controller~="lv-alert-dialog",
+    // so this attribute does not double-trap the converted instance; it stays for the family golden.
     expect(markup).toContain("data-lievit-focus-trap");
   });
 
-  test("panel root carries data-lievit-escape-action wired to cancelWireClick", () => {
+  test("panel root keeps data-lievit-escape-action wired to cancelWireClick (family golden)", () => {
     expect(markup).toContain('data-lievit-escape-action="${cancelWireClick}"');
   });
 
-  test("cancel button carries data-initial-focus (enhancer focuses it on open)", () => {
-    // The cancel button must be the element with data-initial-focus so the enhancer
+  test("cancel button carries data-initial-focus (FocusTrap focuses it on open)", () => {
+    // The cancel button must be the element with data-initial-focus so the trap
     // moves focus there first (APG: least-destructive action for irreversible steps).
     expect(markup).toContain("data-initial-focus");
     // And it must be on the cancel button specifically

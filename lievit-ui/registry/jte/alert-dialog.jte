@@ -197,9 +197,16 @@
   }}
 !{var cancelDataAttrsMarkup = cancelAttrs_.toString();}
 
-<%-- The panel root: role="alertdialog" + all mandatory ARIA + data-* protocol for the
-     focus-trap enhancer. Max-width fixed at max-w-sm (the bounded-content contract from §3:
-     a wider panel would imply more content than this pattern allows). --%>
+<%-- The panel root: role="alertdialog" + all mandatory ARIA + the focus-mechanics protocol.
+     Owned by the `lv-alert-dialog` Stimulus controller (data-controller): it composes the shared
+     FocusTrap (Tab cycle + scroll-lock + initial focus on cancel + return-focus on close) and
+     routes Escape to the wire. Escape == cancel: the action rides data-lv-wire-close, fired ONLY
+     because an alert-dialog is wire-CONTROLLED by definition (open state is a server fact) -- the
+     controlled/uncontrolled doctrine lives in DismissableController, not here.
+     data-lievit-focus-trap / -escape-action remain for the shared focus-trap enhancer's family
+     contract (golden), but are INERT for this instance: the enhancer skips any element carrying
+     data-controller~="lv-alert-dialog" (coexistence guard, until the whole overlay family migrates).
+     Max-width fixed at max-w-sm (the bounded-content contract from §3). --%>
 <div
   role="alertdialog"
   aria-modal="true"
@@ -209,6 +216,8 @@
   data-variant="${variant}"
   data-closable="false"
   data-cancel-action="${cancelWireClick}"
+  data-controller="lv-alert-dialog"
+  data-lv-wire-close="${cancelWireClick}"
   data-lievit-focus-trap
   data-lievit-escape-action="${cancelWireClick}"
   class="relative flex w-full flex-col gap-[var(--lv-space-4)] rounded-[var(--lv-radius-lg)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] p-[var(--lv-space-6)] shadow-[var(--lv-shadow-xl)] ${cssClass}"

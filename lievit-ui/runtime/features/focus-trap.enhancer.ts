@@ -71,6 +71,15 @@ function activateTrap(container: Element, runtime: LievitRuntime): void {
   if (activeTraps.has(container)) {
     return; // idempotent
   }
+  // Migration guard (Stimulus conversion): an alert-dialog converted to the `lv-alert-dialog`
+  // Stimulus controller owns its own focus trap (via the shared FocusTrap util). This enhancer must
+  // NOT also trap it, or the panel would be double-trapped (two keydown handlers => double Escape).
+  // Converted templates still carry data-lievit-focus-trap for the family golden, so guard here.
+  // Remove this guard when the last focus-trap consumer (dialog/drawer/sheet) is converted and the
+  // enhancer is deleted (dedicated cleanup PR).
+  if (container.matches('[data-controller~="lv-alert-dialog"]')) {
+    return;
+  }
   container.setAttribute(ACTIVE_ATTR, "");
 
   const returnTarget = document.activeElement instanceof Element ? document.activeElement : null;
