@@ -54,6 +54,7 @@
 !{var flexDir = placement.startsWith("bottom") ? "column-reverse" : "column";}
 
 <div
+  data-controller="lv-toast-region"
   data-slot="toast-region"
   data-toast-placement="${placement}"
   data-toast-max-visible="${maxVisible}"

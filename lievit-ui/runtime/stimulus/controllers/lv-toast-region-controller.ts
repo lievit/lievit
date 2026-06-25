@@ -4,29 +4,51 @@
  */
 
 /**
- * toast enhancer (v-next, ADR-0012 server-first).
+ * `lv-toast-region` -- the transient toast live-region manager, as a Stimulus controller (the
+ * conversion of `registry/jte/toast.enhancer.ts`'s `RegionEnhancer`). Mounted on the
+ * server-rendered region root via `data-controller="lv-toast-region"`; the region carries the two
+ * always-present live-region sub-containers (`data-slot="toast-live-polite"` / `...-assertive`)
+ * plus the `data-toast-*` configuration (max-visible, sse-url, bell-id).
  *
- * Owns all ephemeral client-side toast behaviour:
- *   - Queue management (maxVisible cap, FIFO dequeue on dismiss).
- *   - Three insertion paths: (1) lievit:toast DOM event (wire morph hook),
- *     (2) EventSource SSE (data-toast-sse-url), (3) window.lievit.toast() JS API.
- *   - Countdown timers; PAUSE while the item has keyboard focus (react-aria useToast model).
- *   - Esc-dismiss with focus restore to the element that was focused before Tab entered the toast.
- *   - Exit transition: adds [data-dismissing] so CSS can fade/slide out, then removes after
- *     --lv-motion-exit duration (falls back to 200ms).
- *   - Notification-bell counter: when data-toast-bell-id is set on the region root, the enhancer
- *     increments data-unread-count + refreshes aria-label on the bell button.
- *   - Lifecycle: init() activates on [data-slot="toast-region"]; destroy() cancels all timers +
- *     clears live-region children (Turbo Drive cache-restoration safety).
+ * It owns ALL the ephemeral toast behaviour the server cannot: a maxVisible queue, per-item
+ * countdown timers PAUSED while the item is focused (react-aria useToast model), Esc-dismiss with
+ * focus restore, the three insertion paths (the global `lievit:toast` DOM event from the wire morph
+ * hook / `window.lievit.toast()`, the `data-toast-sse-url` EventSource, both converging on
+ * {@link enqueue}), and the notification-bell unread counter.
  *
- * CSP-clean: no eval, no inline script. Registers via the lievit lifecycle registry.
- * Dependency-free typed-TS vanilla module.
+ * NOT a {@link DismissableController}: a toast NEVER round-trips the wire on close (no
+ * `data-lv-wire-close`); dismissal is purely client-side ephemeral state, so the
+ * controlled/uncontrolled doctrine simply does not apply (it would always be uncontrolled). And per
+ * the WAI-ARIA APG Alert pattern a toast MUST NOT steal focus, so there is no {@link FocusTrap}
+ * either; the only focus concern is restoring focus to wherever the user tabbed FROM when they
+ * dismiss an item they had tabbed INTO (handled per-item in {@link wireFocusTracking}).
+ *
+ * Morph-safety (the whole point of the migration): the global `lievit:toast` listener + the
+ * EventSource are bound in {@link connect} and torn down in {@link disconnect}, so the wire morph /
+ * Turbo Drive cache restoration cannot stack a second listener (which would double every toast) and
+ * a navigated-away region cancels its timers + closes its stream for free. The old enhancer leaked
+ * that document listener (an un-removed anonymous handler guarded only by a `destroyed` flag) and
+ * tracked enhanced-ness with a `data-toast-region-enhanced` marker + a WeakMap; Stimulus replaces
+ * both -- it connects this controller exactly once per element and disconnects it on removal.
+ *
+ * Per-item listeners (dismiss click, focusin/out, Esc keydown) stay as direct `addEventListener`
+ * rather than template `data-action`, because the toast items are NOT server-rendered: this
+ * controller BUILDS them in {@link buildItemElement} and `.remove()`s them itself (and removes any
+ * survivors in {@link disconnect}). They are never morphed, so the leaked-listener-across-morph
+ * concern that motivates `data-action` does not exist for them; binding synchronously at build time
+ * is the correct way to wire DOM a component fully owns.
+ *
+ * a11y source: WAI-ARIA APG Alert (live-region role + no focus-steal); react-aria useToast as the
+ * interaction reference for pause-on-focus + Esc-dismiss + focus restore.
  */
+
+import { Controller } from "@hotwired/stimulus";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+/** A toast payload as it arrives on any of the three insertion paths. */
 interface ToastPayload {
   variant?: string;
   message: string;
@@ -40,6 +62,7 @@ interface ToastPayload {
   actionWireClick?: string;
 }
 
+/** Per-visible-item ephemeral state the controller tracks while the item lives. */
 interface ManagedItem {
   element: HTMLElement;
   timerId?: ReturnType<typeof setTimeout>;
@@ -53,10 +76,8 @@ interface ManagedItem {
 }
 
 // ---------------------------------------------------------------------------
-// Internals
+// Pure helpers (variant -> token / icon / live-region routing)
 // ---------------------------------------------------------------------------
-
-const ENHANCED_ATTR = "data-toast-region-enhanced";
 
 /** Variants that use the assertive (interrupt) live region. */
 function isAssertive(variant: string): boolean {
@@ -74,65 +95,98 @@ function exitDuration(): number {
   return 200;
 }
 
+function accentFor(variant: string): string {
+  switch (variant) {
+    case "success":
+      return "var(--lv-color-success)";
+    case "warning":
+      return "var(--lv-color-warning)";
+    case "destructive":
+    case "danger":
+      return "var(--lv-color-destructive)";
+    default:
+      return "var(--lv-color-info)";
+  }
+}
+
+function iconSlugFor(override: string, variant: string): string {
+  if (override) return override;
+  switch (variant) {
+    case "success":
+      return "circle-check";
+    case "warning":
+      return "triangle-alert";
+    case "destructive":
+    case "danger":
+      return "circle-x";
+    default:
+      return "info";
+  }
+}
+
+/** Minimal inline SVG for the four Lucide icons used by toast items. CSP-clean. */
+function inlineSvgFor(slug: string): string {
+  const base =
+    'xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+  switch (slug) {
+    case "circle-check":
+      return `<svg ${base}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`;
+    case "triangle-alert":
+      return `<svg ${base}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 3 22h18a2 2 0 0 0 .73-4"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+    case "circle-x":
+      return `<svg ${base}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
+    default: // "info"
+      return `<svg ${base}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`;
+  }
+}
+
 // ---------------------------------------------------------------------------
-// RegionEnhancer — per-region controller
+// Controller
 // ---------------------------------------------------------------------------
 
-class RegionEnhancer {
-  private readonly root: HTMLElement;
-  private readonly politeContainer: HTMLElement | null;
-  private readonly assertiveContainer: HTMLElement | null;
-  private readonly maxVisible: number;
-  private readonly bellButton: HTMLButtonElement | null;
+export default class LvToastRegionController extends Controller<HTMLElement> {
+  private politeContainer: HTMLElement | null = null;
+  private assertiveContainer: HTMLElement | null = null;
+  private maxVisible = 5;
+  private bellButton: HTMLButtonElement | null = null;
 
   private readonly queue: ToastPayload[] = [];
   private readonly active = new Map<string, ManagedItem>();
   private sse: EventSource | null = null;
-  private destroyed = false;
+
+  /** Object-identity handler so {@link disconnect} can remove exactly what {@link connect} bound. */
+  private readonly onToastEvent = (e: Event): void => {
+    const payload = (e as CustomEvent<ToastPayload>).detail;
+    if (payload) this.enqueue(payload);
+  };
 
   /** Count active (visible) items. */
   private get visibleCount(): number {
     return this.active.size;
   }
 
-  constructor(root: HTMLElement) {
-    this.root = root;
-    this.politeContainer =
-      root.querySelector<HTMLElement>('[data-slot="toast-live-polite"]');
-    this.assertiveContainer =
-      root.querySelector<HTMLElement>('[data-slot="toast-live-assertive"]');
-    this.maxVisible = parseInt(root.dataset["toastMaxVisible"] ?? "5", 10) || 5;
+  connect(): void {
+    this.politeContainer = this.element.querySelector<HTMLElement>(
+      '[data-slot="toast-live-polite"]',
+    );
+    this.assertiveContainer = this.element.querySelector<HTMLElement>(
+      '[data-slot="toast-live-assertive"]',
+    );
+    this.maxVisible = parseInt(this.element.dataset["toastMaxVisible"] ?? "5", 10) || 5;
 
-    const bellId = root.dataset["toastBellId"];
+    const bellId = this.element.dataset["toastBellId"];
     this.bellButton = bellId
       ? document.querySelector<HTMLButtonElement>(
-          `#${CSS.escape(bellId)} [data-slot="bell-button"], [data-slot="notification-bell"][id="${CSS.escape(bellId)}"] [data-slot="bell-button"]`
+          `#${CSS.escape(bellId)} [data-slot="bell-button"], [data-slot="notification-bell"][id="${CSS.escape(bellId)}"] [data-slot="bell-button"]`,
         )
       : null;
 
-    this.bindEventListener();
+    document.addEventListener("lievit:toast", this.onToastEvent);
     this.bindSse();
   }
 
-  // -------------------------------------------------------------------------
-  // Public API
-  // -------------------------------------------------------------------------
-
-  /** Insert a toast payload (all three insertion paths converge here). */
-  enqueue(payload: ToastPayload): void {
-    if (this.destroyed) return;
-    if (this.visibleCount < this.maxVisible) {
-      this.show(payload);
-    } else {
-      this.queue.push(payload);
-    }
-    this.incrementBell();
-  }
-
-  /** Cancel all timers, remove all items, close SSE. Safe to call multiple times. */
-  destroy(): void {
-    if (this.destroyed) return;
-    this.destroyed = true;
+  disconnect(): void {
+    document.removeEventListener("lievit:toast", this.onToastEvent);
     this.sse?.close();
     this.sse = null;
     for (const item of this.active.values()) {
@@ -146,8 +200,18 @@ class RegionEnhancer {
   }
 
   // -------------------------------------------------------------------------
-  // Insertion
+  // Insertion (all three paths converge here)
   // -------------------------------------------------------------------------
+
+  /** Insert a toast payload (event / SSE / JS API all converge here). */
+  enqueue(payload: ToastPayload): void {
+    if (this.visibleCount < this.maxVisible) {
+      this.show(payload);
+    } else {
+      this.queue.push(payload);
+    }
+    this.incrementBell();
+  }
 
   private show(payload: ToastPayload): void {
     const variant = payload.variant ?? "info";
@@ -156,9 +220,7 @@ class RegionEnhancer {
     const id = payload.id ?? crypto.randomUUID();
 
     const el = this.buildItemElement(payload, id);
-    const container = isAssertive(variant)
-      ? this.assertiveContainer
-      : this.politeContainer;
+    const container = isAssertive(variant) ? this.assertiveContainer : this.politeContainer;
     container?.appendChild(el);
 
     const managed: ManagedItem = {
@@ -218,18 +280,21 @@ class RegionEnhancer {
     // Body
     const body = document.createElement("div");
     body.setAttribute("data-slot", "toast-body");
-    body.style.cssText = "flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--lv-space-1);";
+    body.style.cssText =
+      "flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--lv-space-1);";
 
     const msg = document.createElement("p");
     msg.setAttribute("data-slot", "toast-message");
-    msg.style.cssText = "margin:0;font-size:var(--lv-text-sm);font-weight:var(--lv-font-medium);line-height:var(--lv-leading-tight);color:var(--lv-color-fg);";
+    msg.style.cssText =
+      "margin:0;font-size:var(--lv-text-sm);font-weight:var(--lv-font-medium);line-height:var(--lv-leading-tight);color:var(--lv-color-fg);";
     msg.textContent = payload.message;
     body.appendChild(msg);
 
     if (payload.description) {
       const desc = document.createElement("p");
       desc.setAttribute("data-slot", "toast-description");
-      desc.style.cssText = "margin:0;font-size:var(--lv-text-xs);line-height:var(--lv-leading);color:var(--lv-color-muted);";
+      desc.style.cssText =
+        "margin:0;font-size:var(--lv-text-xs);line-height:var(--lv-leading);color:var(--lv-color-muted);";
       desc.textContent = payload.description;
       body.appendChild(desc);
     }
@@ -238,14 +303,16 @@ class RegionEnhancer {
       if (payload.actionHref) {
         const a = document.createElement("a");
         a.href = payload.actionHref;
-        a.style.cssText = "display:inline-block;margin-top:var(--lv-space-1);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);text-decoration:underline;color:var(--lv-color-primary);outline:none;";
+        a.style.cssText =
+          "display:inline-block;margin-top:var(--lv-space-1);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);text-decoration:underline;color:var(--lv-color-primary);outline:none;";
         a.textContent = payload.action;
         body.appendChild(a);
       } else if (payload.actionWireClick) {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.setAttribute("l:click", payload.actionWireClick);
-        btn.style.cssText = "display:inline-block;margin-top:var(--lv-space-1);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);text-decoration:underline;color:var(--lv-color-primary);background:none;border:0;padding:0;cursor:pointer;outline:none;";
+        btn.style.cssText =
+          "display:inline-block;margin-top:var(--lv-space-1);font-size:var(--lv-text-xs);font-weight:var(--lv-font-medium);text-decoration:underline;color:var(--lv-color-primary);background:none;border:0;padding:0;cursor:pointer;outline:none;";
         btn.textContent = payload.action;
         body.appendChild(btn);
       }
@@ -259,8 +326,10 @@ class RegionEnhancer {
       dismiss.type = "button";
       dismiss.setAttribute("data-slot", "toast-dismiss");
       dismiss.setAttribute("aria-label", "Dismiss notification");
-      dismiss.style.cssText = "flex-shrink:0;background:none;border:0;padding:var(--lv-space-1);cursor:pointer;color:var(--lv-color-muted);display:flex;align-items:center;justify-content:center;border-radius:var(--lv-radius-sm);margin:calc(-1 * var(--lv-space-1));outline:none;";
-      dismiss.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      dismiss.style.cssText =
+        "flex-shrink:0;background:none;border:0;padding:var(--lv-space-1);cursor:pointer;color:var(--lv-color-muted);display:flex;align-items:center;justify-content:center;border-radius:var(--lv-radius-sm);margin:calc(-1 * var(--lv-space-1));outline:none;";
+      dismiss.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
       el.appendChild(dismiss);
     }
 
@@ -268,7 +337,7 @@ class RegionEnhancer {
   }
 
   // -------------------------------------------------------------------------
-  // Timer + focus management
+  // Timer + focus management (react-aria useToast: pause-on-focus)
   // -------------------------------------------------------------------------
 
   private startTimer(id: string, managed: ManagedItem, duration: number): void {
@@ -312,11 +381,7 @@ class RegionEnhancer {
   // Dismiss + keyboard
   // -------------------------------------------------------------------------
 
-  private wireDismissButton(
-    el: HTMLElement,
-    id: string,
-    managed: ManagedItem
-  ): void {
+  private wireDismissButton(el: HTMLElement, id: string, managed: ManagedItem): void {
     const btn = el.querySelector<HTMLButtonElement>('[data-slot="toast-dismiss"]');
     btn?.addEventListener("click", () => this.dismiss(id, managed));
   }
@@ -325,7 +390,7 @@ class RegionEnhancer {
     el: HTMLElement,
     id: string,
     managed: ManagedItem,
-    dismissible: boolean
+    dismissible: boolean,
   ): void {
     el.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Escape" && dismissible) {
@@ -363,18 +428,11 @@ class RegionEnhancer {
   }
 
   // -------------------------------------------------------------------------
-  // Insertion paths
+  // SSE insertion path
   // -------------------------------------------------------------------------
 
-  private bindEventListener(): void {
-    document.addEventListener("lievit:toast", (e: Event) => {
-      const payload = (e as CustomEvent<ToastPayload>).detail;
-      if (payload) this.enqueue(payload);
-    });
-  }
-
   private bindSse(): void {
-    const sseUrl = this.root.dataset["toastSseUrl"];
+    const sseUrl = this.element.dataset["toastSseUrl"];
     if (!sseUrl) return;
     const source = new EventSource(sseUrl);
     this.sse = source;
@@ -394,10 +452,7 @@ class RegionEnhancer {
 
   private incrementBell(): void {
     if (!this.bellButton) return;
-    const current = parseInt(
-      this.bellButton.dataset["unreadCount"] ?? "0",
-      10
-    );
+    const current = parseInt(this.bellButton.dataset["unreadCount"] ?? "0", 10);
     const next = current + 1;
     this.bellButton.dataset["unreadCount"] = String(next);
 
@@ -419,141 +474,4 @@ class RegionEnhancer {
     }
     badge.textContent = next > 99 ? "99+" : String(next);
   }
-}
-
-// ---------------------------------------------------------------------------
-// SVG helpers (CSP-clean inline markup for icon glyphs)
-// ---------------------------------------------------------------------------
-
-function accentFor(variant: string): string {
-  switch (variant) {
-    case "success":     return "var(--lv-color-success)";
-    case "warning":     return "var(--lv-color-warning)";
-    case "destructive":
-    case "danger":      return "var(--lv-color-destructive)";
-    default:            return "var(--lv-color-info)";
-  }
-}
-
-function iconSlugFor(override: string, variant: string): string {
-  if (override) return override;
-  switch (variant) {
-    case "success":     return "circle-check";
-    case "warning":     return "triangle-alert";
-    case "destructive":
-    case "danger":      return "circle-x";
-    default:            return "info";
-  }
-}
-
-/** Minimal inline SVG for the four Lucide icons used by toast items. CSP-clean. */
-function inlineSvgFor(slug: string): string {
-  const base = 'xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
-  switch (slug) {
-    case "circle-check":
-      return `<svg ${base}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`;
-    case "triangle-alert":
-      return `<svg ${base}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 3 22h18a2 2 0 0 0 .73-4"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
-    case "circle-x":
-      return `<svg ${base}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
-    default: // "info"
-      return `<svg ${base}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Registry map + public init/destroy API
-// ---------------------------------------------------------------------------
-
-const regionMap = new WeakMap<HTMLElement, RegionEnhancer>();
-
-/**
- * Initialise the toast region on a given root element.
- * Idempotent: re-calling on an already-enhanced root is a no-op.
- */
-export function initToastRegion(root: HTMLElement): void {
-  // Coexistence (Stimulus migration): a region rendered by the current region.jte carries
-  // data-controller="lv-toast-region" and is owned by LvToastRegionController. Skip it so the
-  // legacy enhancer and the controller never double-manage one region (double document listener
-  // = every toast inserted twice). The enhancer still serves hand-rolled regions without the
-  // controller attribute. Delete this whole enhancer in the cleanup PR once no adopter renders a
-  // controller-less region.
-  if (root.matches('[data-controller~="lv-toast-region"]')) return;
-  if (root.hasAttribute(ENHANCED_ATTR)) return;
-  root.setAttribute(ENHANCED_ATTR, "");
-  regionMap.set(root, new RegionEnhancer(root));
-}
-
-/**
- * Destroy the toast region on a given root element (cancels timers, clears DOM).
- * Safe to call on an unenhanced root.
- */
-export function destroyToastRegion(root: HTMLElement): void {
-  regionMap.get(root)?.destroy();
-  regionMap.delete(root);
-  root.removeAttribute(ENHANCED_ATTR);
-}
-
-/**
- * Init all toast regions on the page (call on load + after DOM swaps).
- * The enhancer also listens for the global `lievit:toast` event so wire morph
- * hooks and the `window.lievit.toast()` path work without re-calling this.
- */
-export function initAllToastRegions(scope: ParentNode = document): void {
-  scope
-    .querySelectorAll<HTMLElement>('[data-slot="toast-region"]')
-    .forEach((root) => initToastRegion(root));
-}
-
-/**
- * Destroy all toast regions found in scope.
- * The lievit lifecycle registry calls this in the `destroy` hook (Turbo Drive cache safety).
- */
-export function destroyAllToastRegions(scope: ParentNode = document): void {
-  scope
-    .querySelectorAll<HTMLElement>('[data-slot="toast-region"]')
-    .forEach((root) => destroyToastRegion(root));
-}
-
-// ---------------------------------------------------------------------------
-// Legacy surface: enhanceToast / enhanceAllToasts kept for back-compat
-// (the old enhancer operated on individual [data-lievit-toast] items;
-// the v-next enhancer operates on the region. These stubs let existing
-// call-sites compile without changes -- they route to initAllToastRegions.)
-// ---------------------------------------------------------------------------
-
-/** @deprecated Use initToastRegion / initAllToastRegions. */
-export function enhanceToast(root: HTMLElement): void {
-  // v-next: if this root is a toast item inside a region, the region enhancer
-  // already owns it. If it is a standalone item (legacy usage), wire dismiss + timer.
-  if (root.hasAttribute("data-toast-region-enhanced")) return;
-  if (root.hasAttribute("data-toast-enhanced")) return;
-  root.setAttribute("data-toast-enhanced", "");
-
-  const duration = Number(root.getAttribute("data-toast-duration") ?? "0");
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  if (Number.isFinite(duration) && duration > 0) {
-    timer = setTimeout(() => root.remove(), duration);
-  }
-  const dismiss = root.querySelector<HTMLButtonElement>(
-    "[data-slot='toast-dismiss'],[data-toast-dismiss]"
-  );
-  dismiss?.addEventListener("click", () => {
-    clearTimeout(timer);
-    root.remove();
-  });
-}
-
-/** @deprecated Use initAllToastRegions. */
-export function enhanceAllToasts(scope: ParentNode = document): void {
-  // If a toast-region is present, use the v-next path.
-  const regions = scope.querySelectorAll<HTMLElement>('[data-slot="toast-region"]');
-  if (regions.length > 0) {
-    regions.forEach((r) => initToastRegion(r));
-    return;
-  }
-  // Legacy fallback: wire individual items.
-  scope
-    .querySelectorAll<HTMLElement>("[data-lievit-toast]")
-    .forEach((root) => enhanceToast(root));
 }

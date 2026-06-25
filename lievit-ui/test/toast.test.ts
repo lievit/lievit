@@ -249,6 +249,10 @@ describe("toast/region.jte source-text (live-region container)", () => {
     expect(src).toContain('data-slot="toast-live-assertive"');
   });
 
+  test("region root mounts the lv-toast-region Stimulus controller", () => {
+    expect(src).toContain('data-controller="lv-toast-region"');
+  });
+
   test("region root carries data-slot=toast-region + the three data-toast-* attributes", () => {
     expect(src).toContain('data-slot="toast-region"');
     expect(src).toContain('data-toast-placement="${placement}"');
