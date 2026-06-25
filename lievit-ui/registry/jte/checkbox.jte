@@ -165,6 +165,7 @@
     aria-describedby="${ariaDescribedBy}"
     aria-invalid="${ariaInvalid ? "true" : null}"
     data-indeterminate="${indeterminate ? "true" : null}"
+    data-controller="${indeterminate ? "lv-checkbox" : null}"
     class="peer sr-only"
     $unsafe{dataAttrsMarkup}
     $unsafe{attrs}

@@ -88,6 +88,11 @@ function syncToggleState(
 /** Enhance one checkbox-list root. No-op if already enhanced. */
 export function enhanceCheckboxList(root: HTMLElement): void {
   if (root.hasAttribute(ENHANCED)) return;
+  // Migration guard (Stimulus conversion): a root converted to the `lv-checkbox-list` Stimulus
+  // controller owns the reveal + filter + bulk-toggle itself. This enhancer must NOT also wire it,
+  // or the toggle would get two click handlers that cancel out. Converted templates carry
+  // data-controller="lv-checkbox-list".
+  if (root.matches('[data-controller~="lv-checkbox-list"]')) return;
   root.setAttribute(ENHANCED, "");
   revealTools(root);
 

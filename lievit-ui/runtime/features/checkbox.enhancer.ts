@@ -43,6 +43,13 @@ const SELECTOR = 'input[type="checkbox"][data-indeterminate="true"]';
  */
 function applyIndeterminate(root: Element): void {
   root.querySelectorAll<HTMLInputElement>(SELECTOR).forEach((el) => {
+    // Migration guard (Stimulus conversion): an input converted to the `lv-checkbox` Stimulus
+    // controller already mirrors `indeterminate` itself, on connect and across every morph. This
+    // enhancer skips it so the two paths coexist during the fan-out. Converted templates carry
+    // data-controller="lv-checkbox" (stamped only on a tri-state input).
+    if (el.matches('[data-controller~="lv-checkbox"]')) {
+      return;
+    }
     el.indeterminate = true;
   });
 }
