@@ -93,7 +93,7 @@
         <jjwt.version>0.13.0</jjwt.version>
         <jspecify.version>1.0.0</jspecify.version>
         <owasp-encoder.version>1.4.0</owasp-encoder.version>
-        <jqwik.version>1.9.3</jqwik.version>
+        <jqwik.version>1.10.1</jqwik.version>
         <archunit.version>1.4.2</archunit.version>
         <assertj.version>3.27.7</assertj.version>
 
