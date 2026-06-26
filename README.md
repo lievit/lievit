@@ -20,13 +20,16 @@
 > itself — and right now it can't. Picking the most-traveled road (a mature component library behind
 > a typed API) is *Appropriate Complexity*, not accidental complexity.
 >
-> This is **not** "the SSR bet was wrong": it's the same law — robustness where it counts,
-> battle-tested over reinvented, the boundary governed by the JVM as the source of truth — honored
-> by a *different binding* for the rich-UI quadrant. The JVM still owns validation and the domain;
-> a typed frontend talks to it through one API surface (clean architecture, effectively
-> server-authoritative); server-side rendering's remaining distinct job is SEO. lievit remains a
-> valid binding for the compile-time-type-safe server-rendered quadrant; it just isn't the one I'm
-> investing in now.
+> To be clear about what failed: the **law** wasn't wrong — robustness where it counts, battle-tested
+> over reinvented, the boundary owned by the JVM. What didn't pay off was the *specific*
+> HTML-over-the-wire bet: even at full AI leverage a brand-new component library stayed too rough, and
+> structurally it can't buy the implementation axis. So the rich-UI binding moves to a mature component
+> library behind a typed API. Security lives at the **backend** and the client is **never trusted** —
+> it's a SPA, not server-rendered, and that's fine: the JVM owns validation, authz and the domain, the
+> frontend just talks to one API surface, and server-side rendering's only remaining job is SEO. (The
+> cost — a parallel frontend codebase and a generated API contract to keep in sync — is a liability to
+> price, not a security loss.) lievit stays a valid binding for the compile-time-type-safe
+> server-rendered quadrant; it just isn't the one I'm investing in now.
 
 > **HTML over the wire for Spring. Type-safe. Native. EU-grade.** lievit is the opinionated,
 > named full-stack way to build interactive Spring apps, the Livewire / Hotwire / LiveView
