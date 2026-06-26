@@ -560,6 +560,38 @@ const FOCUSABLE =
   'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable]';
 
 describe("sidebar controller: topbar opener + focus-trap + scroll-lock (real Stimulus + real DOM)", () => {
+  // These exercise the MOBILE off-canvas drawer (below the breakpoint the opener opens it; on desktop
+  // the SAME opener instead re-expands the collapsed-hidden rail, covered by its own test below). Force
+  // the mobile context so isMobile() is true and a click opens the off-canvas.
+  const realMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((q: string) => ({
+      matches: /max-width/.test(q), media: q, onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+      dispatchEvent() { return false; },
+    })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => {
+    window.matchMedia = realMatchMedia;
+  });
+
+  test("on desktop the opener re-expands the fully-hidden collapsed rail (toggle, not off-canvas)", async () => {
+    // Desktop context: the collapsed rail is width 0, so the topbar opener is the only way back; it
+    // must EXPAND the rail (desktop toggle), not set the mobile off-canvas state.
+    window.matchMedia = ((q: string) => ({
+      matches: false, media: q, onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+      dispatchEvent() { return false; },
+    })) as unknown as typeof window.matchMedia;
+    const root = renderSidebar({ collapsed: true });
+    const opener = renderOpener();
+    await connect();
+    expect(root.getAttribute("data-state")).toBe("collapsed");
+    opener.click();
+    expect(root.getAttribute("data-state")).toBe("expanded");
+    expect(root.hasAttribute("data-mobile-open")).toBe(false);
+  });
+
   test("the controller binds the external [data-lv-sidebar-open] topbar opener: a click opens the off-canvas", async () => {
     const root = renderSidebar();
     const opener = renderOpener();

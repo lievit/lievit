@@ -76,13 +76,17 @@ li[data-slot="sidebar-menu-item"]:focus-within .lv-sidebar-action-hover { opacit
 .lv-sidebar-root[data-variant="inset"] + .lv-sidebar-inset {
   margin: var(--lv-space-2); border-radius: var(--lv-radius-lg); box-shadow: var(--lv-shadow-sm);
 }
-.lv-sidebar-root[data-state="collapsed"] .lv-sidebar { width: 3.25rem; }
+/* Collapsed (desktop) FULLY hides the rail (Francesco): width 0, not a 3.25rem icon rail. The only
+   reachable re-open affordance is then the external topbar opener, shown on desktop while collapsed. */
+.lv-sidebar-root[data-state="collapsed"] .lv-sidebar { width: 0; overflow: hidden; border: 0; }
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-collapsible { display: none; }
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-item { justify-content: center; }
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-sub { display: none; }
-/* The external topbar opener (the in-sidebar trigger rides off-screen on mobile): desktop-hidden,
-   shown only at/below the breakpoint, where it is the only reachable affordance to OPEN the drawer. */
+/* The external topbar opener: shown at/below the mobile breakpoint (the only affordance to open the
+   off-canvas drawer) AND on desktop while the rail is fully collapsed-hidden (the doc-level flag the
+   controller toggles), where the in-sidebar trigger has ridden to width 0. */
 .lv-sidebar-mobile-open-trigger { display: none; }
+:root[data-lv-sidebar-collapsed] .lv-sidebar-mobile-open-trigger { display: inline-flex; }
 @media (max-width: ${MOBILE_MAX}px) {
   .lv-sidebar-mobile-open-trigger { display: inline-flex; }
   .lv-sidebar-root .lv-sidebar {
@@ -242,16 +246,13 @@ export default class LvSidebarController extends DismissableController<HTMLEleme
     });
   }
 
-  /** Bind each external opener's click to toggle this root's off-canvas (tracked for disconnect). */
+  /** Bind each external opener's click to the shared toggle (tracked for disconnect). */
   private bindOpeners(): void {
     for (const opener of this.openersFor()) {
-      const handler = (): void => {
-        if (this.element.hasAttribute("data-mobile-open")) {
-          this.closeMobile();
-        } else {
-          this.openMobile();
-        }
-      };
+      // Mobile: open/close the off-canvas drawer. Desktop: the opener is the ONLY re-open affordance
+      // for the fully-hidden collapsed rail (width 0), so it toggles collapsed<->expanded. toggle()
+      // already branches on isMobile(), so the one lever serves both.
+      const handler = (): void => this.toggle();
       opener.addEventListener("click", handler);
       this.boundOpeners.push({ el: opener, handler });
     }
@@ -269,6 +270,9 @@ export default class LvSidebarController extends DismissableController<HTMLEleme
 
   private setDesktopState(state: DesktopState): void {
     this.element.setAttribute("data-state", state);
+    // Doc-level flag so the external topbar opener (outside this root's scope) can reveal itself on
+    // desktop while the rail is fully collapsed-hidden, the only way back to expanded.
+    document.documentElement.toggleAttribute("data-lv-sidebar-collapsed", state === "collapsed");
     if (this.hasTriggerTarget) {
       this.triggerTarget.setAttribute("aria-expanded", state === "expanded" ? "true" : "false");
     }
