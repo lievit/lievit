@@ -51,9 +51,25 @@ class DirectiveNamesParityTest {
     /**
      * Names that appear in the runtime as {@code l:<name>} but are NOT directives in the
      * registry-checked sense (so they must not be required to live in the Java set): tag-internal
-     * markers, doc references to data-attributes, etc. Kept tiny and explicit; empty today.
+     * markers, doc references to data-attributes, etc. Kept tiny and explicit.
+     *
+     * <p>The {@link #L_ATTR} scan deliberately reads comment text too (the only place real
+     * directives like {@code navigate}/{@code scope}/{@code stream} surface, since they register
+     * via a {@code const} name or a CSS-escaped {@code l\\:} selector that the regexes cannot
+     * match), so it over-collects {@code l:<name>} forms mentioned only in controller javadoc.
+     * These two are exactly that: DOM-event-wiring references in the new Stimulus controllers, not
+     * registered directives.
+     *
+     * <ul>
+     *   <li>{@code on} -- {@code lv-chart-controller.ts} javadoc describes the adopter listening to
+     *       the {@code lv-chart-mark-click} DOM event ({@code l:on.*}); no {@code on} directive is
+     *       registered anywhere in the runtime.
+     *   <li>{@code change} -- {@code lv-radio-group-controller.ts} javadoc describes the native
+     *       bubbling {@code change} event delegation ({@code l:change}); the runtime dispatches a
+     *       DOM {@code change} event but registers no {@code change} directive.
+     * </ul>
      */
-    private static final Set<String> RUNTIME_NON_DIRECTIVES = Set.of();
+    private static final Set<String> RUNTIME_NON_DIRECTIVES = Set.of("on", "change");
 
     /**
      * Java-side valid {@code l:} attribute names handled by the {@code LievitTagCompiler} (mount-tag
