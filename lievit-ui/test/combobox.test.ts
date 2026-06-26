@@ -901,3 +901,412 @@ describe("lv-combobox controller — morph-safety (real lievit morph)", () => {
     expect(calledActions).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// (d) ENHANCEMENT 1 — a commit fires a native change + input on the hidden input
+//     (the wire fix: l:model.live reacts to native change/input, which a programmatic
+//      value-set never dispatches; without this a pick never reaches a wire-bound field).
+// ---------------------------------------------------------------------------
+describe("lv-combobox controller — native change/input on commit (l:model.live wire fix)", () => {
+  it("single-select option click fires a bubbling change + input ON the hidden input", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, hiddenInput, root } = mount(["Parma", "Milano", "Roma"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const onHidden: string[] = [];
+    hiddenInput.addEventListener("change", () => onHidden.push("change"));
+    hiddenInput.addEventListener("input", () => onHidden.push("input"));
+    // l:model.live binds on an ancestor: the events must BUBBLE up to it.
+    const onRoot: string[] = [];
+    root.addEventListener("change", () => onRoot.push("change"));
+
+    input.dispatchEvent(new FocusEvent("focus"));
+    const opt = Array.from(listbox.querySelectorAll<HTMLElement>(`li[role="option"]`)).find(
+      (li) => li.getAttribute("data-combobox-option") === "Milano",
+    )!;
+    opt.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(hiddenInput.value).toBe("Milano");
+    expect(onHidden).toContain("change");
+    expect(onHidden).toContain("input");
+    expect(onRoot).toContain("change"); // bubbled to the wire-binding ancestor
+  });
+
+  it("the clear button fires a change + input on the hidden input (so the wire sees the emptying)", async () => {
+    const { runtime } = makeRuntime();
+    const { root, hiddenInput } = mount(["Parma", "Milano"], { value: "Parma", clearable: true });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const events: string[] = [];
+    hiddenInput.addEventListener("change", () => events.push("change"));
+    hiddenInput.addEventListener("input", () => events.push("input"));
+
+    const clearBtn = root.querySelector<HTMLButtonElement>(`[data-slot="combobox-clear"]`)!;
+    clearBtn.click();
+
+    expect(hiddenInput.value).toBe("");
+    expect(events).toContain("change");
+    expect(events).toContain("input");
+  });
+
+  it("free-type blur commit fires a change + input on the hidden input", async () => {
+    const { runtime } = makeRuntime();
+    const { input, hiddenInput } = mount(["Parma", "Milano"], { mode: "free-type" });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const events: string[] = [];
+    hiddenInput.addEventListener("change", () => events.push("change"));
+    hiddenInput.addEventListener("input", () => events.push("input"));
+
+    input.value = "CustomCity";
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+
+    expect(hiddenInput.value).toBe("CustomCity");
+    expect(events).toContain("change");
+    expect(events).toContain("input");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (e) ENHANCEMENT 2 — multiple-select mode (chips + repeated hidden inputs)
+// ---------------------------------------------------------------------------
+
+/** Markup for one MULTIPLE combobox root exactly as combobox.jte emits it for `multiple=true`:
+ *  a chips container in the control row, aria-multiselectable on the listbox, and a hidden-list
+ *  wrapper holding one `name`-repeated hidden input per committed value. */
+function comboboxMultipleHtml(optionValues: string[], selected: string[] = []): string {
+  const id = "cb";
+  const listboxId = `${id}-listbox`;
+  const inputId = `${id}-input`;
+  const chips = selected
+    .map(
+      (v) =>
+        `<span data-slot="combobox-chip" data-combobox-chip-value="${v}"><span data-slot="combobox-chip-label">${v}</span><button type="button" data-slot="combobox-chip-remove" data-action="click->lv-combobox#onChipRemove" data-combobox-chip-value="${v}" aria-label="Remove ${v}"></button></span>`,
+    )
+    .join("");
+  const hidden = selected
+    .map(
+      (v) =>
+        `<input type="hidden" name="city" value="${v}" data-slot="combobox-hidden" data-combobox-hidden-value="${v}">`,
+    )
+    .join("");
+  const options = optionValues
+    .map((v) => {
+      const optId = `${id}-opt-${v.replace(/[^A-Za-z0-9]/g, "-")}`;
+      const sel = selected.includes(v) ? "true" : "false";
+      return `<li role="option" id="${optId}" data-lievit-item data-slot="combobox-option" aria-selected="${sel}" data-combobox-option="${v}">${v}</li>`;
+    })
+    .join("");
+  return `
+<div data-slot="combobox" data-controller="lv-combobox" data-action="focusout->lv-combobox#onFocusout"
+     data-lievit-combobox data-combobox-mode="select-only" data-combobox-multiple="true"
+     data-combobox-clearable="false" data-combobox-empty-text="No results">
+  <div data-slot="combobox-control" data-lv-combobox-target="control">
+    <div data-slot="combobox-chips">${chips}</div>
+    <input type="text" id="${inputId}" data-slot="combobox-input" data-lv-combobox-target="input"
+           data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
+           role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="${listboxId}"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" value="">
+    <button type="button" data-slot="combobox-toggle" data-lv-combobox-target="toggle"
+            data-action="click->lv-combobox#onToggleClick" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <ul id="${listboxId}" role="listbox" data-slot="combobox-listbox" data-lv-combobox-target="listbox"
+      data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
+      popover="auto" aria-multiselectable="true" data-lievit-collection data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true" data-lievit-collection-activedescendant-target="#${inputId}"
+      aria-busy="false">${options}</ul>
+  <div data-slot="combobox-hidden-list" data-combobox-name="city" hidden>${hidden}</div>
+</div>`;
+}
+
+interface MountedMultiple {
+  root: HTMLElement;
+  input: HTMLInputElement;
+  listbox: HTMLElement;
+  chips: HTMLElement;
+  hiddenList: HTMLElement;
+}
+
+function mountMultiple(optionValues: string[], selected: string[] = []): MountedMultiple {
+  const host = document.createElement("div");
+  host.innerHTML = comboboxMultipleHtml(optionValues, selected);
+  document.body.appendChild(host);
+  const root = host.querySelector<HTMLElement>('[data-slot="combobox"]')!;
+  const input = root.querySelector<HTMLInputElement>('[data-slot="combobox-input"]')!;
+  const listbox = root.querySelector<HTMLElement>('[data-slot="combobox-listbox"]')!;
+  const chips = root.querySelector<HTMLElement>('[data-slot="combobox-chips"]')!;
+  const hiddenList = root.querySelector<HTMLElement>('[data-slot="combobox-hidden-list"]')!;
+  shimPopover(listbox);
+  return { root, input, listbox, chips, hiddenList };
+}
+
+const clickOption = (listbox: HTMLElement, value: string): void => {
+  const opt = Array.from(listbox.querySelectorAll<HTMLElement>(`li[role="option"]`)).find(
+    (li) => li.getAttribute("data-combobox-option") === value,
+  )!;
+  opt.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+};
+
+const hiddenValues = (hiddenList: HTMLElement): string[] =>
+  Array.from(
+    hiddenList.querySelectorAll<HTMLInputElement>(`input[data-slot="combobox-hidden"]`),
+  ).map((i) => i.value);
+
+const chipValues = (chips: HTMLElement): string[] =>
+  Array.from(chips.querySelectorAll<HTMLElement>(`[data-slot="combobox-chip"]`)).map(
+    (c) => c.getAttribute("data-combobox-chip-value") ?? "",
+  );
+
+describe("lv-combobox controller — multiple-select mode (chips + repeated hidden inputs)", () => {
+  it("the listbox advertises aria-multiselectable=true", async () => {
+    const { runtime } = makeRuntime();
+    const { listbox } = mountMultiple(["Parma", "Milano"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(listbox.getAttribute("aria-multiselectable")).toBe("true");
+  });
+
+  it("seeds chips + repeated hidden inputs from the server-rendered selected values", async () => {
+    const { runtime } = makeRuntime();
+    const { chips, hiddenList } = mountMultiple(["Parma", "Milano", "Roma"], ["Parma", "Roma"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(chipValues(chips)).toEqual(["Parma", "Roma"]);
+    expect(hiddenValues(hiddenList)).toEqual(["Parma", "Roma"]);
+  });
+
+  it("clicking options ADDS them: listbox stays OPEN, N hidden inputs + chips, aria-selected set, change fires each add", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, chips, hiddenList } = mountMultiple(["Parma", "Milano", "Roma"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const changes: number[] = [];
+    hiddenList.addEventListener("change", () => changes.push(1));
+
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "Parma");
+    expect(input.getAttribute("aria-expanded")).toBe("true"); // ADD does not close
+    clickOption(listbox, "Milano");
+
+    expect(hiddenValues(hiddenList)).toEqual(["Parma", "Milano"]); // carries N values under `name`
+    expect(chipValues(chips)).toEqual(["Parma", "Milano"]);
+    expect(
+      listbox
+        .querySelector(`li[data-combobox-option="Parma"]`)!
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(changes.length).toBe(2); // one change per add
+  });
+
+  it("the search box resets after each add so the next query starts fresh (tag-input UX)", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountMultiple(["Parma", "Reggio", "Milano"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "mil";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(getOptions(listbox).map((li) => li.getAttribute("data-combobox-option"))).toEqual([
+      "Milano",
+    ]);
+
+    clickOption(listbox, "Milano");
+    expect(input.value).toBe(""); // search reset
+    expect(getOptions(listbox).map((li) => li.getAttribute("data-combobox-option"))).toEqual([
+      "Parma",
+      "Reggio",
+      "Milano",
+    ]); // filter cleared -> every option visible again
+  });
+
+  it("clicking a SELECTED option again REMOVES it (toggle off): chip + hidden drop, aria-selected=false, change fires", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, chips, hiddenList } = mountMultiple(["Parma", "Milano"], ["Parma"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const changes: number[] = [];
+    hiddenList.addEventListener("change", () => changes.push(1));
+
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "Parma");
+
+    expect(hiddenValues(hiddenList)).toEqual([]);
+    expect(chipValues(chips)).toEqual([]);
+    expect(
+      listbox.querySelector(`li[data-combobox-option="Parma"]`)!.getAttribute("aria-selected"),
+    ).toBe("false");
+    expect(changes.length).toBe(1);
+  });
+
+  it("a chip's remove button deselects its value (chip + hidden input + aria-selected) and fires change", async () => {
+    const { runtime } = makeRuntime();
+    const { listbox, chips, hiddenList } = mountMultiple(["Parma", "Milano"], ["Parma", "Milano"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const changes: number[] = [];
+    hiddenList.addEventListener("change", () => changes.push(1));
+
+    const removeBtn = Array.from(
+      chips.querySelectorAll<HTMLButtonElement>(`[data-slot="combobox-chip-remove"]`),
+    ).find((b) => b.getAttribute("data-combobox-chip-value") === "Parma")!;
+    removeBtn.click(); // Stimulus-bound data-action
+
+    expect(hiddenValues(hiddenList)).toEqual(["Milano"]);
+    expect(chipValues(chips)).toEqual(["Milano"]);
+    expect(
+      listbox.querySelector(`li[data-combobox-option="Parma"]`)!.getAttribute("aria-selected"),
+    ).toBe("false");
+    expect(changes.length).toBe(1);
+  });
+
+  it("Escape when closed clears ALL selected values (chips + hidden) and fires change", async () => {
+    const { runtime } = makeRuntime();
+    const { input, chips, hiddenList } = mountMultiple(["Parma", "Milano"], ["Parma", "Milano"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const changes: number[] = [];
+    hiddenList.addEventListener("change", () => changes.push(1));
+
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+    pressKey(input, "Escape");
+
+    expect(hiddenValues(hiddenList)).toEqual([]);
+    expect(chipValues(chips)).toEqual([]);
+    expect(changes.length).toBe(1);
+  });
+
+  it("blur in multiple mode resets the search box but never touches the committed selection", async () => {
+    const { runtime } = makeRuntime();
+    const { input, chips, hiddenList } = mountMultiple(["Parma", "Milano"], ["Parma"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "mil";
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+
+    expect(input.value).toBe(""); // search reset
+    expect(hiddenValues(hiddenList)).toEqual(["Parma"]); // selection intact
+    expect(chipValues(chips)).toEqual(["Parma"]);
+  });
+});
+
+/** Grouped MULTIPLE markup: optgroups + multiple, to prove searchable + optgroups still work in
+ *  multi-select mode (the Filament "searchable grouped multi-select" shape). */
+function comboboxGroupedMultipleHtml(groups: Record<string, string[]>): string {
+  const id = "cb";
+  const listboxId = `${id}-listbox`;
+  const inputId = `${id}-input`;
+  let gi = 0;
+  const groupsHtml = Object.entries(groups)
+    .map(([label, opts]) => {
+      const grpId = `${id}-grp-${gi++}`;
+      const optsHtml = opts
+        .map((v) => {
+          const optId = `${id}-opt-${v.replace(/[^A-Za-z0-9]/g, "-")}`;
+          return `<li role="option" id="${optId}" data-lievit-item data-slot="combobox-option" aria-selected="false" data-combobox-option="${v}">${v}</li>`;
+        })
+        .join("");
+      return `<li role="presentation" data-slot="combobox-group-wrapper"><div id="${grpId}" role="none" aria-hidden="true" data-slot="combobox-group-label">${label}</div><ul role="group" aria-labelledby="${grpId}">${optsHtml}</ul></li>`;
+    })
+    .join("");
+  return `
+<div data-slot="combobox" data-controller="lv-combobox" data-action="focusout->lv-combobox#onFocusout"
+     data-lievit-combobox data-combobox-mode="select-only" data-combobox-multiple="true"
+     data-combobox-clearable="false" data-combobox-empty-text="No results">
+  <div data-slot="combobox-control" data-lv-combobox-target="control">
+    <div data-slot="combobox-chips"></div>
+    <input type="text" id="${inputId}" data-slot="combobox-input" data-lv-combobox-target="input"
+           data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
+           role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="${listboxId}"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" value="">
+    <button type="button" data-slot="combobox-toggle" data-lv-combobox-target="toggle"
+            data-action="click->lv-combobox#onToggleClick" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <ul id="${listboxId}" role="listbox" data-slot="combobox-listbox" data-lv-combobox-target="listbox"
+      data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
+      popover="auto" aria-multiselectable="true" data-lievit-collection data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true" data-lievit-collection-activedescendant-target="#${inputId}"
+      aria-busy="false">${groupsHtml}</ul>
+  <div data-slot="combobox-hidden-list" data-combobox-name="city" hidden></div>
+</div>`;
+}
+
+describe("lv-combobox controller — multiple + groups (searchable grouped multi-select)", () => {
+  it("filtering across groups still works in multiple mode, and adding from a group carries the value", async () => {
+    const { runtime } = makeRuntime();
+    const host = document.createElement("div");
+    host.innerHTML = comboboxGroupedMultipleHtml({
+      Emilia: ["Parma", "Reggio"],
+      Lombardia: ["Milano"],
+    });
+    document.body.appendChild(host);
+    const root = host.querySelector<HTMLElement>('[data-slot="combobox"]')!;
+    const input = root.querySelector<HTMLInputElement>('[data-slot="combobox-input"]')!;
+    const listbox = root.querySelector<HTMLElement>('[data-slot="combobox-listbox"]')!;
+    const hiddenList = root.querySelector<HTMLElement>('[data-slot="combobox-hidden-list"]')!;
+    shimPopover(listbox);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "mil";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    const visible = getOptions(listbox).map((li) => li.getAttribute("data-combobox-option"));
+    expect(visible).toEqual(["Milano"]); // filtered across groups
+
+    // a group whose options all fall out is hidden (no dangling header) — same as single mode
+    expect(
+      Array.from(
+        listbox.querySelectorAll<HTMLElement>(
+          '[data-slot="combobox-group-wrapper"]:not([hidden])',
+        ),
+      ),
+    ).toHaveLength(1);
+
+    clickOption(listbox, "Milano");
+    expect(hiddenValues(hiddenList)).toEqual(["Milano"]); // added from within a group
+    expect(input.getAttribute("aria-expanded")).toBe("true"); // stays open
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (f) Multiple-mode partial SOURCE assertions (the JTE markup the controller relies on)
+// ---------------------------------------------------------------------------
+describe("combobox partial source — multiple mode (v-next)", () => {
+  test("the root exposes data-combobox-multiple so the controller can branch", () => {
+    expect(jteMarkup).toContain("data-combobox-multiple=");
+  });
+
+  test("multiple mode renders a chips container + removable chip with a CSP-clean remove action", () => {
+    expect(jteMarkup).toContain('data-slot="combobox-chips"');
+    expect(jteMarkup).toContain('data-slot="combobox-chip"');
+    expect(jteMarkup).toContain('data-slot="combobox-chip-remove"');
+    expect(jteMarkup).toContain("click->lv-combobox#onChipRemove");
+  });
+
+  test("multiple mode carries the committed values as repeated hidden inputs under the same name", () => {
+    expect(jteMarkup).toContain('data-slot="combobox-hidden-list"');
+    expect(jteMarkup).toContain("data-combobox-name=");
+    // the repeated hidden input still POSTs under name (single + multiple both contain name="${name}")
+    expect(jteMarkup).toContain('name="${name}"');
+  });
+
+  test("the listbox advertises aria-multiselectable in multiple mode", () => {
+    expect(jteMarkup).toContain("aria-multiselectable=");
+  });
+
+  test("multiple-mode markup stays CSP-clean: no inline <script>, no on* handlers", () => {
+    // (covered globally too, but assert against the chips/remove additions explicitly)
+    expect(jteMarkup).not.toMatch(/<script/i);
+    expect(jteMarkup).not.toMatch(/\son[a-z]+\s*=/i);
+  });
+});
