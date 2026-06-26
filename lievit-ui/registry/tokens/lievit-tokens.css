@@ -178,6 +178,15 @@
   /* overlay scrim behind modal surfaces (dialog/drawer backdrop) */
   --lv-color-overlay: rgb(0 0 0 / 0.45);
 
+  /* Topbar global-search field surface (Filament fi-global-search): a VEILED, semi-transparent
+   * field that reads as an input against ANY topbar band — the light default bar, the old navy or
+   * the new green brand band. Built from currentColor (the band's own AA-readable foreground), so it
+   * is a light veil on a dark band and a dark veil on a light bar, always contrasting, no per-band
+   * override needed. The topbar search sets --lv-group-bg/--lv-group-border to these on the
+   * input-group. */
+  --lv-color-topbar-search-bg: color-mix(in srgb, currentColor 12%, transparent);
+  --lv-color-topbar-search-border: color-mix(in srgb, currentColor 28%, transparent);
+
   /* ----------------------------------------------------------------------- *
    * FIELD layout (v-next, additive)                                         *
    * ----------------------------------------------------------------------- */

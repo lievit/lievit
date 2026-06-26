@@ -530,6 +530,34 @@ class KitPageRenderTest {
         assertTrue(html.contains("kit-page-search-mobile-trigger"), "mobile trigger slot missing");
     }
 
+    @Test
+    void the_topbar_search_field_carries_the_veiled_surface_tokens() {
+        // The global-search field had no visible background on the brand band. It must now drive the
+        // input-group surface to the veiled, semi-transparent --lv-color-topbar-search-* tokens via the
+        // --lv-group-bg / --lv-group-border arbitrary properties (resolved by input-group's own bg/border
+        // with --lv-color-input / --lv-color-border as the unchanged default fallbacks). Legible on both
+        // a navy and a green band because the tokens are built from currentColor.
+        Map<String, Object> model = new HashMap<>();
+        model.put("page", pageView());
+        model.put("results", null);
+        String html = render("kit/page/global-search.jte", model);
+
+        // The field opts the input-group surface onto the veiled topbar-search tokens.
+        assertTrue(
+                html.contains("[--lv-group-bg:var(--lv-color-topbar-search-bg)]"),
+                "search field must set --lv-group-bg to the veiled topbar-search surface:\n" + html);
+        assertTrue(
+                html.contains("[--lv-group-border:var(--lv-color-topbar-search-border)]"),
+                "search field must set --lv-group-border to the veiled topbar-search border");
+        // The input-group still resolves bg/border from those vars with the standard defaults as fallback.
+        assertTrue(
+                html.contains("bg-[var(--lv-group-bg,var(--lv-color-input))]"),
+                "input-group must read its bg from --lv-group-bg with --lv-color-input fallback");
+        assertTrue(
+                html.contains("border-[var(--lv-group-border,var(--lv-color-border))]"),
+                "input-group must read its border from --lv-group-border with --lv-color-border fallback");
+    }
+
     // ── Fixtures for the list body ───────────────────────────────────────────────────────────────
 
     record TestRow(int id, String name) {}

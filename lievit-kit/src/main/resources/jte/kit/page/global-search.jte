@@ -58,6 +58,13 @@
 @param String placeholder = "Search..."
 @param Map<String, String> hidden = new LinkedHashMap<>()
 !{var hasResults = results != null && !results.isEmpty();}
+<%-- Topbar search-field surface (issue: the global-search field had no visible background and did
+     not read as a field on the brand band). Drive the input-group bg + border to the veiled,
+     semi-transparent --lv-color-topbar-search-* tokens (built from currentColor, so the veil reads
+     on the navy AND the green band as well as the light default). Set as Tailwind arbitrary
+     properties (--lv-group-bg / --lv-group-border), which input-group resolves on its own surface
+     without a conflicting second bg- utility. --%>
+!{var searchFieldClass = "[--lv-group-bg:var(--lv-color-topbar-search-bg)] [--lv-group-border:var(--lv-color-topbar-search-border)]";}
 <%-- The plain GET search form, rendered into both the desktop inline field and the mobile popover so
      the two layouts share one form definition. A GET form discards the action's query string and uses
      its own fields, so any extra `hidden` selectors ride as hidden inputs. --%>
@@ -68,6 +75,7 @@
     @endfor
     @template.lievit.input-group(
       ariaLabel = placeholder,
+      cssClass = searchFieldClass,
       leadingAddon = @`@template.lievit.icon(name = "search")`,
       content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
   </form>
@@ -107,6 +115,7 @@
           @endfor
           @template.lievit.input-group(
             ariaLabel = placeholder,
+            cssClass = searchFieldClass,
             leadingAddon = @`@template.lievit.icon(name = "search")`,
             content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
         </form>

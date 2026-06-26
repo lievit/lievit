@@ -172,7 +172,11 @@
 <%-- Group root: flex row, shared border + border-radius, overflow:hidden clips inner borders.
      role="group" only when a shared label exists (WAI-ARIA grouping rule).
      :focus-within raises a single ring around the whole group (not per-control).
-     data-[invalid=true] and data-[disabled=true] drive CSS modifiers without JS. --%>
+     data-[invalid=true] and data-[disabled=true] drive CSS modifiers without JS.
+     SURFACE TOKENS: the group bg + border read from --lv-group-bg / --lv-group-border with the
+     standard --lv-color-input / --lv-color-border as fallbacks, so a host context (e.g. the topbar
+     global-search field on a coloured brand band) can swap the surface to a veiled translucent one by
+     setting those two vars on the call, WITHOUT a second conflicting bg- utility. Default unchanged. --%>
 <div
   data-slot="input-group"
   data-size="${size}"
@@ -183,7 +187,7 @@
   aria-invalid="${invalid ? "true" : null}"
   data-invalid="${invalid ? "true" : null}"
   data-disabled="${disabled ? "true" : null}"
-  class="relative flex w-full min-w-0 items-stretch overflow-hidden rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-input)] shadow-[var(--lv-shadow-xs)] transition-[border-color,box-shadow] outline-none hover:not-[data-disabled]:border-[var(--lv-color-border-hover)] focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[invalid=true]:border-[var(--lv-color-destructive)] data-[invalid=true]:focus-within:shadow-[var(--lv-ring-destructive)] data-[disabled=true]:opacity-[var(--lv-opacity-disabled)] ${cssClass}"
+  class="relative flex w-full min-w-0 items-stretch overflow-hidden rounded-[var(--lv-radius-md)] border border-[var(--lv-group-border,var(--lv-color-border))] bg-[var(--lv-group-bg,var(--lv-color-input))] shadow-[var(--lv-shadow-xs)] transition-[border-color,box-shadow] outline-none hover:not-[data-disabled]:border-[var(--lv-color-border-hover)] focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] data-[invalid=true]:border-[var(--lv-color-destructive)] data-[invalid=true]:focus-within:shadow-[var(--lv-ring-destructive)] data-[disabled=true]:opacity-[var(--lv-opacity-disabled)] ${cssClass}"
   style="font-family:var(--lv-font-sans);"
   $unsafe{dataAttrsMarkup}
   $unsafe{attrs}
