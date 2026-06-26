@@ -40,6 +40,8 @@ export {
   ControlRegistry,
   defaultReadControlValue,
   defaultWriteControlValue,
+  comboboxControlAdapter,
+  COMBOBOX_ROOT_SELECTOR,
   type ControlAdapter,
 } from "./controls.js";
 

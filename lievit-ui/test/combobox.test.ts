@@ -27,6 +27,7 @@ import { filterOptions, type ComboboxOption } from "../registry/jte/combobox.enh
 import { LievitRuntime } from "../runtime/runtime.js";
 import { morph } from "../runtime/morph.js";
 import { startStimulus, stopStimulus, flushStimulus } from "../runtime/stimulus/application.js";
+import { ControlRegistry } from "../runtime/controls.js";
 
 const registryRoot = join(import.meta.dirname, "..", "registry");
 const registry: Registry = buildRegistry(registryRoot);
@@ -1308,5 +1309,550 @@ describe("combobox partial source — multiple mode (v-next)", () => {
     // (covered globally too, but assert against the chips/remove additions explicitly)
     expect(jteMarkup).not.toMatch(/<script/i);
     expect(jteMarkup).not.toMatch(/\son[a-z]+\s*=/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (g) value != label SOURCE assertions (the JTE contract the controller relies on)
+// ---------------------------------------------------------------------------
+describe("combobox partial source — value != label (optionPairs) + JS-off submit name", () => {
+  test("declares the optionPairs param (value -> label option source)", () => {
+    expect(jteSrc).toContain("@param java.util.Map<String, String> optionPairs");
+  });
+
+  test("the value != label option still carries data-combobox-option (the posted VALUE), text = LABEL", () => {
+    // the optionPairs branch renders the value in data-combobox-option and the label as the text node
+    expect(jteMarkup).toContain("data-combobox-option=");
+    expect(jteMarkup).toContain("${_plbl}"); // the LABEL is the option's visible text
+    expect(jteMarkup).toContain("optionPairs.entrySet()");
+  });
+
+  test("FIX B2: the JS-off native <select> carries the REAL name, not name-native", () => {
+    expect(jteMarkup).toContain("data-combobox-native");
+    expect(jteMarkup).not.toContain("${name}-native"); // the wrong/ignored field name is gone
+  });
+
+  test("FIX B2: the hidden carrier(s) are rendered disabled (JS-off the native submits; the controller flips ownership on connect)", () => {
+    // both the single hidden input and the repeated multiple ones carry `disabled`
+    expect(jteMarkup).toMatch(/data-slot="combobox-hidden"[\s\S]*?disabled/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (h) value != label CONTROLLER behaviour (real Stimulus) + JS-off ownership handoff + wire READ
+// ---------------------------------------------------------------------------
+
+interface VLPair {
+  value: string;
+  label: string;
+}
+
+/** Markup for a SINGLE value!=label combobox exactly as combobox.jte emits it: each option's
+ *  data-combobox-option is the VALUE (posted id), its text is the LABEL; the trigger shows the
+ *  committed value's LABEL; the hidden carrier is `disabled` and the native <select> carries the
+ *  real `name` (JS-off submit), the pair the controller's connect() flips ownership between. */
+function comboboxVLHtml(pairs: VLPair[], o: { value?: string; mode?: string } = {}): string {
+  const { value = "", mode = "select-only" } = o;
+  const id = "cb";
+  const listboxId = `${id}-listbox`;
+  const inputId = `${id}-input`;
+  const committed = pairs.find((p) => p.value === value);
+  const inputText = committed ? committed.label : "";
+  const options = pairs
+    .map((p) => {
+      const optId = `${id}-opt-${p.value.replace(/[^A-Za-z0-9]/g, "-")}`;
+      const selected = p.value === value ? "true" : "false";
+      return `<li role="option" id="${optId}" data-lievit-item data-slot="combobox-option" aria-selected="${selected}" data-combobox-option="${p.value}">${p.label}</li>`;
+    })
+    .join("");
+  const nativeOpts = pairs
+    .map((p) => `<option value="${p.value}"${p.value === value ? " selected" : ""}>${p.label}</option>`)
+    .join("");
+  return `
+<div data-slot="combobox" data-controller="lv-combobox" data-action="focusout->lv-combobox#onFocusout"
+     data-lievit-combobox data-combobox-mode="${mode}" data-combobox-clearable="false"
+     data-combobox-empty-text="No results">
+  <div data-slot="combobox-control" data-lv-combobox-target="control">
+    <input type="text" id="${inputId}" data-slot="combobox-input" data-lv-combobox-target="input"
+           data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
+           role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="${listboxId}"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" value="${inputText}">
+    <button type="button" data-slot="combobox-toggle" data-lv-combobox-target="toggle"
+            data-action="click->lv-combobox#onToggleClick" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <ul id="${listboxId}" role="listbox" data-slot="combobox-listbox" data-lv-combobox-target="listbox"
+      data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
+      popover="auto" data-lievit-collection data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true" data-lievit-collection-activedescendant-target="#${inputId}"
+      aria-busy="false">${options}</ul>
+  <input type="hidden" name="assignee" value="${value}" data-slot="combobox-hidden" data-lv-combobox-target="hidden" disabled>
+  <div data-slot="combobox-native-wrapper" class="sr-only" aria-hidden="true">
+    <select data-combobox-native id="${id}-native" name="assignee" tabindex="-1" aria-hidden="true">${nativeOpts}</select>
+  </div>
+</div>`;
+}
+
+interface MountedVL {
+  root: HTMLElement;
+  input: HTMLInputElement;
+  listbox: HTMLElement;
+  hiddenInput: HTMLInputElement;
+  native: HTMLSelectElement;
+}
+
+function mountVL(pairs: VLPair[], o: { value?: string; mode?: string } = {}): MountedVL {
+  const host = document.createElement("div");
+  host.innerHTML = comboboxVLHtml(pairs, o);
+  document.body.appendChild(host);
+  const root = host.querySelector<HTMLElement>('[data-slot="combobox"]')!;
+  const input = root.querySelector<HTMLInputElement>('[data-slot="combobox-input"]')!;
+  const listbox = root.querySelector<HTMLElement>('[data-slot="combobox-listbox"]')!;
+  const hiddenInput = root.querySelector<HTMLInputElement>('[data-slot="combobox-hidden"]')!;
+  const native = root.querySelector<HTMLSelectElement>("[data-combobox-native]")!;
+  shimPopover(listbox);
+  return { root, input, listbox, hiddenInput, native };
+}
+
+/** Markup for a MULTIPLE value!=label combobox: chips show LABELs, the repeated (disabled) hidden
+ *  inputs carry VALUEs, the native multi-select carries the real `name`. */
+function comboboxMultipleVLHtml(pairs: VLPair[], selected: string[] = []): string {
+  const id = "cb";
+  const listboxId = `${id}-listbox`;
+  const inputId = `${id}-input`;
+  const labelOf = (v: string) => pairs.find((p) => p.value === v)?.label ?? v;
+  const chips = selected
+    .map(
+      (v) =>
+        `<span data-slot="combobox-chip" data-combobox-chip-value="${v}"><span data-slot="combobox-chip-label">${labelOf(
+          v,
+        )}</span><button type="button" data-slot="combobox-chip-remove" data-action="click->lv-combobox#onChipRemove" data-combobox-chip-value="${v}" aria-label="Remove ${labelOf(
+          v,
+        )}"></button></span>`,
+    )
+    .join("");
+  const hidden = selected
+    .map(
+      (v) =>
+        `<input type="hidden" name="relations" value="${v}" data-slot="combobox-hidden" data-combobox-hidden-value="${v}" disabled>`,
+    )
+    .join("");
+  const options = pairs
+    .map((p) => {
+      const optId = `${id}-opt-${p.value.replace(/[^A-Za-z0-9]/g, "-")}`;
+      const sel = selected.includes(p.value) ? "true" : "false";
+      return `<li role="option" id="${optId}" data-lievit-item data-slot="combobox-option" aria-selected="${sel}" data-combobox-option="${p.value}">${p.label}</li>`;
+    })
+    .join("");
+  const nativeOpts = pairs
+    .map(
+      (p) => `<option value="${p.value}"${selected.includes(p.value) ? " selected" : ""}>${p.label}</option>`,
+    )
+    .join("");
+  return `
+<div data-slot="combobox" data-controller="lv-combobox" data-action="focusout->lv-combobox#onFocusout"
+     data-lievit-combobox data-combobox-mode="select-only" data-combobox-multiple="true"
+     data-combobox-clearable="false" data-combobox-empty-text="No results">
+  <div data-slot="combobox-control" data-lv-combobox-target="control">
+    <div data-slot="combobox-chips">${chips}</div>
+    <input type="text" id="${inputId}" data-slot="combobox-input" data-lv-combobox-target="input"
+           data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
+           role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="${listboxId}"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" value="">
+    <button type="button" data-slot="combobox-toggle" data-lv-combobox-target="toggle"
+            data-action="click->lv-combobox#onToggleClick" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <ul id="${listboxId}" role="listbox" data-slot="combobox-listbox" data-lv-combobox-target="listbox"
+      data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
+      popover="auto" aria-multiselectable="true" data-lievit-collection data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true" data-lievit-collection-activedescendant-target="#${inputId}"
+      aria-busy="false">${options}</ul>
+  <div data-slot="combobox-hidden-list" data-combobox-name="relations" hidden>${hidden}</div>
+  <div data-slot="combobox-native-wrapper" class="sr-only" aria-hidden="true">
+    <select data-combobox-native id="${id}-native" name="relations" multiple tabindex="-1" aria-hidden="true">${nativeOpts}</select>
+  </div>
+</div>`;
+}
+
+function mountMultipleVL(
+  pairs: VLPair[],
+  selected: string[] = [],
+): { root: HTMLElement; input: HTMLInputElement; listbox: HTMLElement; chips: HTMLElement; hiddenList: HTMLElement; native: HTMLSelectElement } {
+  const host = document.createElement("div");
+  host.innerHTML = comboboxMultipleVLHtml(pairs, selected);
+  document.body.appendChild(host);
+  const root = host.querySelector<HTMLElement>('[data-slot="combobox"]')!;
+  const input = root.querySelector<HTMLInputElement>('[data-slot="combobox-input"]')!;
+  const listbox = root.querySelector<HTMLElement>('[data-slot="combobox-listbox"]')!;
+  const chips = root.querySelector<HTMLElement>('[data-slot="combobox-chips"]')!;
+  const hiddenList = root.querySelector<HTMLElement>('[data-slot="combobox-hidden-list"]')!;
+  const native = root.querySelector<HTMLSelectElement>("[data-combobox-native]")!;
+  shimPopover(listbox);
+  return { root, input, listbox, chips, hiddenList, native };
+}
+
+const chipLabels = (chips: HTMLElement): string[] =>
+  Array.from(chips.querySelectorAll<HTMLElement>('[data-slot="combobox-chip-label"]')).map(
+    (c) => c.textContent ?? "",
+  );
+
+const PEOPLE: VLPair[] = [
+  { value: "jdoe", label: "John Doe" },
+  { value: "asmith", label: "Anna Smith" },
+  { value: "mrossi", label: "Mario Rossi" },
+];
+
+describe("lv-combobox controller — value != label (single)", () => {
+  it("seed: the trigger shows the committed value's LABEL, the hidden carries the VALUE", async () => {
+    const { runtime } = makeRuntime();
+    const { input, hiddenInput } = mountVL(PEOPLE, { value: "jdoe" });
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(input.value).toBe("John Doe"); // LABEL, not the posted id
+    expect(hiddenInput.value).toBe("jdoe"); // VALUE (the posted id)
+  });
+
+  it("option click commits: hidden gets the VALUE, the trigger shows the LABEL, a native change fires", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, hiddenInput } = mountVL(PEOPLE);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const events: string[] = [];
+    hiddenInput.addEventListener("change", () => events.push("change"));
+
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "asmith"); // pick Anna Smith (value=asmith)
+
+    expect(hiddenInput.value).toBe("asmith"); // VALUE committed
+    expect(input.value).toBe("Anna Smith"); // LABEL displayed
+    expect(events).toContain("change");
+  });
+
+  it("filter matches the LABEL the user sees (not the posted value)", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountVL(PEOPLE);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "anna"; // a label substring; the value "asmith" does NOT contain it
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    const visible = getOptions(listbox).map((li) => li.getAttribute("data-combobox-option"));
+    expect(visible).toEqual(["asmith"]); // matched by LABEL "Anna Smith", carries VALUE asmith
+  });
+
+  it("select-only blur reverts the trigger to the committed value's LABEL", async () => {
+    const { runtime } = makeRuntime();
+    const { input } = mountVL(PEOPLE, { value: "mrossi", mode: "select-only" });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "zzz";
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+    expect(input.value).toBe("Mario Rossi"); // reverts to the LABEL, not "mrossi"
+  });
+
+  it("back-compat: a value == label combobox still commits the value unchanged", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, hiddenInput } = mount(["Parma", "Milano"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "Milano");
+    expect(input.value).toBe("Milano");
+    expect(hiddenInput.value).toBe("Milano"); // value == label, unchanged
+  });
+});
+
+describe("lv-combobox controller — value != label (multiple)", () => {
+  it("seed: chips show LABELs, the repeated hidden inputs carry VALUEs", async () => {
+    const { runtime } = makeRuntime();
+    const { chips, hiddenList } = mountMultipleVL(PEOPLE, ["jdoe", "mrossi"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(chipLabels(chips)).toEqual(["John Doe", "Mario Rossi"]); // LABELs
+    expect(hiddenValues(hiddenList)).toEqual(["jdoe", "mrossi"]); // VALUEs
+  });
+
+  it("adding an option appends a LABEL chip + a VALUE hidden input", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, chips, hiddenList } = mountMultipleVL(PEOPLE, ["jdoe"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "asmith"); // add Anna Smith
+
+    expect(chipLabels(chips)).toEqual(["John Doe", "Anna Smith"]); // LABELs shown
+    expect(hiddenValues(hiddenList)).toEqual(["jdoe", "asmith"]); // VALUEs posted
+    expect(input.getAttribute("aria-expanded")).toBe("true"); // stays open (multi-pick)
+  });
+});
+
+describe("lv-combobox controller — JS-off/JS-on submit ownership handoff (FIX B2)", () => {
+  it("single: on connect the controller disables the native <select> and enables the hidden carrier", async () => {
+    const { runtime } = makeRuntime();
+    const { hiddenInput, native } = mountVL(PEOPLE, { value: "jdoe" });
+    // Pre-connect (JS-off shape): hidden disabled, native enabled + carries the real name.
+    expect(hiddenInput.disabled).toBe(true);
+    expect(native.disabled).toBe(false);
+    expect(native.getAttribute("name")).toBe("assignee");
+
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    // Post-connect (JS-on): exactly the hidden input submits under `name`; the native one does not.
+    expect(native.disabled).toBe(true);
+    expect(hiddenInput.disabled).toBe(false);
+    expect(hiddenInput.getAttribute("name")).toBe("assignee");
+  });
+
+  it("multiple: on connect the native <select> is disabled and every repeated hidden input is enabled", async () => {
+    const { runtime } = makeRuntime();
+    const { hiddenList, native } = mountMultipleVL(PEOPLE, ["jdoe", "asmith"]);
+    expect(native.disabled).toBe(false);
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(native.disabled).toBe(true);
+    const inputs = Array.from(
+      hiddenList.querySelectorAll<HTMLInputElement>('input[data-slot="combobox-hidden"]'),
+    );
+    expect(inputs.every((i) => !i.disabled)).toBe(true);
+    expect(inputs.map((i) => i.getAttribute("name"))).toEqual(["relations", "relations"]);
+  });
+});
+
+describe("ControlRegistry — combobox wire READ adapter (FIX B4)", () => {
+  it("single: read() returns the committed VALUE from the hidden input, not the div textContent", async () => {
+    const { runtime } = makeRuntime();
+    const { root, input, listbox, hiddenInput } = mountVL(PEOPLE, { value: "jdoe" });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    expect(runtime.controls.read(root)).toBe("jdoe"); // initial committed VALUE
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "asmith");
+    expect(hiddenInput.value).toBe("asmith");
+    expect(runtime.controls.read(root)).toBe("asmith"); // re-read after commit: the new VALUE
+  });
+
+  it("multiple: read() returns the LIST of committed VALUEs from the repeated hidden inputs", async () => {
+    const { runtime } = makeRuntime();
+    const { root, input, listbox } = mountMultipleVL(PEOPLE, ["jdoe"]);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    expect(runtime.controls.read(root)).toEqual(["jdoe"]);
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "mrossi");
+    expect(runtime.controls.read(root)).toEqual(["jdoe", "mrossi"]);
+  });
+
+  it("a fresh ControlRegistry resolves the combobox adapter by selector (zero adopter config)", () => {
+    const { root } = mountVL(PEOPLE, { value: "asmith" });
+    const registry = new ControlRegistry();
+    expect(registry.read(root)).toBe("asmith");
+  });
+
+  it("the default read is unchanged for a non-combobox element (a plain div reads textContent)", () => {
+    const div = document.createElement("div");
+    div.textContent = "plain";
+    document.body.appendChild(div);
+    const registry = new ControlRegistry();
+    expect(registry.read(div)).toBe("plain");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (j) GROUPED value != label (optionGroupPairs): optgroups whose options post a VALUE, show a LABEL
+// ---------------------------------------------------------------------------
+
+/** Markup for a grouped value!=label combobox exactly as combobox.jte emits it for `optionGroupPairs`:
+ *  a group wrapper (label div + inner role="group" <ul>) whose options carry the VALUE in
+ *  data-combobox-option and show the LABEL as their text. Single or multiple. */
+function comboboxGroupedVLHtml(
+  groups: Record<string, VLPair[]>,
+  o: { value?: string; multiple?: boolean; selected?: string[] } = {},
+): string {
+  const { value = "", multiple = false, selected = [] } = o;
+  const id = "cb";
+  const listboxId = `${id}-listbox`;
+  const inputId = `${id}-input`;
+  const isSel = (v: string) => (multiple ? selected.includes(v) : v === value);
+  let gi = 0;
+  const groupsHtml = Object.entries(groups)
+    .map(([label, pairs]) => {
+      const grpId = `${id}-grp-${gi++}`;
+      const optsHtml = pairs
+        .map((p) => {
+          const optId = `${id}-opt-${p.value.replace(/[^A-Za-z0-9]/g, "-")}`;
+          return `<li role="option" id="${optId}" data-lievit-item data-slot="combobox-option" aria-selected="${
+            isSel(p.value) ? "true" : "false"
+          }" data-combobox-option="${p.value}">${p.label}</li>`;
+        })
+        .join("");
+      return `<li role="presentation" data-slot="combobox-group-wrapper"><div id="${grpId}" role="none" aria-hidden="true" data-slot="combobox-group-label">${label}</div><ul role="group" aria-labelledby="${grpId}">${optsHtml}</ul></li>`;
+    })
+    .join("");
+  const allPairs = Object.values(groups).flat();
+  const inputText = !multiple && value ? allPairs.find((p) => p.value === value)?.label ?? "" : "";
+  const chips = multiple
+    ? `<div data-slot="combobox-chips">${selected
+        .map((v) => {
+          const lbl = allPairs.find((p) => p.value === v)?.label ?? v;
+          return `<span data-slot="combobox-chip" data-combobox-chip-value="${v}"><span data-slot="combobox-chip-label">${lbl}</span><button type="button" data-slot="combobox-chip-remove" data-action="click->lv-combobox#onChipRemove" data-combobox-chip-value="${v}" aria-label="Remove ${lbl}"></button></span>`;
+        })
+        .join("")}</div>`
+    : "";
+  const hidden = multiple
+    ? `<div data-slot="combobox-hidden-list" data-combobox-name="sotto" hidden>${selected
+        .map(
+          (v) =>
+            `<input type="hidden" name="sotto" value="${v}" data-slot="combobox-hidden" data-combobox-hidden-value="${v}" disabled>`,
+        )
+        .join("")}</div>`
+    : `<input type="hidden" name="sotto" value="${value}" data-slot="combobox-hidden" data-lv-combobox-target="hidden" disabled>`;
+  return `
+<div data-slot="combobox" data-controller="lv-combobox" data-action="focusout->lv-combobox#onFocusout"
+     data-lievit-combobox data-combobox-mode="select-only"${
+       multiple ? ' data-combobox-multiple="true"' : ""
+     } data-combobox-clearable="false" data-combobox-empty-text="No results">
+  <div data-slot="combobox-control" data-lv-combobox-target="control">
+    ${chips}
+    <input type="text" id="${inputId}" data-slot="combobox-input" data-lv-combobox-target="input"
+           data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
+           role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="${listboxId}"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" value="${inputText}">
+    <button type="button" data-slot="combobox-toggle" data-lv-combobox-target="toggle"
+            data-action="click->lv-combobox#onToggleClick" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <ul id="${listboxId}" role="listbox" data-slot="combobox-listbox" data-lv-combobox-target="listbox"
+      data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
+      popover="auto"${
+        multiple ? ' aria-multiselectable="true"' : ""
+      } data-lievit-collection data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true" data-lievit-collection-activedescendant-target="#${inputId}"
+      aria-busy="false">${groupsHtml}</ul>
+  ${hidden}
+</div>`;
+}
+
+function mountGroupedVL(
+  groups: Record<string, VLPair[]>,
+  o: { value?: string; multiple?: boolean; selected?: string[] } = {},
+): {
+  root: HTMLElement;
+  input: HTMLInputElement;
+  listbox: HTMLElement;
+  hiddenInput: HTMLInputElement | null;
+  chips: HTMLElement | null;
+  hiddenList: HTMLElement | null;
+} {
+  const host = document.createElement("div");
+  host.innerHTML = comboboxGroupedVLHtml(groups, o);
+  document.body.appendChild(host);
+  const root = host.querySelector<HTMLElement>('[data-slot="combobox"]')!;
+  const input = root.querySelector<HTMLInputElement>('[data-slot="combobox-input"]')!;
+  const listbox = root.querySelector<HTMLElement>('[data-slot="combobox-listbox"]')!;
+  const hiddenInput = root.querySelector<HTMLInputElement>('[data-lv-combobox-target="hidden"]');
+  const chips = root.querySelector<HTMLElement>('[data-slot="combobox-chips"]');
+  const hiddenList = root.querySelector<HTMLElement>('[data-slot="combobox-hidden-list"]');
+  shimPopover(listbox);
+  return { root, input, listbox, hiddenInput, chips, hiddenList };
+}
+
+const TIPI: Record<string, VLPair[]> = {
+  Vendita: [
+    { value: "11", label: "Appartamento" },
+    { value: "12", label: "Villa" },
+  ],
+  Affitto: [{ value: "21", label: "Box" }],
+};
+
+describe("combobox partial source — grouped value != label (optionGroupPairs)", () => {
+  test("declares the optionGroupPairs param (group -> {value -> label})", () => {
+    expect(jteSrc).toContain(
+      "@param java.util.Map<String, java.util.Map<String, String>> optionGroupPairs",
+    );
+  });
+
+  test("the grouped value != label branch renders role=group optgroups over optionGroupPairs", () => {
+    expect(jteMarkup).toContain("optionGroupPairs.entrySet()");
+    expect(jteMarkup).toContain('role="group"');
+  });
+});
+
+describe("lv-combobox controller — grouped value != label (single)", () => {
+  it("renders optgroups whose options carry the VALUE and show the LABEL", async () => {
+    const { runtime } = makeRuntime();
+    const { listbox } = mountGroupedVL(TIPI);
+    startStimulus({ runtime });
+    await flushStimulus();
+    const groups = visibleGroups(listbox);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].querySelector('[data-slot="combobox-group-label"]')?.textContent).toBe(
+      "Vendita",
+    );
+    const villa = listbox.querySelector('li[data-combobox-option="12"]')!;
+    expect(villa.textContent?.trim()).toBe("Villa"); // shows the LABEL
+    expect(villa.getAttribute("data-combobox-option")).toBe("12"); // carries the VALUE
+  });
+
+  it("the filter matches the LABEL across groups and hides a group whose options all fall out", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountGroupedVL(TIPI);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "vil"; // matches "Villa" (value 12) only, in group Vendita
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(getOptions(listbox).map((li) => li.getAttribute("data-combobox-option"))).toEqual(["12"]);
+    const groups = visibleGroups(listbox);
+    expect(groups).toHaveLength(1); // Affitto hidden (no dangling header)
+    expect(groups[0].querySelector('[data-slot="combobox-group-label"]')?.textContent).toBe(
+      "Vendita",
+    );
+  });
+
+  it("option click commits the VALUE and shows the LABEL", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, hiddenInput } = mountGroupedVL(TIPI);
+    startStimulus({ runtime });
+    await flushStimulus();
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "12"); // pick Villa (value 12)
+    expect(hiddenInput!.value).toBe("12"); // VALUE posted
+    expect(input.value).toBe("Villa"); // LABEL shown
+  });
+
+  it("seed: the trigger shows the committed value's LABEL, the hidden carries the VALUE", async () => {
+    const { runtime } = makeRuntime();
+    const { input, hiddenInput } = mountGroupedVL(TIPI, { value: "21" });
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(input.value).toBe("Box"); // LABEL of value 21
+    expect(hiddenInput!.value).toBe("21"); // VALUE
+  });
+});
+
+describe("lv-combobox controller — grouped value != label (multiple)", () => {
+  it("adding an option from a group appends a LABEL chip + a VALUE hidden input", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, chips, hiddenList } = mountGroupedVL(TIPI, {
+      multiple: true,
+      selected: ["11"],
+    });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    expect(chipLabels(chips!)).toEqual(["Appartamento"]);
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "21"); // add Box (value 21) from the Affitto group
+    expect(chipLabels(chips!)).toEqual(["Appartamento", "Box"]); // LABELs
+    expect(hiddenValues(hiddenList!)).toEqual(["11", "21"]); // VALUEs
+    expect(input.getAttribute("aria-expanded")).toBe("true"); // stays open
   });
 });

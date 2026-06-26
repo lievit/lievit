@@ -106,6 +106,21 @@ export function enhanceCombobox(root: HTMLElement): void {
   const mode = root.getAttribute("data-combobox-mode") ?? "select-only";
   const clearableAttr = root.getAttribute("data-combobox-clearable") === "true";
 
+  // JS-OFF / JS-ON ownership handoff (parity with the lv-combobox controller): the server renders the
+  // hidden carrier(s) `disabled` + the native <select> under the real `name`, so a no-JS submit posts
+  // via the native control. Now that JS owns the value, disable the native one and enable the hidden
+  // carrier(s) so exactly one control submits under `name` (no double-submit). A disabled combobox
+  // keeps its hidden carrier disabled, mirroring native disabled-select semantics.
+  const nativeSelect = root.querySelector<HTMLSelectElement>("[data-combobox-native]");
+  if (nativeSelect) nativeSelect.disabled = true;
+  if (!input.disabled) {
+    for (const h of Array.from(
+      root.querySelectorAll<HTMLInputElement>(`input[data-slot="combobox-hidden"]`),
+    )) {
+      h.disabled = false;
+    }
+  }
+
   // Committed value: the hidden input carries it. Label = the matching option's text.
   let committedValue = hiddenInput?.value ?? "";
   let committedLabel = (() => {
