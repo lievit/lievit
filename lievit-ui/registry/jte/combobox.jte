@@ -48,6 +48,12 @@
     String id = name         the combobox id (for a <label for>); defaults to name.
     java.util.List<String> options = null
                              simple option list where value == label.
+    java.util.Map<String, String> optionPairs = null
+                             value != label option source: a LinkedHashMap of POSTED VALUE (option id,
+                             e.g. a username) -> DISPLAYED LABEL (e.g. a person's name). The hidden
+                             form input + chips carry the VALUE; the listbox + trigger show the LABEL;
+                             the filter matches the LABEL. Insertion order is preserved (use a
+                             LinkedHashMap). Wins over `options`; `content` / `optionGroups` win over it.
     java.util.Map<String, java.util.List<String>> optionGroups = null
                              group label -> option list (renders <li role="group"> in the listbox).
     gg.jte.Content content = null
@@ -90,10 +96,14 @@
     )
     @@template.lievit.combobox(name = "city", label = "City", mode = "free-type", clearable = true,
       options = java.util.List.of("Milan", "Rome", "Naples"), placeholder = "Type or choose...")
+    value != label: POST the username, SHOW the person's name (use a LinkedHashMap to keep order)
+    @@template.lievit.combobox(name = "assignee", label = "Assignee", value = "jdoe",
+      optionPairs = new java.util.LinkedHashMap<>(java.util.Map.of("jdoe", "John Doe", "asmith", "Anna Smith")))
 --%>
 @param String name = null
 @param String id = null
 @param java.util.List<String> options = null
+@param java.util.Map<String, String> optionPairs = null
 @param java.util.Map<String, java.util.List<String>> optionGroups = null
 @param gg.jte.Content content = null
 @param String value = null
@@ -122,10 +132,16 @@
 !{var _labelId = _id + "-label";}
 !{var _anchorName = "--lv-combobox-" + _id;}
 
-<%-- Resolve the displayed input text: caller-supplied inputText > matched label for value > empty.
+<%-- Resolve the displayed input text: caller-supplied inputText > matched LABEL for value > empty.
+     For a value != label source (optionPairs) the trigger must show the LABEL of the committed value,
+     never the raw value (the posted id). value == label sources fall back to the value unchanged.
      In multiple mode the visible input is a SEARCH box only (never carries the committed value); the
      committed set lives in chips + repeated hidden inputs, so the input starts blank. --%>
-!{var _inputText = multiple ? "" : (inputText != null ? inputText : (value != null && !value.isBlank() ? value : ""));}
+!{String _valueLabel = null;}
+!{if (!multiple && value != null && !value.isBlank()) {
+    _valueLabel = (optionPairs != null && optionPairs.containsKey(value)) ? optionPairs.get(value) : value;
+  }}
+!{var _inputText = multiple ? "" : (inputText != null ? inputText : (_valueLabel != null ? _valueLabel : ""));}
 !{var _hasText = _inputText != null && !_inputText.isBlank();}
 
 <%-- The committed multi-select set (empty when single-select or when no values were supplied). --%>
@@ -207,18 +223,22 @@
         @for(String _v : _values)
           !{var _chipAttr = new StringOutput();}
           !{Escape.htmlAttribute(_v, _chipAttr);}
+          <%-- chip VALUE = the posted id (_v); chip LABEL = optionPairs label for it, or _v itself
+               when value == label. data-combobox-chip-value always carries the VALUE (the id the
+               controller matches against the hidden inputs + options). --%>
+          !{var _chipLabel = (optionPairs != null && optionPairs.containsKey(_v)) ? optionPairs.get(_v) : _v;}
           <span
             data-slot="combobox-chip"
             data-combobox-chip-value="$unsafe{_chipAttr.toString()}"
             class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-accent)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] text-[var(--lv-color-accent-fg)]"
           >
-            <span data-slot="combobox-chip-label">${_v}</span>
+            <span data-slot="combobox-chip-label">${_chipLabel}</span>
             <button
               type="button"
               data-slot="combobox-chip-remove"
               data-action="click->lv-combobox#onChipRemove"
               data-combobox-chip-value="$unsafe{_chipAttr.toString()}"
-              aria-label="Remove ${_v}"
+              aria-label="Remove ${_chipLabel}"
               class="flex shrink-0 items-center justify-center text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] rounded-[var(--lv-radius-sm)]"
             >
               <svg aria-hidden="true" width="0.75rem" height="0.75rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -333,6 +353,34 @@
       @if(content != null)
         <%-- hand-authored <option>/<optgroup> content: the enhancer reads and renders these. --%>
         ${content}
+      @elseif(optionPairs != null)
+        <%-- value != label source: data-combobox-option carries the VALUE (the posted id), the text
+             node is the LABEL (what the user sees + the filter matches). The id is derived from the
+             VALUE so aria-activedescendant + the option id stay stable per option. --%>
+        @for(java.util.Map.Entry<String, String> _pair : optionPairs.entrySet())
+          !{var _pval = _pair.getKey();}
+          !{var _plbl = _pair.getValue();}
+          !{var _isSelected = multiple ? _values.contains(_pval) : (value != null && _pval.equals(value));}
+          !{var _optId = _id + "-opt-" + _pval.replaceAll("[^A-Za-z0-9]", "-");}
+          !{var _optAttr = new StringOutput();}
+          !{Escape.htmlAttribute(_pval, _optAttr);}
+          <li
+            role="option"
+            id="${_optId}"
+            data-lievit-item
+            data-slot="combobox-option"
+            aria-selected="${_isSelected ? "true" : "false"}"
+            data-combobox-option="$unsafe{_optAttr.toString()}"
+            class="flex cursor-pointer select-none items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-sm)] px-[var(--lv-space-2)] py-[var(--lv-space-2)] ${_textClass} text-[var(--lv-color-popover-fg)] data-[active]:bg-[var(--lv-color-accent)] data-[active]:text-[var(--lv-color-accent-fg)] aria-selected:font-[var(--lv-font-medium)]"
+          >
+            @if(_isSelected)
+              <span aria-hidden="true" class="flex h-[0.875rem] w-[0.875rem] shrink-0 items-center justify-center text-[var(--lv-color-primary)]"><svg width="0.875rem" height="0.875rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            @else
+              <span aria-hidden="true" class="h-[0.875rem] w-[0.875rem] shrink-0"></span>
+            @endif
+            ${_plbl}
+          </li>
+        @endfor
       @elseif(optionGroups != null)
         !{var _grpIdx = new int[]{0};}
         @for(java.util.Map.Entry<String, java.util.List<String>> _grp : optionGroups.entrySet())
@@ -395,13 +443,18 @@
     @endif
   </ul>
 
-  <%-- HIDDEN FORM INPUT(S): carry the committed selection to a plain form POST.
+  <%-- HIDDEN FORM INPUT(S): carry the committed selection to a plain form POST when JS is ON.
        Single-select: ONE hidden input under `name`, carrying `value`.
        Multiple-select: a hidden-list wrapper holding ONE hidden input per committed value, all under
        the SAME `name` (the shape a server multi-bind expects: repeated form field). The controller
        adds/removes these as chips are added/removed and fires a native change/input on the wrapper so
        `l:model.live` / native form listeners react. The visible <input type="text"> never carries the
-       committed value (it is the search box). --%>
+       committed value (it is the search box).
+       JS-OFF / JS-ON OWNERSHIP HANDOFF (exactly one control POSTs under `name`): these hidden inputs
+       are rendered `disabled` so a no-JS submit ignores them and the native <select> below (the real
+       form control under `name`) is the single source. On connect() the controller ENABLES these
+       hidden carrier(s) and DISABLES the native <select>, so JS-ON the hidden input drives the POST
+       and the native one never double-submits. --%>
   @if(multiple)
     <div data-slot="combobox-hidden-list" data-combobox-name="${name}" hidden>
       @for(String _v : _values)
@@ -411,6 +464,7 @@
           value="${_v}"
           data-slot="combobox-hidden"
           data-combobox-hidden-value="${_v}"
+          disabled
         >
       @endfor
     </div>
@@ -422,18 +476,20 @@
       data-slot="combobox-hidden"
       data-lv-combobox-target="hidden"
       required="${required}"
+      disabled
     >
   @endif
 
-  <%-- JS-OFF NATIVE SELECT: the accessible fallback when JS has not run. The enhancer hides this
-       visually (it stays in the DOM as the form-bound source for write-back) and activates the
-       combobox surface above. Kept aria-hidden until the enhancer activates; the enhancer sets
-       aria-hidden="true" and tabIndex=-1 on it to remove it from the AT tree. --%>
+  <%-- JS-OFF NATIVE SELECT: the accessible + form-bound fallback when JS has not run. It carries the
+       REAL `name` (so a plain GET/POST submits the user's selection under the right field with zero
+       JS), and JS-ON the controller disables it (handing `name` ownership to the hidden input above)
+       so the value is never submitted twice. Visually hidden; aria-hidden + tabindex=-1 keep it out
+       of the AT tree (the activated combobox surface above is the accessible control JS-ON). --%>
   <div data-slot="combobox-native-wrapper" class="sr-only" aria-hidden="true">
     <select
       data-combobox-native
       id="${_id}-native"
-      name="${name}-native"
+      name="${name}"
       multiple="${multiple}"
       disabled="${disabled}"
       required="${required}"
@@ -442,6 +498,10 @@
     >
       @if(content != null)
         ${content}
+      @elseif(optionPairs != null)
+        @for(java.util.Map.Entry<String, String> _npair : optionPairs.entrySet())
+          <option value="${_npair.getKey()}" selected="${multiple ? _values.contains(_npair.getKey()) : (value != null && _npair.getKey().equals(value))}">${_npair.getValue()}</option>
+        @endfor
       @elseif(optionGroups != null)
         @for(java.util.Map.Entry<String, java.util.List<String>> _ngrp : optionGroups.entrySet())
           <optgroup label="${_ngrp.getKey()}">

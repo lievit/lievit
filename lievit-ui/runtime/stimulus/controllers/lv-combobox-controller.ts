@@ -116,8 +116,37 @@ export default class LvComboboxController extends DismissableController<HTMLElem
       this.selectedValues = this.hiddenInputs().map((i) => i.value);
     }
 
+    // JS-OFF / JS-ON ownership handoff: the server renders the hidden carrier(s) `disabled` and the
+    // native <select> under the real `name`, so a no-JS submit posts via the native control. Now that
+    // JS owns the value, hand `name` to the hidden input(s) and disable the native one, so exactly one
+    // control submits under `name` (no double-submit).
+    this.takeOverNativeSubmit();
+
     // Reflect the initial server-rendered value in the (dynamically managed) clear button.
     this.updateClearButton();
+  }
+
+  /**
+   * Hand the form-field `name` from the JS-off native `<select>` to the JS-on hidden input(s): disable
+   * the native control (so it stops submitting) and enable the hidden carrier(s) (so they do). A
+   * disabled combobox keeps its hidden carrier disabled too, mirroring native disabled-select
+   * semantics (a disabled field does not submit).
+   */
+  private takeOverNativeSubmit(): void {
+    const native = this.element.querySelector<HTMLSelectElement>("[data-combobox-native]");
+    if (native != null) {
+      native.disabled = true;
+    }
+    if (this.inputTarget.disabled) {
+      return; // disabled combobox: neither control submits (native already disabled, hidden stays so)
+    }
+    if (this.multiple) {
+      for (const i of this.hiddenInputs()) {
+        i.disabled = false;
+      }
+    } else if (this.hasHiddenTarget) {
+      this.hiddenTarget.disabled = false;
+    }
   }
 
   disconnect(): void {

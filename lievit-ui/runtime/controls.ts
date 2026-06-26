@@ -143,13 +143,64 @@ export function defaultWriteControlValue(element: Element, value: unknown): void
 }
 
 /**
- * A registry of per-tag {@link ControlAdapter}s. The runtime owns one instance and exposes it as
+ * The CSS selector that identifies a lievit combobox root. The combobox is a server-rendered
+ * `<div data-slot="combobox">` (also `data-controller~="lv-combobox"` once Stimulus mounts); its
+ * committed value lives in a hidden `<input>` (single) or a list of repeated hidden `<input>`s
+ * (multiple), NEVER on the div itself. A plain read of the div would return `textContent`, so a
+ * combobox root needs the adapter below for `l:model` to read the committed value(s).
+ */
+export const COMBOBOX_ROOT_SELECTOR = '[data-slot="combobox"],[data-controller~="lv-combobox"]';
+
+/**
+ * The built-in {@link ControlAdapter} for the lievit combobox root (matched by selector, not by tag,
+ * since the tag is a generic `<div>`). READ returns the committed value(s) from the hidden input(s):
+ * a single string for a single-select combobox, an array of strings for a multiple-select combobox
+ * (one per repeated `name`-bound hidden input). This is what makes `l:model` / `l:model.live` stamped
+ * on the combobox root read the committed VALUE (the option id), not the div's text. WRITE restores
+ * the single hidden input's value; the multiple committed set is server-rendered and seeded by the
+ * controller, so the array restore is a no-op here.
+ */
+export const comboboxControlAdapter: ControlAdapter = {
+  read(element: Element): unknown {
+    const list = element.querySelector('[data-slot="combobox-hidden-list"]');
+    if (list != null) {
+      return Array.from(
+        list.querySelectorAll<HTMLInputElement>('input[data-slot="combobox-hidden"]'),
+      ).map((input) => input.value);
+    }
+    const hidden = element.querySelector<HTMLInputElement>('[data-slot="combobox-hidden"]');
+    return hidden != null ? hidden.value : "";
+  },
+  write(element: Element, value: unknown): void {
+    if (element.querySelector('[data-slot="combobox-hidden-list"]') != null) {
+      return; // multiple: the committed set is owned by the server render + the controller's seed
+    }
+    const hidden = element.querySelector<HTMLInputElement>('[data-slot="combobox-hidden"]');
+    if (hidden != null) {
+      hidden.value = String(value ?? "");
+    }
+  },
+};
+
+/**
+ * A registry of {@link ControlAdapter}s. The runtime owns one instance and exposes it as
  * `runtime.controls`; an app registers an exotic control's adapter (`controls.register('wa-foo',
  * {...})`) without editing the core. Tag names are matched case-insensitively (custom-element tags
- * are lowercased by the platform). Unregistered tags use the zero-config default.
+ * are lowercased by the platform). A SELECTOR-matched seam ({@link registerMatcher}) handles controls
+ * whose value is not on the bound element's own `.value` and that are not identified by tag (e.g. the
+ * combobox root `<div>`, registered as a built-in below). Unmatched elements use the zero-config
+ * default.
  */
 export class ControlRegistry {
   private readonly adapters = new Map<string, ControlAdapter>();
+  private readonly matchers: Array<{ selector: string; adapter: ControlAdapter }> = [];
+
+  constructor() {
+    // Built-in: the lievit combobox root is a generic <div>, so it cannot be matched by tag; its
+    // committed value lives in its hidden input(s). Registered by default so `l:model` on a combobox
+    // root works with zero adopter config. A tag adapter still wins (apps can override).
+    this.registerMatcher(COMBOBOX_ROOT_SELECTOR, comboboxControlAdapter);
+  }
 
   /**
    * Registers (or replaces) the adapter for a tag. Default-first: only register for a control that
@@ -163,11 +214,33 @@ export class ControlRegistry {
   }
 
   /**
+   * Registers a SELECTOR-matched adapter, for a control whose value is not on its own element and
+   * which is not identified by tag (the combobox root `<div>` is the built-in case). Tag adapters
+   * take precedence; matchers are consulted in registration order for an element with no tag adapter.
+   *
+   * @param selector a CSS selector the bound element must match
+   * @param adapter the read/write/event override
+   */
+  registerMatcher(selector: string, adapter: ControlAdapter): void {
+    this.matchers.push({ selector, adapter });
+  }
+
+  /**
    * @param element a bound control
-   * @returns the adapter registered for the element's tag, or `undefined` (use the default)
+   * @returns the adapter for the element's tag, else the first matching selector adapter, else
+   *   `undefined` (use the default)
    */
   adapterFor(element: Element): ControlAdapter | undefined {
-    return this.adapters.get(element.tagName.toLowerCase());
+    const byTag = this.adapters.get(element.tagName.toLowerCase());
+    if (byTag != null) {
+      return byTag;
+    }
+    for (const { selector, adapter } of this.matchers) {
+      if (element.matches(selector)) {
+        return adapter;
+      }
+    }
+    return undefined;
   }
 
   /**
