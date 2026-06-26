@@ -1,5 +1,33 @@
 # lievit
 
+> ## ⚠️ Status: parked — maintenance mode (a POC, not an active project)
+>
+> lievit was an attempt to build a **"Livewire for Java"**: server-rendered, type-safe,
+> HTML-over-the-wire interactivity for Spring. The idea still has potential and the core wire
+> protocol works, but **it is not something I can dedicate time to right now**, and in honesty it
+> was always more of a **proof-of-concept** than a finished product — the presets and the
+> component library still have real rough edges, and shipping a component library that isn't
+> battle-tested is itself the problem (see below). So lievit is **paused**: it stays on Maven
+> Central as-is, issues/PRs are welcome but unscheduled, and no new releases are planned.
+>
+> **Why (the honest engineering reason).** There are two different axes of robustness, and lievit
+> only buys one. *Compile-time type-safety* (lievit's bet) catches errors of **form** at `mvn
+> compile`. *Battle-tested components* (React + Ant Design, MUI, …) catch errors of
+> **implementation** — the date-picker, the autocomplete, the accessibility, the thousand UX edge
+> cases that millions of users have already found and fixed over years. lievit-ui's components are
+> new; they re-pay that implementation-robustness from zero. Under the "choose boring technology /
+> innovation-token" lens, a brand-new component library is the non-boring choice that has to justify
+> itself — and right now it can't. Picking the most-traveled road (a mature component library behind
+> a typed API) is *Appropriate Complexity*, not accidental complexity.
+>
+> This is **not** "the SSR bet was wrong": it's the same law — robustness where it counts,
+> battle-tested over reinvented, the boundary governed by the JVM as the source of truth — honored
+> by a *different binding* for the rich-UI quadrant. The JVM still owns validation and the domain;
+> a typed frontend talks to it through one API surface (clean architecture, effectively
+> server-authoritative); server-side rendering's remaining distinct job is SEO. lievit remains a
+> valid binding for the compile-time-type-safe server-rendered quadrant; it just isn't the one I'm
+> investing in now.
+
 > **HTML over the wire for Spring. Type-safe. Native. EU-grade.** lievit is the opinionated,
 > named full-stack way to build interactive Spring apps, the Livewire / Hotwire / LiveView
 > category for Java. Write a reactive component as a typed Java class, render it server-side,
@@ -11,7 +39,8 @@
 [![Java](https://img.shields.io/badge/java-25-orange.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/spring--boot-4.0-green.svg)](https://spring.io/projects/spring-boot)
 
-> **Status: `1.0.3` — stable, on Maven Central.** The Maven reactor builds green:
+> **Build status (parked — see the maintenance banner at the top).** The last published reactor
+> builds green and stays on Maven Central as-is:
 > the wire runtime, the single-file DSL, the v4 compiler, the JTE template adapter, the Spring Boot
 > starter, the admin kit, the CLI, the UI component library + client runtime, and the
 > `lievit-maven-plugin` that makes the libraries consumable by import, plus the `Lievit.test()`
