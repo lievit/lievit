@@ -6,6 +6,69 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-26
+
+Stimulus runtime migration + Ant-parity components + Filament table chrome + opt-in Turbo
+navigation. The headline change for consumers: the client runtime moved to Stimulus, icons now
+ship fully in the jar, and Turbo Drive is no longer global. See the migration note at the bottom.
+
+### Changed
+
+- **Client runtime migrated to Stimulus.** Interactive islands are now Stimulus controllers,
+  auto-loaded from `controllers/*-controller.ts` (no manual registration). The
+  controlled/uncontrolled doctrine is centralized in one place (a base controller), and the
+  per-component focus and dismiss handling is collapsed into shared base controllers instead of
+  being re-implemented per island. Boot is `startLievit` + `installAllFeatures` + `startStimulus`
+  (see `INTEGRATION.md`).
+- **Turbo Drive is now OPT-IN (default OFF).** `installAllFeatures` no longer boots Turbo Drive as
+  an import side-effect. Turbo is mounted lazily on the first `l:navigate` element and immediately
+  set to `Turbo.session.drive = false`, so Drive hijacks nothing globally; only elements carrying
+  the new **`l:navigate`** directive (a thin alias that sets `data-turbo="true"`) are SPA-navigated.
+  A page with no `l:navigate` keeps plain native navigation and never loads Turbo. This is the
+  Livewire `wire:navigate` model and removes the bug class the global hijack created (the login form
+  POST became a Drive `fetch` blocked by CSP `connect-src`; a native POST is governed by
+  `form-action`).
+- **Topbar global-search field surface.** The kit global-search field now reads as a field on a
+  coloured brand band: new `--lv-color-topbar-search-bg` / `--lv-color-topbar-search-border` tokens
+  (a veiled, semi-transparent surface built from `currentColor`, legible on both a navy and a green
+  band). `input-group`'s root bg/border became token-overridable via `--lv-group-bg` /
+  `--lv-group-border` (fallbacks `--lv-color-input` / `--lv-color-border`, default unchanged).
+
+### Added
+
+- **11 new Ant-parity components**, broadening the component set toward Ant Design coverage.
+- **General dialog/modal** primitive (a reusable modal surface, beyond the specific overlays).
+- **`l:navigate` directive**: opt a link or area into Turbo Drive SPA navigation (see Changed,
+  above). Exposed alongside the injectable `mountTurboOptIn` mounter.
+- **Filament table chrome** parity: card frame, header band, gutters, empty-state circle,
+  soft-badge with status dot, `DotText` and `AvatarText` cells, plain stat-card, and i18n on the
+  table footer.
+
+### Removed
+
+- **`@floating-ui` is no longer lievit's positioning engine.** Overlays position with native CSS
+  Anchor Positioning, with `@oddbird/css-anchor-positioning` as the Firefox/Safari polyfill fallback.
+  `@floating-ui` is no longer a direct dependency (it remains only as the polyfill's own transitive
+  dep until a floating-ui-free oddbird ships).
+
+### Fixed
+
+- **Icons fully in the jar (zero vendored SVGs).** The full Lucide set ships inside the lievit jar
+  via `lucide-static`; `@template.lievit.icon(name = "...")` resolves from the jar, so consumers
+  vendor **no** SVG files.
+- **wire-410 controlled/uncontrolled fix.** The controlled/uncontrolled state ownership that caused
+  the wire-410 class of bugs is corrected as part of the Stimulus doctrine centralization.
+
+### Migration (from 1.1.x)
+
+- **Re-vendor the runtime**: pull the 1.2.0 runtime from the jar; do not keep an older vendored copy.
+- **Drop forked enhancers**: remove any locally forked client enhancers and use the shipped Stimulus
+  controllers (controller auto-loading replaces manual enhancer wiring).
+- **Drop vendored icons**: delete hand-vendored SVGs; icons now come from the jar (`lucide-static`).
+- **Navigation is opt-in now**: if you relied on global Turbo Drive, add `l:navigate` to the links
+  that should be SPA-navigated; everything else is native (and auth/cross-origin must stay native,
+  see `INTEGRATION.md` §2).
+
 ## [1.1.1] - 2026-06-25
 
 ### Fixed
