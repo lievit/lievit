@@ -6,7 +6,7 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
-## [1.2.1] - 2026-06-26
+## [1.2.2] - 2026-06-26
 
 Hardening release: completes the sidebar controller so a consumer can drop its forked sidebar
 enhancer, makes the combobox a full Filament-style grouped+searchable select, and fixes a silent
