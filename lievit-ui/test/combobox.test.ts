@@ -1663,3 +1663,196 @@ describe("ControlRegistry — combobox wire READ adapter (FIX B4)", () => {
     expect(registry.read(div)).toBe("plain");
   });
 });
+
+// ---------------------------------------------------------------------------
+// (j) GROUPED value != label (optionGroupPairs): optgroups whose options post a VALUE, show a LABEL
+// ---------------------------------------------------------------------------
+
+/** Markup for a grouped value!=label combobox exactly as combobox.jte emits it for `optionGroupPairs`:
+ *  a group wrapper (label div + inner role="group" <ul>) whose options carry the VALUE in
+ *  data-combobox-option and show the LABEL as their text. Single or multiple. */
+function comboboxGroupedVLHtml(
+  groups: Record<string, VLPair[]>,
+  o: { value?: string; multiple?: boolean; selected?: string[] } = {},
+): string {
+  const { value = "", multiple = false, selected = [] } = o;
+  const id = "cb";
+  const listboxId = `${id}-listbox`;
+  const inputId = `${id}-input`;
+  const isSel = (v: string) => (multiple ? selected.includes(v) : v === value);
+  let gi = 0;
+  const groupsHtml = Object.entries(groups)
+    .map(([label, pairs]) => {
+      const grpId = `${id}-grp-${gi++}`;
+      const optsHtml = pairs
+        .map((p) => {
+          const optId = `${id}-opt-${p.value.replace(/[^A-Za-z0-9]/g, "-")}`;
+          return `<li role="option" id="${optId}" data-lievit-item data-slot="combobox-option" aria-selected="${
+            isSel(p.value) ? "true" : "false"
+          }" data-combobox-option="${p.value}">${p.label}</li>`;
+        })
+        .join("");
+      return `<li role="presentation" data-slot="combobox-group-wrapper"><div id="${grpId}" role="none" aria-hidden="true" data-slot="combobox-group-label">${label}</div><ul role="group" aria-labelledby="${grpId}">${optsHtml}</ul></li>`;
+    })
+    .join("");
+  const allPairs = Object.values(groups).flat();
+  const inputText = !multiple && value ? allPairs.find((p) => p.value === value)?.label ?? "" : "";
+  const chips = multiple
+    ? `<div data-slot="combobox-chips">${selected
+        .map((v) => {
+          const lbl = allPairs.find((p) => p.value === v)?.label ?? v;
+          return `<span data-slot="combobox-chip" data-combobox-chip-value="${v}"><span data-slot="combobox-chip-label">${lbl}</span><button type="button" data-slot="combobox-chip-remove" data-action="click->lv-combobox#onChipRemove" data-combobox-chip-value="${v}" aria-label="Remove ${lbl}"></button></span>`;
+        })
+        .join("")}</div>`
+    : "";
+  const hidden = multiple
+    ? `<div data-slot="combobox-hidden-list" data-combobox-name="sotto" hidden>${selected
+        .map(
+          (v) =>
+            `<input type="hidden" name="sotto" value="${v}" data-slot="combobox-hidden" data-combobox-hidden-value="${v}" disabled>`,
+        )
+        .join("")}</div>`
+    : `<input type="hidden" name="sotto" value="${value}" data-slot="combobox-hidden" data-lv-combobox-target="hidden" disabled>`;
+  return `
+<div data-slot="combobox" data-controller="lv-combobox" data-action="focusout->lv-combobox#onFocusout"
+     data-lievit-combobox data-combobox-mode="select-only"${
+       multiple ? ' data-combobox-multiple="true"' : ""
+     } data-combobox-clearable="false" data-combobox-empty-text="No results">
+  <div data-slot="combobox-control" data-lv-combobox-target="control">
+    ${chips}
+    <input type="text" id="${inputId}" data-slot="combobox-input" data-lv-combobox-target="input"
+           data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
+           role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="${listboxId}"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" value="${inputText}">
+    <button type="button" data-slot="combobox-toggle" data-lv-combobox-target="toggle"
+            data-action="click->lv-combobox#onToggleClick" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <ul id="${listboxId}" role="listbox" data-slot="combobox-listbox" data-lv-combobox-target="listbox"
+      data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
+      popover="auto"${
+        multiple ? ' aria-multiselectable="true"' : ""
+      } data-lievit-collection data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true" data-lievit-collection-activedescendant-target="#${inputId}"
+      aria-busy="false">${groupsHtml}</ul>
+  ${hidden}
+</div>`;
+}
+
+function mountGroupedVL(
+  groups: Record<string, VLPair[]>,
+  o: { value?: string; multiple?: boolean; selected?: string[] } = {},
+): {
+  root: HTMLElement;
+  input: HTMLInputElement;
+  listbox: HTMLElement;
+  hiddenInput: HTMLInputElement | null;
+  chips: HTMLElement | null;
+  hiddenList: HTMLElement | null;
+} {
+  const host = document.createElement("div");
+  host.innerHTML = comboboxGroupedVLHtml(groups, o);
+  document.body.appendChild(host);
+  const root = host.querySelector<HTMLElement>('[data-slot="combobox"]')!;
+  const input = root.querySelector<HTMLInputElement>('[data-slot="combobox-input"]')!;
+  const listbox = root.querySelector<HTMLElement>('[data-slot="combobox-listbox"]')!;
+  const hiddenInput = root.querySelector<HTMLInputElement>('[data-lv-combobox-target="hidden"]');
+  const chips = root.querySelector<HTMLElement>('[data-slot="combobox-chips"]');
+  const hiddenList = root.querySelector<HTMLElement>('[data-slot="combobox-hidden-list"]');
+  shimPopover(listbox);
+  return { root, input, listbox, hiddenInput, chips, hiddenList };
+}
+
+const TIPI: Record<string, VLPair[]> = {
+  Vendita: [
+    { value: "11", label: "Appartamento" },
+    { value: "12", label: "Villa" },
+  ],
+  Affitto: [{ value: "21", label: "Box" }],
+};
+
+describe("combobox partial source — grouped value != label (optionGroupPairs)", () => {
+  test("declares the optionGroupPairs param (group -> {value -> label})", () => {
+    expect(jteSrc).toContain(
+      "@param java.util.Map<String, java.util.Map<String, String>> optionGroupPairs",
+    );
+  });
+
+  test("the grouped value != label branch renders role=group optgroups over optionGroupPairs", () => {
+    expect(jteMarkup).toContain("optionGroupPairs.entrySet()");
+    expect(jteMarkup).toContain('role="group"');
+  });
+});
+
+describe("lv-combobox controller — grouped value != label (single)", () => {
+  it("renders optgroups whose options carry the VALUE and show the LABEL", async () => {
+    const { runtime } = makeRuntime();
+    const { listbox } = mountGroupedVL(TIPI);
+    startStimulus({ runtime });
+    await flushStimulus();
+    const groups = visibleGroups(listbox);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].querySelector('[data-slot="combobox-group-label"]')?.textContent).toBe(
+      "Vendita",
+    );
+    const villa = listbox.querySelector('li[data-combobox-option="12"]')!;
+    expect(villa.textContent?.trim()).toBe("Villa"); // shows the LABEL
+    expect(villa.getAttribute("data-combobox-option")).toBe("12"); // carries the VALUE
+  });
+
+  it("the filter matches the LABEL across groups and hides a group whose options all fall out", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountGroupedVL(TIPI);
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "vil"; // matches "Villa" (value 12) only, in group Vendita
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(getOptions(listbox).map((li) => li.getAttribute("data-combobox-option"))).toEqual(["12"]);
+    const groups = visibleGroups(listbox);
+    expect(groups).toHaveLength(1); // Affitto hidden (no dangling header)
+    expect(groups[0].querySelector('[data-slot="combobox-group-label"]')?.textContent).toBe(
+      "Vendita",
+    );
+  });
+
+  it("option click commits the VALUE and shows the LABEL", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, hiddenInput } = mountGroupedVL(TIPI);
+    startStimulus({ runtime });
+    await flushStimulus();
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "12"); // pick Villa (value 12)
+    expect(hiddenInput!.value).toBe("12"); // VALUE posted
+    expect(input.value).toBe("Villa"); // LABEL shown
+  });
+
+  it("seed: the trigger shows the committed value's LABEL, the hidden carries the VALUE", async () => {
+    const { runtime } = makeRuntime();
+    const { input, hiddenInput } = mountGroupedVL(TIPI, { value: "21" });
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(input.value).toBe("Box"); // LABEL of value 21
+    expect(hiddenInput!.value).toBe("21"); // VALUE
+  });
+});
+
+describe("lv-combobox controller — grouped value != label (multiple)", () => {
+  it("adding an option from a group appends a LABEL chip + a VALUE hidden input", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox, chips, hiddenList } = mountGroupedVL(TIPI, {
+      multiple: true,
+      selected: ["11"],
+    });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    expect(chipLabels(chips!)).toEqual(["Appartamento"]);
+    input.dispatchEvent(new FocusEvent("focus"));
+    clickOption(listbox, "21"); // add Box (value 21) from the Affitto group
+    expect(chipLabels(chips!)).toEqual(["Appartamento", "Box"]); // LABELs
+    expect(hiddenValues(hiddenList!)).toEqual(["11", "21"]); // VALUEs
+    expect(input.getAttribute("aria-expanded")).toBe("true"); // stays open
+  });
+});

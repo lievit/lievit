@@ -56,6 +56,13 @@
                              LinkedHashMap). Wins over `options`; `content` / `optionGroups` win over it.
     java.util.Map<String, java.util.List<String>> optionGroups = null
                              group label -> option list (renders <li role="group"> in the listbox).
+    java.util.Map<String, java.util.Map<String, String>> optionGroupPairs = null
+                             GROUPED value != label source: a LinkedHashMap of group label -> an ordered
+                             {POSTED VALUE -> DISPLAYED LABEL} map (use LinkedHashMaps at both levels to
+                             keep order). Renders the same <li role="group"> optgroups as optionGroups,
+                             but each option posts the VALUE while showing the LABEL (same split as the
+                             flat optionPairs, just grouped). The filter matches the LABEL and an empty
+                             group is hidden. Wins over optionGroups; content wins over it.
     gg.jte.Content content = null
                              hand-authored <option>/<optgroup> markup (wins over options/optionGroups).
     String value = null      the committed value (single selection).
@@ -99,12 +106,15 @@
     value != label: POST the username, SHOW the person's name (use a LinkedHashMap to keep order)
     @@template.lievit.combobox(name = "assignee", label = "Assignee", value = "jdoe",
       optionPairs = new java.util.LinkedHashMap<>(java.util.Map.of("jdoe", "John Doe", "asmith", "Anna Smith")))
+    grouped value != label: optgroup heading -> {posted id -> shown name}; here POST idSottotipologie, show its name
+    @@template.lievit.combobox(name = "sottotipologia", label = "Tipologia", value = "12", optionGroupPairs = grouped)
 --%>
 @param String name = null
 @param String id = null
 @param java.util.List<String> options = null
 @param java.util.Map<String, String> optionPairs = null
 @param java.util.Map<String, java.util.List<String>> optionGroups = null
+@param java.util.Map<String, java.util.Map<String, String>> optionGroupPairs = null
 @param gg.jte.Content content = null
 @param String value = null
 @param java.util.List<String> values = null
@@ -139,7 +149,14 @@
      committed set lives in chips + repeated hidden inputs, so the input starts blank. --%>
 !{String _valueLabel = null;}
 !{if (!multiple && value != null && !value.isBlank()) {
-    _valueLabel = (optionPairs != null && optionPairs.containsKey(value)) ? optionPairs.get(value) : value;
+    if (optionPairs != null && optionPairs.containsKey(value)) {
+      _valueLabel = optionPairs.get(value);
+    } else if (optionGroupPairs != null) {
+      for (var _gp : optionGroupPairs.values()) {
+        if (_gp != null && _gp.containsKey(value)) { _valueLabel = _gp.get(value); break; }
+      }
+    }
+    if (_valueLabel == null) { _valueLabel = value; }
   }}
 !{var _inputText = multiple ? "" : (inputText != null ? inputText : (_valueLabel != null ? _valueLabel : ""));}
 !{var _hasText = _inputText != null && !_inputText.isBlank();}
@@ -226,7 +243,14 @@
           <%-- chip VALUE = the posted id (_v); chip LABEL = optionPairs label for it, or _v itself
                when value == label. data-combobox-chip-value always carries the VALUE (the id the
                controller matches against the hidden inputs + options). --%>
-          !{var _chipLabel = (optionPairs != null && optionPairs.containsKey(_v)) ? optionPairs.get(_v) : _v;}
+          !{String _chipLabel = _v;}
+          !{if (optionPairs != null && optionPairs.containsKey(_v)) {
+              _chipLabel = optionPairs.get(_v);
+            } else if (optionGroupPairs != null) {
+              for (var _gp : optionGroupPairs.values()) {
+                if (_gp != null && _gp.containsKey(_v)) { _chipLabel = _gp.get(_v); break; }
+              }
+            }}
           <span
             data-slot="combobox-chip"
             data-combobox-chip-value="$unsafe{_chipAttr.toString()}"
@@ -381,6 +405,43 @@
             ${_plbl}
           </li>
         @endfor
+      @elseif(optionGroupPairs != null)
+        <%-- GROUPED value != label: the same optgroup chrome as optionGroups, but each option carries
+             the VALUE in data-combobox-option and shows the LABEL as its text (the flat optionPairs
+             split, grouped). Empty-group hiding + the label filter are owned by the controller. --%>
+        !{var _gpIdx = new int[]{0};}
+        @for(java.util.Map.Entry<String, java.util.Map<String, String>> _gpe : optionGroupPairs.entrySet())
+          !{var _gpId = _id + "-grp-" + _gpIdx[0]++;}
+          <li role="presentation" data-slot="combobox-group-wrapper">
+            <div id="${_gpId}" role="none" aria-hidden="true" data-slot="combobox-group-label" class="px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted)] uppercase tracking-wide select-none">${_gpe.getKey()}</div>
+            <ul role="group" aria-labelledby="${_gpId}" class="m-0 list-none p-0">
+              @for(java.util.Map.Entry<String, String> _gpair : _gpe.getValue().entrySet())
+                !{var _gpval = _gpair.getKey();}
+                !{var _gplbl = _gpair.getValue();}
+                !{var _isSelected = multiple ? _values.contains(_gpval) : (value != null && _gpval.equals(value));}
+                !{var _optId = _id + "-opt-" + _gpval.replaceAll("[^A-Za-z0-9]", "-");}
+                !{var _optAttr = new StringOutput();}
+                !{Escape.htmlAttribute(_gpval, _optAttr);}
+                <li
+                  role="option"
+                  id="${_optId}"
+                  data-lievit-item
+                  data-slot="combobox-option"
+                  aria-selected="${_isSelected ? "true" : "false"}"
+                  data-combobox-option="$unsafe{_optAttr.toString()}"
+                  class="flex cursor-pointer select-none items-center gap-[var(--lv-space-2)] rounded-[var(--lv-radius-sm)] px-[var(--lv-space-2)] py-[var(--lv-space-2)] ${_textClass} text-[var(--lv-color-popover-fg)] data-[active]:bg-[var(--lv-color-accent)] data-[active]:text-[var(--lv-color-accent-fg)] aria-selected:font-[var(--lv-font-medium)]"
+                >
+                  @if(_isSelected)
+                    <span aria-hidden="true" class="flex h-[0.875rem] w-[0.875rem] shrink-0 items-center justify-center text-[var(--lv-color-primary)]"><svg width="0.875rem" height="0.875rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  @else
+                    <span aria-hidden="true" class="h-[0.875rem] w-[0.875rem] shrink-0"></span>
+                  @endif
+                  ${_gplbl}
+                </li>
+              @endfor
+            </ul>
+          </li>
+        @endfor
       @elseif(optionGroups != null)
         !{var _grpIdx = new int[]{0};}
         @for(java.util.Map.Entry<String, java.util.List<String>> _grp : optionGroups.entrySet())
@@ -501,6 +562,14 @@
       @elseif(optionPairs != null)
         @for(java.util.Map.Entry<String, String> _npair : optionPairs.entrySet())
           <option value="${_npair.getKey()}" selected="${multiple ? _values.contains(_npair.getKey()) : (value != null && _npair.getKey().equals(value))}">${_npair.getValue()}</option>
+        @endfor
+      @elseif(optionGroupPairs != null)
+        @for(java.util.Map.Entry<String, java.util.Map<String, String>> _ngpe : optionGroupPairs.entrySet())
+          <optgroup label="${_ngpe.getKey()}">
+            @for(java.util.Map.Entry<String, String> _ngpair : _ngpe.getValue().entrySet())
+              <option value="${_ngpair.getKey()}" selected="${multiple ? _values.contains(_ngpair.getKey()) : (value != null && _ngpair.getKey().equals(value))}">${_ngpair.getValue()}</option>
+            @endfor
+          </optgroup>
         @endfor
       @elseif(optionGroups != null)
         @for(java.util.Map.Entry<String, java.util.List<String>> _ngrp : optionGroups.entrySet())
