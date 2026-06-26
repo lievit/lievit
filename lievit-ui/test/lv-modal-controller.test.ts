@@ -96,6 +96,42 @@ interface Mounted {
   trigger: HTMLButtonElement;
 }
 
+/**
+ * Build a CLIENT-`[hidden]`-driven overlay shape: the lv-modal element carries `data-controller` and
+ * a `data-lv-modal-target="panel"` panel, but NO `data-lv-modal-open-value` (the open state is
+ * client-owned, toggled via the `hidden` attribute by a consumer's own dispatcher). Mirrors a
+ * consumer mounting the jar controller to drop its hand-rolled `[hidden]`-observer fork.
+ */
+function hiddenShapeHtml(opts: { open: boolean; dismissible?: boolean }): string {
+  const hidden = opts.open ? "" : "hidden";
+  const dismissible =
+    opts.dismissible === false ? ' data-lv-modal-dismissible="false"' : "";
+  return `
+    <div id="modal-root" data-controller="lv-modal"${dismissible} ${hidden}>
+      <div id="panel" data-lv-modal-target="panel" role="dialog" aria-modal="true">
+        <button id="close-x" type="button">Close</button>
+        <button id="footer-close" type="button">Done</button>
+      </div>
+    </div>`;
+}
+
+/** Mount a `[hidden]`-driven overlay under a wrapper, plus a trigger outside it that holds focus. */
+function mountHidden(opts: { open: boolean; dismissible?: boolean }): Mounted {
+  const trigger = document.createElement("button");
+  trigger.id = "the-trigger";
+  trigger.textContent = "Open";
+  document.body.appendChild(trigger);
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "wrapper";
+  wrapper.innerHTML = hiddenShapeHtml(opts);
+  document.body.appendChild(wrapper);
+
+  const root = wrapper.querySelector<HTMLElement>("#modal-root")!;
+  const panel = wrapper.querySelector<HTMLElement>("#panel")!;
+  return { componentRoot: wrapper, root, panel, trigger };
+}
+
 /** Mount a `dialog`-shape modal under a wrapper, plus a trigger outside it that holds focus. */
 function mountDialog(opts: { open: boolean; wireClose?: string | null }): Mounted {
   const trigger = document.createElement("button");
@@ -294,5 +330,169 @@ describe("lv-modal controller — morph-safety (real lievit morph)", () => {
     pressEscape();
     await new Promise((r) => setTimeout(r, 10));
     expect(calledActions).toHaveLength(0);
+  });
+});
+
+describe("lv-modal controller — [hidden]-driven mode (client-owned open, no wire value)", () => {
+  it("hidden_removed_engages_the_trap_and_scroll_locks_the_body (consumer reveals the overlay)", async () => {
+    const { runtime } = makeRuntime();
+    const { root, panel, trigger } = mountHidden({ open: false });
+    trigger.focus();
+
+    startStimulus({ runtime });
+    await flushStimulus();
+    // Closed on connect (hidden present): no trap, no scroll-lock.
+    expect(root.hasAttribute("hidden")).toBe(true);
+    expect(document.body.style.overflow).toBe("");
+
+    // The consumer's dispatcher reveals the fragment by removing the hidden attribute.
+    root.removeAttribute("hidden");
+    await flushStimulus();
+
+    // The MutationObserver saw it: initial focus moved into the panel, body scroll-locked.
+    expect(document.activeElement).toBe(panel.querySelector("#close-x"));
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(document.body.hasAttribute("data-lievit-trap-scroll-lock")).toBe(true);
+  });
+
+  it("hidden_added_disengages_the_trap_restoring_focus_and_scroll (consumer hides the overlay)", async () => {
+    const { runtime } = makeRuntime();
+    const { root, trigger } = mountHidden({ open: true });
+    trigger.focus();
+
+    startStimulus({ runtime });
+    await flushStimulus();
+    // SSR-revealed (no hidden): the trap engaged on connect.
+    expect(document.body.style.overflow).toBe("hidden");
+
+    // The dispatcher hides the fragment by re-adding hidden.
+    root.setAttribute("hidden", "");
+    await flushStimulus();
+
+    expect(document.body.style.overflow).toBe("");
+    expect(document.body.hasAttribute("data-lievit-trap-scroll-lock")).toBe(false);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("escape_closes_by_toggling_hidden_back (client-side close, no wire call)", async () => {
+    const { runtime, calledActions } = makeRuntime();
+    const { root, trigger } = mountHidden({ open: true });
+    trigger.focus();
+
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(root.hasAttribute("hidden")).toBe(false);
+
+    pressEscape();
+    await flushStimulus();
+
+    // Escape re-added hidden (client-side close); the observer then tore the trap down.
+    expect(root.hasAttribute("hidden")).toBe(true);
+    expect(document.body.style.overflow).toBe("");
+    expect(document.activeElement).toBe(trigger);
+    // No wire round-trip: this is not a wire component.
+    expect(calledActions).toHaveLength(0);
+  });
+
+  it("escape_dispatches_a_cancelable_dismiss_event_a_consumer_can_preventDefault_to_keep_open", async () => {
+    const { runtime } = makeRuntime();
+    const { root } = mountHidden({ open: true });
+
+    let dispatched = false;
+    root.addEventListener("lievit:modal-dismiss", (e) => {
+      dispatched = true;
+      e.preventDefault(); // the consumer owns the close: keep the overlay open
+    });
+
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    pressEscape();
+    await flushStimulus();
+
+    expect(dispatched).toBe(true);
+    // preventDefault held it open: the controller did NOT re-add hidden, the trap is still active.
+    expect(root.hasAttribute("hidden")).toBe(false);
+    expect(document.body.style.overflow).toBe("hidden");
+  });
+
+  it("must_act_overlay_leaves_escape_inert (data-lv-modal-dismissible=false)", async () => {
+    const { runtime } = makeRuntime();
+    const { root, panel } = mountHidden({ open: true, dismissible: false });
+
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(panel.contains(document.activeElement)).toBe(true);
+
+    pressEscape();
+    await flushStimulus();
+
+    // Escape inert: still open, focus still trapped inside the panel.
+    expect(root.hasAttribute("hidden")).toBe(false);
+    expect(panel.contains(document.activeElement)).toBe(true);
+  });
+
+  it("tab_cycles_within_the_panel_in_hidden_driven_mode (last -> first, shift+tab first -> last)", async () => {
+    const { runtime } = makeRuntime();
+    const { panel } = mountHidden({ open: true });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    const first = panel.querySelector<HTMLElement>("#close-x")!;
+    const last = panel.querySelector<HTMLElement>("#footer-close")!;
+
+    last.focus();
+    const tab = pressTab(false);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+
+    first.focus();
+    const shiftTab = pressTab(true);
+    expect(shiftTab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(last);
+  });
+
+  it("removing a [hidden]-driven overlay from the tree while open tears the trap down", async () => {
+    const { runtime } = makeRuntime();
+    const { componentRoot, trigger } = mountHidden({ open: true });
+    trigger.focus();
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    // The dispatcher removes the fragment entirely: disconnect() disconnects the observer + the trap.
+    morph(componentRoot, `<div id="wrapper"><span>gone</span></div>`);
+    await flushStimulus();
+
+    expect(document.body.style.overflow).toBe("");
+    expect(document.body.hasAttribute("data-lievit-trap-scroll-lock")).toBe(false);
+  });
+});
+
+describe("lv-modal controller — the two modes stay separate (no regression on wire-value path)", () => {
+  it("wire_value_open_still_traps (the value path is unchanged by the hidden-driven mode)", async () => {
+    const { runtime } = makeRuntime();
+    const { panel } = mountDialog({ open: true, wireClose: "close" });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    // Wire-value mode still engages on the SSR-open value, exactly as before.
+    expect(document.activeElement).toBe(panel.querySelector("#close-x"));
+    expect(document.body.style.overflow).toBe("hidden");
+  });
+
+  it("wire_value_mode_ignores_a_manual_hidden_toggle (no MutationObserver in the value path)", async () => {
+    const { runtime } = makeRuntime();
+    const { root } = mountDialog({ open: true, wireClose: "close" });
+    startStimulus({ runtime });
+    await flushStimulus();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    // In wire-value mode the open state is the value, NOT the attribute: toggling hidden by hand
+    // must not drive the trap (only data-lv-modal-open-value does). The trap stays engaged.
+    root.setAttribute("hidden", "");
+    await flushStimulus();
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(document.body.hasAttribute("data-lievit-trap-scroll-lock")).toBe(true);
   });
 });
