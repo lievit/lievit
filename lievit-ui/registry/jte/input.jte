@@ -147,7 +147,7 @@
 <div
   data-slot="input"
   data-size="${size}"
-  class="lv-input relative inline-flex w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-input)] shadow-[var(--lv-shadow-xs)] transition-[border-color,box-shadow] ${sizeClass} focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] hover:border-[var(--lv-color-muted)] lv-input--invalid:border-[var(--lv-color-destructive)] lv-input--invalid:focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_30%,transparent)] lv-input--disabled:cursor-not-allowed lv-input--disabled:opacity-[var(--lv-opacity-disabled)] lv-input--borderless:border-transparent lv-input--borderless:bg-transparent lv-input--borderless:shadow-none${invalidClass}${disabledClass}${borderlessClass} ${cssClass}"
+  class="lv-input relative inline-flex w-full min-w-0 items-center rounded-[var(--lv-radius-md)] border border-[var(--lv-color-input)] bg-[var(--lv-color-bg)] shadow-[var(--lv-shadow-xs)] transition-[border-color,box-shadow] ${sizeClass} focus-within:border-[var(--lv-color-ring)] focus-within:shadow-[var(--lv-ring)] hover:border-[var(--lv-color-muted)] lv-input--invalid:border-[var(--lv-color-destructive)] lv-input--invalid:focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--lv-color-destructive)_30%,transparent)] lv-input--disabled:cursor-not-allowed lv-input--disabled:opacity-[var(--lv-opacity-disabled)] lv-input--borderless:border-transparent lv-input--borderless:bg-transparent lv-input--borderless:shadow-none${invalidClass}${disabledClass}${borderlessClass} ${cssClass}"
   style="font-family:var(--lv-font-sans);"
 >
   @if(leading != null)
@@ -198,7 +198,7 @@
       tabindex="-1"
       hidden
       class="lv-input__clear ml-[var(--lv-space-1)] inline-flex shrink-0 items-center justify-content:center text-[var(--lv-color-muted-fg)] hover:text-[var(--lv-color-fg)] transition-[color] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)]"
-    >@template.lievit.icon(name = "x", size = "sm")</button>
+    >@template.lievit.icon(name = "x", size = "1em")</button>
   @endif
 
   @if(showCount)

@@ -451,8 +451,9 @@ describe("input.jte -- token contract (no hardcoded colours)", () => {
     expect(body, "leaked a hardcoded hex colour").not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  test("uses --lv-color-input for the container border and background (shared form-control token)", () => {
-    expect(src).toContain("var(--lv-color-input)");
+  test("uses --lv-color-input for the container border and --lv-color-bg for the field background", () => {
+    expect(src).toContain("border-[var(--lv-color-input)]");
+    expect(src).toContain("bg-[var(--lv-color-bg)]");
   });
 
   test("uses --lv-color-destructive for the invalid border", () => {

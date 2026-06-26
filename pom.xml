@@ -78,7 +78,7 @@
             ${revision} to the concrete value in the installed/deployed pom so consumers
             (incl. JitPack) never see the literal placeholder. See maven-ci-friendly.html.
         -->
-        <revision>1.2.2</revision>
+        <revision>1.2.3</revision>
         <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

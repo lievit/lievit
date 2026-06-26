@@ -230,7 +230,7 @@
     data-disabled="${disabled}"
     data-invalid="${invalid}"
     data-size="${size}"
-    class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border bg-[var(--lv-color-input)] transition-[border-color,box-shadow] outline-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-[var(--lv-opacity-disabled)] data-[invalid=false]:border-[var(--lv-color-border)] data-[invalid=true]:border-[var(--lv-color-destructive)] focus-within:ring-[3px] data-[invalid=false]:focus-within:ring-[color-mix(in_srgb,var(--lv-color-ring)_35%,transparent)] data-[invalid=true]:focus-within:ring-[color-mix(in_srgb,var(--lv-color-destructive)_35%,transparent)] ${_heightClass}"
+    class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border bg-[var(--lv-color-bg)] transition-[border-color,box-shadow] outline-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-[var(--lv-opacity-disabled)] data-[invalid=false]:border-[var(--lv-color-border)] data-[invalid=true]:border-[var(--lv-color-destructive)] focus-within:ring-[3px] data-[invalid=false]:focus-within:ring-[color-mix(in_srgb,var(--lv-color-ring)_35%,transparent)] data-[invalid=true]:focus-within:ring-[color-mix(in_srgb,var(--lv-color-destructive)_35%,transparent)] ${_heightClass}"
   >
     <%-- CHIPS (multiple mode only): one removable tag per committed value. Server-rendered from
          `values`; the controller adds/removes chips client-side as the user picks/deselects. Each

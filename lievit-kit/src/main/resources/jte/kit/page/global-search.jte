@@ -77,7 +77,7 @@
       ariaLabel = placeholder,
       cssClass = searchFieldClass,
       leadingAddon = @`@template.lievit.icon(name = "search")`,
-      content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
+      content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent pl-[var(--lv-space-2)] pr-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
   </form>
 `;}
 <%-- Mobile magnifier (issue #495): below `sm` the inline field is hidden, so this Filament-style
@@ -117,7 +117,7 @@
             ariaLabel = placeholder,
             cssClass = searchFieldClass,
             leadingAddon = @`@template.lievit.icon(name = "search")`,
-            content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent px-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
+            content = @`<input type="search" name="${name}" value="${page.searchQuery()}" placeholder="${placeholder}" class="w-full border-0 bg-transparent pl-[var(--lv-space-2)] pr-0 py-0 outline-none focus:ring-0" style="font:inherit;color:inherit;">`)
         </form>
       `,
       content = @`

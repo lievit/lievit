@@ -212,7 +212,7 @@
   popovertarget="${panelId}"
   popovertargetaction="toggle"
   disabled="${disabled}"
-  class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] py-[var(--lv-space-2)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] transition-colors hover:bg-[var(--lv-color-muted-bg)] disabled:cursor-not-allowed disabled:opacity-[var(--lv-opacity-disabled)] outline-none focus-visible:shadow-[var(--lv-ring)] ${cssClass}"
+  class="inline-flex h-[var(--lv-space-9)] items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-md)] border border-[var(--lv-color-border)] bg-[var(--lv-color-bg)] px-[var(--lv-space-3)] text-[length:var(--lv-text-sm)] font-[var(--lv-font-medium)] text-[var(--lv-color-fg)] transition-colors hover:bg-[var(--lv-color-muted-bg)] disabled:cursor-not-allowed disabled:opacity-[var(--lv-opacity-disabled)] outline-none focus-visible:shadow-[var(--lv-ring)] ${cssClass}"
   style="font-family:var(--lv-font-sans);anchor-name:${anchorIdent};"
 >${trigger}</button>
 

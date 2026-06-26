@@ -355,8 +355,8 @@ describe("textarea.jte -- token hygiene (spec §5)", () => {
     expect(markup).toContain("--lv-color-border");
   });
 
-  test("uses --lv-color-input for background", () => {
-    expect(markup).toContain("--lv-color-input");
+  test("uses --lv-color-bg for the field background (white surface, not the grey border token)", () => {
+    expect(markup).toContain("bg-[var(--lv-color-bg)]");
   });
 
   test("uses --lv-ring for focus-visible ring", () => {
