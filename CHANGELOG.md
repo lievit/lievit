@@ -6,6 +6,42 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-26
+
+Hardening release: completes the sidebar controller so a consumer can drop its forked sidebar
+enhancer, makes the combobox a full Filament-style grouped+searchable select, and fixes a silent
+pagination baseUrl bug in the kit table chrome. No API changes; drop-in over 1.2.0.
+
+### Added
+
+- **Combobox optgroups + client-side filter over groups.** The `combobox` already rendered grouped
+  options (`optionGroups`) and filtered on type; the `lv-combobox` controller now also HIDES a group
+  whose options all fall out of the filter (no dangling group heading over nothing) and re-shows it
+  when a match returns. This makes it a complete grouped + searchable select (e.g. a
+  "tipologia -> sottotipologia" picker): type to filter across groups, empty groups disappear,
+  keyboard-navigable, CSP-clean, accessible.
+
+### Changed
+
+- **Sidebar controller completed (a consumer can delete its forked sidebar enhancer).** The jar's
+  `lv-sidebar` controller now (1) binds the external topbar opener `[data-lv-sidebar-open]` (matched
+  to its root by `aria-controls`, mirroring `aria-expanded`) -- the page-chrome mobile hamburger that
+  opens the off-canvas nav, which the controller previously left unbound; (2) traps focus (Tab
+  cycling) inside the open off-canvas via the shared 1.2.0 focus-trap util; (3) locks body scroll
+  while open, restoring focus + scroll on close. It also injects the
+  `.lv-sidebar-mobile-open-trigger` CSS (opener hidden on desktop, shown at/below the mobile
+  breakpoint). The controlled/uncontrolled doctrine, the shadcn `data-sidebar`/`data-slot` namespace,
+  and morph-safety are unchanged.
+
+### Fixed
+
+- **Kit table pagination baseUrl shim hardened (page-param position).** `kit/table.jte` derived the
+  pagination `baseUrl` by stripping a trailing `?page=%d` / `&page=%d` from the page-href pattern.
+  A consumer that placed `page=%d` FIRST (e.g. `/x?page=%d&user=...`) was left with a dangling
+  `/x&user=...` (no leading `?`); `pagination.jte` then appended `?page=1`, producing a BROKEN url
+  (404 + lost filters) SILENTLY. The shim now strips `[?&]page=%d` wherever it sits and re-fixes the
+  query leader, so any param order yields a valid baseUrl.
+
 ## [1.2.0] - 2026-06-26
 
 Stimulus runtime migration + Ant-parity components + Filament table chrome + opt-in Turbo

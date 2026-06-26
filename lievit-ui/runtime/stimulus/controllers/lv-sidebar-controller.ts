@@ -21,9 +21,17 @@
  * Wiring (CSP-clean, NOT inline handlers):
  * - trigger + rail: `data-action="click->lv-sidebar#toggle"` (element events -> data-action)
  * - backdrop: `data-action="click->lv-sidebar#closeMobile"`
- * - Cmd/Ctrl+B (shadcn shortcut) + Escape: a DOCUMENT-level keydown listener bound in `connect()`
- *   and removed in `disconnect()` (the documented Stimulus pattern for global shortcuts; element
- *   `data-action` cannot express a document-scoped key chord). Morph-safe: disconnect tears it down.
+ * - external topbar opener `[data-lv-sidebar-open]`: lives OUTSIDE the controller's element scope (in
+ *   the page chrome), where the off-canvas nav is translated off-screen on mobile, so it stays the
+ *   only reachable OPEN affordance. Stimulus `data-action` cannot reach it (out of scope), so
+ *   `connect()` binds it explicitly (matched to THIS root by its `aria-controls` = the nav id) and
+ *   `disconnect()` tears it down. Its `aria-expanded` mirrors the open/closed state. This is what
+ *   lets a consumer delete its forked sidebar enhancer and rely solely on this controller.
+ * - Cmd/Ctrl+B (shadcn shortcut): a DOCUMENT-level keydown listener bound in `connect()` and removed
+ *   in `disconnect()` (the documented Stimulus pattern for global shortcuts; element `data-action`
+ *   cannot express a document-scoped key chord). Morph-safe: disconnect tears it down.
+ * - off-canvas open (mobile): a shared {@link FocusTrap} (the 1.2.0 a11y foundation) gives the panel
+ *   Tab cycling + body scroll-lock + return-focus-to-opener, with Escape closing via its `onEscape`.
  *
  * Morph-safety: Stimulus binds `connect()` once and the declared `data-action`s survive the wire
  * morph automatically (its action observer re-binds re-rendered descendants). No
@@ -32,6 +40,7 @@
  */
 
 import { DismissableController } from "../base/dismissable-controller.js";
+import { FocusTrap } from "../base/focus-trap.js";
 
 const STYLE_ID = "lv-sidebar-styles";
 const MOBILE_MAX = 768;
@@ -71,7 +80,11 @@ li[data-slot="sidebar-menu-item"]:focus-within .lv-sidebar-action-hover { opacit
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-collapsible { display: none; }
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-item { justify-content: center; }
 .lv-sidebar-root[data-state="collapsed"] .lv-sidebar-sub { display: none; }
+/* The external topbar opener (the in-sidebar trigger rides off-screen on mobile): desktop-hidden,
+   shown only at/below the breakpoint, where it is the only reachable affordance to OPEN the drawer. */
+.lv-sidebar-mobile-open-trigger { display: none; }
 @media (max-width: ${MOBILE_MAX}px) {
+  .lv-sidebar-mobile-open-trigger { display: inline-flex; }
   .lv-sidebar-root .lv-sidebar {
     position: fixed; top: 0; bottom: 0; z-index: calc(var(--lv-z-modal, 9500) + 1);
     width: min(85vw, 18rem); transform: translateX(-100%); transition: transform 0.2s ease;
@@ -99,6 +112,12 @@ export default class LvSidebarController extends DismissableController<HTMLEleme
 
   private readonly keyHandler = (e: KeyboardEvent): void => this.onKeydown(e);
 
+  /** The active off-canvas focus trap (Tab cycling + scroll-lock + return-focus); null when closed. */
+  private trap: FocusTrap | null = null;
+
+  /** External topbar openers bound in connect(), tracked so disconnect() can tear them down. */
+  private boundOpeners: { el: HTMLElement; handler: () => void }[] = [];
+
   connect(): void {
     this.ensureStyles();
     // Hydrate the persisted desktop choice over the SSR data-state.
@@ -107,10 +126,18 @@ export default class LvSidebarController extends DismissableController<HTMLEleme
       this.setDesktopState(saved);
     }
     document.addEventListener("keydown", this.keyHandler);
+    this.bindOpeners();
   }
 
   disconnect(): void {
     document.removeEventListener("keydown", this.keyHandler);
+    for (const { el, handler } of this.boundOpeners) {
+      el.removeEventListener("click", handler);
+    }
+    this.boundOpeners = [];
+    // Release the body scroll-lock if the root is torn down (e.g. a morph) while still open.
+    this.trap?.deactivate();
+    this.trap = null;
   }
 
   /**
@@ -132,22 +159,41 @@ export default class LvSidebarController extends DismissableController<HTMLEleme
     this.persist(next);
   }
 
-  /** Open the mobile off-canvas overlay; remember the element to return focus to. */
+  /**
+   * Open the mobile off-canvas overlay. The shared {@link FocusTrap} over the nav panel does the
+   * a11y heavy lifting (the 1.2.0 foundation): it captures the opener as the return target, locks
+   * body scroll, traps Tab within the panel, and closes on Escape. Initial focus is moved to the
+   * first nav entry (so the trap does not steal it onto the collapse trigger).
+   */
   openMobile(): void {
+    if (this.element.hasAttribute("data-mobile-open")) {
+      return;
+    }
     this.element.setAttribute("data-mobile-open", "");
-    this.captureReturnFocus();
+    this.syncOpeners(true);
+    const panel = this.panel();
+    if (panel != null) {
+      this.trap = new FocusTrap(panel, {
+        trap: true,
+        moveInitialFocus: false,
+        onEscape: () => this.closeMobile(),
+      });
+      this.trap.activate();
+    }
     this.element
       .querySelector<HTMLElement>('[data-slot="sidebar-menu-button"]')
       ?.focus();
   }
 
-  /** Close the mobile off-canvas overlay; return focus to the opener (fallback: the trigger). */
+  /** Close the mobile off-canvas overlay; the trap releases scroll-lock + returns focus to the opener. */
   closeMobile(): void {
     if (!this.element.hasAttribute("data-mobile-open")) {
       return;
     }
     this.element.removeAttribute("data-mobile-open");
-    this.restoreReturnFocus();
+    this.syncOpeners(false);
+    this.trap?.deactivate();
+    this.trap = null;
     if (document.activeElement === document.body && this.hasTriggerTarget) {
       this.triggerTarget.focus();
     }
@@ -155,17 +201,67 @@ export default class LvSidebarController extends DismissableController<HTMLEleme
 
   /**
    * The document-level keyboard handler bound in {@link connect}: Cmd/Ctrl+B toggles the sidebar
-   * (shadcn SIDEBAR_KEYBOARD_SHORTCUT = "b"); Escape closes the mobile overlay when it is open.
+   * (shadcn SIDEBAR_KEYBOARD_SHORTCUT = "b"). Escape-to-close while the off-canvas is open is owned
+   * by the active {@link FocusTrap} (its `onEscape`), so it is not duplicated here.
    */
   private onKeydown(e: KeyboardEvent): void {
     if ((e.key === "b" || e.key === "B") && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       this.toggle();
-      return;
     }
-    if (e.key === "Escape" && this.element.hasAttribute("data-mobile-open")) {
-      e.preventDefault();
-      this.closeMobile();
+  }
+
+  // --- external topbar opener ([data-lv-sidebar-open]) -----------------------------------------
+
+  /** The off-canvas panel (the `<nav data-slot="sidebar">` landmark): the focus-trap container. */
+  private panel(): HTMLElement | null {
+    return this.element.querySelector<HTMLElement>('[data-slot="sidebar"]');
+  }
+
+  /** The nav id this root's external openers reference via `aria-controls`. */
+  private get navId(): string | null {
+    const id = this.panel()?.id;
+    return id != null && id.length > 0 ? id : null;
+  }
+
+  /**
+   * External `[data-lv-sidebar-open]` openers that target THIS root. An opener points at the root via
+   * `aria-controls` (the nav id); with none, it targets the page's lone sidebar (a panel shell has
+   * exactly one). Scoped to the owner document so a test's fragment is seen.
+   */
+  private openersFor(): HTMLButtonElement[] {
+    const doc = this.element.ownerDocument;
+    const all = Array.from(doc.querySelectorAll<HTMLButtonElement>("[data-lv-sidebar-open]"));
+    const navId = this.navId;
+    return all.filter((b) => {
+      const controls = b.getAttribute("aria-controls");
+      if (controls != null && controls.length > 0) {
+        return controls === navId;
+      }
+      return doc.querySelectorAll('[data-sidebar="root"]').length === 1;
+    });
+  }
+
+  /** Bind each external opener's click to toggle this root's off-canvas (tracked for disconnect). */
+  private bindOpeners(): void {
+    for (const opener of this.openersFor()) {
+      const handler = (): void => {
+        if (this.element.hasAttribute("data-mobile-open")) {
+          this.closeMobile();
+        } else {
+          this.openMobile();
+        }
+      };
+      opener.addEventListener("click", handler);
+      this.boundOpeners.push({ el: opener, handler });
+    }
+  }
+
+  /** Mirror the open/closed state onto every external opener's `aria-expanded`. */
+  private syncOpeners(open: boolean): void {
+    const v = open ? "true" : "false";
+    for (const opener of this.openersFor()) {
+      opener.setAttribute("aria-expanded", v);
     }
   }
 

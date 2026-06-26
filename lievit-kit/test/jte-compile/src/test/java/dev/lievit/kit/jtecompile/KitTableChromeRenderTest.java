@@ -337,6 +337,44 @@ class KitTableChromeRenderTest {
         assertTrue(html.contains("Showing 1 to 3 of 7 results"), "results-count line wrong:\n" + html);
     }
 
+    /** The 7-city populated model (page 1 of 3, size 3) with a custom page-href printf pattern. */
+    private Map<String, Object> modelWithPageHref(String pageHrefPattern) {
+        Resource<City> resource = resource(7);
+        ListRequest request = new ListRequest(1, 3, Sort.asc("name"), "", FilterState.EMPTY);
+        AdminListView view = AdminListView.of(resource, request);
+        KitTableView table = KitTableView.of(view).withPageHref(pageHrefPattern);
+        Map<String, Object> model = new HashMap<>();
+        model.put("table", table);
+        model.put("createUrl", "");
+        return model;
+    }
+
+    @Test
+    void pagination_base_url_is_valid_when_the_page_param_is_LAST_in_the_pattern() {
+        // The common case: "?other&page=%d". The shim strips "&page=%d", leaving a valid "?other".
+        // The rendered href HTML-escapes the query separator (& -> &amp;), so assert the escaped form.
+        String html = render(modelWithPageHref("/admin/cities?status=active&page=%d"));
+        assertTrue(html.contains("/admin/cities?status=active&amp;page=2"),
+                "page-last pattern did not derive a valid page link:\n" + html);
+        assertFalse(html.contains("page=%d"), "the printf page pattern leaked into the rendered href");
+    }
+
+    @Test
+    void pagination_base_url_is_valid_when_the_page_param_is_FIRST_in_the_pattern() {
+        // The fragile shim stripped only a trailing "?page=%d" / "&page=%d". A page-FIRST pattern
+        // ("?page=%d&filter") left a dangling "&filter" with NO leading "?", and pagination.jte then
+        // appended "?page=N" -> a broken url (404 + lost filters) SILENTLY. The hardened strip removes
+        // [?&]page=%d wherever it sits and re-fixes the query leader. (& is HTML-escaped to &amp; in
+        // the rendered href.)
+        String html = render(modelWithPageHref("/admin/cities?page=%d&status=active"));
+        assertTrue(html.contains("/admin/cities?status=active&amp;page=2"),
+                "page-first pattern did not derive a valid page link:\n" + html);
+        // The broken dangling-& form (query starting with & before a ?) must NOT appear.
+        assertFalse(html.contains("&amp;status=active?page="),
+                "page-first pattern produced a broken baseUrl (dangling & before ?):\n" + html);
+        assertFalse(html.contains("page=%d"), "the printf page pattern leaked into the rendered href");
+    }
+
     @Test
     void renders_filter_indicator_chips_and_a_summary_row() {
         String html = render(populatedModel());

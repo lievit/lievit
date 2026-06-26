@@ -197,7 +197,27 @@ export default class LvComboboxController extends DismissableController<HTMLElem
         li.removeAttribute(ITEM_ATTR); // excluded from collection-nav traversal
       }
     }
+    this.applyGroupVisibility();
     this.updateEmptyState();
+  }
+
+  /**
+   * Hide a group wrapper (`combobox-group-wrapper`, its label + inner `role="group"` list) once the
+   * filter has hidden ALL of its options, so a grouped+searchable select never shows a dangling group
+   * heading over nothing; re-show it when an option matches again (reversible). No-op for a flat
+   * (ungrouped) combobox, which has no wrappers.
+   */
+  private applyGroupVisibility(): void {
+    for (const group of Array.from(
+      this.listboxTarget.querySelectorAll<HTMLElement>(`[data-slot="combobox-group-wrapper"]`),
+    )) {
+      const hasVisible = group.querySelector(`li[role="option"]:not([hidden])`) != null;
+      if (hasVisible) {
+        group.removeAttribute("hidden");
+      } else {
+        group.setAttribute("hidden", "");
+      }
+    }
   }
 
   private updateEmptyState(): void {

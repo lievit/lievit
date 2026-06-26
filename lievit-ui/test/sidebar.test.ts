@@ -220,6 +220,11 @@ afterEach(() => {
   stopStimulus();
   document.body.innerHTML = "";
   document.getElementById("lv-sidebar-styles")?.remove();
+  // stopStimulus() stops the observer before it can fire disconnect(), so a trap left active by an
+  // open-and-don't-close test would leak the body scroll-lock into the next case; reset it here.
+  // (In production disconnect DOES run: the wire morph removes the root while the observer is live.)
+  document.body.style.overflow = "";
+  document.body.removeAttribute("data-lievit-trap-scroll-lock");
 });
 
 describe("sidebar partial: rendered nav contract (real DOM)", () => {
@@ -529,6 +534,145 @@ describe("sidebar v-next: DOM fixes (open=false, disabled parent, SSR state, mob
     const backdrop = root.querySelector<HTMLButtonElement>('[data-sidebar="backdrop"]')!;
     backdrop.click();
     expect(root.hasAttribute("data-mobile-open")).toBe(false);
+  });
+});
+
+/**
+ * Append an external topbar opener (the page-chrome mobile hamburger) that targets a sidebar root by
+ * `aria-controls` = the nav id. It lives OUTSIDE the sidebar root (in the topbar), exactly like
+ * kit/page.jte's `[data-lv-sidebar-open]` button, so a Stimulus data-action cannot reach it; the
+ * controller must bind it in connect().
+ */
+function renderOpener(navId = "lv-sidebar-nav"): HTMLButtonElement {
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.setAttribute("data-lv-sidebar-open", "");
+  opener.setAttribute("aria-controls", navId);
+  opener.setAttribute("aria-expanded", "false");
+  opener.setAttribute("aria-label", "Open navigation");
+  opener.className = "lv-sidebar-mobile-open-trigger";
+  document.body.appendChild(opener);
+  return opener;
+}
+
+/** The same focusable set the shared FocusTrap util cycles (DOM spec, no layout checks). */
+const FOCUSABLE =
+  'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable]';
+
+describe("sidebar controller: topbar opener + focus-trap + scroll-lock (real Stimulus + real DOM)", () => {
+  test("the controller binds the external [data-lv-sidebar-open] topbar opener: a click opens the off-canvas", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    expect(root.hasAttribute("data-mobile-open")).toBe(false);
+    opener.click();
+    expect(root.hasAttribute("data-mobile-open")).toBe(true);
+  });
+
+  test("the opener's aria-expanded mirrors the off-canvas open/closed state", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    expect(opener.getAttribute("aria-expanded")).toBe("false");
+    opener.click();
+    expect(opener.getAttribute("aria-expanded")).toBe("true");
+    opener.click(); // a second click on the same opener closes
+    expect(root.hasAttribute("data-mobile-open")).toBe(false);
+    expect(opener.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("an opener whose aria-controls points at a DIFFERENT nav is NOT bound to this root", async () => {
+    const root = renderSidebar();
+    const stray = renderOpener("some-other-nav");
+    await connect();
+    stray.click();
+    expect(root.hasAttribute("data-mobile-open")).toBe(false);
+  });
+
+  test("opening the off-canvas locks body scroll; closing restores it (shared FocusTrap)", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    expect(document.body.style.overflow).not.toBe("hidden");
+    opener.click();
+    expect(document.body.style.overflow).toBe("hidden");
+    root.querySelector<HTMLButtonElement>('[data-sidebar="backdrop"]')!.click();
+    expect(root.hasAttribute("data-mobile-open")).toBe(false);
+    expect(document.body.style.overflow).not.toBe("hidden");
+  });
+
+  test("focus is trapped inside the open off-canvas: Tab from outside is pulled back into the panel", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    opener.focus();
+    opener.click(); // open
+    const panel = root.querySelector<HTMLElement>('[data-slot="sidebar"]')!;
+    // Drift focus back to the opener (outside the panel), then Tab: the trap pulls it inside.
+    opener.focus();
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    document.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(panel.contains(document.activeElement)).toBe(true);
+  });
+
+  test("Tab at the last focusable wraps to the first (focus cycle)", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    opener.focus();
+    opener.click();
+    const panel = root.querySelector<HTMLElement>('[data-slot="sidebar"]')!;
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+    const last = focusable[focusable.length - 1]!;
+    last.focus();
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    document.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(focusable[0]);
+  });
+
+  test("Escape closes the open off-canvas (FocusTrap onEscape)", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    opener.focus();
+    opener.click();
+    expect(root.hasAttribute("data-mobile-open")).toBe(true);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(root.hasAttribute("data-mobile-open")).toBe(false);
+  });
+
+  test("closing returns focus to the opener that opened it (return-focus)", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    opener.focus();
+    opener.click(); // open: FocusTrap captures the opener as the return target
+    expect(root.hasAttribute("data-mobile-open")).toBe(true);
+    root.querySelector<HTMLButtonElement>('[data-sidebar="backdrop"]')!.click();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  test("disconnect tears the opener listener down: removing the root (observer fires disconnect) unbinds the opener", async () => {
+    const root = renderSidebar();
+    const opener = renderOpener();
+    await connect();
+    // Remove the root while the app runs: Stimulus's observer fires disconnect() (the production
+    // path is the wire morph removing the root), which must remove the external opener's listener.
+    root.remove();
+    await flushStimulus();
+    opener.click();
+    expect(opener.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("the controller injects the .lv-sidebar-mobile-open-trigger CSS (opener hidden on desktop)", async () => {
+    renderSidebar();
+    renderOpener();
+    await connect();
+    const css = document.getElementById("lv-sidebar-styles")!.textContent ?? "";
+    expect(css).toMatch(/\.lv-sidebar-mobile-open-trigger\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/max-width[\s\S]*\.lv-sidebar-mobile-open-trigger\s*\{\s*display:\s*inline-flex/);
   });
 });
 

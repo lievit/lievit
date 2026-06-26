@@ -663,6 +663,145 @@ describe("lv-combobox controller — interaction (real Stimulus)", () => {
   });
 });
 
+/**
+ * Grouped markup exactly as combobox.jte emits it for the `optionGroups` param: a
+ * `<li role="presentation" data-slot="combobox-group-wrapper">` carrying a label div + an inner
+ * `<ul role="group">` of options. Used to prove the client-side filter hides a whole group whose
+ * options all fall out (Filament-style searchable grouped select: "tipologia -> sottotipologia").
+ */
+function comboboxGroupedHtml(groups: Record<string, string[]>): string {
+  const id = "cb";
+  const listboxId = `${id}-listbox`;
+  const inputId = `${id}-input`;
+  let gi = 0;
+  const groupsHtml = Object.entries(groups)
+    .map(([label, opts]) => {
+      const grpId = `${id}-grp-${gi++}`;
+      const optsHtml = opts
+        .map((v) => {
+          const optId = `${id}-opt-${v.replace(/[^A-Za-z0-9]/g, "-")}`;
+          return `<li role="option" id="${optId}" data-lievit-item data-slot="combobox-option" aria-selected="false" data-combobox-option="${v}">${v}</li>`;
+        })
+        .join("");
+      return `<li role="presentation" data-slot="combobox-group-wrapper"><div id="${grpId}" role="none" aria-hidden="true" data-slot="combobox-group-label">${label}</div><ul role="group" aria-labelledby="${grpId}">${optsHtml}</ul></li>`;
+    })
+    .join("");
+  return `
+<div data-slot="combobox" data-controller="lv-combobox" data-action="focusout->lv-combobox#onFocusout"
+     data-lievit-combobox data-combobox-mode="select-only" data-combobox-clearable="false"
+     data-combobox-empty-text="No results">
+  <div data-slot="combobox-control" data-lv-combobox-target="control">
+    <input type="text" id="${inputId}" data-slot="combobox-input" data-lv-combobox-target="input"
+           data-action="input->lv-combobox#onInput focus->lv-combobox#onFocus keydown->lv-combobox#onKeydown"
+           role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="${listboxId}"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" value="">
+    <button type="button" data-slot="combobox-toggle" data-lv-combobox-target="toggle"
+            data-action="click->lv-combobox#onToggleClick" tabindex="-1" aria-hidden="true"></button>
+  </div>
+  <ul id="${listboxId}" role="listbox" data-slot="combobox-listbox" data-lv-combobox-target="listbox"
+      data-action="toggle->lv-combobox#onListboxToggle mousedown->lv-combobox#onListboxMousedown click->lv-combobox#onOptionClick"
+      popover="auto" data-lievit-collection data-lievit-collection-orientation="vertical"
+      data-lievit-collection-wrap="true" data-lievit-collection-activedescendant-target="#${inputId}"
+      aria-busy="false">${groupsHtml}</ul>
+  <input type="hidden" name="city" value="" data-slot="combobox-hidden" data-lv-combobox-target="hidden">
+</div>`;
+}
+
+function mountGrouped(groups: Record<string, string[]>): {
+  root: HTMLElement;
+  input: HTMLInputElement;
+  listbox: HTMLElement;
+} {
+  const host = document.createElement("div");
+  host.innerHTML = comboboxGroupedHtml(groups);
+  document.body.appendChild(host);
+  const root = host.querySelector<HTMLElement>('[data-slot="combobox"]')!;
+  const input = root.querySelector<HTMLInputElement>('[data-slot="combobox-input"]')!;
+  const listbox = root.querySelector<HTMLElement>('[data-slot="combobox-listbox"]')!;
+  shimPopover(listbox);
+  return { root, input, listbox };
+}
+
+const visibleGroups = (listbox: HTMLElement) =>
+  Array.from(
+    listbox.querySelectorAll<HTMLElement>('[data-slot="combobox-group-wrapper"]:not([hidden])'),
+  );
+
+describe("lv-combobox controller — grouped options + client-side filter (Filament searchable grouped select)", () => {
+  it("renders grouped options under their group labels (role=group + group-label)", async () => {
+    const { runtime } = makeRuntime();
+    const { listbox } = mountGrouped({ Emilia: ["Parma", "Reggio"], Lombardia: ["Milano"] });
+    startStimulus({ runtime });
+    await flushStimulus();
+    const groups = visibleGroups(listbox);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].querySelector('[data-slot="combobox-group-label"]')?.textContent).toBe("Emilia");
+    expect(groups[0].querySelectorAll('li[role="option"]')).toHaveLength(2);
+  });
+
+  it("typing filters options ACROSS groups (only matching options stay visible)", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountGrouped({ Emilia: ["Parma", "Reggio"], Lombardia: ["Milano"] });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "mil";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    const visible = getOptions(listbox).map((li) => li.getAttribute("data-combobox-option"));
+    expect(visible).toEqual(["Milano"]);
+  });
+
+  it("a group whose options ALL fall out of the filter is HIDDEN (no dangling group label)", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountGrouped({ Emilia: ["Parma", "Reggio"], Lombardia: ["Milano"] });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "mil"; // matches only Lombardia/Milano
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    const groups = visibleGroups(listbox);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].querySelector('[data-slot="combobox-group-label"]')?.textContent).toBe("Lombardia");
+  });
+
+  it("clearing the filter re-shows every group (empty-group hide is reversible)", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountGrouped({ Emilia: ["Parma", "Reggio"], Lombardia: ["Milano"] });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "mil";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(visibleGroups(listbox)).toHaveLength(1);
+
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(visibleGroups(listbox)).toHaveLength(2);
+  });
+
+  it("a query matching nothing hides all groups and shows the empty state", async () => {
+    const { runtime } = makeRuntime();
+    const { input, listbox } = mountGrouped({ Emilia: ["Parma", "Reggio"], Lombardia: ["Milano"] });
+    startStimulus({ runtime });
+    await flushStimulus();
+
+    input.value = "zzz";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(visibleGroups(listbox)).toHaveLength(0);
+    const empty = listbox.querySelector<HTMLElement>('[data-slot="combobox-empty"]:not([hidden])');
+    expect(empty).not.toBeNull();
+    expect(empty!.textContent).toBe("No results");
+  });
+});
+
 describe("lv-combobox controller — controlled/uncontrolled doctrine (the wire-410 fix)", () => {
   it("UNCONTROLLED (the production combobox): an open/close cycle makes ZERO wire calls", async () => {
     const { runtime, calledActions } = makeRuntime();

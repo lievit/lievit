@@ -486,10 +486,16 @@
       @if(table.hasPageHref())
         <%-- inline = true: the footer row already lays this out (count left | per-page + pager
              clustered right via justify-between); the pager must NOT self-center full-width. --%>
-        <%-- Derive baseUrl from the old printf pattern: strip the "?page=%d" / "&page=%d" suffix
-             so the new pagination partial appends "?page=N" itself. --%>
+        <%-- Derive baseUrl from the old printf pattern so the new pagination partial appends the
+             page param itself. Strip "page=%d" WHEREVER it sits (not only trailing): a page-FIRST
+             pattern like "/x?page=%d&a=1" must not leave a dangling "&a=1" with no leading "?" (that
+             yielded a broken "/x&a=1?page=N" - 404 + lost filters - silently). So remove the first
+             "[?&]page=%d", then if the leftover query now starts with "&" (the page param WAS first),
+             swap that leading "&" to "?" so the query leader is valid for any param order. --%>
         !{var _rawPattern = table.pageHrefPattern();}
-        !{var _pageBaseUrl = _rawPattern.replace("?page=%d", "").replace("&page=%d", "");}
+        !{var _stripped = _rawPattern.replaceFirst("[?&]page=%d", "");}
+        !{var _pageBaseUrl = (!_stripped.contains("?") && _stripped.contains("&"))
+            ? _stripped.replaceFirst("&", "?") : _stripped;}
         @template.lievit.pagination(currentPage = pagination.page(), totalPages = pagination.totalPages(),
           baseUrl = _rawPattern.isBlank() ? null : _pageBaseUrl)
       @else
