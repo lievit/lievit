@@ -90,7 +90,7 @@ export {
   type ReconnectOptions,
   type ReconnectMessage,
 } from "./reconnecting-source.js";
-export { installNavigate, type NavigateOptions } from "./navigate.js";
+export { installNavigate, mountTurboOptIn, type NavigateOptions } from "./navigate.js";
 export { installPageExpired, isExpiredStatus, type PageExpiredOptions } from "./page-expired.js";
 export { installPagination, type ScrollToTop } from "./pagination.js";
 export { installPreserveScroll } from "./preserve-scroll.js";
@@ -121,6 +121,11 @@ export { installContextMenuTrigger } from "./context-menu-trigger.enhancer.js";
  * <p>The streaming consumer and the broadcast channel are NOT installed here: each is opened on
  * demand (a stream per `l:stream` request; the broadcast channel only when an app opts in to live
  * push, since it holds an open SSE connection). Call {@link installBroadcast} explicitly to enable it.
+ *
+ * <p>{@link installNavigate} IS registered here, but it boots NOTHING by itself: Turbo Drive is
+ * opt-in (default OFF, 1.2.0). It only registers the `l:navigate` directive; Turbo is lazily mounted
+ * (with global Drive disabled) on the first `l:navigate` link a page actually carries. An app with no
+ * `l:navigate` keeps plain native navigation.
  *
  * @param runtime the started runtime to extend
  * @param options per-feature options (currently only uploads)

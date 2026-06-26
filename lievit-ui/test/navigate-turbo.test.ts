@@ -25,7 +25,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { LievitRuntime } from "../runtime/runtime.js";
-import { installNavigate } from "../runtime/features/navigate.js";
+import { installNavigate, mountTurboOptIn } from "../runtime/features/navigate.js";
 
 const teardowns: Array<() => void> = [];
 
@@ -129,5 +129,47 @@ describe("Turbo Drive glue: Turbo → lievit event bridge (ADR-0085)", () => {
     fireTurbo("turbo:load");
 
     expect(seen).toEqual([]); // nothing bridged after teardown
+  });
+});
+
+describe("l:navigate is OPT-IN: the default boot does NOT global-hijack navigation (1.2.0)", () => {
+  it("installNavigate alone, with no l:navigate on the page, never mounts Turbo (no hijack)", () => {
+    let mounts = 0;
+    const rt = new LievitRuntime();
+    teardowns.push(installNavigate(rt, { win: window, mountTurbo: () => void mounts++ }));
+
+    // A plain page with ordinary links — none opted in. start() scans, finds no l:navigate.
+    document.body.innerHTML = '<a href="/elsewhere">Elsewhere</a>';
+    rt.scan(document.body);
+
+    expect(mounts).toBe(0); // Turbo was never mounted: navigation stays native
+    expect(document.querySelector("a")!.hasAttribute("data-turbo")).toBe(false);
+  });
+
+  it("an l:navigate link opts INTO Turbo Drive (data-turbo=\"true\") and mounts Turbo exactly once", () => {
+    let mounts = 0;
+    const rt = new LievitRuntime();
+    teardowns.push(installNavigate(rt, { win: window, mountTurbo: () => void mounts++ }));
+
+    document.body.innerHTML =
+      '<a l:navigate href="/fast">Fast</a><a l:navigate href="/also">Also</a><a href="/plain">Plain</a>';
+    rt.scan(document.body);
+
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a"));
+    const opted = links.filter((a) => a.hasAttribute("l:navigate"));
+    const plain = links.find((a) => !a.hasAttribute("l:navigate"))!;
+    expect(opted.every((a) => a.getAttribute("data-turbo") === "true")).toBe(true); // opted in
+    expect(plain.hasAttribute("data-turbo")).toBe(false); // un-marked link stays native
+    expect(mounts).toBe(1); // mounted once for the whole page, not per link
+  });
+
+  it("the default mounter (mountTurboOptIn) boots Turbo with global Drive OFF", async () => {
+    // The real lazy mount the directive calls by default: dynamic-import the vendored dist, then flip
+    // session.drive off. Proves the opt-in contract end-to-end (no injected fake), so a regression that
+    // re-enables global Drive fails. (The directive→mount wiring is proven by the injected-mount tests
+    // above; here we pin the real mounter's effect deterministically.)
+    await mountTurboOptIn();
+    const turbo = (window as unknown as { Turbo: { session: { drive: boolean } } }).Turbo;
+    expect(turbo.session.drive).toBe(false); // Drive globally OFF: only data-turbo="true" opts in
   });
 });
