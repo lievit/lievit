@@ -2,11 +2,17 @@
  * Copyright 2026 Francesco Bilotta
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * @floating-ui/dom was a DEAD dependency: declared in package.json with ZERO import sites.
- * Positioning is done with the native CSS Anchor Positioning spec (anchor-name / position-anchor /
- * position-area / position-try-fallbacks) + the native popover API, never floating-ui. This test
- * is the build-time backstop that the dep stays removed AND that the native positioning it would
- * have provided still resolves in the shipped templates.
+ * lievit's positioning engine is the native CSS Anchor Positioning spec (anchor-name /
+ * position-anchor / position-area / position-try-fallbacks) + the native popover API, never
+ * @floating-ui. The Firefox/Safari fallback is the @oddbird/css-anchor-positioning POLYFILL, which
+ * transitively pulls @floating-ui/dom as ITS OWN engine. That transitive presence is fine — it is
+ * the polyfill's internal detail, not lievit's positioning choice. What this build-time backstop
+ * forbids is a DIRECT @floating-ui dependency (lievit choosing floating-ui as its engine) and any
+ * @floating-ui import site in lievit's own source. It also pins that the ONLY package allowed to
+ * pull floating-ui into the tree is the oddbird polyfill, so a stray new direct path is caught.
+ * (Option B — a newer oddbird that dropped floating-ui — was checked 2026-06-26 and does not exist:
+ * even 0.10.0-alpha.1 still depends on @floating-ui/dom. When it ships, bump oddbird and the
+ * transitive path simply disappears; this test stays green either way.)
  */
 import { describe, test, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
@@ -31,20 +37,38 @@ function tsSources(dir: string): string[] {
   return out;
 }
 
-describe("@floating-ui/dom is removed (it was a dead dependency)", () => {
-  test("package.json declares @floating-ui/dom in no dependency group", () => {
+describe("@floating-ui is not a DIRECT lievit dependency (only transitive via the oddbird polyfill)", () => {
+  test("package.json declares no @floating-ui package in any dependency group", () => {
     const pkg = readJson("package.json");
     for (const group of ["dependencies", "optionalDependencies", "devDependencies"]) {
       const deps = (pkg[group] ?? {}) as Record<string, string>;
-      expect(Object.keys(deps), `${group} must not declare @floating-ui/dom`).not.toContain(
-        "@floating-ui/dom",
-      );
+      const direct = Object.keys(deps).filter((d) => d.startsWith("@floating-ui/"));
+      expect(direct, `${group} must not declare any @floating-ui package directly`).toEqual([]);
     }
   });
 
-  test("the lockfile no longer resolves any @floating-ui package", () => {
-    const lock = readFileSync(join(pkgRoot, "package-lock.json"), "utf8");
-    expect(lock).not.toMatch(/@floating-ui/);
+  test("@floating-ui appears only TRANSITIVELY, pulled solely by @oddbird/css-anchor-positioning", () => {
+    // Intent: lievit does not pick floating-ui as its positioning engine. floating-ui is allowed to
+    // exist in the tree, but ONLY because the @oddbird anchor-positioning polyfill depends on it. We
+    // forbid any OTHER package (above all the lievit-ui root, key "") from declaring @floating-ui.
+    const lock = readJson("package-lock.json");
+    const packages = (lock.packages ?? {}) as Record<string, { dependencies?: Record<string, string> }>;
+    const ODDBIRD = "node_modules/@oddbird/css-anchor-positioning";
+
+    const declarers: string[] = [];
+    for (const [pkgPath, meta] of Object.entries(packages)) {
+      // @floating-ui's own sub-packages declare @floating-ui/{core,utils}: internal, not a new pull.
+      if (pkgPath.includes("node_modules/@floating-ui/")) continue;
+      const deps = meta.dependencies ?? {};
+      if (Object.keys(deps).some((d) => d.startsWith("@floating-ui/"))) {
+        declarers.push(pkgPath);
+      }
+    }
+
+    // The lievit-ui root project (key "") must NOT be a declarer: no DIRECT floating-ui dependency.
+    expect(declarers, "lievit-ui itself must not declare @floating-ui directly").not.toContain("");
+    // The only package allowed to pull floating-ui is the oddbird anchor-positioning polyfill.
+    expect(declarers).toEqual([ODDBIRD]);
   });
 
   test("no source file imports @floating-ui/dom (it never had an import site)", () => {
