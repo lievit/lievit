@@ -73,7 +73,6 @@ public final class DirectiveNames {
                     "lazy", // features/lazy.ts
                     "loading", // features/loading.ts (#125)
                     "navigate", // features/navigate.ts (#50)
-                    "persist", // features/navigate.ts (l:persist across navigations)
                     "page", // features/pagination.ts
                     "poll", // features/poll.ts
                     "preserve-scroll", // features/preserve-scroll.ts
