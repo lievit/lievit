@@ -53,6 +53,10 @@
     gg.jte.Content content = null
                              hand-authored <option>/<optgroup> markup (wins over options/optionGroups).
     String value = null      the committed value (single selection).
+    java.util.List<String> values = null
+                             the committed values when multiple=true (one chip + one hidden input each).
+    boolean multiple = false multi-select mode: picking an option ADDS it (listbox stays open), selected
+                             values render as removable chips and POST as repeated hidden inputs under name.
     String inputText = null  the live text in the <input>; defaults to the label for value if found.
     String label = null      visible <label> text above the control.
     String ariaLabel = null  aria-label when no visible label exists.
@@ -93,6 +97,8 @@
 @param java.util.Map<String, java.util.List<String>> optionGroups = null
 @param gg.jte.Content content = null
 @param String value = null
+@param java.util.List<String> values = null
+@param boolean multiple = false
 @param String inputText = null
 @param String label = null
 @param String ariaLabel = null
@@ -116,9 +122,14 @@
 !{var _labelId = _id + "-label";}
 !{var _anchorName = "--lv-combobox-" + _id;}
 
-<%-- Resolve the displayed input text: caller-supplied inputText > matched label for value > empty. --%>
-!{var _inputText = inputText != null ? inputText : (value != null && !value.isBlank() ? value : "");}
+<%-- Resolve the displayed input text: caller-supplied inputText > matched label for value > empty.
+     In multiple mode the visible input is a SEARCH box only (never carries the committed value); the
+     committed set lives in chips + repeated hidden inputs, so the input starts blank. --%>
+!{var _inputText = multiple ? "" : (inputText != null ? inputText : (value != null && !value.isBlank() ? value : ""));}
 !{var _hasText = _inputText != null && !_inputText.isBlank();}
+
+<%-- The committed multi-select set (empty when single-select or when no values were supplied). --%>
+!{java.util.List<String> _values = values != null ? values : java.util.List.of();}
 
 <%-- Size: height class for the input wrapper and the toggle button. COMPLETE static strings. --%>
 !{var _heightClass = switch (size) {
@@ -159,6 +170,7 @@
   data-combobox-input-id="${_inputId}"
   data-combobox-empty-text="${emptyText}"
   data-combobox-mode="${mode}"
+  data-combobox-multiple="${multiple}"
   data-combobox-clearable="${clearable}"
   class="relative w-full ${cssClass}"
   style="font-family:var(--lv-font-sans);"
@@ -187,6 +199,35 @@
     data-size="${size}"
     class="relative flex w-full items-center rounded-[var(--lv-radius-md)] border bg-[var(--lv-color-input)] transition-[border-color,box-shadow] outline-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-[var(--lv-opacity-disabled)] data-[invalid=false]:border-[var(--lv-color-border)] data-[invalid=true]:border-[var(--lv-color-destructive)] focus-within:ring-[3px] data-[invalid=false]:focus-within:ring-[color-mix(in_srgb,var(--lv-color-ring)_35%,transparent)] data-[invalid=true]:focus-within:ring-[color-mix(in_srgb,var(--lv-color-destructive)_35%,transparent)] ${_heightClass}"
   >
+    <%-- CHIPS (multiple mode only): one removable tag per committed value. Server-rendered from
+         `values`; the controller adds/removes chips client-side as the user picks/deselects. Each
+         chip's remove button carries a CSP-clean data-action so Stimulus binds it after a morph too. --%>
+    @if(multiple)
+      <div data-slot="combobox-chips" class="flex shrink min-w-0 flex-wrap items-center gap-[var(--lv-space-1)] pl-[var(--lv-space-2)]">
+        @for(String _v : _values)
+          !{var _chipAttr = new StringOutput();}
+          !{Escape.htmlAttribute(_v, _chipAttr);}
+          <span
+            data-slot="combobox-chip"
+            data-combobox-chip-value="$unsafe{_chipAttr.toString()}"
+            class="inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-accent)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] text-[var(--lv-color-accent-fg)]"
+          >
+            <span data-slot="combobox-chip-label">${_v}</span>
+            <button
+              type="button"
+              data-slot="combobox-chip-remove"
+              data-action="click->lv-combobox#onChipRemove"
+              data-combobox-chip-value="$unsafe{_chipAttr.toString()}"
+              aria-label="Remove ${_v}"
+              class="flex shrink-0 items-center justify-center text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] rounded-[var(--lv-radius-sm)]"
+            >
+              <svg aria-hidden="true" width="0.75rem" height="0.75rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </span>
+        @endfor
+      </div>
+    @endif
+
     <%-- THE COMBOBOX INPUT: role="combobox" per APG; aria-expanded reflects open state (closed
          server-side; JS-on opens it). aria-controls must always reference a present element. --%>
     <input
@@ -268,6 +309,7 @@
     data-lievit-collection-wrap="true"
     data-lievit-collection-activedescendant-target="#${_inputId}"
     aria-labelledby="${(label != null && !label.isBlank()) ? _labelId : null}"
+    aria-multiselectable="${multiple ? "true" : null}"
     aria-busy="${loading ? "true" : "false"}"
     class="m-0 box-border w-full list-none overflow-y-auto rounded-[var(--lv-radius-lg)] border border-[var(--lv-color-border)] bg-[var(--lv-color-popover)] p-[var(--lv-space-1)] text-[var(--lv-color-popover-fg)] shadow-[var(--lv-shadow-md)] outline-none"
     style="position-anchor:${_anchorName};position-area:bottom span-right;position-try-fallbacks:flip-block;margin-block-start:var(--lv-space-1);z-index:var(--lv-z-popover);max-height:var(--lv-combobox-listbox-max-h,260px);min-width:anchor-size(width);font-family:var(--lv-font-sans);"
@@ -299,7 +341,7 @@
             <div id="${_grpId}" role="none" aria-hidden="true" data-slot="combobox-group-label" class="px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] font-[var(--lv-font-medium)] text-[var(--lv-color-muted)] uppercase tracking-wide select-none">${_grp.getKey()}</div>
             <ul role="group" aria-labelledby="${_grpId}" class="m-0 list-none p-0">
               @for(String _opt : _grp.getValue())
-                !{var _isSelected = value != null && _opt.equals(value);}
+                !{var _isSelected = multiple ? _values.contains(_opt) : (value != null && _opt.equals(value));}
                 !{var _optId = _id + "-opt-" + _opt.replaceAll("[^A-Za-z0-9]", "-");}
                 !{var _optAttr = new StringOutput();}
                 !{Escape.htmlAttribute(_opt, _optAttr);}
@@ -325,7 +367,7 @@
         @endfor
       @elseif(options != null)
         @for(String _opt : options)
-          !{var _isSelected = value != null && _opt.equals(value);}
+          !{var _isSelected = multiple ? _values.contains(_opt) : (value != null && _opt.equals(value));}
           !{var _optId = _id + "-opt-" + _opt.replaceAll("[^A-Za-z0-9]", "-");}
           !{var _optAttr = new StringOutput();}
           !{Escape.htmlAttribute(_opt, _optAttr);}
@@ -353,17 +395,35 @@
     @endif
   </ul>
 
-  <%-- HIDDEN FORM INPUT: always rendered; carries the committed `value` to form POSTs.
-       The visible <input type="text"> carries inputText only; this hidden input carries the
-       final committed selection so the form sees the right value on submit. --%>
-  <input
-    type="hidden"
-    name="${name}"
-    value="${value}"
-    data-slot="combobox-hidden"
-    data-lv-combobox-target="hidden"
-    required="${required}"
-  >
+  <%-- HIDDEN FORM INPUT(S): carry the committed selection to a plain form POST.
+       Single-select: ONE hidden input under `name`, carrying `value`.
+       Multiple-select: a hidden-list wrapper holding ONE hidden input per committed value, all under
+       the SAME `name` (the shape a server multi-bind expects: repeated form field). The controller
+       adds/removes these as chips are added/removed and fires a native change/input on the wrapper so
+       `l:model.live` / native form listeners react. The visible <input type="text"> never carries the
+       committed value (it is the search box). --%>
+  @if(multiple)
+    <div data-slot="combobox-hidden-list" data-combobox-name="${name}" hidden>
+      @for(String _v : _values)
+        <input
+          type="hidden"
+          name="${name}"
+          value="${_v}"
+          data-slot="combobox-hidden"
+          data-combobox-hidden-value="${_v}"
+        >
+      @endfor
+    </div>
+  @else
+    <input
+      type="hidden"
+      name="${name}"
+      value="${value}"
+      data-slot="combobox-hidden"
+      data-lv-combobox-target="hidden"
+      required="${required}"
+    >
+  @endif
 
   <%-- JS-OFF NATIVE SELECT: the accessible fallback when JS has not run. The enhancer hides this
        visually (it stays in the DOM as the form-bound source for write-back) and activates the
@@ -374,6 +434,7 @@
       data-combobox-native
       id="${_id}-native"
       name="${name}-native"
+      multiple="${multiple}"
       disabled="${disabled}"
       required="${required}"
       tabindex="-1"
@@ -385,13 +446,13 @@
         @for(java.util.Map.Entry<String, java.util.List<String>> _ngrp : optionGroups.entrySet())
           <optgroup label="${_ngrp.getKey()}">
             @for(String _nopt : _ngrp.getValue())
-              <option value="${_nopt}" selected="${value != null && _nopt.equals(value)}">${_nopt}</option>
+              <option value="${_nopt}" selected="${multiple ? _values.contains(_nopt) : (value != null && _nopt.equals(value))}">${_nopt}</option>
             @endfor
           </optgroup>
         @endfor
       @elseif(options != null)
         @for(String _nopt : options)
-          <option value="${_nopt}" selected="${value != null && _nopt.equals(value)}">${_nopt}</option>
+          <option value="${_nopt}" selected="${multiple ? _values.contains(_nopt) : (value != null && _nopt.equals(value))}">${_nopt}</option>
         @endfor
       @endif
     </select>

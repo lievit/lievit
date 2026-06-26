@@ -71,10 +71,12 @@ export default class LvComboboxController extends DismissableController<HTMLElem
   declare readonly hasControlTarget: boolean;
   declare readonly controlTarget: HTMLElement;
 
-  /** The committed selection value (mirrors the hidden form input). */
+  /** The committed selection value (mirrors the hidden form input). Single-select only. */
   private committedValue = "";
   /** The label for the committed value (what the visible input reverts to in select-only mode). */
   private committedLabel = "";
+  /** The committed values in multiple mode (mirrors the repeated hidden inputs + the chips). */
+  private selectedValues: string[] = [];
   private filterTimer: ReturnType<typeof setTimeout> | null = null;
   private observer: MutationObserver | null = null;
 
@@ -109,6 +111,11 @@ export default class LvComboboxController extends DismissableController<HTMLElem
     });
     this.observer.observe(this.listboxTarget, { childList: true, subtree: false });
 
+    // Multiple mode: seed the committed set from the server-rendered repeated hidden inputs.
+    if (this.multiple) {
+      this.selectedValues = this.hiddenInputs().map((i) => i.value);
+    }
+
     // Reflect the initial server-rendered value in the (dynamically managed) clear button.
     this.updateClearButton();
   }
@@ -130,6 +137,11 @@ export default class LvComboboxController extends DismissableController<HTMLElem
 
   private get clearable(): boolean {
     return this.element.getAttribute("data-combobox-clearable") === "true";
+  }
+
+  /** Multi-select mode: a pick ADDS to a set (chips + repeated hidden inputs), never closes/replaces. */
+  private get multiple(): boolean {
+    return this.element.getAttribute("data-combobox-multiple") === "true";
   }
 
   private get emptyText(): string {
@@ -245,12 +257,37 @@ export default class LvComboboxController extends DismissableController<HTMLElem
 
   // --- commit / clear --------------------------------------------------------------------------
 
+  /**
+   * Fire a bubbling native `input` then `change` event on the form element whose value just changed.
+   * This is the headline wire fix: `l:model.live` (and plain native form listeners) react to the
+   * native `change`/`input` events, which the combobox otherwise never dispatches (it writes the
+   * hidden input's `.value` programmatically, and a programmatic value-set fires nothing). Without
+   * this, a pick never commits to a wire-bound field. CSP-clean (no inline handler, no eval).
+   */
+  private emitNativeChange(target: EventTarget | null): void {
+    if (target == null) {
+      return;
+    }
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /** Route a pick to the right commit path: ADD-to-set (multiple) vs replace-and-close (single). */
+  private selectOption(value: string, label: string): void {
+    if (this.multiple) {
+      this.toggleValue(value, label);
+    } else {
+      this.commitValue(value, label);
+    }
+  }
+
   private commitValue(value: string, label: string): void {
     this.committedValue = value;
     this.committedLabel = label;
     this.inputTarget.value = label;
     if (this.hasHiddenTarget) {
       this.hiddenTarget.value = value;
+      this.emitNativeChange(this.hiddenTarget);
     }
     for (const li of this.options()) {
       const isSelected = li.getAttribute("data-combobox-option") === value;
@@ -260,6 +297,13 @@ export default class LvComboboxController extends DismissableController<HTMLElem
   }
 
   private commitFreeText(): void {
+    if (this.multiple) {
+      // Multiple mode: the visible input is a SEARCH box, never a committed value. On blur just
+      // reset the search text + close; the selection lives in the chips / hidden inputs untouched.
+      this.inputTarget.value = "";
+      this.closeListbox();
+      return;
+    }
     const text = this.inputTarget.value.trim();
     if (this.mode === "free-type") {
       const match = this.options().find(
@@ -275,6 +319,7 @@ export default class LvComboboxController extends DismissableController<HTMLElem
         this.committedLabel = text;
         if (this.hasHiddenTarget) {
           this.hiddenTarget.value = text;
+          this.emitNativeChange(this.hiddenTarget);
         }
         this.closeListbox();
       }
@@ -286,11 +331,26 @@ export default class LvComboboxController extends DismissableController<HTMLElem
   }
 
   private clearValue(): void {
+    if (this.multiple) {
+      for (const v of [...this.selectedValues]) {
+        this.removeChip(v);
+        this.removeHidden(v);
+        this.setOptionSelected(v, false);
+      }
+      this.selectedValues = [];
+      this.inputTarget.value = "";
+      this.emitNativeChange(this.hiddenListEl());
+      this.applyFilter("");
+      this.openListbox();
+      this.inputTarget.focus();
+      return;
+    }
     this.committedValue = "";
     this.committedLabel = "";
     this.inputTarget.value = "";
     if (this.hasHiddenTarget) {
       this.hiddenTarget.value = "";
+      this.emitNativeChange(this.hiddenTarget);
     }
     for (const li of this.options()) {
       li.setAttribute("aria-selected", "false");
@@ -299,6 +359,131 @@ export default class LvComboboxController extends DismissableController<HTMLElem
     this.applyFilter("");
     this.openListbox();
     this.inputTarget.focus();
+  }
+
+  // --- multiple mode: chips + repeated hidden inputs -------------------------------------------
+
+  private hiddenListEl(): HTMLElement | null {
+    return this.element.querySelector<HTMLElement>(`[data-slot="combobox-hidden-list"]`);
+  }
+
+  private chipsEl(): HTMLElement | null {
+    return this.element.querySelector<HTMLElement>(`[data-slot="combobox-chips"]`);
+  }
+
+  private hiddenInputs(): HTMLInputElement[] {
+    const list = this.hiddenListEl();
+    return list
+      ? Array.from(list.querySelectorAll<HTMLInputElement>(`input[data-slot="combobox-hidden"]`))
+      : [];
+  }
+
+  /** The form field name the repeated hidden inputs POST under (stamped on the hidden-list wrapper). */
+  private get fieldName(): string {
+    return this.hiddenListEl()?.getAttribute("data-combobox-name") ?? "";
+  }
+
+  /**
+   * Toggle a value in the multi-select set: ADD (chip + hidden input + aria-selected) when absent,
+   * REMOVE when present. The listbox stays OPEN (multi-pick), the search box is reset, and a native
+   * change/input fires on the hidden-list wrapper so a wire / form listener sees every add and remove.
+   */
+  private toggleValue(value: string, label: string): void {
+    const i = this.selectedValues.indexOf(value);
+    if (i >= 0) {
+      this.selectedValues.splice(i, 1);
+      this.removeChip(value);
+      this.removeHidden(value);
+      this.setOptionSelected(value, false);
+    } else {
+      this.selectedValues.push(value);
+      this.addChip(value, label);
+      this.addHidden(value);
+      this.setOptionSelected(value, true);
+    }
+    this.inputTarget.value = "";
+    this.applyFilter("");
+    this.emitNativeChange(this.hiddenListEl());
+  }
+
+  private setOptionSelected(value: string, selected: boolean): void {
+    for (const li of this.options()) {
+      if (li.getAttribute("data-combobox-option") === value) {
+        li.setAttribute("aria-selected", selected ? "true" : "false");
+      }
+    }
+  }
+
+  /**
+   * Append a removable chip for a committed value. The remove button carries the SAME data-action the
+   * server-rendered chip does, so Stimulus binds its click automatically (CSP-clean, morph-safe).
+   */
+  private addChip(value: string, label: string): void {
+    const chips = this.chipsEl();
+    if (chips == null) {
+      return;
+    }
+    const chip = document.createElement("span");
+    chip.setAttribute("data-slot", "combobox-chip");
+    chip.setAttribute("data-combobox-chip-value", value);
+    chip.className =
+      "inline-flex items-center gap-[var(--lv-space-1)] rounded-[var(--lv-radius-sm)] bg-[var(--lv-color-accent)] px-[var(--lv-space-2)] py-[var(--lv-space-1)] text-[length:var(--lv-text-xs)] text-[var(--lv-color-accent-fg)]";
+    const lbl = document.createElement("span");
+    lbl.setAttribute("data-slot", "combobox-chip-label");
+    lbl.textContent = label;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("data-slot", "combobox-chip-remove");
+    btn.setAttribute("data-action", "click->lv-combobox#onChipRemove");
+    btn.setAttribute("data-combobox-chip-value", value);
+    btn.setAttribute("aria-label", `Remove ${label}`);
+    btn.className =
+      "flex shrink-0 items-center justify-center text-[var(--lv-color-accent-fg)] focus-visible:outline-none focus-visible:shadow-[var(--lv-ring)] rounded-[var(--lv-radius-sm)]";
+    btn.innerHTML = `<svg aria-hidden="true" width="0.75rem" height="0.75rem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    chip.append(lbl, btn);
+    chips.appendChild(chip);
+  }
+
+  private removeChip(value: string): void {
+    const chips = this.chipsEl();
+    if (chips == null) {
+      return;
+    }
+    for (const chip of Array.from(
+      chips.querySelectorAll<HTMLElement>(`[data-slot="combobox-chip"]`),
+    )) {
+      if (chip.getAttribute("data-combobox-chip-value") === value) {
+        chip.remove();
+      }
+    }
+  }
+
+  private addHidden(value: string): void {
+    const list = this.hiddenListEl();
+    if (list == null) {
+      return;
+    }
+    const inp = document.createElement("input");
+    inp.type = "hidden";
+    inp.name = this.fieldName;
+    inp.value = value;
+    inp.setAttribute("data-slot", "combobox-hidden");
+    inp.setAttribute("data-combobox-hidden-value", value);
+    list.appendChild(inp);
+  }
+
+  private removeHidden(value: string): void {
+    const list = this.hiddenListEl();
+    if (list == null) {
+      return;
+    }
+    for (const inp of Array.from(
+      list.querySelectorAll<HTMLInputElement>(`input[data-slot="combobox-hidden"]`),
+    )) {
+      if (inp.value === value) {
+        inp.remove();
+      }
+    }
   }
 
   /**
@@ -383,7 +568,7 @@ export default class LvComboboxController extends DismissableController<HTMLElem
               activeEl.getAttribute("data-combobox-option") ?? activeEl.textContent?.trim() ?? "";
             const lbl = activeEl.textContent?.trim() ?? val;
             e.preventDefault();
-            this.commitValue(val, lbl);
+            this.selectOption(val, lbl);
             return;
           }
         }
@@ -479,8 +664,26 @@ export default class LvComboboxController extends DismissableController<HTMLElem
     }
     const val = li.getAttribute("data-combobox-option") ?? li.textContent?.trim() ?? "";
     const lbl = li.textContent?.trim() ?? val;
-    this.commitValue(val, lbl);
+    this.selectOption(val, lbl);
     this.inputTarget.focus();
+  }
+
+  /** Multiple mode: a chip's remove button deselects that value (chip + hidden input + aria-selected). */
+  onChipRemove(e: Event): void {
+    e.preventDefault();
+    const btn = (e.target as Element).closest<HTMLElement>(`[data-slot="combobox-chip-remove"]`);
+    const value = btn?.getAttribute("data-combobox-chip-value");
+    if (value == null) {
+      return;
+    }
+    const i = this.selectedValues.indexOf(value);
+    if (i >= 0) {
+      this.selectedValues.splice(i, 1);
+    }
+    this.removeChip(value);
+    this.removeHidden(value);
+    this.setOptionSelected(value, false);
+    this.emitNativeChange(this.hiddenListEl());
   }
 
   /** Blur commit: when focus leaves the whole combobox, commit (free-type) or revert (select-only). */
